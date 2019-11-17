@@ -1,0 +1,5 @@
+# Gunicorn
+gunicorn_error.log
+
+# Python
+__pycache__
