@@ -25,6 +25,9 @@ class User:
 
     @classmethod
     def signup(cls, username, password, email):
+        user = cls.get_user_by_email(email)
+        if user:
+            return None
         user = cls(username)
         if user.info:
             return None
@@ -33,7 +36,7 @@ class User:
             'userId': user_id,
             'username': user.username,
             'email': email,
-            'active': True
+            'active': False
         })
         return user
 

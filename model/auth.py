@@ -2,7 +2,7 @@ from flask import Blueprint
 from functools import wraps
 from mongo import User
 
-from .utils import HTTPResponse, HTTPError, Request
+from .utils import HTTPResponse, HTTPError, Request, send_noreply
 
 import jwt
 import os
@@ -40,7 +40,8 @@ def signup(username, password, email):
     user = User.signup(username, password, email)
     if user == None:
         return HTTPError('User exists.', 400)
-    return HTTPResponse('User has been signed up.')
+    send_noreply([email], '[N-OJ] Varify Your Email', user.jwt)
+    return HTTPResponse('Signup success.')
 
 
 @auth_api.route('/login', methods=['POST'])
