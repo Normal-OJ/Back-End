@@ -3,3 +3,6 @@ gunicorn_error.log
 
 # Python
 __pycache__
+
+# Mac
+.DS_Store
