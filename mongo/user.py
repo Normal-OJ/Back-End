@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
-from .config import db, USER
+from .utils import hash_id
+from . import engine
 
 import hashlib
 import html
@@ -10,82 +11,69 @@ JWT_EXP = timedelta(days=int(os.environ.get('JWT_EXP')))
 JWT_ISS = os.environ.get('JWT_ISS')
 JWT_SECRET = os.environ.get('JWT_SECRET')
 
-db_user = db[USER]
-
-
-def hash_user_id(username, password):
-    text = (username+password).encode()
-    sha = hashlib.sha3_512(text)
-    return sha.hexdigest()[:24]
-
 
 class User:
     def __init__(self, username):
-        self.username = html.escape(username)
+        self.username = html.escape(username or '') or username
 
     @classmethod
     def signup(cls, username, password, email):
-        user = cls.get_user_by_email(email)
-        if user:
-            return None
         user = cls(username)
-        if user.info:
-            return None
-        user_id = hash_user_id(user.username, password)
-        db_user.insert_one({
-            'userId': user_id,
+        user_id = hash_id(user.username, password)
+        engine.User(**{
+            'user_id': user_id,
             'username': user.username,
             'email': email,
             'active': False
-        })
+        }).save()
         return user
 
     @classmethod
     def login(cls, username, password):
+        if cls(username).obj == None:
+            username = cls.get_username_by_email(username)
+            if username == None:
+                return None
         user = cls(username)
-        user_id = hash_user_id(user.username, password)
-        info = user.info
-        if info and info['userId'] == user_id:
+        obj = user.obj
+        user_id = hash_id(user.username, password)
+        if obj and obj.user_id == user_id:
             return user
-        user = cls.get_user_by_email(username)
-        if user:
-            user_id = hash_user_id(user.username, password)
-            info = user.info
-            if info and info['userId'] == user_id:
-                return user
         return None
 
-    @classmethod
-    def get_user_by_email(cls, email):
-        info = db_user.find_one({'email': email})
-        if not info:
+    @staticmethod
+    def get_username_by_email(email):
+        try:
+            obj = engine.User.objects.get(email=email)
+        except:
             return None
-        return cls(info['username'])
+        return obj.username
 
     @property
-    def info(self):
-        return db_user.find_one({'username': self.username})
+    def obj(self):
+        try:
+            obj = engine.User.objects.get(username=self.username)
+        except:
+            return None
+        return obj
     
     @property
     def is_valid(self):
-        info = self.info
-        return info and info.get('active')
-
-    @property
-    def jwt_data(self):
-        info = self.info
-        if info == None:
-            return {}
-        keys = ['username', 'email', 'profile', 'editor']
-        data = { k: info.get(k) for k in keys }
-        return data
+        obj = self.obj
+        return obj if obj == None else obj.active
 
     @property
     def jwt(self):
+        obj = self.obj
+        if obj == None:
+            return {}
+        obj = obj.to_mongo()
+        keys = ['username', 'email', 'profile', 'editor_config']
+        data = {k: obj.get(k) for k in keys}
         payload = {
             'iss': JWT_ISS,
             'exp': datetime.utcnow() + JWT_EXP,
-            'data': self.jwt_data
+            'data': data
         }
         return jwt.encode(payload, JWT_SECRET, algorithm='HS256').decode()
 
