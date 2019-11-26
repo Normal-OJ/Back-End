@@ -6,7 +6,6 @@ connect('normal-oj', host='mongo')
 class Profile(EmbeddedDocument):
     displayed_name = StringField(db_field='displayedName', required=True, max_length=16)
     bio = StringField(max_length=64, required=True, default='')
-    avatar_url = URLField(required=True, default='https://imgur.com/mY2tOAw.jpg')
 
 
 class EditorConfig(EmbeddedDocument):

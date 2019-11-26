@@ -39,7 +39,7 @@ def signup(username, password, email):
         return HTTPError('Signup failed.', 400, data=ve.to_dict())
     except NotUniqueError as ne:
         return HTTPError('User exists.', 400)
-    verify_link = f'https://noj.tw/email_verify?token={user.jwt}'
+    verify_link = f'https://noj.tw/email_verify/{user.jwt}'
     send_noreply([email], '[N-OJ] Varify Your Email', verify_link)
     return HTTPResponse('Signup success')
 
@@ -99,7 +99,6 @@ def active(profile, agreement, token):
         user.obj.update(active=True, profile={
             'displayed_name': profile.get('displayed_name'),
             'bio': profile.get('bio'),
-            'avatar_url': profile.get('avatar_url')
         })
     except ValidationError as ve:
         return HTTPError('Failed.', 400, data=ve.to_dict())
