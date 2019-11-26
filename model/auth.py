@@ -48,16 +48,16 @@ def signup(username, password, email):
 @Request.json(['username'])
 def check_username(username):
     if User(username).obj != None:
-        return HTTPResponse('User exists.')
-    return HTTPResponse('Username can be used.')
+        return HTTPResponse('User exists.', data={'valid': 0})
+    return HTTPResponse('Username can be used.', data={'valid': 1})
 
 
 @auth_api.route('/check_email', methods=['POST'])
 @Request.json(['email'])
 def check_email(email):
     if User.get_username_by_email(email) != None:
-        return HTTPResponse('Email has been used.')
-    return HTTPResponse('Email can be used.')
+        return HTTPResponse('Email has been used.', data={'valid': 0})
+    return HTTPResponse('Email can be used.', data={'valid': 1})
 
 
 @auth_api.route('/login', methods=['POST'])
