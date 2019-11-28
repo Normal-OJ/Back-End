@@ -29,11 +29,11 @@ class User(Document):
     # submission_ids = ListField(ReferenceField('Submission'), db_field='submissionIds')
 
 class Course(Document):
-    course_id: StringField(db_field='courseId', max_length=24, required=True, unique=True)
-    course_status: IntField(default=0, choices=[0, 1])
-    course_name: StringField(max_length=64, required=True, unique=True)
-    teacher_id: ReferenceField('User', db_field='teacherId')
-    ta_ids: ListField(ReferenceField('User'), db_field='taIds')
+    course_id = StringField(db_field='courseId', max_length=24, required=True, unique=True)
+    course_status = IntField(default=0, choices=[0, 1])
+    course_name = StringField(max_length=64, required=True, unique=True)
+    teacher_id = ReferenceField('User', db_field='teacherId')
+    ta_ids = ListField(ReferenceField('User'), db_field='taIds')
     #students: {
     #    userId: { "studentName": String },
     #    ...
