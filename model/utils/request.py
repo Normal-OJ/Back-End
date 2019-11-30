@@ -14,10 +14,15 @@ class _Request(type):
                     if data == None:
                         return HTTPError('Unaccepted Content-Type.', 415)
                     kwargs.update({k: data.get(k) for k in keys})
-                    kwargs.update({v: data.get(vars_dict[v]) for v in vars_dict})
+                    kwargs.update(
+                        {v: data.get(vars_dict[v])
+                         for v in vars_dict})
                     return func(*args, **kwargs)
+
                 return wrapper
+
             return data_func
+
         return get
 
 

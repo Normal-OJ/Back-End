@@ -110,11 +110,9 @@ def check(item):
             return HTTPResponse('Email has been used.', data={'valid': 0})
         return HTTPResponse('Email can be used.', data={'valid': 1})
 
-    method = {
-        'username': check_username,
-        'email': check_email
-    }.get(item)
+    method = {'username': check_username, 'email': check_email}.get(item)
     return method() if method else HTTPError('Ivalid Checking Type', 400)
+
 
 @auth_api.route('/active', defaults={'token': None})
 @auth_api.route('/active/<token>', methods=['GET', 'POST'])
@@ -122,7 +120,7 @@ def active(token):
     '''Activate a user.
     '''
     @Request.json(['profile', 'agreement'])
-    @Request.cookies(vars_dict={ 'token': 'jwt' })
+    @Request.cookies(vars_dict={'token': 'jwt'})
     def update(profile, agreement, token):
         '''User: active: flase -> true
         '''
@@ -138,10 +136,11 @@ def active(token):
         if user.obj == None:
             return HTTPError('User not exists.', 400)
         try:
-            user.obj.update(active=True, profile={
-                'displayed_name': profile.get('displayedName'),
-                'bio': profile.get('bio'),
-            })
+            user.obj.update(active=True,
+                            profile={
+                                'displayed_name': profile.get('displayedName'),
+                                'bio': profile.get('bio'),
+                            })
         except ValidationError as ve:
             return HTTPError('Failed.', 400, data=ve.to_dict())
         return HTTPResponse('User is now active.')
@@ -155,8 +154,5 @@ def active(token):
             return HTTPError('Invalid Token', 403)
         return HTTPRedirect('/active', cookies={'jwt': token})
 
-    methods = {
-        'GET': redir,
-        'POST': update
-    }
+    methods = {'GET': redir, 'POST': update}
     return methods[request.method]()

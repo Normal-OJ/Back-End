@@ -20,12 +20,13 @@ class User:
     def signup(cls, username, password, email):
         user = cls(username)
         user_id = hash_id(user.username, password)
-        engine.User(**{
-            'user_id': user_id,
-            'username': user.username,
-            'email': email,
-            'active': False
-        }).save()
+        engine.User(
+            **{
+                'user_id': user_id,
+                'username': user.username,
+                'email': email,
+                'active': False
+            }).save()
         return user
 
     @classmethod
@@ -56,7 +57,7 @@ class User:
         except:
             return None
         return obj
-    
+
     @property
     def is_valid(self):
         obj = self.obj
@@ -76,5 +77,3 @@ class User:
             'data': data
         }
         return jwt.encode(payload, JWT_SECRET, algorithm='HS256').decode()
-
-    
