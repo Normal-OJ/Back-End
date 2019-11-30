@@ -11,4 +11,4 @@ app.register_blueprint(auth_api, url_prefix='/auth')
 app.register_blueprint(test_api, url_prefix='/test')
 
 if __name__ == '__main__':
-	app.run()
+    app.run()

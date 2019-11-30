@@ -15,7 +15,7 @@ auth_api = Blueprint('auth_api', __name__)
 
 def login_required(func):
     @wraps(func)
-    @Request.cookies(vars_dict={ 'token': 'jwt' })
+    @Request.cookies(vars_dict={'token': 'jwt'})
     def wrapper(token, *args, **kwargs):
         if token == None:
             return HTTPError('Not logged in.', 403)
@@ -26,7 +26,8 @@ def login_required(func):
         user = User(json['data']['username'])
         if not user.is_valid:
             return HTTPError('Inactive user.', 403)
-        return func(*args, **kwargs) 
+        return func(*args, **kwargs)
+
     return wrapper
 
 
@@ -82,7 +83,7 @@ def logout():
 
 @auth_api.route('/active', methods=['POST'])
 @Request.json(['profile', 'agreement'])
-@Request.cookies(vars_dict={ 'token': 'jwt' })
+@Request.cookies(vars_dict={'token': 'jwt'})
 def active(profile, agreement, token):
     if not all([type(profile) == dict, agreement]):
         return HTTPError('Invalid data.', 400)
@@ -96,10 +97,11 @@ def active(profile, agreement, token):
     if user.obj == None:
         return HTTPError('User not exists.', 400)
     try:
-        user.obj.update(active=True, profile={
-            'displayed_name': profile.get('displayed_name'),
-            'bio': profile.get('bio'),
-        })
+        user.obj.update(active=True,
+                        profile={
+                            'displayed_name': profile.get('displayed_name'),
+                            'bio': profile.get('bio'),
+                        })
     except ValidationError as ve:
         return HTTPError('Failed.', 400, data=ve.to_dict())
     return HTTPResponse('User is now active.')
