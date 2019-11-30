@@ -5,6 +5,7 @@ from .utils import HTTPResponse
 
 test_api = Blueprint('test_api', __name__)
 
+
 @test_api.route('/')
 @login_required
 def test():
