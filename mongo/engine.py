@@ -54,6 +54,18 @@ class User(Document):
     # submission_ids = ListField(ReferenceField('Submission'), db_field='submissionIds')
     last_submit = DateTimeField(default=datetime.min)
 
+class Homework(Document):
+    name = StringField(max_length=64, required=True, db_field='homeworkName')
+    markdown = StringField(max_length=10000)
+    scoreboard_status = IntField(default=0,
+                                 choice=[0, 1],
+                                 db_field='scoreboardStatus')
+    course_id = StringField(db_field='courseId')
+    duration = EmbeddedDocumentField(Duration,
+                                     db_field='duration',
+                                     default=Duration)
+    problem_ids = ListField(StringField(), db_field='problemIds')
+    student_status = DictField(db_field='studentStatus')
 
 class Course(Document):
     course_status = IntField(default=0, choices=[0, 1])
@@ -65,7 +77,8 @@ class Course(Document):
     tas = ListField(ReferenceField('User'), db_field='tas')
     student_nicknames = DictField(db_field='studentNicknames')
     # contest_ids = ListField(ReferenceField('Contest'), db_field='contestIds')
-    # homework_ids = ListField(ReferenceField('Homework'), db_field='homeworkIds')
+    homework = ListField(ReferenceField('Homework', reverse_delete_rule=PULL),
+                         db_field='homeworkIds')
     # announcement_ids = ListField(ReferenceField('Announcement'), db_field='announcementIds')
     # post_ids = ListField(ReferenceField('Post'), db_field='postIds')
 
@@ -90,3 +103,10 @@ class Submission(Document):
     memory_usage = IntField(default=-1)
     code = BooleanField(
         default=False)  # wheather the user has uploaded source code
+
+
+
+
+
+
+    
