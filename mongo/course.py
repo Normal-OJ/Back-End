@@ -16,6 +16,7 @@ def delete_course(course):
         return -1
     co.delete()
 
+
 @Request.json(['course', 'teacher'])
 def add_course(course, teacher):
     if engine.Course.objects.get(course_name=course) != None:
@@ -25,11 +26,8 @@ def add_course(course, teacher):
     if te == None:
         return -2
 
-    engine.Course(
-        **{
-            'course_name': course,
-            'teacher_id': te
-        }).save()
+    engine.Course(**{'course_name': course, 'teacher_id': te}).save()
+
 
 @Request.json(['old_course', 'new_course', 'teacher'])
 def edit_course(old_course, new_course, teacher):

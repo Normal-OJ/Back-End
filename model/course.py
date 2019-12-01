@@ -18,8 +18,10 @@ def get_course(user):
     if request.method == 'GET':
         data = []
         for co in get_all_courses:
-            data.append({'course': co.course_name,
-                         'teacher': co.teacher_id.username})
+            data.append({
+                'course': co.course_name,
+                'teacher': co.teacher_id.username
+            })
 
         return HTTPResponse('Success.', data=jsonify(data))
 
