@@ -7,9 +7,9 @@ import html
 import jwt
 import os
 
-JWT_EXP = timedelta(days=int(os.environ.get('JWT_EXP')))
-JWT_ISS = os.environ.get('JWT_ISS')
-JWT_SECRET = os.environ.get('JWT_SECRET')
+JWT_EXP = timedelta(days=int(os.environ.get('JWT_EXP', '30')))
+JWT_ISS = os.environ.get('JWT_ISS', 'test.test')
+JWT_SECRET = os.environ.get('JWT_SECRET', 'SuperSecretString')
 
 
 class User:
@@ -69,7 +69,7 @@ class User:
         if obj == None:
             return {}
         obj = obj.to_mongo()
-        keys = ['username', 'email', 'profile', 'editor_config']
+        keys = ['username', 'email', 'profile', 'editorConfig']
         data = {k: obj.get(k) for k in keys}
         payload = {
             'iss': JWT_ISS,

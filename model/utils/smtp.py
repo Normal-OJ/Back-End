@@ -12,6 +12,8 @@ SMTP_NOREPLY_PASSWORD = os.environ.get('SMTP_NOREPLY_PASSWORD')
 
 
 def send(from_addr, password, to_addrs, subject, content):
+    if SMTP_SERVER is None:
+        return
     with SMTP_SSL(SMTP_SERVER) as server:
         server.login(from_addr, password)
         msg = EmailMessage()
