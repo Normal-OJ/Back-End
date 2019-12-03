@@ -7,8 +7,8 @@ from .utils import HTTPResponse, HTTPError, Request, send_noreply
 import jwt
 import os
 
-JWT_ISS = os.environ.get('JWT_ISS')
-JWT_SECRET = os.environ.get('JWT_SECRET')
+JWT_ISS = os.environ.get('JWT_ISS', 'test.test')
+JWT_SECRET = os.environ.get('JWT_SECRET', 'SuperSecretString')
 
 auth_api = Blueprint('auth_api', __name__)
 
@@ -20,7 +20,10 @@ def login_required(func):
         if token == None:
             return HTTPError('Not logged in.', 403)
         try:
-            json = jwt.decode(token, JWT_SECRET, issuer=JWT_ISS)
+            json = jwt.decode(token,
+                              JWT_SECRET,
+                              issuer=JWT_ISS,
+                              algorithms='HS256')
         except:
             return HTTPError('Invalid token.', 403)
         user = User(json['data']['username'])
@@ -34,15 +37,19 @@ def login_required(func):
 @auth_api.route('/signup', methods=['POST'])
 @Request.json(['username', 'password', 'email'])
 def signup(username, password, email):
+    if password is None:
+        return HTTPError('Signup Failed',
+                         400,
+                         data={'password': 'Field is required'})
     try:
         user = User.signup(username, password, email)
     except ValidationError as ve:
-        return HTTPError('Signup failed.', 400, data=ve.to_dict())
+        return HTTPError('Signup Failed', 400, data=ve.to_dict())
     except NotUniqueError as ne:
-        return HTTPError('User exists.', 400)
+        return HTTPError('User Exists', 400)
     verify_link = f'https://noj.tw/email_verify/{user.jwt}'
     send_noreply([email], '[N-OJ] Varify Your Email', verify_link)
-    return HTTPResponse('Signup success')
+    return HTTPResponse('Signup Success')
 
 
 @auth_api.route('/check/<item>', methods=['POST'])
@@ -76,11 +83,14 @@ def active(token=None):
         '''User: active: flase -> true
         '''
         if not all([type(profile) == dict, agreement]):
-            return HTTPError('Invalid data.', 400)
+            return HTTPError('Invalid Data', 400)
         if agreement is not True:
-            return HTTPError('You should confirm the agreement.', 403)
+            return HTTPError('Not Confirm the Agreement', 403)
         try:
-            json = jwt.decode(token or '', JWT_SECRET, issuer=JWT_ISS)
+            json = jwt.decode(token or '',
+                              JWT_SECRET,
+                              issuer=JWT_ISS,
+                              algorithms='HS256')
         except:
             return HTTPError('Invalid token.', 403)
         user = User(json['data']['username'])
@@ -94,13 +104,16 @@ def active(token=None):
                             })
         except ValidationError as ve:
             return HTTPError('Failed.', 400, data=ve.to_dict())
-        return HTTPResponse('User is now active.')
+        return HTTPResponse('User Is Now Active')
 
     def redir():
         '''Redirect user to active page.
         '''
         try:
-            json = jwt.decode(token, JWT_SECRET, issuer=JWT_ISS)
+            json = jwt.decode(token,
+                              JWT_SECRET,
+                              issuer=JWT_ISS,
+                              algorithms='HS256')
         except:
             return HTTPError('Invalid Token', 403)
         return HTTPRedirect('/active', cookies={'jwt': token})
