@@ -4,6 +4,8 @@ from mongo import User, NotUniqueError, ValidationError
 
 from .utils import HTTPResponse, HTTPError, Request, send_noreply
 
+from .auth import login_required
+
 import jwt
 import os
 
@@ -28,23 +30,23 @@ def view_profile(user, id):
 	return HTTPResponse('Profile exist.', data=data)
 
 
-@profile_api.route(methods=['POST'])
+@profile_api.route('', methods=['POST'])
 @login_required
-@Request.json(['displayedName', 'bio'])
-def edit_profile(user, displayedName = "", bio = ""):
-	try:
-		if displayedName != "":
-			user.obj.update(profile={
-				'displayed_name': displayedName,
-				'bio': user.profile.get('bio'),
-				'avatar_url': user.profile.get('avatar_url')
-			})
-		if bio != "":
-			user.obj.update(profile={
-				'displayed_name': user.profile.get('displayed_name'),
-				'bio': bio,
-				'avatar_url': user.profile.get('avatar_url')
-			})
-	except:
-		return HTTPError('Upload fail.', 403)
-	return HTTPResponse('Uploaded.')
+def edit_profile(user):
+	@Request.json(['displayedName', 'bio'])
+	def edit(user, displayedName = "", bio = ""):
+		try:
+			if displayedName != "":
+				user.obj.update(profile={
+					'displayed_name': displayedName,
+					'bio': user.profile.get('bio')
+				})
+			if bio != "":
+				user.obj.update(profile={
+					'displayed_name': user.profile.get('displayed_name'),
+					'bio': bio
+				})
+		except:
+			return HTTPError('Upload fail.', 403)
+		return HTTPResponse('Uploaded.')
+	return edit
