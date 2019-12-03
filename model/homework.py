@@ -1,7 +1,7 @@
 from flask import Blueprint
 from .auth import login_required
-from .utils import HTTPResponse, HTTPRedirect, HTTPError, Request
 from mongo import HomeWork
+from .utils import HTTPResponse, HTTPRedirect, HTTPError, Request
 
 hw_api = Blueprint('homework_api', __name__)
 
