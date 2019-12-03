@@ -45,63 +45,65 @@ def signup(username, password, email):
     return HTTPResponse('Signup success')
 
 
-@auth_api.route('/check_username', methods=['POST'])
-@Request.json(['username'])
-def check_username(username):
-    if User(username).obj != None:
-        return HTTPResponse('User exists.', data={'valid': 0})
-    return HTTPResponse('Username can be used.', data={'valid': 1})
+@auth_api.route('/check/<item>', methods=['POST'])
+def check(item):
+    '''Checking when the user is registing.
+    '''
+    @Request.json(['username'])
+    def check_username(username):
+        if User(username).obj != None:
+            return HTTPResponse('User exists.', data={'valid': 0})
+        return HTTPResponse('Username can be used.', data={'valid': 1})
 
+    @Request.json(['email'])
+    def check_email(email):
+        if User.get_username_by_email(email) != None:
+            return HTTPResponse('Email has been used.', data={'valid': 0})
+        return HTTPResponse('Email can be used.', data={'valid': 1})
 
-@auth_api.route('/check_email', methods=['POST'])
-@Request.json(['email'])
-def check_email(email):
-    if User.get_username_by_email(email) != None:
-        return HTTPResponse('Email has been used.', data={'valid': 0})
-    return HTTPResponse('Email can be used.', data={'valid': 1})
-
-
-@auth_api.route('/login', methods=['POST'])
-@Request.json(['username', 'password'])
-def login(username, password):
-    if not all([username, password]):
-        return HTTPError('Incomplete data.', 400)
-    user = User.login(username, password)
-    if user == None:
-        return HTTPError('Login failed.', 403)
-    if not user.is_valid:
-        return HTTPError('Invalid user.', 403)
-    cookies = {'jwt': user.jwt}
-    return HTTPResponse('Login success.', cookies=cookies)
-
-
-@auth_api.route('/logout', methods=['POST'])
-@login_required
-def logout():
-    return HTTPResponse('Logout success.', cookies={'jwt': None})
+    method = {'username': check_username, 'email': check_email}.get(item)
+    return method() if method else HTTPError('Ivalid Checking Type', 400)
 
 
 @auth_api.route('/active', methods=['POST'])
-@Request.json(['profile', 'agreement'])
-@Request.cookies(vars_dict={'token': 'jwt'})
-def active(profile, agreement, token):
-    if not all([type(profile) == dict, agreement]):
-        return HTTPError('Invalid data.', 400)
-    if agreement is not True:
-        return HTTPError('You should confirm the agreement.', 403)
-    try:
-        json = jwt.decode(token or '', JWT_SECRET, issuer=JWT_ISS)
-    except:
-        return HTTPError('Invalid token.', 403)
-    user = User(json['data']['username'])
-    if user.obj == None:
-        return HTTPError('User not exists.', 400)
-    try:
-        user.obj.update(active=True,
-                        profile={
-                            'displayed_name': profile.get('displayed_name'),
-                            'bio': profile.get('bio'),
-                        })
-    except ValidationError as ve:
-        return HTTPError('Failed.', 400, data=ve.to_dict())
-    return HTTPResponse('User is now active.')
+@auth_api.route('/active/<token>', methods=['GET'])
+def active(token=None):
+    '''Activate a user.
+    '''
+    @Request.json(['profile', 'agreement'])
+    @Request.cookies(vars_dict={'token': 'jwt'})
+    def update(profile, agreement, token):
+        '''User: active: flase -> true
+        '''
+        if not all([type(profile) == dict, agreement]):
+            return HTTPError('Invalid data.', 400)
+        if agreement is not True:
+            return HTTPError('You should confirm the agreement.', 403)
+        try:
+            json = jwt.decode(token or '', JWT_SECRET, issuer=JWT_ISS)
+        except:
+            return HTTPError('Invalid token.', 403)
+        user = User(json['data']['username'])
+        if user.obj == None:
+            return HTTPError('User not exists.', 400)
+        try:
+            user.obj.update(active=True,
+                            profile={
+                                'displayed_name': profile.get('displayedName'),
+                                'bio': profile.get('bio'),
+                            })
+        except ValidationError as ve:
+            return HTTPError('Failed.', 400, data=ve.to_dict())
+        return HTTPResponse('User is now active.')
+
+    def redir():
+        '''Redirect user to active page.
+        '''
+        try:
+            json = jwt.decode(token, JWT_SECRET, issuer=JWT_ISS)
+        except:
+            return HTTPError('Invalid Token', 403)
+        return HTTPRedirect('/active', cookies={'jwt': token})
+
+    methods = {'GET': redir, 'POST': update}
+    return methods[request.method]()
