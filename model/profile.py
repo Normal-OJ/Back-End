@@ -34,7 +34,7 @@ def view_profile(user, id):
 @login_required
 def edit_profile(user):
 	@Request.json(['displayedName', 'bio'])
-	def edit(user, displayedName = "", bio = ""):
+	def edit(displayedName = "", bio = ""):
 		try:
 			if displayedName != "":
 				user.obj.update(profile={
