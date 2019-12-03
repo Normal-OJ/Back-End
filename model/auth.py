@@ -114,9 +114,9 @@ def check(item):
     return method() if method else HTTPError('Ivalid Checking Type', 400)
 
 
-@auth_api.route('/active', defaults={'token': None})
-@auth_api.route('/active/<token>', methods=['GET', 'POST'])
-def active(token):
+@auth_api.route('/active', methods=['POST'])
+@auth_api.route('/active/<token>', methods=['GET'])
+def active(token=None):
     '''Activate a user.
     '''
     @Request.json(['profile', 'agreement'])
