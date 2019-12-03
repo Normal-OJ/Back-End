@@ -2,7 +2,10 @@ from mongoengine import *
 from mongoengine.fields import *
 from mongoengine.connection import *
 
-connect('normal-oj', host='mongo')
+import os
+
+MONGO_HOST = os.environ.get('MONGO_HOST', 'mongomock://localhost')
+connect('normal-oj', host=MONGO_HOST)
 
 
 class Profile(EmbeddedDocument):
