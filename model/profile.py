@@ -15,7 +15,7 @@ profile_api = Blueprint('profile_api', __name__)
 
 @profile_api.route('/<id>', methods=['GET'])
 @login_required
-def view_profile(user):
+def view_profile(user, id):
 	try:
 		data = {
 			'username': user.username,
