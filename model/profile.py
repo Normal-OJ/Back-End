@@ -1,9 +1,8 @@
 from flask import Blueprint
-from functools import wraps
-from mongo import User, NotUniqueError, ValidationError
 
-from .utils import HTTPResponse, HTTPError, Request, send_noreply
+from mongo import User
 
+from .utils import HTTPResponse, HTTPError, Request
 from .auth import login_required
 
 import jwt
@@ -32,21 +31,13 @@ def view_profile(user, id):
 
 @profile_api.route('', methods=['POST'])
 @login_required
-def edit_profile(user):
-	@Request.json(['displayedName', 'bio'])
-	def edit(displayedName = "", bio = ""):
-		try:
-			if displayedName != "":
-				user.obj.update(profile={
-					'displayed_name': displayedName,
-					'bio': user.profile.get('bio')
-				})
-			if bio != "":
-				user.obj.update(profile={
-					'displayed_name': user.profile.get('displayed_name'),
-					'bio': bio
-				})
-		except:
-			return HTTPError('Upload fail.', 403)
-		return HTTPResponse('Uploaded.')
-	return edit
+@Request.json(['displayedName', 'bio'])
+def edit_profile(user, displayedName, bio):
+	if bio != "":
+		user.obj.update(profile={
+			'displayed_name': 'aisu_0911',
+			'bio': 'hello'
+		})
+	"""except:
+		return HTTPError('Upload fail (bio).', 403)"""
+	return HTTPResponse('Uploaded.')
