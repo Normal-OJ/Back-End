@@ -1,5 +1,6 @@
 from mongo import engine
 
+
 class Course:
     pass
 
