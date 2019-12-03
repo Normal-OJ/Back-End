@@ -1,10 +1,9 @@
 from flask import Blueprint, request
-from functools import wraps
-from mongo import course, NotUniqueError, ValidationError
 
-from .utils import HTTPResponse, HTTPRedirect, HTTPError, Request, send_noreply
+from .utils import HTTPResponse, HTTPError, Request
 from flask.json import jsonify
 from mongo.course import *
+from .auth import login_required
 
 course_api = Blueprint('course_api', __name__)
 
@@ -26,16 +25,14 @@ def get_courses(user):
         if request.method == 'DELETE':
             r = delete_course(course)
 
-        if r == -1:
-            return HTTPError('Course not found.', 404)
-        if r == -2:
-            return HTTPError('Teacher not found.', 404)
+        if r != None:
+            return HTTPError(r, 404)
 
         return HTTPResponse('Success.')
 
     if request.method == 'GET':
         data = []
-        for co in get_all_courses:
+        for co in get_all_courses():
             data.append({
                 'course': co.course_name,
                 'teacher': co.teacher_id.username
@@ -43,11 +40,11 @@ def get_courses(user):
 
         return HTTPResponse('Success.', data=data)
     else:
-        modify_course()
+        return modify_course()
 
 
 @course_api.route('/<id>', methods=['GET', 'POST'])
 @login_required
-def get_courses(user, id):
+def get_course(user, id):
     if user.obj.role != 0:
         return HTTPError('Forbidden.', 403)

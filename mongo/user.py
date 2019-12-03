@@ -7,7 +7,7 @@ import html
 import jwt
 import os
 
-JWT_EXP = timedelta(days=int(os.environ.get('JWT_EXP')))
+JWT_EXP = timedelta(days=int(os.environ.get('JWT_EXP', '10')))
 JWT_ISS = os.environ.get('JWT_ISS')
 JWT_SECRET = os.environ.get('JWT_SECRET')
 

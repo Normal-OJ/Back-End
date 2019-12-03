@@ -50,10 +50,6 @@ class User(Document):
 
 
 class Course(Document):
-    course_id = StringField(db_field='courseId',
-                            max_length=24,
-                            required=True,
-                            unique=True)
     course_status = IntField(default=0, choices=[0, 1])
     course_name = StringField(max_length=64, required=True, unique=True)
     teacher_id = ReferenceField('User', db_field='teacherId')
