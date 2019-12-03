@@ -6,10 +6,10 @@ from .utils import HTTPResponse, HTTPRedirect, HTTPError, Request, send_noreply
 from flask.json import jsonify
 from mongo.course import *
 
-course_api = Blueprint('auth_api', __name__)
+course_api = Blueprint('course_api', __name__)
 
 
-@course_api.route('/course', methods=['GET', 'POST', 'UPDATE', 'DELETE'])
+@course_api.route('/', methods=['GET', 'POST', 'UPDATE', 'DELETE'])
 @login_required
 def get_courses(user):
     if user.obj.role != 0:
@@ -46,7 +46,7 @@ def get_courses(user):
         modify_course()
 
 
-@course_api.route('/course/<id>', methods=['GET', 'POST'])
+@course_api.route('/<id>', methods=['GET', 'POST'])
 @login_required
 def get_courses(user, id):
     if user.obj.role != 0:
