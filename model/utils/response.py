@@ -1,7 +1,17 @@
-from flask import jsonify
+from flask import jsonify, redirect
 
 
-class HTTPResponse(tuple):
+class HTTPBaseResponese(tuple):
+    def __new__(cls, resp, status_code=200, cookies={}):
+        for c in cookies:
+            if cookies[c] == None:
+                resp.delete_cookie(c)
+            else:
+                resp.set_cookie(c, cookies[c])
+        return super().__new__(tuple, (resp, status_code))
+
+
+class HTTPResponse(HTTPBaseResponese):
     def __new__(cls,
                 message='',
                 status_code=200,
@@ -13,12 +23,13 @@ class HTTPResponse(tuple):
             'message': message,
             'data': data,
         })
-        for c in cookies:
-            if cookies[c] == None:
-                resp.delete_cookie(c)
-            else:
-                resp.set_cookie(c, cookies[c])
-        return super().__new__(tuple, (resp, status_code))
+        return super().__new__(HTTPBaseResponese, resp, status_code, cookies)
+
+
+class HTTPRedirect(HTTPBaseResponese):
+    def __new__(cls, location, status_code=302, cookies={}):
+        resp = redirect(location)
+        return super().__new__(HTTPBaseResponese, resp, status_code, cookies)
 
 
 class HTTPError(HTTPResponse):
