@@ -17,15 +17,16 @@ profile_api = Blueprint('profile_api', __name__)
 @profile_api.route('/<id>', methods=['GET'])
 @login_required
 def view_profile(user, id):
-	try:
-		data = {
-			'username': user.username,
-			'email': user.email,
-			'displayedName': user.profile.get('displayed_name'),
-			'bio': user.profile.get('bio'),
-		}
+	"""try:
+	
 	except:
-		return HTTPError('Profile not exist.', 404)
+		return HTTPError('Profile not exist.', 404)"""
+	data = {
+		'username': user.username,
+		'email': user.obj.email,
+		'displayed_name': user.obj.profile.displayed_name,
+		'bio': user.obj.profile.bio
+	}
 	return HTTPResponse('Profile exist.', data=data)
 
 
@@ -33,11 +34,17 @@ def view_profile(user, id):
 @login_required
 @Request.json(['displayedName', 'bio'])
 def edit_profile(user, displayedName, bio):
-	if bio != "":
-		user.obj.update(profile={
-			'displayed_name': 'aisu_0911',
-			'bio': 'hello'
-		})
-	"""except:
-		return HTTPError('Upload fail (bio).', 403)"""
+	try:
+		if displayedName != "":
+			user.obj.update(profile={
+				'displayed_name': displayedName,
+				'bio': user.obj.profile.bio
+			})
+		if bio != "":
+			user.obj.update(profile={
+				'displayed_name': user.obj.profile.displayed_name,
+				'bio': bio
+			})
+	except:
+		return HTTPError('Upload fail.', 403)
 	return HTTPResponse('Uploaded.')
