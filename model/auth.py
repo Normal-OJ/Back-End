@@ -1,8 +1,8 @@
-from flask import Blueprint
+from flask import Blueprint, request
 from functools import wraps
 from mongo import User, NotUniqueError, ValidationError
 
-from .utils import HTTPResponse, HTTPError, Request, send_noreply
+from .utils import HTTPResponse, HTTPRedirect, HTTPError, Request, send_noreply
 
 import jwt
 import os
@@ -14,24 +14,69 @@ auth_api = Blueprint('auth_api', __name__)
 
 
 def login_required(func):
+    '''Check if the user is login
+    Returns:
+        - A wrapped function
+        - 403 Not Logged In
+        - 403 Invalid Token
+        - 403 Inactive User
+    '''
     @wraps(func)
     @Request.cookies(vars_dict={'token': 'jwt'})
     def wrapper(token, *args, **kwargs):
         if token == None:
-            return HTTPError('Not logged in.', 403)
+            return HTTPError('Not Logged In', 403)
         try:
             json = jwt.decode(token,
                               JWT_SECRET,
                               issuer=JWT_ISS,
                               algorithms='HS256')
         except:
-            return HTTPError('Invalid token.', 403)
+            return HTTPError('Invalid Token', 403)
         user = User(json['data']['username'])
         if not user.is_valid:
-            return HTTPError('Inactive user.', 403)
+            return HTTPError('Inactive User', 403)
+        kwargs['user'] = user
         return func(*args, **kwargs)
 
     return wrapper
+
+
+@auth_api.route('/session', methods=['GET', 'POST'])
+def session():
+    '''Create a session or remove a session.
+    Request methods:
+        GET: Logout
+        POST: Login
+    '''
+    @login_required
+    def logout(user):
+        '''Logout a user.
+        Returns:
+            - 200 Logout Success
+        '''
+        return HTTPResponse(f'Goodbye {user.username}', cookies={'jwt': None})
+
+    @Request.json(['username', 'password'])
+    def login(username, password):
+        '''Login a user.
+        Returns:
+            - 400 Incomplete Data
+            - 403 Login Failed
+        '''
+        if not all([username, password]):
+            return HTTPError('Incomplete Data', 400)
+        user = User.login(username, password)
+        if user == None:
+            return HTTPError('Login Failed', 403)
+        if not user.is_valid:
+            return HTTPError('Invalid User', 403)
+        cookies = {'jwt': user.jwt}
+        return HTTPResponse('Login Success', cookies=cookies)
+
+    methods = {'GET': logout, 'POST': login}
+
+    return methods[request.method]()
 
 
 @auth_api.route('/signup', methods=['POST'])
