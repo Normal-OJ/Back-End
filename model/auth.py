@@ -15,7 +15,6 @@ auth_api = Blueprint('auth_api', __name__)
 
 def login_required(func):
     '''Check if the user is login
-
     Returns:
         - A wrapped function
         - 403 Not Logged In
@@ -46,7 +45,6 @@ def login_required(func):
 @auth_api.route('/session', methods=['GET', 'POST'])
 def session():
     '''Create a session or remove a session.
-
     Request methods:
         GET: Logout
         POST: Login
@@ -54,7 +52,6 @@ def session():
     @login_required
     def logout(user):
         '''Logout a user.
-
         Returns:
             - 200 Logout Success
         '''
@@ -63,7 +60,6 @@ def session():
     @Request.json(['username', 'password'])
     def login(username, password):
         '''Login a user.
-
         Returns:
             - 400 Incomplete Data
             - 403 Login Failed

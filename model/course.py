@@ -8,7 +8,7 @@ from .auth import login_required
 course_api = Blueprint('course_api', __name__)
 
 
-@course_api.route('/', methods=['GET', 'POST', 'UPDATE', 'DELETE'])
+@course_api.route('/', methods=['GET', 'POST', 'PUT', 'DELETE'])
 @login_required
 def get_courses(user):
     if user.obj.role != 0:
@@ -20,7 +20,7 @@ def get_courses(user):
 
         if request.method == 'POST':
             r = add_course(course, teacher)
-        if request.method == 'UPDATE':
+        if request.method == 'PUT':
             r = edit_course(course, new_course, teacher)
         if request.method == 'DELETE':
             r = delete_course(course)
