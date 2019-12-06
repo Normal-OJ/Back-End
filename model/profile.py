@@ -60,4 +60,4 @@ def view_or_edit_profile(user):
         return HTTPResponse('Profile exist.', data=data)
 
     else:
-        return view_or_edit_profile()
+        return edit_profile()
