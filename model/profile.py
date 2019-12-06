@@ -2,7 +2,7 @@ from flask import Blueprint, request
 
 from mongo import User
 
-from .utils import HTTPResponse, HTTPError, Request
+from .utils import HTTPResponse, HTTPRedirect, HTTPError, Request
 from .auth import login_required
 
 profile_api = Blueprint('profile_api', __name__)
@@ -47,17 +47,7 @@ def view_or_edit_profile(user):
         return HTTPResponse('Uploaded.')
 
     if request.method == 'GET':
-        try:
-            data = {
-                'username': user.username,
-                'email': user.obj.email,
-                'displayed_name': user.obj.profile.displayed_name,
-                'bio': user.obj.profile.bio
-            }
-        except:
-            return HTTPError('Profile not exist.', 404)
-
-        return HTTPResponse('Profile exist.', data=data)
+        return HTTPRedirect('/' + user.username)
 
     else:
         return edit_profile()
