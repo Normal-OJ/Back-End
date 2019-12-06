@@ -1,6 +1,6 @@
 from flask import Flask
 
-from model import auth_api, test_api, profile_api
+from model import auth_api, test_api, profile_api, course_api
 
 # Create a flask app
 app = Flask(__name__)
