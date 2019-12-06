@@ -35,7 +35,7 @@ def view_or_edit_profile(user):
 
             if displayed_name != None:
                 profile['displayed_name'] = displayedName
-            else if displayed_name == "":
+            elif displayed_name == "":
                 profile['displayed_name'] = user.username
             if bio != None:
                 profile['bio'] = bio
