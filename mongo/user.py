@@ -57,7 +57,7 @@ class User:
         except:
             return None
         return obj
-    
+
     @property
     def is_valid(self):
         obj = self.obj
@@ -77,5 +77,3 @@ class User:
             'data': data
         }
         return jwt.encode(payload, JWT_SECRET, algorithm='HS256').decode()
-
-    
