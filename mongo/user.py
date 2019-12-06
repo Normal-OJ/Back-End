@@ -7,7 +7,7 @@ import html
 import jwt
 import os
 
-JWT_EXP = timedelta(days=int(os.environ.get('JWT_EXP', '30')))
+JWT_EXP = timedelta(days=int(os.environ.get('JWT_EXP')))
 JWT_ISS = os.environ.get('JWT_ISS')
 JWT_SECRET = os.environ.get('JWT_SECRET')
 
@@ -20,7 +20,8 @@ class User:
     def signup(cls, username, password, email):
         user = cls(username)
         user_id = hash_id(user.username, password)
-        engine.User(**{
+        engine.User(**
+        {
             'user_id': user_id,
             'username': user.username,
             'email': email,
