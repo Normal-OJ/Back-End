@@ -29,13 +29,13 @@ def view_others_profile(user, username=None):
 
 @profile_api.route('/', methods=['POST'])
 @login_required
-@Request.json(['displayed_name', 'bio'])
+@Request.json(['bio'], vars_dict={'displayed_name': 'displayedName'})
 def edit_profile(user, displayed_name=None, bio=None):
     try:
         profile = user.obj.profile
 
         if displayed_name is not None:
-            profile['displayed_name'] = displayedName
+            profile['displayed_name'] = displayed_name
         elif displayed_name == "":
             profile['displayed_name'] = user.username
         if bio is not None:
