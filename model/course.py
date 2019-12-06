@@ -46,5 +46,5 @@ def get_courses(user):
 @course_api.route('/<id>', methods=['GET', 'POST'])
 @login_required
 def get_course(user, id):
-    if user.obj.role != 0:
+    if user.obj.role != 0 or get_obj(engine.Course, id=id).teacher_id != user:
         return HTTPError('Forbidden.', 403)
