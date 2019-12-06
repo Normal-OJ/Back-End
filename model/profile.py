@@ -5,12 +5,6 @@ from mongo import User
 from .utils import HTTPResponse, HTTPError, Request
 from .auth import login_required
 
-import jwt
-import os
-
-JWT_ISS = os.environ.get('JWT_ISS')
-JWT_SECRET = os.environ.get('JWT_SECRET')
-
 profile_api = Blueprint('profile_api', __name__)
 
 
@@ -34,19 +28,21 @@ def view_others_profile(user, username):
 @profile_api.route('', methods=['GET', 'POST'])
 @login_required
 def view_or_edit_profile(user):
-    @Request.json(['displayedName', 'bio'])
-    def edit_profile(displayedName, bio):
+    @Request.json(['displayed_name', 'bio'])
+    def edit_profile(displayed_name, bio):
         try:
             profile = user.obj.profile
 
-            if displayedName != None:
+            if displayed_name != None:
                 profile['displayed_name'] = displayedName
+            else if displayed_name == "":
+                profile['displayed_name'] = user.username
             if bio != None:
                 profile['bio'] = bio
 
             user.obj.update(profile=profile)
         except:
-            return HTTPError('Upload fail.', 403)
+            return HTTPError('Upload fail.', 400)
 
         return HTTPResponse('Uploaded.')
 
