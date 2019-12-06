@@ -13,4 +13,4 @@ app.register_blueprint(profile_api, url_prefix='/profile')
 app.register_blueprint(course_api, url_prefix='/course')
 
 if __name__ == '__main__':
-	app.run()
+    app.run()
