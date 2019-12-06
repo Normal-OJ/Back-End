@@ -29,7 +29,7 @@ def view_others_profile(user, username=None):
 @profile_api.route('/', methods=['POST'])
 @login_required
 @Request.json(['bio'], vars_dict={'displayed_name': 'displayedName'})
-def edit_profile(user, displayed_name=None, bio=None):
+def edit_profile(user, displayed_name, bio):
     try:
         profile = user.obj.profile
 
