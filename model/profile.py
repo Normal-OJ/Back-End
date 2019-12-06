@@ -13,8 +13,7 @@ profile_api = Blueprint('profile_api', __name__)
 @login_required
 def view_others_profile(user, username=None):
     try:
-        if username is not None:
-            user = User(username)
+        user = user if username=None else User(username)
         data = {
             'username': user.username,
             'email': user.obj.email,
