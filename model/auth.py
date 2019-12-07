@@ -42,7 +42,11 @@ def login_required(func):
     return wrapper
 
 
-def identity_verify(roles):
+def identity_verify(*roles):
+    '''Verify a logged in user's identity
+
+    You can find an example in `model/test.py`
+    '''
     def verify(func):
         @wraps(func)
         @login_required
@@ -51,6 +55,8 @@ def identity_verify(roles):
                 return HTTPError('Insufficient Permissions', 403)
             kwargs['user'] = user
             return func(*args, **kwargs)
+
+        return wrapper
 
     return verify
 
