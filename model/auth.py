@@ -42,6 +42,19 @@ def login_required(func):
     return wrapper
 
 
+def identity_verify(roles):
+    def verify(func):
+        @wraps(func)
+        @login_required
+        def wrapper(user, *args, **kwargs):
+            if user.obj.role not in roles:
+                return HTTPError('Insufficient Permissions', 403)
+            kwargs['user'] = user
+            return func(*args, **kwargs)
+
+    return verify
+
+
 @auth_api.route('/session', methods=['GET', 'POST'])
 def session():
     '''Create a session or remove a session.
