@@ -24,7 +24,7 @@ def login_required(func):
     @wraps(func)
     @Request.cookies(vars_dict={'token': 'jwt'})
     def wrapper(token, *args, **kwargs):
-        if token == None:
+        if token is None:
             return HTTPError('Not Logged In', 403)
         try:
             json = jwt.decode(token,
@@ -40,6 +40,25 @@ def login_required(func):
         return func(*args, **kwargs)
 
     return wrapper
+
+
+def identity_verify(*roles):
+    '''Verify a logged in user's identity
+
+    You can find an example in `model/test.py`
+    '''
+    def verify(func):
+        @wraps(func)
+        @login_required
+        def wrapper(user, *args, **kwargs):
+            if user.obj.role not in roles:
+                return HTTPError('Insufficient Permissions', 403)
+            kwargs['user'] = user
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    return verify
 
 
 @auth_api.route('/session', methods=['GET', 'POST'])
@@ -67,7 +86,7 @@ def session():
         if not all([username, password]):
             return HTTPError('Incomplete Data', 400)
         user = User.login(username, password)
-        if user == None:
+        if user is None:
             return HTTPError('Login Failed', 403)
         if not user.is_valid:
             return HTTPError('Invalid User', 403)
@@ -103,13 +122,13 @@ def check(item):
     '''
     @Request.json(['username'])
     def check_username(username):
-        if User(username).obj != None:
+        if User(username).obj is not None:
             return HTTPResponse('User exists.', data={'valid': 0})
         return HTTPResponse('Username can be used.', data={'valid': 1})
 
     @Request.json(['email'])
     def check_email(email):
-        if User.get_username_by_email(email) != None:
+        if User.get_username_by_email(email) is not None:
             return HTTPResponse('Email has been used.', data={'valid': 0})
         return HTTPResponse('Email can be used.', data={'valid': 1})
 
@@ -139,7 +158,7 @@ def active(token=None):
         except:
             return HTTPError('Invalid token.', 403)
         user = User(json['data']['username'])
-        if user.obj == None:
+        if user.obj is None:
             return HTTPError('User not exists.', 400)
         try:
             user.obj.update(active=True,
