@@ -54,10 +54,13 @@ class User(Document):
 
 class Course(Document):
     course_status = IntField(default=0, choices=[0, 1])
-    course_name = StringField(max_length=64, required=True, unique=True)
-    teacher_id = ReferenceField('User', db_field='teacherId')
-    ta_ids = ListField(ReferenceField('User'), db_field='taIds')
-    students = DictField(db_field='studentId')
+    course_name = StringField(max_length=64,
+                              required=True,
+                              unique=True,
+                              db_field='courseName')
+    teacher = ReferenceField('User', db_field='teacher')
+    tas = ListField(ReferenceField('User'), db_field='tas')
+    student_nicknames = DictField(db_field='studentNicknames')
     # contest_ids = ListField(ReferenceField('Contest'), db_field='contestIds')
     # homework_ids = ListField(ReferenceField('Homework'), db_field='homeworkIds')
     # announcement_ids = ListField(ReferenceField('Announcement'), db_field='announcementIds')

@@ -13,7 +13,7 @@ class _Request(type):
                     data = getattr(request, content_type)
                     if data == None:
                         return HTTPError('Unaccepted Content-Type.', 415)
-                    kwargs.update({k: data.get(k) for k in keys})
+                    kwargs.update({k: data.get(change_style(k)) for k in keys})
                     kwargs.update(
                         {v: data.get(vars_dict[v])
                          for v in vars_dict})
@@ -28,3 +28,23 @@ class _Request(type):
 
 class Request(metaclass=_Request):
     pass
+
+
+def change_style(name):
+    '''Change naming style from snake_case to camelCase
+    '''
+    new_name = ''
+    i = 0
+    while i < len(name):
+        if name[i] == '_' and i + 1 < len(name) and name[i + 1].isalpha():
+            new_name += name[i + 1].upper()
+            i += 1
+        else:
+            new_name += name[i]
+
+        i += 1
+
+    return new_name
+
+
+print(change_style('he_is_a_noob'))
