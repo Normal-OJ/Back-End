@@ -1,9 +1,19 @@
 from mongo import engine
 from .utils import *
+from .user import User
 
 
 class Course:
-    pass
+    def __init__(self, course_name):
+        self.course_name = course_name
+
+    @property
+    def obj(self):
+        try:
+            obj = engine.Course.objects.get(course_name=self.course_name)
+        except:
+            return None
+        return obj
 
 
 def get_all_courses():
@@ -11,30 +21,27 @@ def get_all_courses():
 
 
 def delete_course(course):
-    co = get_obj(engine.Course, course_name=course)
-    if co == None:
+    co = Course(course).obj
+    if co is None:
         return "Course not found."
     co.delete()
 
 
 def add_course(course, teacher):
-    if get_obj(engine.Course, course_name=course) != None:
-        return "Course exists."
-
-    te = get_obj(engine.User, username=teacher)
-    if te == None:
+    te = User(teacher).obj
+    if te is None:
         return "User not found."
 
-    engine.Course(**{'course_name': course, 'teacher_id': te}).save()
+    engine.Course(**{'course_name': course, 'teacher': te}).save()
 
 
 def edit_course(course, new_course, teacher):
-    co = get_obj(engine.Course, course_name=course)
-    if co == None:
+    co = Course(course).obj
+    if co is None:
         return "Course not found."
 
-    te = get_obj(engine.User, username=teacher)
-    if te == None:
+    te = User(teacher).obj
+    if te is None:
         return "User not found."
 
     co.course_name = new_course
