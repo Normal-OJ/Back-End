@@ -52,7 +52,7 @@ def get_course(user, course_name):
     course = Course(course_name).obj
     if course is None:
         return HTTPError('Course not found.', 404)
-    if user.obj.role != 0 or course.teacher_id != user.obj:
+    if user.obj.role != 0 and course.teacher_id != user.obj:
         return HTTPError('Forbidden.', 403)
 
     @Request.json(['TAs', 'students'])
@@ -88,6 +88,10 @@ def get_course(user, course_name):
         for student, nickname in course.students.items():
             student_dict[student] = nickname
 
-        return HTTPResponse('Success.', data={"TAs": tas, "students": student_dict})
+        return HTTPResponse('Success.',
+                            data={
+                                "TAs": tas,
+                                "students": student_dict
+                            })
     else:
         return modify_course()
