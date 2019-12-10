@@ -26,6 +26,11 @@ def client_teacher(client):
     client.set_cookie('test.test', 'jwt', User('teacher').jwt)
     return client
 
+@pytest.fixture
+def client_student(client):
+    client.set_cookie('test.test', 'jwt', User('student').jwt)
+    return client
+
 
 @pytest.fixture
 def test_token():
