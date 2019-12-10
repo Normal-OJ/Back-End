@@ -1,15 +1,37 @@
 import pytest
+from model import course
+from mongo import User
+from model import course
+from tests.base_tester import BaseTester
 
-
-class TestAdminCourse:
+class TestAdminCourse(BaseTester):
     '''Test courses panel used my admins
     '''
-    def test_without_username_and_password(self, client):
-        # Signup without username and password
-        rv = client.post('/auth/signup', json={'password': 'test'})
-        json = rv.get_json()
-        assert rv.status_code == 400
-        assert json['status'] == 'err'
-        assert json['message'] == 'Signup Failed'
-        assert json['data']['email'] == 'Field is required'
-        assert json['data']['username'] == 'Field is required'
+    def test_admin_create_course(self, client):
+        # create admin
+        ADMIN = {
+            'username': 'admin',
+            'password': 'verysuperstrongandlongpasswordforadmin',
+            'email': 'i.am.admin@noj.tw'
+        }
+
+        admin = User.signup(**ADMIN)
+        admin.obj.update(active=True, role=0)
+
+        client.set_cookie('', 'jwt', admin.jwt)
+        rv = client.post('/course/',
+                         json={
+                             'course': 'Software testing (I)',
+                             'teacher': ADMIN['username']
+                         })
+
+        assert rv.status_code == 200
+
+    def test_normal_user_create_course(self, client):
+        NORMAL = {
+            'username': 'i_am_not_admin',
+            'password': 'pswd',
+            'email': 'normal@noj.tw'
+        }
+
+        assert User('test') is None
