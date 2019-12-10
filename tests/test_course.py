@@ -7,6 +7,8 @@ class TestAdminCourse:
     '''
     def test_view(self, client_test):
         # Get all courses
+        User('test').obj.update(role=0)  # Set to admin
+
         rv = client_test.get('/course')
         json = rv.get_json()
         assert json['message'] == 'Success.'
