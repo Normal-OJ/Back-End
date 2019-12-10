@@ -20,7 +20,7 @@ class TestAdminCourse(BaseTester):
         rv = client_admin.post('/course',
                                json={
                                    'course': 'math',
-                                   'teacher': 'testt'
+                                   'teacher': 'adminn'
                                })
         json = rv.get_json()
         assert json['message'] == 'User not found.'
@@ -32,7 +32,7 @@ class TestAdminCourse(BaseTester):
         rv = client_admin.post('/course',
                                json={
                                    'course': 'math',
-                                   'teacher': 'test'
+                                   'teacher': 'admin'
                                })
         json = rv.get_json()
         assert json['message'] == 'Success.'
@@ -41,14 +41,14 @@ class TestAdminCourse(BaseTester):
 
         rv = client_admin.get('/course')
         json = rv.get_json()
-        assert json['data'] == [{'course': 'math', 'teacher': 'test'}]
+        assert json['data'] == [{'course': 'math', 'teacher': 'admin'}]
 
     def test_add_with_existent_course_name(self, client_admin):
         # add a course with existent name
         rv = client_admin.post('/course',
                                json={
                                    'course': 'math',
-                                   'teacher': 'test'
+                                   'teacher': 'admin'
                                })
         json = rv.get_json()
         assert json['message'] == 'Course exists.'
@@ -61,7 +61,7 @@ class TestAdminCourse(BaseTester):
                               json={
                                   'course': 'history',
                                   'newCourse': 'PE',
-                                  'teacher': 'test'
+                                  'teacher': 'admin'
                               })
         json = rv.get_json()
         assert json['message'] == 'Course not found.'
@@ -74,7 +74,7 @@ class TestAdminCourse(BaseTester):
                               json={
                                   'course': 'math',
                                   'newCourse': 'PE',
-                                  'teacher': 'testt'
+                                  'teacher': 'adminn'
                               })
         json = rv.get_json()
         assert json['message'] == 'User not found.'
@@ -87,7 +87,7 @@ class TestAdminCourse(BaseTester):
                               json={
                                   'course': 'math',
                                   'newCourse': 'PE',
-                                  'teacher': 'test'
+                                  'teacher': 'admin'
                               })
         json = rv.get_json()
         assert json['message'] == 'Success.'
@@ -96,7 +96,7 @@ class TestAdminCourse(BaseTester):
 
         rv = client_admin.get('/course')
         json = rv.get_json()
-        assert json['data'] == [{'course': 'PE', 'teacher': 'test'}]
+        assert json['data'] == [{'course': 'PE', 'teacher': 'admin'}]
 
     def test_delete_with_invalid_course_name(self, client_admin):
         # delete a course with non-existent course name
