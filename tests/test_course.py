@@ -1,25 +1,11 @@
 import pytest
+from mongo.user import User
 
 
 class TestAdminCourse:
     '''Test courses panel used my admins
     '''
-    def test_signup_and_login(self, client, test_token):
-        '''client.post('/auth/signup',
-                            json={
-                                'username': 'test',
-                                'password': 'test',
-                                'email': 'test@test.test'
-                            })
-        client.set_cookie('test.test', 'jwt', test_token)
-        client.post(f'/auth/active',
-                            json={
-                                'profile': {
-                                    'displayedName': 'Test',
-                                    'bio': 'Hi',
-                                },
-                                'agreement': True
-                            })'''
+    def test_login(self, client, test_token):
         rv = client.post('/auth/session',
                          json={
                              'username': 'test',
@@ -29,6 +15,8 @@ class TestAdminCourse:
         assert rv.status_code == 200
         assert json['status'] == 'ok'
         assert json['message'] == 'Login Success'
+
+        User('test').obj.role = 0  # change the user to admin
 
     def test_view(self, client):
         # Get all courses
