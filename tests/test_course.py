@@ -1,5 +1,4 @@
 import pytest
-from mongo.user import User
 from tests.base_tester import BaseTester
 
 

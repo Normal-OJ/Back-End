@@ -22,6 +22,12 @@ def client_admin(client):
 
 
 @pytest.fixture
+def client_teacher(client):
+    client.set_cookie('test.test', 'jwt', User('teacher').jwt)
+    return client
+
+
+@pytest.fixture
 def test_token():
     # Token for user: test
     return 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJ0ZXN0LnRlc3QiLCJleHAiOjI0MzkzNjk2MzEsImRhdGEiOnsidXNlcm5hbWUiOiJ0ZXN0In19.jXZuwP6JJpIHCsAFjZAHove3FYwr2tRgFZYRIbAJhJo'

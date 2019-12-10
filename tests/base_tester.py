@@ -24,6 +24,15 @@ class BaseTester:
         admin = User.signup(**ADMIN)
         admin.obj.update(active=True, role=0)
 
+        TEACHER = {
+            'username': 'teacher',
+            'password': 'strongandlongpasswordforteacher',
+            'email': 'i.am.teacher@noj.tw'
+        }
+
+        teacher = User.signup(**TEACHER)
+        teacher.obj.update(active=True, role=1)
+
     @classmethod
     def teardown_class(cls):
         cls.drop_db()
