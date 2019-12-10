@@ -26,7 +26,7 @@ def get_courses(user):
             if r is not None:
                 return HTTPError(r, 404)
         except NotUniqueError as ne:
-            return HTTPError('Course exists', 400)
+            return HTTPError('Course exists.', 400)
 
         return HTTPResponse('Success.')
 
