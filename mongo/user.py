@@ -75,9 +75,13 @@ class User:
         }
         return jwt.encode(payload, JWT_SECRET, algorithm='HS256').decode()
 
+
 def jwt_decode(token):
     try:
-        json = jwt.decode(token, JWT_SECRET, issuer=JWT_ISS, algorithms='HS256')
+        json = jwt.decode(token,
+                          JWT_SECRET,
+                          issuer=JWT_ISS,
+                          algorithms='HS256')
     except jwt.exceptions.PyJWTError:
         return None
     return json
