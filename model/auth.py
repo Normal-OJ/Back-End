@@ -170,7 +170,7 @@ def active(token=None):
         json = jwt_decode(token)
         if json is None:
             return HTTPError('Invalid Token', 403)
-        return HTTPRedirect('/active', cookies={'jwt': token})
+        return HTTPRedirect('/email_verify', cookies={'jwt': token})
 
     methods = {'GET': redir, 'POST': update}
     return methods[request.method]()
