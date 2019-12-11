@@ -150,10 +150,12 @@ def active(token=None):
             return HTTPError('Not Confirm the Agreement', 403)
         json = jwt_decode(token)
         if json is None:
-            return HTTPError('Invalid token.', 403)
+            return HTTPError('Invalid Token.', 403)
         user = User(json['data']['username'])
         if user.user_id is None:
-            return HTTPError('User not exists.', 400)
+            return HTTPError('User Not Exists', 400)
+        if user.active:
+            return HTTPError('User Has Been Actived', 400)
         try:
             user.update(active=True,
                         profile={
@@ -161,8 +163,8 @@ def active(token=None):
                             'bio': profile.get('bio'),
                         })
         except ValidationError as ve:
-            return HTTPError('Failed.', 400, data=ve.to_dict())
-        return HTTPResponse('User Is Now Active')
+            return HTTPError('Failed', 400, data=ve.to_dict())
+        return HTTPResponse('User Is Now Active', cookies={'jwt': None})
 
     def redir():
         '''Redirect user to active page.
