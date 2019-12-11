@@ -27,6 +27,9 @@ class User:
             return None
         return obj.__getattribute__(name)
 
+    def __eq__(self, other):
+        return self.user_id == other.user_id
+
     @classmethod
     def signup(cls, username, password, email):
         user = cls(username)

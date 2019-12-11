@@ -22,7 +22,7 @@ class BaseTester:
         }
 
         admin = User.signup(**ADMIN)
-        admin.obj.update(active=True, role=0)
+        admin.update(active=True, role=0)
 
         TEACHER = {
             'username': 'teacher',
@@ -31,7 +31,7 @@ class BaseTester:
         }
 
         teacher = User.signup(**TEACHER)
-        teacher.obj.update(active=True, role=1)
+        teacher.update(active=True, role=1)
 
         STUDENT = {
             'username': 'student',
@@ -40,7 +40,7 @@ class BaseTester:
         }
 
         student = User.signup(**STUDENT)
-        student.obj.update(active=True, role=2)
+        student.update(active=True, role=2)
 
     @classmethod
     def teardown_class(cls):
