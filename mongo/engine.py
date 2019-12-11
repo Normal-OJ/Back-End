@@ -66,3 +66,24 @@ class Course(Document):
     # homework_ids = ListField(ReferenceField('Homework'), db_field='homeworkIds')
     # announcement_ids = ListField(ReferenceField('Announcement'), db_field='announcementIds')
     # post_ids = ListField(ReferenceField('Post'), db_field='postIds')
+
+class TestCase(EmbeddedDocument):
+    status = IntField(required=True)
+    exec_time = IntField(required=True)
+    memory_usage = IntField(required=True)
+    stdout = StringField(required=True)
+    stderr = StringField(required=True)
+
+class Submission(Document):
+    submission_id = IntField(required=True, unique=True)
+    problem_id = StringField(required=True)
+    user = ReferenceField(User, required=True)
+    language = IntField(required=True)
+    timestamp = DateTimeField(required=True)
+    problem_status = IntField(required=True)
+    problem_score = IntField(required=True)
+    cases = ListField(EmbeddedDocumentField(TestCase))
+    exec_time = IntField(required=True)
+    memory_usage = IntField(required=True)
+    code = StringField(required=True)
+    wait_for_judge = BooleanField(required=True,default=False)
