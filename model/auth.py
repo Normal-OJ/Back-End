@@ -109,7 +109,7 @@ def signup(username, password, email):
         return HTTPError('Signup Failed', 400, data=ve.to_dict())
     except NotUniqueError as ne:
         return HTTPError('User Exists', 400)
-    verify_link = f'https://noj.tw/email_verify/{user.jwt}'
+    verify_link = f'https://noj.tw/api/auth/active/{user.jwt}'
     send_noreply([email], '[N-OJ] Varify Your Email', verify_link)
     return HTTPResponse('Signup Success')
 
