@@ -1,6 +1,10 @@
-from mongo import engine
+from . import engine
+from .user import *
 from .utils import *
-from .user import User
+
+__all__ = [
+    'Course', 'get_all_courses', 'delete_course', 'add_course', 'edit_course'
+]
 
 
 class Course:

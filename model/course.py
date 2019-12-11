@@ -1,9 +1,10 @@
 from flask import Blueprint, request
 
-from .utils import HTTPResponse, HTTPError, Request
-from mongo.course import *
+from mongo import *
 from .auth import *
-from mongoengine.errors import NotUniqueError
+from .utils import *
+
+__all__ = ['course_api']
 
 course_api = Blueprint('course_api', __name__)
 
