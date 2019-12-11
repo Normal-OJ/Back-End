@@ -1,7 +1,9 @@
 from flask import Blueprint
 
-from .auth import login_required, identity_verify
-from .utils import HTTPResponse
+from .auth import *
+from .utils import *
+
+__all__ = ['test_api']
 
 test_api = Blueprint('test_api', __name__)
 

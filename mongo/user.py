@@ -1,11 +1,15 @@
 from datetime import datetime, timedelta
-from .utils import hash_id
+from hmac import compare_digest
+
 from . import engine
+from .utils import *
 
 import hashlib
 import html
 import jwt
 import os
+
+__all__ = ['User', 'jwt_decode']
 
 JWT_EXP = timedelta(days=int(os.environ.get('JWT_EXP', '30')))
 JWT_ISS = os.environ.get('JWT_ISS', 'test.test')
@@ -16,29 +20,36 @@ class User:
     def __init__(self, username):
         self.username = html.escape(username or '') or username
 
+    def __getattr__(self, name):
+        try:
+            obj = engine.User.objects.get(username=self.username)
+        except engine.DoesNotExist:
+            return None
+        return obj.__getattribute__(name)
+
     @classmethod
     def signup(cls, username, password, email):
         user = cls(username)
         user_id = hash_id(user.username, password)
-        engine.User(
-            **{
-                'user_id': user_id,
-                'username': user.username,
-                'email': email,
-                'active': False
-            }).save()
+        engine.User(user_id=user_id,
+                    username=user.username,
+                    email=email,
+                    active=False).save()
         return user
 
     @classmethod
     def login(cls, username, password):
-        if cls(username).obj == None:
-            username = cls.get_username_by_email(username)
-            if username == None:
-                return None
+        # try to find a user by username
         user = cls(username)
-        obj = user.obj
+        if user.user_id is None:
+            # try to find a user by email
+            username = cls.get_username_by_email(username)
+            if username is None:
+                return None
+            user = cls(username)
+        # checking password hash
         user_id = hash_id(user.username, password)
-        if obj and obj.user_id == user_id:
+        if compare_digest(user.user_id, user_id):
             return user
         return None
 
@@ -51,29 +62,26 @@ class User:
         return obj.username
 
     @property
-    def obj(self):
-        try:
-            obj = engine.User.objects.get(username=self.username)
-        except:
-            return None
-        return obj
-
-    @property
-    def is_valid(self):
-        obj = self.obj
-        return obj if obj == None else obj.active
-
-    @property
     def jwt(self):
-        obj = self.obj
-        if obj == None:
-            return {}
-        obj = obj.to_mongo()
+        if self.user_id is None:
+            return ''
+        user = self.to_mongo()
         keys = ['username', 'email', 'profile', 'editorConfig']
-        data = {k: obj.get(k) for k in keys}
+        data = {k: user.get(k) for k in keys}
         payload = {
             'iss': JWT_ISS,
             'exp': datetime.utcnow() + JWT_EXP,
             'data': data
         }
         return jwt.encode(payload, JWT_SECRET, algorithm='HS256').decode()
+
+
+def jwt_decode(token):
+    try:
+        json = jwt.decode(token,
+                          JWT_SECRET,
+                          issuer=JWT_ISS,
+                          algorithms='HS256')
+    except jwt.exceptions.PyJWTError:
+        return None
+    return json

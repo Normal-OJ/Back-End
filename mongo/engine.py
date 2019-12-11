@@ -1,8 +1,9 @@
 from mongoengine import *
-from mongoengine.fields import *
-from mongoengine.connection import *
 
+import mongoengine
 import os
+
+__all__ = [*mongoengine.__all__]
 
 MONGO_HOST = os.environ.get('MONGO_HOST', 'mongomock://localhost')
 connect('normal-oj', host=MONGO_HOST)
