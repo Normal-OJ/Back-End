@@ -1,4 +1,5 @@
 from app import app as flask_app
+from mongo.user import User
 
 import os
 import pytest
@@ -12,6 +13,24 @@ def app():
 @pytest.fixture
 def client(app):
     return app.test_client()
+
+
+@pytest.fixture
+def client_admin(client):
+    client.set_cookie('test.test', 'jwt', User('admin').jwt)
+    return client
+
+
+@pytest.fixture
+def client_teacher(client):
+    client.set_cookie('test.test', 'jwt', User('teacher').jwt)
+    return client
+
+
+@pytest.fixture
+def client_student(client):
+    client.set_cookie('test.test', 'jwt', User('student').jwt)
+    return client
 
 
 @pytest.fixture
