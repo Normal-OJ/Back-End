@@ -1,24 +1,24 @@
 # Course
 
-## Login
+## Add course
 
 > Example request body (DATA):
 
 ```json
 {
-  "username": "test",
-  "password": "test",
+  "course": "test",
+  "teacher": "test",
 }
 ```
 
 > Example request:
 
 ```python
-print(requests.post('API_BASE_URL/auth/session', json=DATA).json())
+print(requests.post('API_BASE_URL/course', json=DATA).json())
 ```
 
 ```javascript
-axios.post('API_BASE_URL/auth/session', DATA)
+axios.post('API_BASE_URL/course', DATA)
   .then(response => console.log(response.data))
   .catch(error => console.log(error.response.data));
 ```
@@ -28,23 +28,23 @@ axios.post('API_BASE_URL/auth/session', DATA)
 ```json
 {
   "data": null,
-  "message": "Login Success",
+  "message": "Success.",
   "status": "ok"
 }
 ```
 
-Create a session.
+Create a course.
 
 ### HTTP Request
 
-`POST /auth/session`
+`POST /auth/course`
 
 ### Request Body
 
 Property | Type | Required | Description
 -------- | ---- | -------- | -----------
-username | String | Required | Username or **email**
-password | String | Required | Password
+course | String | Required | course name
+teacher | String | Required | username
 
 ## Logout
 
