@@ -34,6 +34,9 @@ class EditorConfig(EmbeddedDocument):
                         max_value=8)
     language = IntField(default=0, choices=[0, 1, 2])
 
+class Duration(EmbeddedDocument):
+    start =  DateTimeField()
+    end = DateTimeField()
 
 class User(Document):
     user_id = StringField(db_field='userId',
