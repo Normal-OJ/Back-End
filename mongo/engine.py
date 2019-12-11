@@ -7,7 +7,8 @@ from datetime import datetime
 __all__ = [*mongoengine.__all__]
 
 MONGO_HOST = os.environ.get('MONGO_HOST', 'mongomock://localhost')
-connect('normal-oj', host=MONGO_HOST)
+#connect('normal-oj', host=MONGO_HOST)
+connect('normal-oj', host='localhost',port=27017)
 
 
 class Profile(EmbeddedDocument):
