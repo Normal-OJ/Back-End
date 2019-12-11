@@ -32,11 +32,11 @@ def delete_course(course):
 
 
 def add_course(course, teacher):
-    te = User(teacher)
-    if te.id is None:
+    te = User(teacher).obj
+    if te is None:
         return "User not found."
 
-    engine.Course(course_name=course, teacher=te.to_mongo()).save()
+    engine.Course(course_name=course, teacher=te).save()
 
 
 def edit_course(course, new_course, teacher):
@@ -44,8 +44,8 @@ def edit_course(course, new_course, teacher):
     if co is None:
         return "Course not found."
 
-    te = User(teacher)
-    if te.id is None:
+    te = User(teacher).obj
+    if te is None:
         return "User not found."
 
     co.course_name = new_course

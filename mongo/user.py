@@ -30,6 +30,14 @@ class User:
     def __eq__(self, other):
         return self.user_id == other.user_id
 
+    @property
+    def obj(self):
+        try:
+            obj = engine.User.objects.get(username=self.username)
+        except:
+            return None
+        return obj
+
     @classmethod
     def signup(cls, username, password, email):
         user = cls(username)
