@@ -7,8 +7,8 @@ from datetime import datetime
 __all__ = [*mongoengine.__all__]
 
 MONGO_HOST = os.environ.get('MONGO_HOST', 'mongomock://localhost')
-#connect('normal-oj', host=MONGO_HOST)
-connect('normal-oj', host='localhost',port=27017)
+connect('normal-oj', host=MONGO_HOST)
+#connect('normal-oj', host='localhost',port=27017)
 
 
 class Profile(EmbeddedDocument):
@@ -72,14 +72,15 @@ class Homework(Document):
     student_status = DictField(db_field='studentStatus')
 
 class Course(Document):
+    #student_nicknames = DictField(db_field='studentNicknames')
     course_status = IntField(default=0, choices=[0, 1])
+    students = DictField(db_field='students')
     course_name = StringField(max_length=64,
                               required=True,
                               unique=True,
                               db_field='courseName')
     teacher = ReferenceField('User', db_field='teacher')
     tas = ListField(ReferenceField('User'), db_field='tas')
-    student_nicknames = DictField(db_field='studentNicknames')
     # contest_ids = ListField(ReferenceField('Contest'), db_field='contestIds')
     homework = ListField(ReferenceField('Homework', reverse_delete_rule=PULL),
                          db_field='homeworkIds')
