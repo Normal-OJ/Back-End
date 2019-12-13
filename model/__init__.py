@@ -14,5 +14,5 @@ from .homework import *
 
 __all__ = [
     *auth.__all__, *course.__all__, *profile.__all__, *submission.__all__,
-    *test.__all__
+    *test.__all__,*homework.__all__
 ]

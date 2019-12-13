@@ -35,9 +35,11 @@ class EditorConfig(EmbeddedDocument):
                         max_value=8)
     language = IntField(default=0, choices=[0, 1, 2])
 
+
 class Duration(EmbeddedDocument):
-    start =  DateTimeField()
+    start = DateTimeField()
     end = DateTimeField()
+
 
 class User(Document):
     user_id = StringField(db_field='userId',
@@ -57,6 +59,7 @@ class User(Document):
     course_ids = ListField(ReferenceField('Course'), db_field='courseIds')
     # submission_ids = ListField(ReferenceField('Submission'), db_field='submissionIds')
     last_submit = DateTimeField(default=datetime.min)
+
 
 class Homework(Document):
     name = StringField(max_length=64, required=True, db_field='homeworkName')
@@ -82,6 +85,7 @@ class Course(Document):
     teacher = ReferenceField('User', db_field='teacher')
     tas = ListField(ReferenceField('User'), db_field='tas')
     # contest_ids = ListField(ReferenceField('Contest'), db_field='contestIds')
+    #reverse_delete_rule:CASCADE->delete the doc and the referenced object
     homework = ListField(ReferenceField('Homework', reverse_delete_rule=PULL),
                          db_field='homeworkIds')
     # announcement_ids = ListField(ReferenceField('Announcement'), db_field='announcementIds')

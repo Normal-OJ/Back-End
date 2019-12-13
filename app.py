@@ -16,4 +16,3 @@ app.register_blueprint(hw_api, url_prefix='/homework')
 
 if __name__ == '__main__':
     app.run('localhost')
-
