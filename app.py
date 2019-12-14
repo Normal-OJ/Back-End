@@ -15,4 +15,4 @@ app.register_blueprint(submission_api, url_prefix='/submission')
 app.register_blueprint(hw_api, url_prefix='/homework')
 
 if __name__ == '__main__':
-    app.run('localhost')
+    app.run()
