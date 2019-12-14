@@ -11,6 +11,7 @@ app.register_blueprint(auth_api, url_prefix='/auth')
 app.register_blueprint(test_api, url_prefix='/test')
 app.register_blueprint(profile_api, url_prefix='/profile')
 app.register_blueprint(course_api, url_prefix='/course')
+app.register_blueprint(submission_api, url_prefix='/submission')
 
 if __name__ == '__main__':
     app.run()
