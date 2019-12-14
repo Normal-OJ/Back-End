@@ -52,6 +52,7 @@ class User(Document):
     # contest_id = ReferenceField('Contest', db_field='contestId')
     course_ids = ListField(ReferenceField('Course'), db_field='courseIds')
     # submission_ids = ListField(ReferenceField('Submission'), db_field='submissionIds')
+    last_submit = DateTimeField(default=datetime.min)
 
 
 class Course(Document):
