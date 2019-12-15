@@ -1,6 +1,6 @@
 from flask import Blueprint, request
 import jwt
-from .auth import login_required
+from .auth import *
 from mongo import User, HomeWork
 from .utils import HTTPResponse, HTTPRedirect, HTTPError, Request
 import os
@@ -13,63 +13,94 @@ __all__ = ['hw_api']
 hw_api = Blueprint('hw_api', __name__)
 
 
-@hw_api.route('/admin/course/<course_name>/homework',
-              methods=['POST', 'PUT', 'DELETE'])
-@Request.json('name', 'markdown', 'start', 'end', 'problemIds',
+@hw_api.route('/<course_name>',
+              methods=['POST', 'PUT', 'DELETE','GET'])
+@Request.json('name','newname', 'markdown', 'start', 'end', 'problemIds',
               'scoreboardStatus')
 @login_required
-def add_hw(user,
+def add_hw(user,           
            course_name,
            markdown,
            name,
+           newname,
            start,
            end,
            problemIds,
            scoreboardStatus=0):
+    scoreboard_status = scoreboardStatus
     if request.method == 'POST':
         try:
-            homework = HomeWork.add_hw(course_name, name, start, end,
-                                       problemIds, scoreboardStatus)
+            verify = identity_verify(2);
+            homework = HomeWork.add_hw(course_name, markdown, name, start, end,
+                                       problemIds, scoreboard_status)
+        except FileExistsError:
+            return HTTPError('homework exists in this course', 400)
         except Exception as ex:
-            return HTTPError(ex, 500)
+            return (ex,500)            
         return HTTPResponse('Add homework Success',
                             200,
                             'ok',
                             data={
-                                'name': homework.homeworkName,
+                                'name': homework.name,
                                 "start": homework.duration.start,
                                 "end": homework.duration.end,
-                                "problemIds": homework.problemIds
+                                "problemIds": homework.problem_ids
                             })
     if request.method == 'PUT':
         try:
-            homework = HomeWork.update(course_name, name, start, end,
-                                       problemIds, scoreboardStatus)
+            verify = identity_verify(2);
+            homework = HomeWork.update(course_name, markdown, name, newname, start, end,
+                                       problemIds, scoreboard_status)
+        except FileNotFoundError:
+            return HTTPResponse('course not exist',404)
+        except FileExistsError:
+            return HTTPResponse('the homework with the same name exists in this course',400)
         except Exception as ex:
             return HTTPError(ex, 500)
         return HTTPResponse('Update homework Success',
                             200,
                             'ok',
                             data={
-                                'name': homework.homeworkName,
+                                'name': homework.name,
                                 "start": homework.duration.start,
                                 "end": homework.duration.end,
-                                "problemIds": homework.problemIds
+                                "problemIds": homework.problem_ids
                             })
     if request.method == 'DELETE':
         try:
-            homework = HomeWork.deleteProblems(course_name, name)
+            verify = identity_verify(2);
+            homework = HomeWork.delete_problems(course_name, name)
         except Exception as ex:
             return HTTPError(ex, 500)
         return HTTPResponse('Delete homework Success',
                             200,
                             'ok',
                             data={
-                                'name': homework.homeworkName,
+                                'name': homework.name,
                                 "start": homework.duration.start,
                                 "end": homework.duration.end,
-                                "problemIds": homework.problemIds
+                                "problemIds": homework.problem_ids
                             })
+    if request.method == 'GET':
+         try:
+            homeworks = HomeWork.getHomeworks(course_name)
+            data = []
+            homework = {}
+            for i in range(0, len(homeworks)):
+                homework = {
+                    "name": homeworks[i].name,
+                    "markdown": homeworks[i].markdown,
+                    "start": homeworks[i].duration.start,
+                    "end": homeworks[i].duration.end,
+                    "problemIds": homeworks[i].problem_ids,
+                    "scoreboard_status": homeworks[i].scoreboard_status
+                }
+                if (user.role == 1):
+                    homework["studentStatus"] = homeworks[i].student_status
+                data.append(homework)
+         except Exception as ex:
+             return HTTPError(ex, 500)
+         return HTTPResponse('get homeworks', 200, 'ok', data)
 
 
 @hw_api.route('/<course_name>/homework', methods=['GET'])
@@ -81,15 +112,15 @@ def get_hw_in_course(user, course_name):
         homework = {}
         for i in range(0, len(homeworks)):
             homework = {
-                "name": homeworks[i].homeworkName,
+                "name": homeworks[i].name,
                 "markdown": homeworks[i].markdown,
                 "start": homeworks[i].duration.start,
                 "end": homeworks[i].duration.end,
-                "problemIds": homeworks[i].problemIds,
-                "scoreboardStatus": homeworks[i].scoreboardStatus
+                "problemIds": homeworks[i].problem_ids,
+                "scoreboard_status": homeworks[i].scoreboard_status
             }
             if (user.role == 1):
-                homework["studentStatus"] = homeworks[i].studentStatus
+                homework["studentStatus"] = homeworks[i].student_status
             data.append(homework)
     except Exception as ex:
         return HTTPError(ex, 500)
@@ -107,8 +138,8 @@ def get_homework(user, id):
                         200,
                         'ok',
                         data={
-                            "name": homework.homeworkName,
+                            "name": homework.name,
                             "start": homework.duration.start,
                             "end": homework.duration.end,
-                            "problemIds": homework.problemIds
+                            "problemIds": homework.problem_ids
                         })

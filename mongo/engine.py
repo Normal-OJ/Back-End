@@ -7,8 +7,8 @@ from datetime import datetime
 __all__ = [*mongoengine.__all__]
 
 MONGO_HOST = os.environ.get('MONGO_HOST', 'mongomock://localhost')
-connect('normal-oj', host=MONGO_HOST)
-#connect('normal-oj', host='localhost',port=27017)
+#connect('normal-oj', host=MONGO_HOST)
+connect('normal-oj', host='localhost',port=27017)
 
 
 class Profile(EmbeddedDocument):
@@ -56,7 +56,7 @@ class User(Document):
                                           default=EditorConfig,
                                           null=True)
     # contest_id = ReferenceField('Contest', db_field='contestId')
-    course_ids = ListField(ReferenceField('Course'), db_field='courseIds')
+    course_ids = ListField(ReferenceField('Course'), db_field='course_ids')
     # submission_ids = ListField(ReferenceField('Submission'), db_field='submissionIds')
     last_submit = DateTimeField(default=datetime.min)
 
