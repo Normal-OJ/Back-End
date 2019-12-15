@@ -87,31 +87,6 @@ def add_hw(user,
             return HTTPError(ex, 500)
         return HTTPResponse('get homeworks', 200, 'ok', data)
 
-
-#@hw_api.route('/<course_name>', methods=['GET'])
-#@login_required
-#def get_hw_in_course(user, course_name):
-#    try:
-#        homeworks = HomeWork.getHomeworks(course_name)
-#        data = []
-#        homework = {}
-#        for i in range(0, len(homeworks)):
-#            homework = {
-#                "name": homeworks[i].name,
-#                "markdown": homeworks[i].markdown,
-#                "start": homeworks[i].duration.start,
-#                "end": homeworks[i].duration.end,
-#                "problemIds": homeworks[i].problem_ids,
-#                "scoreboard_status": homeworks[i].scoreboard_status
-#            }
-#            if (user.role == 1):
-#                homework["studentStatus"] = homeworks[i].student_status
-#            data.append(homework)
-#    except Exception as ex:
-#        return HTTPError(ex, 500)
-#    return HTTPResponse('get homeworks', 200, 'ok', data)
-
-
 @hw_api.route('/get/<id>', methods=['GET'])
 @login_required
 def get_homework(user, id):

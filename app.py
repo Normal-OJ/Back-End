@@ -1,5 +1,4 @@
 from flask import Flask
-
 from model import *
 
 # Create a flask app
