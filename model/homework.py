@@ -87,6 +87,7 @@ def add_hw(user,
             return HTTPError(ex, 500)
         return HTTPResponse('get homeworks', 200, 'ok', data)
 
+
 @hw_api.route('/get/<id>', methods=['GET'])
 @login_required
 def get_homework(user, id):
