@@ -45,5 +45,5 @@ def edit_profile(user, displayed_name, bio):
     except:
         return HTTPError('Upload fail.', 400)
 
-    cookies = {'piann_httponly': token, 'jwt': user.info}
+    cookies = {'piann_httponly': user.jwt, 'jwt': user.info}
     return HTTPResponse('Uploaded.', cookies=cookies)
