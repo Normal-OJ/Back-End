@@ -1,6 +1,7 @@
 import pytest
 import io
 import os
+import itertools
 
 from zipfile import ZipFile
 from datetime import datetime
@@ -28,6 +29,7 @@ class TestSubmissionUtils:
 
 
 class SubmissionTester(BaseTester):
+    init_submission_count = 5
     source = {
         'c11': {
             'lang': 0,
@@ -63,6 +65,15 @@ class SubmissionTester(BaseTester):
             'zip': None
         }
     }
+
+    @classmethod
+    def submission_request(cls, client, method, url, **ks):
+        func = getattr(client, method)
+        rv = func(url, **ks)
+        rv_json = rv.get_json()
+        rv_data = rv_json['data']
+
+        return rv, rv_json, rv_data
 
     @classmethod
     def lang_to_code(cls, lang: str):
@@ -122,6 +133,8 @@ class SubmissionTester(BaseTester):
     @pytest.fixture(autouse=True)
     def setup_class(cls, tmp_path):
         super().setup_class()
+
+        # prepare problem data
         SubmissionTester.path = tmp_path
         cls.prepare_problem()
 
@@ -131,16 +144,123 @@ class SubmissionTester(BaseTester):
         submission.SOURCE_PATH = submission.SOURCE_PATH.absolute()
         os.makedirs(submission.SOURCE_PATH, exist_ok=True)
 
+        # new user: teacher-2 & student-2
+        TEACHER2 = {
+            'username': 'teacher-2',
+            'password': 'Sup3r53cRet4ndV3rys+rongpassw0rdforanotherteacher',
+            'email': 'i.am.another.teacher@noj.tw'
+        }
+
+        teacher = User.signup(**TEACHER2)
+        teacher.update(active=True, role=1)
+
+        STUDENT2 = {
+            'username': 'student-2',
+            'password': 'this_password_is_not_so_strong',
+            'email': 'i.am.another.student@noj.tw'
+        }
+
+        student = User.signup(**STUDENT2)
+        student.update(active=True)
+
+        # insert some submission into db
+        cls.submissions = []
+        names = itertools.cycle(
+            ['student', 'teacher', 'admin', 'teacher-2', 'student-2'])
+        pids = itertools.cycle(['6666', '8888', '55688'])
+        for _, name, pid in zip('x' * SubmissionTester.init_submission_count,
+                                names, pids):
+            lang = 0
+            now = datetime.now()
+            _id = Submission.add(problem_id=pid,
+                                 user=User(name).obj,
+                                 lang=lang,
+                                 timestamp=now)
+            cls.submissions.append({
+                'submissionId': _id,
+                'problemId': pid,
+                'username': name,
+                'lang': lang,
+                'timestamp': now
+            })
+
+    @classmethod
+    def teardown_class(cls):
+        cls.submissions = []
+        return super().teardown_class()
+
 
 class TestGetSubmission(SubmissionTester):
+    def test_normal_get_submission_list(self, client):
+        rv, rv_json, rv_data = self.submission_request(
+            client, 'get',
+            f'/submission/?offset=0&count={SubmissionTester.init_submission_count}'
+        )
+
+        pprint(rv_json)
+
+        assert rv.status_code == 200
+        assert len(rv_data) == SubmissionTester.init_submission_count
+
+        excepted_field_names = sorted([
+            'submissionId', 'problemId', 'username', 'status', 'score',
+            'runTime', 'memoryUsage', 'languageType', 'timestamp'
+        ])
+
+        for s in rv_data:
+            assert sorted(s.keys()) == excepted_field_names
+
+    def test_get_truncated_submission_list(self, client):
+        rv, rv_json, rv_data = self.submission_request(
+            client, 'get', f'/submission/?offset=0&count=1')
+
+        pprint(rv_json)
+
+        assert len(rv_data) == 1
+
+    def test_get_submission_list_over_db_size(self, client):
+        rv, rv_json, rv_data = self.submission_request(
+            client, 'get',
+            f'/submission/?offset=0&count={SubmissionTester.init_submission_count ** 2}'
+        )
+
+        pprint(rv_json)
+
+        assert rv.status_code == 200
+        assert len(rv_data) == SubmissionTester.init_submission_count
+
     def test_get_submission_without_login(self, client):
-        pass
+        rv = client.get(f'/submission/{self.submissions[0]["submissionId"]}')
+        assert rv.status_code == 403
 
-    def test_get_other_submission(self):
-        pass
+    def test_normal_user_get_others_submission(self, client_student):
+        '''
+        let student get all other's submission
+        '''
+        ids = [
+            s['submissionId'] for s in self.submissions
+            if s['username'] != 'student'
+        ]
+        pprint(ids)
 
-    def test_get_self_submission(self):
-        pass
+        for _id in ids:
+            rv, rv_json, rv_data = self.submission_request(
+                client_student, 'get', f'/submission/{_id}')
+            assert rv.status_code == 200
+            assert 'code' not in rv_data
+
+    def test_get_self_submission(self, client_student):
+        ids = [
+            s['submissionId'] for s in self.submissions
+            if s['username'] == 'student'
+        ]
+        pprint(ids)
+
+        for _id in ids:
+            rv, rv_json, rv_data = self.submission_request(
+                client_student, 'get', f'/submission/{_id}')
+            assert rv.status_code == 200
+            assert 'code' in rv_data
 
 
 class TestCreateSubmission(SubmissionTester):
@@ -149,15 +269,15 @@ class TestCreateSubmission(SubmissionTester):
         # first claim a new submission to backend server
         post_json = {'problemId': '8888', 'languageType': submission['lang']}
         # recieve response, which include the submission id and a token to validat next request
-        rv = client_student.post('/submission', json=post_json)
-        rv_json = rv.get_json()
-        rv_data = rv_json['data']
+        rv, rv_json, rv_data = self.submission_request(client_student,
+                                                       'post',
+                                                       '/submission',
+                                                       json=post_json)
 
         pprint(f'post: {rv_json}')
 
-        assert 'token' in rv_data
-        assert 'submissionId' in rv_data
         assert rv.status_code == 200
+        assert sorted(rv_data.keys()) == sorted(['token', 'submissionId'])
 
         # second, post my source code to server. after that, my submission will send to sandbox to be judged
         files = {'code': (submission['zip'], 'code')}
@@ -170,26 +290,82 @@ class TestCreateSubmission(SubmissionTester):
 
         assert rv.status_code == 200
 
-    def test_wrong_language_type(self):
+    def test_wrong_language_type(self, client_student):
+        submission = self.source['c11']
+        post_json = {'problemId': '8888', 'languageType': 2}  # 2 for py3
+        rv, rv_json, rv_data = self.submission_request(client_student,
+                                                       'post',
+                                                       '/submission',
+                                                       json=post_json)
+
+        pprint(f'post: {rv_json}')
+
+        files = {'code': (submission['zip'], 'code')}
+        rv = client_student.put(
+            f'/submission/{rv_data["submissionId"]}?token={rv_data["token"]}',
+            data=files)
+        rv_json = rv.get_json()
+
+        pprint(f'put: {rv_json}')
+
+        assert rv.status_code == 200
+
+    def test_empty_source(self, client_student):
+        submission = self.source['c11']
+        post_json = {'problemId': '8888', 'languageType': submission['lang']}
+        rv, rv_json, rv_data = self.submission_request(client_student,
+                                                       'post',
+                                                       '/submission',
+                                                       json=post_json)
+
+        pprint(f'post: {rv_json}')
+
+        files = {'code': (None, 'code')}
+        rv = client_student.put(
+            f'/submission/{rv_data["submissionId"]}?token={rv_data["token"]}',
+            data=files)
+        rv_json = rv.get_json()
+
+        pprint(f'put: {rv_json}')
+
+        assert rv.status_code == 400
+
+    @pytest.mark.parametrize('submission', SubmissionTester.source.values())
+    def test_no_source_upload(self, client_student, submission):
+        post_json = {'problemId': '8888', 'languageType': submission['lang']}
+        rv, rv_json, rv_data = self.submission_request(client_student,
+                                                       'post',
+                                                       '/submission',
+                                                       json=post_json)
+
+        pprint(f'post: {rv_json}')
+
+        files = {'c0d3': (submission['zip'], 'code')}
+        rv = client_student.put(
+            f'/submission/{rv_data["submissionId"]}?token={rv_data["token"]}',
+            data=files)
+        rv_json = rv.get_json()
+
+        pprint(f'put: {rv_json}')
+
+        assert rv.status_code == 400
+
+    def test_reach_rate_limit(self, client_student):
+        submission = self.source['c11']
+        post_json = {'problemId': '8888', 'languageType': submission['lang']}
+        client_student.post('/submission', json=post_json)
+        rv = client_student.post('/submission', json=post_json)
+
+        assert rv.status_code == 429
+
+    def test_submit_to_non_participate_contest(self, client_student):
         pass
 
-    def test_empty_source(self):
-        pass
-
-    def test_no_source_upload(self):
-        pass
-
-    def test_reach_rate_limit(self):
-        pass
-
-    def test_submit_to_non_participate_contest(self):
-        pass
-
-    def test_submit_outside_when_user_in_contest(self):
+    def test_submit_outside_when_user_in_contest(self, client_student):
         '''
         submit a problem outside the contest when user is in contest
         '''
         pass
 
-    def test_submit_to_not_enrolled_course(self):
+    def test_submit_to_not_enrolled_course(self, client_student):
         pass
