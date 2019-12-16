@@ -105,6 +105,10 @@ class User:
         sign = hashlib.sha224(body.encode()).hexdigest()[:24]
         return '.'.join([head, body, sign])
 
+    def change_password(self, password):
+        user_id = hash_id(self.username, password)
+        self.update(user_id=user_id)
+
 
 def jwt_decode(token):
     try:

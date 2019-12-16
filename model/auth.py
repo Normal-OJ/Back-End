@@ -115,6 +115,21 @@ def signup(username, password, email):
     return HTTPResponse('Signup Success')
 
 
+@auth_api.route('/change-password', methods=['POST'])
+@login_required
+@Request.json('old_password', 'new_password')
+def change_password(user, old_password, new_password):
+    if new_password is None:
+        return HTTPError('Signup Failed',
+                         400,
+                         data={'newPassword': 'Field is required'})
+    if User.login(user.username, old_password) is None:
+        HTTPError('Wrong Password')
+    user.change_password(new_password)
+    cookies = {'piann': None, 'jwt': None}
+    return HTTPResponse('Password Has Been Changed', cookies=cookies)
+
+
 @auth_api.route('/check/<item>', methods=['POST'])
 def check(item):
     '''Checking when the user is registing.
@@ -137,7 +152,7 @@ def check(item):
 
 @auth_api.route('/resend-email', methods=['POST'])
 @Request.json('email')
-def resend_email():
+def resend_email(email):
     username = User.get_username_by_email(email)
     if username is None:
         return HTTPError('User Not Exists', 400)
