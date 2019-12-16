@@ -1,6 +1,7 @@
 import os
 import requests as rq
 import random
+import json
 from zipfile import ZipFile, is_zipfile
 from requests import status_codes
 from flask import Blueprint, request
@@ -70,38 +71,124 @@ def create_submission(user, language_type, problem_id):
                          })
 
     # insert submission to DB
-    submission_id = Submission.add(
-        problem_id=problem_id,
-        user=engine.User.objects.get(username=user.username),
-        lang=language_type,
-        timestamp=now)
+    try:
+        submission_id = Submission.add(
+            problem_id=problem_id,
+            user=engine.User.objects.get(username=user.username),
+            lang=language_type,
+            timestamp=now)
+    except ValidationError:
+        return HTTPError(f'invalid data!', 404)
+
+    user.update(last_submit=datetime.now())
 
     # generate token for upload file
     token = assign_token(submission_id)
     return HTTPResponse(
-        'submission recieved.\nplease send source code with the given token and submission id.',
+        'submission recieved.\n'
+        'please send source code with the given token and submission id.',
         data={
             'submissionId': submission_id,
             'token': token
         })
 
 
+@submission_api.route('/', methods=['GET'])
+@Request.args('offset', 'count', 'problem_id', 'submission_id', 'username',
+              'status', 'language_type')
+def get_submission_list(offset, count, problem_id, submission_id, username,
+                        status, language_type):
+    '''
+    get the list of submission data
+    include:
+        - submission id
+        - problem id
+        - timestamp
+        - status
+        - runtime
+        - score
+        - memory usage
+        - language
+    '''
+    if offset is None or count is None:
+        return HTTPError('offset and count are required!', 400)
+
+    # casting args
+    try:
+        offset = int(offset)
+        count = int(count)
+    except ValueError:
+        return HTTPError('offset and count must be integer!', 400)
+
+    # check range
+    if offset < 0:
+        return HTTPError('offset must >= 0!', 400)
+    if count < -1:
+        return HTTPError('count must >=-1!', 400)
+
+    # query all
+    submissions = engine.Submission.objects.order_by('-timestamp')
+
+    # filter query result
+    if problem_id:
+        submissions = submissions.get(problem_id=problem_id)
+    if submission_id:
+        submissions = submissions.get(id=submission_id)
+    if status:
+        submissions = submissions.get(status=status)
+    if language_type:
+        submissions = submissions.get(language=language_type)
+    if username:
+        submissions = submissions.get(user=User(username=username).obj)
+
+    if offset > len(submissions):
+        return HTTPError(f'offset ({offset}) is out of range!')
+
+    right = min(len(submissions), offset +
+                count) if count != -1 else len(submissions)
+    submissions = submissions[offset:right]
+
+    usernames = [*map(lambda s: s.user.username, submissions)]
+    submissions = submissions.to_json()
+    submissions = json.loads(submissions)
+
+    for s, n in zip(submissions, usernames):
+        del s['code']
+        del s['cases']
+
+        # replace user field with username
+        s['username'] = n
+        del s['user']
+
+        s['timestamp'] = s['timestamp']['$date']
+
+        # field name convertion
+        curr = ['memory_usage', 'exec_time', 'problem_id', '_id', 'language']
+        want = [
+            'memoryUsage', 'runTime', 'problemId', 'submissionId',
+            'languageType'
+        ]
+        for c, w in zip(curr, want):
+            s[w] = s[c]
+            del s[c]
+
+    return HTTPResponse(data=submissions)
+
+
 @submission_api.route('/<submission_id>', methods=['GET'])
-@Request.cookies('jwt')
-def submission_entry(jwt, submission_id):
-    ret = Submission(submission_id).to_mongo()
+@login_required
+def get_submission(user, submission_id):
+    submission = Submission(submission_id)
+    ret = submission.to_json()
+    ret = json.loads(ret)
 
-    # guest
-    if jwt is None:
-        del ret['code']
-    else:
-        # get the username who send request
-        username = jwt_decode(jwt)['data']['username']
-        submission = Submission(submission_id)
-
-        # if view other submission
-        if submission.user.username != username:
+    if submission.user.username != user.username:
+        # normal user can not view other's source
+        if user.role == 2:
             del ret['code']
+        # TODO: teachers and TAs can view those who in thrie courses
+        elif user.role == 1:
+            pass
 
     return HTTPResponse(data=ret)
 
@@ -110,7 +197,7 @@ def submission_entry(jwt, submission_id):
 @login_required
 @Request.args('token')
 def update_submission(user, submission_id, token):
-    def judgement():
+    def judgement(submission):
         '''
         send submission data to sandbox
         '''
@@ -122,7 +209,7 @@ def update_submission(user, submission_id, token):
         token = assign_token(submission_id)
 
         post_data = {
-            'lang': Submission(submission_id).language,
+            'lang': submission.language,
             'submission_id': submission_id,
             'token': token
         }
@@ -141,9 +228,7 @@ def update_submission(user, submission_id, token):
             return HTTPResponse('submission recieved.')
 
     @Request.files('code')
-    def recieve_source_file(code):
-        submission = Submission(submission_id)
-
+    def recieve_source_file(submission, code):
         # if source code found
         if code is not None:
             if submission.code:
@@ -159,37 +244,39 @@ def update_submission(user, submission_id, token):
                 # create submission folder
                 os.mkdir(submission_path)
                 # tmp file to store zipfile
-                tmp_path = f'/tmp/submission/{submission_id}/source.zip'
-                os.makedirs(os.path.dirname(tmp_path))
-                with open(tmp_path, 'wb') as f:
+                zip_path = f'/tmp/submission/{submission_id}/source.zip'
+                os.makedirs(os.path.dirname(zip_path))
+                with open(zip_path, 'wb') as f:
                     f.write(code.read())
-                with ZipFile(tmp_path, 'r') as f:
-                    if not is_zipfile(tmp_path):
-                        return HTTPError('only accept zip file', 400)
+                if not is_zipfile(zip_path):
+                    os.remove(zip_path)
+                    return HTTPError('only accept zip file', 400)
+                with ZipFile(zip_path, 'r') as f:
                     f.extractall(submission_path)
-                os.remove(tmp_path)
+                os.remove(zip_path)
                 submission.update(code=True)
 
-                return judgement()
+                return judgement(submission)
         else:
-            return HTTPError(f'can not find the source file\n', 400)
+            return HTTPError(f'can not find the source file', 400)
 
     @Request.json('score', 'problem_status', 'cases')
-    def recieve_submission_result(score, problem_status, cases):
-        submission = Submission(submission_id).update(
-            status=problem_status,
-            cases=cases,
-            exec_time=cases[-1]['execTime'],
-            memory_usage=cases[-1]['memoryUsage'])
-        if submission is None:
-            HTTPError(
-                f'Trying to update an unexisted submission [{submission_id}]',
-                404)
+    def recieve_submission_result(submission, score, problem_status, cases):
+        try:
+            submission.update(status=problem_status,
+                              cases=cases,
+                              exec_time=cases[-1]['execTime'],
+                              memory_usage=cases[-1]['memoryUsage'])
+        except ValidationError:
+            return HTTPError(f'invalid data!', 400)
         return HTTPResponse(f'submission [{submission_id}] result recieved.')
 
     ## put handler
     # validate this reques
     submission = Submission(submission_id)
+
+    if not submission.exist:
+        return HTTPError(f'{submission} not found!', 404)
 
     if submission.status >= 0:
         return HTTPError(
@@ -208,7 +295,7 @@ def update_submission(user, submission_id, token):
         err_msg = \
         '!!!!Warning!!!!\n'
         f'The user {user} (id: {user.user_id}) is trying to '
-        f'submit data to submission [{submission_id}], '
+        f'submit data to {submission}, '
         f'which shold belong to {submission.user.username} (id: {submission.user.user_id})'
         return HTTPError(err_msg,
                          403,
@@ -224,9 +311,9 @@ def update_submission(user, submission_id, token):
                          })
 
     if request.content_type == 'application/json':
-        return recieve_submission_result()
+        return recieve_submission_result(submission)
     elif request.content_type.startswith('multipart/form-data'):
-        return recieve_source_file()
+        return recieve_source_file(submission)
     else:
         return HTTPError(f'Unaccepted Content-Type {request.content_type}',
                          415)
