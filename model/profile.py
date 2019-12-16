@@ -18,7 +18,7 @@ def view_others_profile(user, username=None):
         data = {
             'username': user.username,
             'email': user.obj.email,
-            'displayed_name': user.obj.profile.displayed_name,
+            'displayedName': user.obj.profile.displayed_name,
             'bio': user.obj.profile.bio
         }
     except:
@@ -29,7 +29,7 @@ def view_others_profile(user, username=None):
 
 @profile_api.route('/', methods=['POST'])
 @login_required
-@Request.json('bio', vars_dict={'displayed_name': 'displayedName'})
+@Request.json('bio', 'displayed_name')
 def edit_profile(user, displayed_name, bio):
     try:
         profile = user.obj.profile
@@ -45,4 +45,5 @@ def edit_profile(user, displayed_name, bio):
     except:
         return HTTPError('Upload fail.', 400)
 
-    return HTTPResponse('Uploaded.')
+    cookies = {'piann_httponly': token, 'jwt': user.info}
+    return HTTPResponse('Uploaded.', cookies=cookies)
