@@ -9,7 +9,7 @@ class HTTPBaseResponese(tuple):
             if cookies[c] == None:
                 resp.delete_cookie(c)
             else:
-                resp.set_cookie(c, cookies[c])
+                resp.set_cookie(c.split('_httponly')[0], cookies[c])
         return super().__new__(tuple, (resp, status_code))
 
 

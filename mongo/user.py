@@ -4,8 +4,10 @@ from hmac import compare_digest
 from . import engine
 from .utils import *
 
+import base64
 import hashlib
 import html
+import json
 import jwt
 import os
 
@@ -77,7 +79,7 @@ class User:
         if self.user_id is None:
             return ''
         user = self.to_mongo()
-        keys = ['username', 'email', 'active', 'profile', 'editorConfig']
+        keys = ['username']
         data = {k: user.get(k) for k in keys}
         payload = {
             'iss': JWT_ISS,
@@ -85,6 +87,24 @@ class User:
             'data': data
         }
         return jwt.encode(payload, JWT_SECRET, algorithm='HS256').decode()
+
+    @property
+    def info(self):
+        if self.user_id is None:
+            return ''
+        user = self.to_mongo()
+        keys = ['username', 'email', 'active', 'profile', 'editorConfig']
+        data = {k: user.get(k) for k in keys}
+        payload = {
+            'iss': JWT_ISS,
+            'exp': int((datetime.utcnow() + JWT_EXP).timestamp()),
+            'data': data
+        }
+        head = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9'
+        body = base64.b64encode(json.dumps(payload).encode()).decode()
+        sign = hashlib.sha224(body.encode()).hexdigest()[:24]
+        return '.'.join([head, body, sign])
+    
 
 
 def jwt_decode(token):

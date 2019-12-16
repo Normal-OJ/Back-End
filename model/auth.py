@@ -24,7 +24,7 @@ def login_required(func):
         - 403 Inactive User
     '''
     @wraps(func)
-    @Request.cookies(vars_dict={'token': 'jwt'})
+    @Request.cookies(vars_dict={'token': 'piann'})
     def wrapper(token, *args, **kwargs):
         if token is None:
             return HTTPError('Not Logged In', 403)
@@ -72,7 +72,11 @@ def session():
         Returns:
             - 200 Logout Success
         '''
-        return HTTPResponse(f'Goodbye {user.username}', cookies={'jwt': None})
+        cookies = {
+            'jwt': None,
+            'piann': None
+        }
+        return HTTPResponse(f'Goodbye {user.username}', cookies=cookies)
 
     @Request.json('username', 'password')
     def login(username, password):
@@ -88,7 +92,10 @@ def session():
             return HTTPError('Login Failed', 403)
         if not user.active:
             return HTTPError('Invalid User', 403)
-        cookies = {'jwt': user.jwt}
+        cookies = {
+            'piann_httponly': user.jwt,
+            'jwt': user.info
+        }
         return HTTPResponse('Login Success', cookies=cookies)
 
     methods = {'GET': logout, 'POST': login}
@@ -140,7 +147,7 @@ def active(token=None):
     '''Activate a user.
     '''
     @Request.json('profile', 'agreement')
-    @Request.cookies(vars_dict={'token': 'jwt'})
+    @Request.cookies(vars_dict={'token': 'piann'})
     def update(profile, agreement, token):
         '''User: active: flase -> true
         '''
@@ -164,7 +171,11 @@ def active(token=None):
                         })
         except ValidationError as ve:
             return HTTPError('Failed', 400, data=ve.to_dict())
-        return HTTPResponse('User Is Now Active', cookies={'jwt': None})
+        cookies = {
+            'piann': None,
+            'jwt': None
+        }
+        return HTTPResponse('User Is Now Active', cookies=cookies)
 
     def redir():
         '''Redirect user to active page.
@@ -172,7 +183,12 @@ def active(token=None):
         json = jwt_decode(token)
         if json is None:
             return HTTPError('Invalid Token', 403)
-        return HTTPRedirect('/email_verify', cookies={'jwt': token})
+        user = User(json['data']['username'])
+        cookies = {
+            'piann_httponly': token,
+            'jwt': user.info
+        }
+        return HTTPRedirect('/email_verify', cookies=cookies)
 
     methods = {'GET': redir, 'POST': update}
     return methods[request.method]()
