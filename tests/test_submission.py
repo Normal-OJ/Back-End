@@ -194,13 +194,12 @@ class TestGetSubmission(SubmissionTester):
     def test_normal_get_submission_list(self, client):
         rv, rv_json, rv_data = self.submission_request(
             client, 'get',
-            f'/submission/?offset=0&count={SubmissionTester.init_submission_count}'
-        )
+            f'/submission/?offset=0&count={self.init_submission_count}')
 
         pprint(rv_json)
 
         assert rv.status_code == 200
-        assert len(rv_data) == SubmissionTester.init_submission_count
+        assert len(rv_data) == self.init_submission_count
 
         excepted_field_names = sorted([
             'submissionId', 'problemId', 'username', 'status', 'score',
@@ -212,11 +211,30 @@ class TestGetSubmission(SubmissionTester):
 
     def test_get_truncated_submission_list(self, client):
         rv, rv_json, rv_data = self.submission_request(
-            client, 'get', f'/submission/?offset=0&count=1')
+            client, 'get', '/submission/?offset=0&count=1')
 
         pprint(rv_json)
 
+        assert rv.status_code == 200
         assert len(rv_data) == 1
+
+    def test_get_all_submission(self, client):
+        rv, rv_json, rv_data = self.submission_request(
+            client, 'get', '/submission/?offset=0&count=-1')
+
+        pprint(rv_json)
+
+        assert rv.status_code == 200
+        assert len(rv_data) == self.init_submission_count
+
+        offset = self.init_submission_count // 2
+        rv, rv_json, rv_data = self.submission_request(
+            client, 'get', f'/submission/?offset={offset}&count=-1')
+
+        pprint(rv_json)
+
+        assert rv.status_code == 200
+        assert len(rv_data) == (self.init_submission_count - offset)
 
     def test_get_submission_list_over_db_size(self, client):
         rv, rv_json, rv_data = self.submission_request(
@@ -261,6 +279,21 @@ class TestGetSubmission(SubmissionTester):
                 client_student, 'get', f'/submission/{_id}')
             assert rv.status_code == 200
             assert 'code' in rv_data
+
+    @pytest.mark.parametrize('offset, count', [(None, 1), (0, None),
+                                               (None, None)])
+    def test_get_submission_list_with_missing_args(self, client, offset,
+                                                   count):
+        rv, rv_json, rv_data = self.submission_request(
+            client, 'get', f'/submission/?offset={offset}&count={count}')
+        assert rv.status_code == 400
+
+    @pytest.mark.parametrize('offset, count', [(-1, 2), (2, -2)])
+    def test_get_submission_list_with_out_ranged_negative_arg(
+        self, client, offset, count):
+        rv, rv_json, rv_data = self.submission_request(
+            client, 'get', f'/submission/?offset={offset}&count={count}')
+        assert rv.status_code == 400
 
 
 class TestCreateSubmission(SubmissionTester):
