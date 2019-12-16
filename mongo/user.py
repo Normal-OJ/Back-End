@@ -77,7 +77,7 @@ class User:
         if self.user_id is None:
             return ''
         user = self.to_mongo()
-        keys = ['username', 'email', 'profile', 'editorConfig']
+        keys = ['username', 'email', 'active', 'profile', 'editorConfig']
         data = {k: user.get(k) for k in keys}
         payload = {
             'iss': JWT_ISS,
