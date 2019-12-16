@@ -114,8 +114,17 @@ def get_submission_list(offset, count, problem_id, submission_id, username,
         return HTTPError('offset and count are required!', 400)
 
     # casting args
-    offset = int(offset)
-    count = int(count)
+    try:
+        offset = int(offset)
+        count = int(count)
+    except ValueError:
+        return HTTPError('offset and count must be integer!', 400)
+
+    # check range
+    if offset < 0:
+        return HTTPError('offset must >= 0!', 400)
+    if count < -1:
+        return HTTPError('count must >=-1!', 400)
 
     # query all
     submissions = engine.Submission.objects.order_by('-timestamp')
@@ -135,7 +144,8 @@ def get_submission_list(offset, count, problem_id, submission_id, username,
     if offset > len(submissions):
         return HTTPError(f'offset ({offset}) is out of range!')
 
-    right = min(len(submissions), offset + count)
+    right = min(len(submissions), offset +
+                count) if count != -1 else len(submissions)
     submissions = submissions[offset:right]
 
     usernames = [*map(lambda s: s.user.username, submissions)]
