@@ -11,22 +11,26 @@ course_api = Blueprint('course_api', __name__)
 
 
 @course_api.route('/', methods=['GET', 'POST', 'PUT', 'DELETE'])
-@identity_verify(0)
+@login_required
 def get_courses(user):
     @Request.json('course', 'new_course', 'teacher')
     def modify_courses(course, new_course, teacher):
+        if user.role > 1:
+            return HTTPError('Forbidden.', 403)
         r = None
+        if user.role == 1:
+            teacher = user.username
 
         try:
             if request.method == 'POST':
                 r = add_course(course, teacher)
             if request.method == 'PUT':
-                r = edit_course(course, new_course, teacher)
+                r = edit_course(user, course, new_course, teacher)
             if request.method == 'DELETE':
-                r = delete_course(course)
+                r = delete_course(user, course)
 
             if r is not None:
-                return HTTPError(r, 404)
+                return HTTPError(r, 403 if r == "Forbidden." else 404)
         except NotUniqueError as ne:
             return HTTPError('Course exists.', 400)
 
@@ -35,7 +39,7 @@ def get_courses(user):
     if request.method == 'GET':
         data = []
         for co in get_all_courses():
-            if is_in(co, user):
+            if perm(co, user):
                 data.append({
                     'course': co.course_name,
                     'teacher': co.teacher.username
@@ -50,20 +54,26 @@ def get_courses(user):
 @login_required
 def get_course(user, course_name):
     course = Course(course_name).obj
+    permission = perm(course, user)
+
     if course is None:
         return HTTPError('Course not found.', 404)
-    if not is_in(course, user):
+    if not permission:
         return HTTPError('You are not in this course.', 403)
 
     @Request.json('TAs', 'student_nicknames')
     def modify_course(TAs, student_nicknames):
-        tas = []
-        for ta in TAs:
-            user = User(ta).obj
-            if user is None:
-                return HTTPResponse(f'User: {ta} not found.', 404)
-            tas.append(user)
-        course.tas = tas
+        if permission < 2:
+            return HTTPError('Forbidden.', 403)
+
+        if permission > 2:
+            tas = []
+            for ta in TAs:
+                user = User(ta).obj
+                if user is None:
+                    return HTTPResponse(f'User: {ta} not found.', 404)
+                tas.append(user)
+            course.tas = tas
 
         student_dict = {}
         for student, nickname in student_nicknames.items():

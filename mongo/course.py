@@ -3,7 +3,7 @@ from .user import *
 from .utils import *
 
 __all__ = [
-    'Course', 'get_all_courses', 'delete_course', 'add_course', 'edit_course'
+    'Course', 'get_all_courses', 'delete_course', 'add_course', 'edit_course', 'perm'
 ]
 
 
@@ -23,17 +23,21 @@ class Course:
 def perm(course, user):
     '''4: admin, 3: teacher, 2: TA, 1: student, 0: not found
     '''
-    return [user.role == 0,course.teacher == user,user in course.tas,user in course.student_nicknames.keys()].find(True)
+    return 4-[user.role == 0, course.teacher == user, user in course.tas, user.username in course.student_nicknames.keys(), True].index(True)
 
 
 def get_all_courses():
     return engine.Course.objects
 
 
-def delete_course(course):
+def delete_course(user, course):
     co = Course(course).obj
     if co is None:
         return "Course not found."
+
+    if not perm(co, user):
+        return "Forbidden."
+
     co.delete()
 
 
@@ -45,10 +49,13 @@ def add_course(course, teacher):
     engine.Course(course_name=course, teacher=te).save()
 
 
-def edit_course(course, new_course, teacher):
+def edit_course(user, course, new_course, teacher):
     co = Course(course).obj
     if co is None:
         return "Course not found."
+
+    if not perm(co, user):
+        return "Forbidden."
 
     te = User(teacher).obj
     if te is None:

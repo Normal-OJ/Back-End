@@ -1,5 +1,6 @@
 from mongoengine import connect
 from mongo.user import User
+from .conftest import *
 
 
 class BaseTester:
@@ -45,3 +46,17 @@ class BaseTester:
     @classmethod
     def teardown_class(cls):
         cls.drop_db()
+
+    @classmethod
+    def new_user(cls, username, role):
+        USER = {
+            'username': username,
+            'password': f'{username}_password',
+            'email': f'i.am.{username}@noj.tw'
+        }
+
+        user = User.signup(**USER)
+        user.update(active=True, role=1)
+        c = client()
+        c.set_cookie('test.test', 'jwt', User(user).jwt)
+        return c
