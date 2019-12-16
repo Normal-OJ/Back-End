@@ -104,7 +104,6 @@ class User:
         body = base64.b64encode(json.dumps(payload).encode()).decode()
         sign = hashlib.sha224(body.encode()).hexdigest()[:24]
         return '.'.join([head, body, sign])
-    
 
 
 def jwt_decode(token):
