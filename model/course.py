@@ -35,10 +35,11 @@ def get_courses(user):
     if request.method == 'GET':
         data = []
         for co in get_all_courses():
-            data.append({
-                'course': co.course_name,
-                'teacher': co.teacher.username
-            })
+            if is_in(co, user):
+                data.append({
+                    'course': co.course_name,
+                    'teacher': co.teacher.username
+                })
 
         return HTTPResponse('Success.', data=data)
     else:
@@ -46,13 +47,13 @@ def get_courses(user):
 
 
 @course_api.route('/<course_name>', methods=['GET', 'POST'])
-@identity_verify(0, 1)
+@login_required
 def get_course(user, course_name):
     course = Course(course_name).obj
     if course is None:
         return HTTPError('Course not found.', 404)
-    if user.role != 0 and course.teacher != user:
-        return HTTPError('Forbidden.', 403)
+    if not is_in(course, user):
+        return HTTPError('You are not in this course.', 403)
 
     @Request.json('TAs', 'student_nicknames')
     def modify_course(TAs, student_nicknames):
@@ -62,6 +63,7 @@ def get_course(user, course_name):
             if user is None:
                 return HTTPResponse(f'User: {ta} not found.', 404)
             tas.append(user)
+        course.tas = tas
 
         student_dict = {}
         for student, nickname in student_nicknames.items():
@@ -69,9 +71,8 @@ def get_course(user, course_name):
             if user is None:
                 return HTTPResponse(f'User: {student} not found.', 404)
             student_dict[student] = nickname
-
-        course.tas = tas
         course.student_nicknames = student_dict
+
         course.save()
         return HTTPResponse('Success.')
 
@@ -86,6 +87,7 @@ def get_course(user, course_name):
 
         return HTTPResponse('Success.',
                             data={
+                                "teacher": course.teacher.username,
                                 "TAs": tas,
                                 "studentNicknames": student_dict
                             })

@@ -20,6 +20,12 @@ class Course:
         return obj
 
 
+def perm(course, user):
+    '''4: admin, 3: teacher, 2: TA, 1: student, 0: not found
+    '''
+    return [user.role == 0,course.teacher == user,user in course.tas,user in course.student_nicknames.keys()].find(True)
+
+
 def get_all_courses():
     return engine.Course.objects
 
