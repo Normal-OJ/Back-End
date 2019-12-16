@@ -24,7 +24,7 @@ def login_required(func):
         - 403 Inactive User
     '''
     @wraps(func)
-    @Request.cookies(vars_dict={'token': 'jwt'})
+    @Request.cookies(vars_dict={'token': 'piann'})
     def wrapper(token, *args, **kwargs):
         if token is None:
             return HTTPError('Not Logged In', 403)
@@ -72,7 +72,8 @@ def session():
         Returns:
             - 200 Logout Success
         '''
-        return HTTPResponse(f'Goodbye {user.username}', cookies={'jwt': None})
+        cookies = {'jwt': None, 'piann': None}
+        return HTTPResponse(f'Goodbye {user.username}', cookies=cookies)
 
     @Request.json('username', 'password')
     def login(username, password):
@@ -88,7 +89,7 @@ def session():
             return HTTPError('Login Failed', 403)
         if not user.active:
             return HTTPError('Invalid User', 403)
-        cookies = {'jwt': user.jwt}
+        cookies = {'piann_httponly': user.jwt, 'jwt': user.info}
         return HTTPResponse('Login Success', cookies=cookies)
 
     methods = {'GET': logout, 'POST': login}
@@ -114,6 +115,21 @@ def signup(username, password, email):
     return HTTPResponse('Signup Success')
 
 
+@auth_api.route('/change-password', methods=['POST'])
+@login_required
+@Request.json('old_password', 'new_password')
+def change_password(user, old_password, new_password):
+    if new_password is None:
+        return HTTPError('Signup Failed',
+                         400,
+                         data={'newPassword': 'Field is required'})
+    if User.login(user.username, old_password) is None:
+        HTTPError('Wrong Password')
+    user.change_password(new_password)
+    cookies = {'piann': None, 'jwt': None}
+    return HTTPResponse('Password Has Been Changed', cookies=cookies)
+
+
 @auth_api.route('/check/<item>', methods=['POST'])
 def check(item):
     '''Checking when the user is registing.
@@ -121,17 +137,31 @@ def check(item):
     @Request.json('username')
     def check_username(username):
         if User(username).user_id is not None:
-            return HTTPResponse('User exists.', data={'valid': 0})
-        return HTTPResponse('Username can be used.', data={'valid': 1})
+            return HTTPResponse('User Exists', data={'valid': 0})
+        return HTTPResponse('Username Can Be Used', data={'valid': 1})
 
     @Request.json('email')
     def check_email(email):
         if User.get_username_by_email(email) is not None:
-            return HTTPResponse('Email has been used.', data={'valid': 0})
-        return HTTPResponse('Email can be used.', data={'valid': 1})
+            return HTTPResponse('Email Has Been Used', data={'valid': 0})
+        return HTTPResponse('Email Can Be Used', data={'valid': 1})
 
     method = {'username': check_username, 'email': check_email}.get(item)
     return method() if method else HTTPError('Ivalid Checking Type', 400)
+
+
+@auth_api.route('/resend-email', methods=['POST'])
+@Request.json('email')
+def resend_email(email):
+    username = User.get_username_by_email(email)
+    if username is None:
+        return HTTPError('User Not Exists', 400)
+    user = User(username)
+    if user.active:
+        return HTTPError('User Has Been Actived', 400)
+    verify_link = f'https://noj.tw/api/auth/active/{user.jwt}'
+    send_noreply([email], '[N-OJ] Varify Your Email', verify_link)
+    return HTTPResponse('Email Has Been Resent')
 
 
 @auth_api.route('/active', methods=['POST'])
@@ -140,7 +170,7 @@ def active(token=None):
     '''Activate a user.
     '''
     @Request.json('profile', 'agreement')
-    @Request.cookies(vars_dict={'token': 'jwt'})
+    @Request.cookies(vars_dict={'token': 'piann'})
     def update(profile, agreement, token):
         '''User: active: flase -> true
         '''
@@ -164,7 +194,8 @@ def active(token=None):
                         })
         except ValidationError as ve:
             return HTTPError('Failed', 400, data=ve.to_dict())
-        return HTTPResponse('User Is Now Active', cookies={'jwt': None})
+        cookies = {'piann': None, 'jwt': None}
+        return HTTPResponse('User Is Now Active', cookies=cookies)
 
     def redir():
         '''Redirect user to active page.
@@ -172,7 +203,9 @@ def active(token=None):
         json = jwt_decode(token)
         if json is None:
             return HTTPError('Invalid Token', 403)
-        return HTTPRedirect('/email_verify', cookies={'jwt': token})
+        user = User(json['data']['username'])
+        cookies = {'piann_httponly': token, 'jwt': user.info}
+        return HTTPRedirect('/email_verify', cookies=cookies)
 
     methods = {'GET': redir, 'POST': update}
     return methods[request.method]()

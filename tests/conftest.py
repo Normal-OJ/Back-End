@@ -17,19 +17,19 @@ def client(app):
 
 @pytest.fixture
 def client_admin(client):
-    client.set_cookie('test.test', 'jwt', User('admin').jwt)
+    client.set_cookie('test.test', 'piann', User('admin').jwt)
     return client
 
 
 @pytest.fixture
 def client_teacher(client):
-    client.set_cookie('test.test', 'jwt', User('teacher').jwt)
+    client.set_cookie('test.test', 'piann', User('teacher').jwt)
     return client
 
 
 @pytest.fixture
 def client_student(client):
-    client.set_cookie('test.test', 'jwt', User('student').jwt)
+    client.set_cookie('test.test', 'piann', User('student').jwt)
     return client
 
 

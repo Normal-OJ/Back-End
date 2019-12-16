@@ -117,7 +117,7 @@ class TestActive:
 
     def test_update(self, client, test_token):
         # Update without agreement
-        client.set_cookie('test.test', 'jwt', test_token)
+        client.set_cookie('test.test', 'piann', test_token)
         rv = client.post(f'/auth/active',
                          json={
                              'profile': {
@@ -197,7 +197,7 @@ class TestLogout:
     '''
     def test_logout(self, client, test_token):
         # Logout before login
-        client.set_cookie('test.test', 'jwt', test_token)
+        client.set_cookie('test.test', 'piann', test_token)
         rv = client.get('/auth/session')
         json = rv.get_json()
         assert rv.status_code == 200
