@@ -116,7 +116,7 @@ class TestAdminCourse(BaseTester):
 
     def test_delete_with_non_owner(self, client_teacher):
         # delete a course with a user that is not the owner nor an admin
-        rv = client_teacher.delete('/course', json={'course': 'math'})
+        rv = client_teacher.delete('/course', json={'course': 'PE'})
         json = rv.get_json()
         assert json['message'] == 'Forbidden.'
         assert rv.status_code == 403
