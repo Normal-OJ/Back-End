@@ -7,7 +7,7 @@ __all__ = ['HomeWork']
 
 class HomeWork:
     @staticmethod
-    def add_hw(course_name, markdown, hw_name, start, end, problem_ids,
+    def add_hw(user, course_name, markdown, hw_name, start, end, problem_ids,
                scoreboard_status):
         #query db check the hw doesn't exist
         course = engine.Course.objects(course_name=course_name).first()
@@ -15,6 +15,8 @@ class HomeWork:
         students = course.students
         homework = engine.Homework.objects(course_id=str(course_id),
                                            name=hw_name)
+        if (course.teacher.username != user.username):
+            raise NameError
         if (len(homework) != 0):
             raise FileExistsError
 
@@ -51,12 +53,14 @@ class HomeWork:
         return homework
 
     @staticmethod
-    def update(course_name, markdown, hw_name, new_hw_name, start, end,
+    def update(user, course_name, markdown, hw_name, new_hw_name, start, end,
                problem_ids, scoreboard_status):
         #check course exist
         course = engine.Course.objects(course_name=course_name).first()
         if (course is None):
             raise FileNotFoundError
+        if (course.teacher.username != user.username):
+            raise NameError
         course_id = course.id
         students = course.students
         #get the homework
@@ -104,13 +108,15 @@ class HomeWork:
 
     #delete  problems/paticipants in hw
     @staticmethod
-    def delete_problems(course_name, hw_name):
+    def delete_problems(user, course_name, hw_name):
         course = engine.Course.objects(course_name=course_name).first()
         course_id = course.id
         homework = engine.Homework.objects(
             course_id=str(course_id),
             name=hw_name,
         ).first()
+        if (course.teacher.username != user.username):
+            raise NameError
         if (homework is None):
             raise FileNotFoundError
         homework.delete()
@@ -120,11 +126,17 @@ class HomeWork:
     @staticmethod
     def getHomeworks(course_name):
         course = engine.Course.objects(course_name=course_name).first()
+        if (course is None):
+            raise FileNotFoundError
         course_id = str(course.id)
         homeworks = engine.Homework.objects(course_id=course_id)
+        if (homeworks is None):
+            homeworks = {}
         return homeworks
 
     @staticmethod
     def getSignalHomework(id):
         homework = engine.Homework.objects(id=id).first()
+        if (homework is None):
+            raise FileNotFoundError
         return homework

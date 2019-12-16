@@ -30,8 +30,11 @@ def add_hw(user,
     if request.method == 'POST':
         try:
             verify = identity_verify(2)
-            homework = HomeWork.add_hw(course_name, markdown, name, start, end,
-                                       problemIds, scoreboard_status)
+            homework = HomeWork.add_hw(user, course_name, markdown, name,
+                                       start, end, problemIds,
+                                       scoreboard_status)
+        except NameError:
+            return HTTPError('user must be the teacher of this course', 403)
         except FileExistsError:
             return HTTPError('homework exists in this course', 400)
         except Exception as ex:
@@ -44,25 +47,27 @@ def add_hw(user,
     if request.method == 'PUT':
         try:
             verify = identity_verify(2)
-            homework = HomeWork.update(course_name, markdown, name, newname,
-                                       start, end, problemIds,
+            homework = HomeWork.update(user, course_name, markdown, name,
+                                       newname, start, end, problemIds,
                                        scoreboard_status)
+        except NameError:
+            return HTTPError('user must be the teacher of this course', 403)
         except FileNotFoundError:
-            return HTTPResponse('course not exist', 404)
+            return HTTPError('course not exist', 404)
         except FileExistsError:
-            return HTTPResponse(
-                'the homework with the same name exists in this course', 400,
-                'err')
+            return HTTPError(
+                'the homework with the same name exists in this course', 400)
         except Exception as ex:
             return HTTPError(ex, 500)
         return HTTPResponse('Update homework Success', 200, 'ok')
     if request.method == 'DELETE':
         try:
             verify = identity_verify(2)
-            homework = HomeWork.delete_problems(course_name, name)
+            homework = HomeWork.delete_problems(user, course_name, name)
+        except NameError:
+            return HTTPError('user must be the teacher of this course', 403)
         except FileNotFoundError:
-            return HTTPResponse('homework not exists,unable delete', 404,
-                                'err')
+            return HTTPError('homework not exists,unable delete', 404)
         except Exception as ex:
             return HTTPError(ex, 500)
         return HTTPResponse('Delete homework Success', 200, 'ok')
@@ -83,6 +88,8 @@ def add_hw(user,
                 if (user.role == 1):
                     homework["studentStatus"] = homeworks[i].student_status
                 data.append(homework)
+        except FileNotFoundError:
+            return HTTPError('course not exists', 404)
         except Exception as ex:
             return HTTPError(ex, 500)
         return HTTPResponse('get homeworks', 200, 'ok', data)
@@ -93,6 +100,8 @@ def add_hw(user,
 def get_homework(user, id):
     try:
         homework = HomeWork.getSignalHomework(id)
+    except FileNotFoundError:
+        return HTTPError('homework not exists', 404)
     except Exception as ex:
         return HTTPError(ex, 500)
     return HTTPResponse('get homeworks',
