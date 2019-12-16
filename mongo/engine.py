@@ -2,6 +2,7 @@ from mongoengine import *
 
 import mongoengine
 import os
+from datetime import datetime
 
 __all__ = [*mongoengine.__all__]
 
@@ -51,6 +52,7 @@ class User(Document):
     # contest_id = ReferenceField('Contest', db_field='contestId')
     course_ids = ListField(ReferenceField('Course'), db_field='courseIds')
     # submission_ids = ListField(ReferenceField('Submission'), db_field='submissionIds')
+    last_submit = DateTimeField(default=datetime.min)
 
 
 class Course(Document):
@@ -66,3 +68,25 @@ class Course(Document):
     # homework_ids = ListField(ReferenceField('Homework'), db_field='homeworkIds')
     # announcement_ids = ListField(ReferenceField('Announcement'), db_field='announcementIds')
     # post_ids = ListField(ReferenceField('Post'), db_field='postIds')
+
+
+class TestCase(EmbeddedDocument):
+    status = IntField(required=True)
+    exec_time = IntField(required=True)
+    memory_usage = IntField(required=True)
+    stdout = StringField(required=True)
+    stderr = StringField(required=True)
+
+
+class Submission(Document):
+    problem_id = StringField(required=True)
+    user = ReferenceField(User, required=True)
+    language = IntField(required=True)
+    timestamp = DateTimeField(required=True)
+    status = IntField(default=-2)
+    score = IntField(default=0)
+    cases = ListField(EmbeddedDocumentField(TestCase), default=list)
+    exec_time = IntField(default=-1)
+    memory_usage = IntField(default=-1)
+    code = BooleanField(
+        default=False)  # wheather the user has uploaded source code
