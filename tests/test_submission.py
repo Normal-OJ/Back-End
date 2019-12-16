@@ -122,8 +122,8 @@ class SubmissionTester(BaseTester):
     @pytest.fixture(autouse=True)
     def setup_class(cls, tmp_path):
         super().setup_class()
-        cls.path = tmp_path
-        cls.prepare_problem(tmp_path)
+        SubmissionTester.path = tmp_path
+        cls.prepare_problem()
 
         # use tmp dir to save user source code
         from model import submission
