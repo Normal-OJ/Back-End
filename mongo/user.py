@@ -27,6 +27,17 @@ class User:
             return None
         return obj.__getattribute__(name)
 
+    def __eq__(self, other):
+        return self.user_id == other.user_id
+
+    @property
+    def obj(self):
+        try:
+            obj = engine.User.objects.get(username=self.username)
+        except:
+            return None
+        return obj
+
     @classmethod
     def signup(cls, username, password, email):
         user = cls(username)
@@ -66,7 +77,7 @@ class User:
         if self.user_id is None:
             return ''
         user = self.to_mongo()
-        keys = ['username', 'email', 'profile', 'editorConfig']
+        keys = ['username', 'email', 'active', 'profile', 'editorConfig']
         data = {k: user.get(k) for k in keys}
         payload = {
             'iss': JWT_ISS,
@@ -75,9 +86,13 @@ class User:
         }
         return jwt.encode(payload, JWT_SECRET, algorithm='HS256').decode()
 
+
 def jwt_decode(token):
     try:
-        json = jwt.decode(token, JWT_SECRET, issuer=JWT_ISS, algorithms='HS256')
+        json = jwt.decode(token,
+                          JWT_SECRET,
+                          issuer=JWT_ISS,
+                          algorithms='HS256')
     except jwt.exceptions.PyJWTError:
         return None
     return json

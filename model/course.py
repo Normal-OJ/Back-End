@@ -3,6 +3,7 @@ from flask import Blueprint, request
 from mongo import *
 from .auth import *
 from .utils import *
+from mongo.course import *
 
 __all__ = ['course_api']
 
@@ -12,7 +13,7 @@ course_api = Blueprint('course_api', __name__)
 @course_api.route('/', methods=['GET', 'POST', 'PUT', 'DELETE'])
 @identity_verify(0)
 def get_courses(user):
-    @Request.json(['course', 'new_course', 'teacher'])
+    @Request.json('course', 'new_course', 'teacher')
     def modify_courses(course, new_course, teacher):
         r = None
 
@@ -50,10 +51,10 @@ def get_course(user, course_name):
     course = Course(course_name).obj
     if course is None:
         return HTTPError('Course not found.', 404)
-    if user.obj.role != 0 and course.teacher != user.obj:
+    if user.role != 0 and course.teacher != user:
         return HTTPError('Forbidden.', 403)
 
-    @Request.json(['TAs', 'student_nicknames'])
+    @Request.json('TAs', 'student_nicknames')
     def modify_course(TAs, student_nicknames):
         tas = []
         for ta in TAs:

@@ -36,7 +36,7 @@ def add_course(course, teacher):
     if te is None:
         return "User not found."
 
-    engine.Course(**{'course_name': course, 'teacher': te}).save()
+    engine.Course(course_name=course, teacher=te).save()
 
 
 def edit_course(course, new_course, teacher):
