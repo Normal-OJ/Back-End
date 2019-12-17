@@ -89,6 +89,7 @@ class Problem(Document):
                                required=True,
                                unique=True)
     markdown = StringField(max_length=100000, required=True)
+    owner = StringField(max_length=16, required=True)
     # pdf = 
     test_case = EmbeddedDocumentField(TestCase,
                                       db_field='testCase',
