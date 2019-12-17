@@ -1,7 +1,6 @@
 from . import engine
-from .course import Course
+from mongo.course import *
 from datetime import datetime
-
 __all__ = ['HomeWork']
 
 
@@ -12,18 +11,20 @@ class HomeWork:
         #query db check the hw doesn't exist
         course = engine.Course.objects(course_name=course_name).first()
         course_id = course.id
-        students = course.students
+        students = course.student_nicknames
         homework = engine.Homework.objects(course_id=str(course_id),
                                            name=hw_name)
         #check user is teacher or ta
-        is_ta_match = 0        
-        if(course.tas is not None):
+        role = perm(course, user)
+        is_ta_match = 0
+        if (len(course.tas) != 0):
             for ta in tas:
                 if (course.ta.username == user.name):
                     is_ta_match = 1
                     break
-        if (is_ta_match !=1 and course.teacher.username != user.username):
-            raise NameError        
+        if (is_ta_match != 1 and course.teacher.username != user.username
+                and user.role != 0):
+            raise NameError
         if (len(homework) != 0):
             raise FileExistsError
 
@@ -68,17 +69,18 @@ class HomeWork:
             raise FileNotFoundError
 
         #check user is teacher or ta
-        is_ta_match = 0        
-        if(course.tas is not None):
+        is_ta_match = 0
+        if (len(course.tas) != 0):
             for ta in tas:
                 if (course.ta.username == user.name):
                     is_ta_match = 1
                     break
-        if (is_ta_match !=1 and course.teacher.username != user.username):
-            raise NameError  
+        if (is_ta_match != 1 and course.teacher.username != user.username
+                and user.role != 0):
+            raise NameError
 
         course_id = course.id
-        students = course.students
+        students = course.student_nicknames
         #get the homework
         homework = engine.Homework.objects.get(course_id=str(course_id),
                                                name=hw_name)
@@ -132,15 +134,16 @@ class HomeWork:
             name=hw_name,
         ).first()
 
-       #check user is teacher or ta
-        is_ta_match = 0        
-        if(course.tas is not None):
+        #check user is teacher or ta
+        is_ta_match = 0
+        if (len(course.tas) != 0):
             for ta in tas:
                 if (course.ta.username == user.name):
                     is_ta_match = 1
                     break
-        if (is_ta_match !=1 and course.teacher.username != user.username):
-            raise NameError  
+        if (is_ta_match != 1 and course.teacher.username != user.username
+                and user.role != 0):
+            raise NameError
 
         if (homework is None):
             raise FileNotFoundError
@@ -149,7 +152,7 @@ class HomeWork:
         return homework
 
     @staticmethod
-    def getHomeworks(course_name):
+    def get_homeworks(course_name):
         course = engine.Course.objects(course_name=course_name).first()
         if (course is None):
             raise FileNotFoundError
@@ -160,7 +163,7 @@ class HomeWork:
         return homeworks
 
     @staticmethod
-    def getSignalHomework(id):
+    def get_signal_homework(id):
         homework = engine.Homework.objects(id=id).first()
         if (homework is None):
             raise FileNotFoundError

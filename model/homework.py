@@ -1,12 +1,8 @@
 from flask import Blueprint, request
-import jwt
 from .auth import *
-from mongo import User, HomeWork
+from mongo import User, HomeWork, course
 from .utils import HTTPResponse, HTTPRedirect, HTTPError, Request
 import os
-
-JWT_ISS = os.environ.get('JWT_ISS')
-JWT_SECRET = os.environ.get('JWT_SECRET')
 
 __all__ = ['hw_api']
 
@@ -29,12 +25,12 @@ def add_hw(user,
     scoreboard_status = scoreboardStatus
     if request.method == 'POST':
         try:
-            verify = identity_verify(2)
             homework = HomeWork.add_hw(user, course_name, markdown, name,
                                        start, end, problemIds,
                                        scoreboard_status)
         except NameError:
-            return HTTPError('user must be the teacher of this course', 403)
+            return HTTPError('user must be the teacher or ta of this course',
+                             403)
         except FileExistsError:
             return HTTPError('homework exists in this course', 400)
         except Exception as ex:
@@ -46,7 +42,6 @@ def add_hw(user,
         )
     if request.method == 'PUT':
         try:
-            verify = identity_verify(2)
             homework = HomeWork.update(user, course_name, markdown, name,
                                        newname, start, end, problemIds,
                                        scoreboard_status)
@@ -62,7 +57,6 @@ def add_hw(user,
         return HTTPResponse('Update homework Success', 200, 'ok')
     if request.method == 'DELETE':
         try:
-            verify = identity_verify(2)
             homework = HomeWork.delete_problems(user, course_name, name)
         except NameError:
             return HTTPError('user must be the teacher of this course', 403)
@@ -73,7 +67,7 @@ def add_hw(user,
         return HTTPResponse('Delete homework Success', 200, 'ok')
     if request.method == 'GET':
         try:
-            homeworks = HomeWork.getHomeworks(course_name)
+            homeworks = HomeWork.get_homeworks(course_name)
             data = []
             homework = {}
             for i in range(0, len(homeworks)):
@@ -99,7 +93,7 @@ def add_hw(user,
 @login_required
 def get_homework(user, id):
     try:
-        homework = HomeWork.getSignalHomework(id)
+        homework = HomeWork.get_signal_homework(id)
     except FileNotFoundError:
         return HTTPError('homework not exists', 404)
     except Exception as ex:

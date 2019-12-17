@@ -7,8 +7,8 @@ from datetime import datetime
 __all__ = [*mongoengine.__all__]
 
 MONGO_HOST = os.environ.get('MONGO_HOST', 'mongomock://localhost')
-#connect('normal-oj', host=MONGO_HOST)
-connect('normal-oj', host='localhost', port=27017)
+connect('normal-oj', host=MONGO_HOST)
+#connect('normal-oj', host='localhost', port=27017)
 
 
 class Profile(EmbeddedDocument):
@@ -74,10 +74,10 @@ class Homework(Document):
     problem_ids = ListField(StringField(), db_field='problemIds')
     student_status = DictField(db_field='studentStatus')
 
+
 class Course(Document):
-    #student_nicknames = DictField(db_field='studentNicknames')
+    student_nicknames = DictField(db_field='studentNicknames')
     course_status = IntField(default=0, choices=[0, 1])
-    students = DictField(db_field='students')
     course_name = StringField(max_length=64,
                               required=True,
                               unique=True,
@@ -112,10 +112,3 @@ class Submission(Document):
     memory_usage = IntField(default=-1)
     code = BooleanField(
         default=False)  # wheather the user has uploaded source code
-
-
-
-
-
-
-    
