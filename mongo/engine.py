@@ -1,8 +1,9 @@
 from mongoengine import *
-from mongoengine.fields import *
-from mongoengine.connection import *
 
+import mongoengine
 import os
+
+__all__ = [*mongoengine.__all__]
 
 MONGO_HOST = os.environ.get('MONGO_HOST', 'mongomock://localhost')
 connect('normal-oj', host=MONGO_HOST)
@@ -54,11 +55,43 @@ class User(Document):
 
 class Course(Document):
     course_status = IntField(default=0, choices=[0, 1])
-    course_name = StringField(max_length=64, required=True, unique=True)
-    teacher_id = ReferenceField('User', db_field='teacherId')
-    ta_ids = ListField(ReferenceField('User'), db_field='taIds')
-    students = DictField(ReferenceField('User', db_field='studentId'))
+    course_name = StringField(max_length=64,
+                              required=True,
+                              unique=True,
+                              db_field='courseName')
+    teacher = ReferenceField('User', db_field='teacher')
+    tas = ListField(ReferenceField('User'), db_field='tas')
+    student_nicknames = DictField(db_field='studentNicknames')
     # contest_ids = ListField(ReferenceField('Contest'), db_field='contestIds')
     # homework_ids = ListField(ReferenceField('Homework'), db_field='homeworkIds')
     # announcement_ids = ListField(ReferenceField('Announcement'), db_field='announcementIds')
     # post_ids = ListField(ReferenceField('Post'), db_field='postIds')
+
+class Case(EmbeddedDocument):
+    input = StringField()
+    output = StringField()
+    case_score = IntField(db_field='caseScore')
+    memory_limit = IntField(db_field='memoryLimit')
+    time_limit = IntField(db_field='timeLimit')
+
+class TestCase(EmbeddedDocument):
+    language = IntField(choices=[1, 2, 4])
+    fill_in_template = StringField(db_field='fillInTemplate',
+                                   max_length=16000)
+    cases = ListField(ReferenceField('Case'))
+
+class Problem(Document):
+    course_ids = ListField(ReferenceField('Course'), db_field='courseIds')
+    problem_status = IntField(default=1, choices=[0, 1])
+    problem_type = IntField(default=0, choices=[0, 1])
+    problem_name = StringField(db_field='problemName',
+                               max_length=64,
+                               required=True,
+                               unique=True)
+    markdown = StringField(max_length=100000, required=True)
+    # pdf = 
+    test_case = EmbeddedDocumentField(TestCase,
+                                      db_field='testCase',
+                                      default=TestCase,
+                                      null=True)
+    
