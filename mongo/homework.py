@@ -15,8 +15,15 @@ class HomeWork:
         students = course.students
         homework = engine.Homework.objects(course_id=str(course_id),
                                            name=hw_name)
-        if (course.teacher.username != user.username):
-            raise NameError
+        #check user is teacher or ta
+        is_ta_match = 0        
+        if(course.tas is not None):
+            for ta in tas:
+                if (course.ta.username == user.name):
+                    is_ta_match = 1
+                    break
+        if (is_ta_match !=1 and course.teacher.username != user.username):
+            raise NameError        
         if (len(homework) != 0):
             raise FileExistsError
 
@@ -59,8 +66,17 @@ class HomeWork:
         course = engine.Course.objects(course_name=course_name).first()
         if (course is None):
             raise FileNotFoundError
-        if (course.teacher.username != user.username):
-            raise NameError
+
+        #check user is teacher or ta
+        is_ta_match = 0        
+        if(course.tas is not None):
+            for ta in tas:
+                if (course.ta.username == user.name):
+                    is_ta_match = 1
+                    break
+        if (is_ta_match !=1 and course.teacher.username != user.username):
+            raise NameError  
+
         course_id = course.id
         students = course.students
         #get the homework
@@ -115,8 +131,17 @@ class HomeWork:
             course_id=str(course_id),
             name=hw_name,
         ).first()
-        if (course.teacher.username != user.username):
-            raise NameError
+
+       #check user is teacher or ta
+        is_ta_match = 0        
+        if(course.tas is not None):
+            for ta in tas:
+                if (course.ta.username == user.name):
+                    is_ta_match = 1
+                    break
+        if (is_ta_match !=1 and course.teacher.username != user.username):
+            raise NameError  
+
         if (homework is None):
             raise FileNotFoundError
         homework.delete()
