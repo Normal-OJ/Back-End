@@ -124,7 +124,7 @@ def change_password(user, old_password, new_password):
                          400,
                          data={'newPassword': 'Field is required'})
     if User.login(user.username, old_password) is None:
-        HTTPError('Wrong Password')
+        return HTTPError('Wrong Password', 403)
     user.change_password(new_password)
     cookies = {'piann': None, 'jwt': None}
     return HTTPResponse('Password Has Been Changed', cookies=cookies)
