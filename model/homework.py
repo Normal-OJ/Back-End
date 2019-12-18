@@ -44,7 +44,8 @@ def add_hw(user,
                                        newname, start, end, problemIds,
                                        scoreboard_status)
         except NameError:
-            return HTTPError('user must be the teacher of this course', 403)
+            return HTTPError('user must be the teacher or ta of this course',
+                             403)
         except FileNotFoundError:
             return HTTPError('course not exist', 404)
         except FileExistsError:
@@ -55,7 +56,8 @@ def add_hw(user,
         try:
             homework = HomeWork.delete_problems(user, course_name, name)
         except NameError:
-            return HTTPError('user must be the teacher of this course', 403)
+            return HTTPError('user must be the teacher or ta of this course',
+                             403)
         except FileNotFoundError:
             return HTTPError('homework not exists,unable delete', 404)
         return HTTPResponse('Delete homework Success', 200, 'ok')
