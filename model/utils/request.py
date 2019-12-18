@@ -2,6 +2,7 @@ from functools import wraps
 
 from flask import request
 
+from .response import HTTPError
 from model import *
 
 __all__ = ['Request']
@@ -15,7 +16,8 @@ class _Request(type):
                 def wrapper(*args, **kwargs):
                     data = getattr(request, content_type)
                     if data == None:
-                        return HTTPError('Unaccepted Content-Type', 415)
+                        return HTTPError(
+                            f'Unaccepted Content-Type {content_type}', 415)
                     # Magic
                     kwargs.update({
                         k: data.get(
