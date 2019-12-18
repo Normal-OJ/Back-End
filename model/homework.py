@@ -32,9 +32,7 @@ def add_hw(user,
             return HTTPError('user must be the teacher or ta of this course',
                              403)
         except FileExistsError:
-            return HTTPError('homework exists in this course', 400)
-        except Exception as ex:
-            return (ex, 500)
+            return HTTPError('homework exists in this course', 400)       
         return HTTPResponse(
             'Add homework Success',
             200,
@@ -52,8 +50,6 @@ def add_hw(user,
         except FileExistsError:
             return HTTPError(
                 'the homework with the same name exists in this course', 400)
-        except Exception as ex:
-            return HTTPError(ex, 500)
         return HTTPResponse('Update homework Success', 200, 'ok')
     if request.method == 'DELETE':
         try:
@@ -62,8 +58,6 @@ def add_hw(user,
             return HTTPError('user must be the teacher of this course', 403)
         except FileNotFoundError:
             return HTTPError('homework not exists,unable delete', 404)
-        except Exception as ex:
-            return HTTPError(ex, 500)
         return HTTPResponse('Delete homework Success', 200, 'ok')
     if request.method == 'GET':
         try:
@@ -84,8 +78,6 @@ def add_hw(user,
                 data.append(homework)
         except FileNotFoundError:
             return HTTPError('course not exists', 404)
-        except Exception as ex:
-            return HTTPError(ex, 500)
         return HTTPResponse('get homeworks', 200, 'ok', data)
 
 
@@ -96,8 +88,6 @@ def get_homework(user, id):
         homework = HomeWork.get_signal_homework(id)
     except FileNotFoundError:
         return HTTPError('homework not exists', 404)
-    except Exception as ex:
-        return HTTPError(ex, 500)
     return HTTPResponse('get homeworks',
                         200,
                         'ok',
