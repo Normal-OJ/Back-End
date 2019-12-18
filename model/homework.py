@@ -73,7 +73,7 @@ def add_hw(user,
                     "problemIds": homeworks[i].problem_ids,
                     "scoreboard_status": homeworks[i].scoreboard_status
                 }
-                if (user.role == 1):
+                if (user.role <= 1):
                     homework["studentStatus"] = homeworks[i].student_status
                 data.append(homework)
         except FileNotFoundError:
