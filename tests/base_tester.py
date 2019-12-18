@@ -1,10 +1,7 @@
 from mongoengine import connect
-<<<<<<< HEAD
-=======
 from mongo.user import User
 from .conftest import *
 
->>>>>>> master
 
 class BaseTester:
     MONGO_HOST = 'mongomock://localhost'
@@ -18,12 +15,6 @@ class BaseTester:
     @classmethod
     def setup_class(cls):
         cls.drop_db()
-<<<<<<< HEAD
-    
-    @classmethod
-    def teardown_class(cls):
-        cls.drop_db()
-=======
 
         ADMIN = {
             'username': 'admin',
@@ -69,4 +60,3 @@ class BaseTester:
         c = client()
         c.set_cookie('test.test', 'jwt', User(user).jwt)
         return c
->>>>>>> master
