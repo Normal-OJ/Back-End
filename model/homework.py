@@ -32,7 +32,7 @@ def add_hw(user,
             return HTTPError('user must be the teacher or ta of this course',
                              403)
         except FileExistsError:
-            return HTTPError('homework exists in this course', 400)       
+            return HTTPError('homework exists in this course', 400)
         return HTTPResponse(
             'Add homework Success',
             200,
