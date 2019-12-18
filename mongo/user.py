@@ -7,7 +7,7 @@ from .utils import *
 import base64
 import hashlib
 import html
-import json
+import json as jsonlib
 import jwt
 import os
 
@@ -75,35 +75,30 @@ class User:
         return obj.username
 
     @property
-    def jwt(self):
+    def cookie(self):
+        keys = [
+            'username', 'email', 'active', 'role', 'profile', 'editorConfig'
+        ]
+        return self.jwt(*keys)
+
+    @property
+    def secret(self):
+        keys = ['username', 'userId']
+        return self.jwt(*keys, secret=True)
+
+    def jwt(self, *keys, secret=False, **kwargs):
         if self.user_id is None:
             return ''
         user = self.to_mongo()
-        keys = ['username']
         data = {k: user.get(k) for k in keys}
+        data.update(kwargs)
         payload = {
             'iss': JWT_ISS,
             'exp': datetime.utcnow() + JWT_EXP,
+            'secret': secret,
             'data': data
         }
         return jwt.encode(payload, JWT_SECRET, algorithm='HS256').decode()
-
-    @property
-    def info(self):
-        if self.user_id is None:
-            return ''
-        user = self.to_mongo()
-        keys = ['username', 'email', 'active', 'profile', 'editorConfig']
-        data = {k: user.get(k) for k in keys}
-        payload = {
-            'iss': JWT_ISS,
-            'exp': int((datetime.utcnow() + JWT_EXP).timestamp()),
-            'data': data
-        }
-        head = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9'
-        body = base64.b64encode(json.dumps(payload).encode()).decode()
-        sign = hashlib.sha224(body.encode()).hexdigest()[:24]
-        return '.'.join([head, body, sign])
 
     def change_password(self, password):
         user_id = hash_id(self.username, password)
