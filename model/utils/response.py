@@ -37,4 +37,6 @@ class HTTPRedirect(HTTPBaseResponese):
 
 class HTTPError(HTTPResponse):
     def __new__(cls, message, status_code, data=None):
-        return super().__new__(HTTPResponse, message, status_code, 'err', data)
+        cookies = {'piann': None, 'jwt': None} if status_code == 403 else {}
+        return super().__new__(HTTPResponse, message, status_code, 'err', data,
+                               cookies)
