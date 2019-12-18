@@ -58,5 +58,5 @@ class BaseTester:
         user = User.signup(**USER)
         user.update(active=True, role=1)
         c = client()
-        c.set_cookie('test.test', 'jwt', User(user).jwt)
+        c.set_cookie('test.test', 'piann', User(user).secret)
         return c

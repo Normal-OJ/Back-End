@@ -25,7 +25,6 @@ class Submission:
 
     @property
     def exist(self):
-        print(self.submission_id)
         try:
             self.obj = engine.Submission.objects.get(id=self.submission_id)
         except engine.DoesNotExist:

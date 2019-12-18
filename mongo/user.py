@@ -4,8 +4,10 @@ from hmac import compare_digest
 from . import engine
 from .utils import *
 
+import base64
 import hashlib
 import html
+import json as jsonlib
 import jwt
 import os
 
@@ -73,18 +75,34 @@ class User:
         return obj.username
 
     @property
-    def jwt(self):
+    def cookie(self):
+        keys = [
+            'username', 'email', 'active', 'role', 'profile', 'editorConfig'
+        ]
+        return self.jwt(*keys)
+
+    @property
+    def secret(self):
+        keys = ['username', 'userId']
+        return self.jwt(*keys, secret=True)
+
+    def jwt(self, *keys, secret=False, **kwargs):
         if self.user_id is None:
             return ''
         user = self.to_mongo()
-        keys = ['username', 'email', 'active', 'profile', 'editorConfig']
         data = {k: user.get(k) for k in keys}
+        data.update(kwargs)
         payload = {
             'iss': JWT_ISS,
             'exp': datetime.utcnow() + JWT_EXP,
+            'secret': secret,
             'data': data
         }
         return jwt.encode(payload, JWT_SECRET, algorithm='HS256').decode()
+
+    def change_password(self, password):
+        user_id = hash_id(self.username, password)
+        self.update(user_id=user_id)
 
 
 def jwt_decode(token):
