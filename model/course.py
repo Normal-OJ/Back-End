@@ -1,42 +1,49 @@
 from flask import Blueprint, request
 
-from .utils import HTTPResponse, HTTPError, Request
-from mongo.course import *
+from mongo import *
 from .auth import *
-from mongoengine.errors import NotUniqueError
+from .utils import *
+from mongo.course import *
+
+__all__ = ['course_api']
 
 course_api = Blueprint('course_api', __name__)
 
 
 @course_api.route('/', methods=['GET', 'POST', 'PUT', 'DELETE'])
-@identity_verify(0)
+@login_required
 def get_courses(user):
-    @Request.json(['course', 'new_course', 'teacher'])
+    @Request.json('course', 'new_course', 'teacher')
     def modify_courses(course, new_course, teacher):
+        if user.role > 1:
+            return HTTPError('Forbidden.', 403)
         r = None
+        if user.role == 1:
+            teacher = user.username
 
         try:
             if request.method == 'POST':
                 r = add_course(course, teacher)
             if request.method == 'PUT':
-                r = edit_course(course, new_course, teacher)
+                r = edit_course(user, course, new_course, teacher)
             if request.method == 'DELETE':
-                r = delete_course(course)
+                r = delete_course(user, course)
 
             if r is not None:
-                return HTTPError(r, 404)
+                return HTTPError(r, 403 if r == "Forbidden." else 404)
         except NotUniqueError as ne:
-            return HTTPError('Course exists', 400)
+            return HTTPError('Course exists.', 400)
 
         return HTTPResponse('Success.')
 
     if request.method == 'GET':
         data = []
         for co in get_all_courses():
-            data.append({
-                'course': co.course_name,
-                'teacher': co.teacher.username
-            })
+            if perm(co, user):
+                data.append({
+                    'course': co.course_name,
+                    'teacher': co.teacher.username
+                })
 
         return HTTPResponse('Success.', data=data)
     else:
@@ -44,22 +51,29 @@ def get_courses(user):
 
 
 @course_api.route('/<course_name>', methods=['GET', 'POST'])
-@identity_verify(0, 1)
+@login_required
 def get_course(user, course_name):
     course = Course(course_name).obj
+    permission = perm(course, user)
+
     if course is None:
         return HTTPError('Course not found.', 404)
-    if user.obj.role != 0 and course.teacher != user.obj:
-        return HTTPError('Forbidden.', 403)
+    if not permission:
+        return HTTPError('You are not in this course.', 403)
 
-    @Request.json(['TAs', 'student_nicknames'])
+    @Request.json('TAs', 'student_nicknames')
     def modify_course(TAs, student_nicknames):
-        tas = []
-        for ta in TAs:
-            user = User(ta).obj
-            if user is None:
-                return HTTPResponse(f'User: {ta} not found.', 404)
-            tas.append(user)
+        if permission < 2:
+            return HTTPError('Forbidden.', 403)
+
+        if permission > 2:
+            tas = []
+            for ta in TAs:
+                user = User(ta).obj
+                if user is None:
+                    return HTTPResponse(f'User: {ta} not found.', 404)
+                tas.append(user)
+            course.tas = tas
 
         student_dict = {}
         for student, nickname in student_nicknames.items():
@@ -67,9 +81,8 @@ def get_course(user, course_name):
             if user is None:
                 return HTTPResponse(f'User: {student} not found.', 404)
             student_dict[student] = nickname
-
-        course.tas = tas
         course.student_nicknames = student_dict
+
         course.save()
         return HTTPResponse('Success.')
 
@@ -84,6 +97,7 @@ def get_course(user, course_name):
 
         return HTTPResponse('Success.',
                             data={
+                                "teacher": course.teacher.username,
                                 "TAs": tas,
                                 "studentNicknames": student_dict
                             })

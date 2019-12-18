@@ -1,8 +1,10 @@
-from smtplib import SMTP_SSL
 from email.message import EmailMessage
+from smtplib import SMTP_SSL
 
 import os
 import threading
+
+__all__ = ['send_noreply']
 
 SMTP_SERVER = os.environ.get('SMTP_SERVER')
 SMTP_ADMIN = os.environ.get('SMTP_ADMIN')

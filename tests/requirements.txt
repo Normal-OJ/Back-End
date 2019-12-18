@@ -3,3 +3,4 @@ mongoengine
 mongomock
 pytest
 PyJWT
+requests

@@ -1,9 +1,10 @@
 from flask import Blueprint
 
-from mongo import User
+from mongo import *
+from .auth import *
+from .utils import *
 
-from .utils import HTTPResponse, HTTPRedirect, HTTPError, Request
-from .auth import login_required
+__all__ = ['profile_api']
 
 profile_api = Blueprint('profile_api', __name__)
 
@@ -28,7 +29,7 @@ def view_others_profile(user, username=None):
 
 @profile_api.route('/', methods=['POST'])
 @login_required
-@Request.json(['bio'], vars_dict={'displayed_name': 'displayedName'})
+@Request.json('bio', vars_dict={'displayed_name': 'displayedName'})
 def edit_profile(user, displayed_name, bio):
     try:
         profile = user.obj.profile
