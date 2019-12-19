@@ -11,7 +11,7 @@ profile_api = Blueprint('profile_api', __name__)
 @profile_api.route('/', methods=['GET'])
 @profile_api.route('/<username>', methods=['GET'])
 @login_required
-def view_others_profile(user, username=None):
+def view_profile(user, username=None):
     try:
         user = user if username is None else User(username)
         data = {
