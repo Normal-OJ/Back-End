@@ -58,18 +58,11 @@ class Course(Document):
     # post_ids = ListField(ReferenceField('Post'), db_field='postIds')
 
 
-class Case(EmbeddedDocument):
-    input = StringField()
-    output = StringField()
-    case_score = IntField(db_field='caseScore')
-    memory_limit = IntField(db_field='memoryLimit')
-    time_limit = IntField(db_field='timeLimit')
-
-
 class TestCase(EmbeddedDocument):
     language = IntField(choices=[1, 2, 4])
     fill_in_template = StringField(db_field='fillInTemplate', max_length=16000)
-    cases = ListField(ReferenceField('Case'))
+    #cases = ListField(ReferenceField('Case'))
+    cases = ListField(DictField())
 
 
 class Problem(Document):
@@ -78,8 +71,8 @@ class Problem(Document):
     problem_status = IntField(default=1, choices=[0, 1])
     problem_type = IntField(default=0, choices=[0, 1])
     problem_name = StringField(
-        db_field='problemName', max_length=64, required=True, unique=True)
-    markdown = StringField(max_length=100000, required=True)
+        db_field='problemName', max_length=64, required=True)
+    description = StringField(max_length=100000, required=True)
     owner = StringField(max_length=16, required=True)
     # pdf =
     tags = ListField(StringField(max_length=16))
