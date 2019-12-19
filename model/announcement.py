@@ -12,7 +12,7 @@ announcement_api = Blueprint('announcement_api', __name__)
 def get_system_announcement():
     try:
         system_announcements = get_announcement('Public')
-    except AnnouncementNotExistError as e:
+    except:
         return HTTPError('Announcement not exists', 404)
     data = []
     system_announcement = {}
@@ -32,7 +32,7 @@ def get_system_announcement():
 def get_announcement(user,course): #course = rourse_id
     try:
         announcements = get_announcement(course)
-    except AnnouncementNotExistError as e:
+    except:
         return HTTPError('Announcement not exists', 404)
     data = []
     announcement = {}
@@ -47,11 +47,16 @@ def get_announcement(user,course): #course = rourse_id
         data.append(announcement)
     return HTTPResponse('Success get announcement.',200,'ok',data)
 
-#@announcement_api.route('/<course>', method=['POST','PUT','DELETE'])
-#@login_required
-#def modify_announcement(user,course):
-#    if user.role == 2:# if you are a student
-#        return HTTPError('Forbidden.You canˊt post announcement.', 403)
-#    if request.method =='POST':
-#        a=1
-#    return 0
+@announcement_api.route('/', method=['POST','PUT','DELETE'])# admin not add
+@Required_json('course','title','content')
+@login_required
+def modify_announcement(user,course,title,content):
+    # if you are a student
+    if user.role == 2:# if you are a student
+        return HTTPError('Forbidden.You canˊt post announcement.', 403)
+    # System announcement must admin
+    if course == 'Public' and user.role !=0:
+        return HTTPError('Forbidden.You canˊt post announcement.', 403)
+    if request.method =='POST':
+        r = add_announcement(user,course,title,content)
+    
