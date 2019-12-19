@@ -117,6 +117,6 @@ class Announcement(Document):
     announcement_name = StringField(db_field='announcementName',required=True,max_length=64)
     course_id = ReferenceField('Course', db_field='courseId')
     author = ReferenceField('User', db_field='author')
-    create = DateTimeField(required=True)
-    update = DateTimeField(required=True)
+    created = DateTimeField(required=True)
+    updated = DateTimeField(required=True)
     markdown = StringField(default='',required=True,max_length=100000)
