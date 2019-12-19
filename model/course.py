@@ -50,7 +50,7 @@ def get_courses(user):
         return modify_courses()
 
 
-@course_api.route('/<course_name>', methods=['GET', 'POST'])
+@course_api.route('/<course_name>', methods=['GET', 'PUT'])
 @login_required
 def get_course(user, course_name):
     course = Course(course_name).obj
