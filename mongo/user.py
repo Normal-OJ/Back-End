@@ -20,7 +20,8 @@ JWT_SECRET = os.environ.get('JWT_SECRET', 'SuperSecretString')
 
 class User:
     def __init__(self, username):
-        self.username = html.escape(username or '') or username
+        self.username = html.escape(
+            username if isinstance(username, str) else '') or username
 
     def __getattr__(self, name):
         try:

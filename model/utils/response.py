@@ -36,7 +36,7 @@ class HTTPRedirect(HTTPBaseResponese):
 
 
 class HTTPError(HTTPResponse):
-    def __new__(cls, message, status_code, data=None):
-        cookies = {'piann': None, 'jwt': None} if status_code == 403 else {}
+    def __new__(cls, message, status_code, data=None, logout=False):
+        cookies = {'piann': None, 'jwt': None} if logout else {}
         return super().__new__(HTTPResponse, message, status_code, 'err', data,
                                cookies)
