@@ -29,9 +29,11 @@ def login_required(func):
         if token is None:
             return HTTPError('Not Logged In', 403)
         json = jwt_decode(token)
-        if json is None:
+        if json is None or not json.get('secret'):
             return HTTPError('Invalid Token', 403)
         user = User(json['data']['username'])
+        if json['data'].get('userId') != user.user_id:
+            return HTTPError('Authorization Expired', 403)
         if not user.active:
             return HTTPError('Inactive User', 403)
         kwargs['user'] = user
@@ -89,7 +91,7 @@ def session():
             return HTTPError('Login Failed', 403)
         if not user.active:
             return HTTPError('Invalid User', 403)
-        cookies = {'piann_httponly': user.jwt, 'jwt': user.info}
+        cookies = {'piann_httponly': user.secret, 'jwt': user.cookie}
         return HTTPResponse('Login Success', cookies=cookies)
 
     methods = {'GET': logout, 'POST': login}
@@ -110,7 +112,7 @@ def signup(username, password, email):
         return HTTPError('Signup Failed', 400, data=ve.to_dict())
     except NotUniqueError as ne:
         return HTTPError('User Exists', 400)
-    verify_link = f'https://noj.tw/api/auth/active/{user.jwt}'
+    verify_link = f'https://noj.tw/api/auth/active/{user.cookie}'
     send_noreply([email], '[N-OJ] Varify Your Email', verify_link)
     return HTTPResponse('Signup Success')
 
@@ -124,9 +126,9 @@ def change_password(user, old_password, new_password):
                          400,
                          data={'newPassword': 'Field is required'})
     if User.login(user.username, old_password) is None:
-        HTTPError('Wrong Password')
+        return HTTPError('Wrong Password', 403)
     user.change_password(new_password)
-    cookies = {'piann': None, 'jwt': None}
+    cookies = {'piann_httponly': user.secret}
     return HTTPResponse('Password Has Been Changed', cookies=cookies)
 
 
@@ -159,7 +161,7 @@ def resend_email(email):
     user = User(username)
     if user.active:
         return HTTPError('User Has Been Actived', 400)
-    verify_link = f'https://noj.tw/api/auth/active/{user.jwt}'
+    verify_link = f'https://noj.tw/api/auth/active/{user.cookie}'
     send_noreply([email], '[N-OJ] Varify Your Email', verify_link)
     return HTTPResponse('Email Has Been Resent')
 
@@ -179,7 +181,7 @@ def active(token=None):
         if agreement is not True:
             return HTTPError('Not Confirm the Agreement', 403)
         json = jwt_decode(token)
-        if json is None:
+        if json is None or not json.get('secret'):
             return HTTPError('Invalid Token.', 403)
         user = User(json['data']['username'])
         if user.user_id is None:
@@ -194,7 +196,7 @@ def active(token=None):
                         })
         except ValidationError as ve:
             return HTTPError('Failed', 400, data=ve.to_dict())
-        cookies = {'piann': None, 'jwt': None}
+        cookies = {'jwt': user.cookie}
         return HTTPResponse('User Is Now Active', cookies=cookies)
 
     def redir():
@@ -204,7 +206,7 @@ def active(token=None):
         if json is None:
             return HTTPError('Invalid Token', 403)
         user = User(json['data']['username'])
-        cookies = {'piann_httponly': token, 'jwt': user.info}
+        cookies = {'piann_httponly': user.secret, 'jwt': user.cookie}
         return HTTPRedirect('/email_verify', cookies=cookies)
 
     methods = {'GET': redir, 'POST': update}
