@@ -25,7 +25,7 @@ def get_system_announcement():
         "update": system_announcements[i].update
         }
         data.append(system_announcement)
-    return HTTPResponse('Success get annuuncement.',200,'ok',data)
+    return HTTPResponse('Success get announcement.',200,'ok',data)
 
 @announcement_api.route('/<course>', methods=['GET'])
 @login_required
@@ -45,4 +45,13 @@ def get_announcement(user,course): #course = rourse_id
         "update": announcements[i].update
         }
         data.append(announcement)
-    return HTTPResponse('Success get annuuncement.',200,'ok',data)
+    return HTTPResponse('Success get announcement.',200,'ok',data)
+
+@announcement_api.route('/<course>', method=['POST','PUT','DELETE'])
+@login_required
+def modify_announcement(user,course):
+    if user.role == 2:# if you are a student
+        return HTTPError('Forbidden.You canˊt post announcement.', 403)
+    if request.method =='POST':
+        a=1
+    return 0
