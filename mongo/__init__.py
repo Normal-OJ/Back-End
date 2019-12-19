@@ -27,5 +27,3 @@ if User("first_admin").obj is None:
 
 if Course("Public").obj is None:
     add_course("Public", "first_admin")
-
-    
