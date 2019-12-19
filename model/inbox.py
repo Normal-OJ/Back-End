@@ -28,7 +28,10 @@ def inbox(user):
             return HTTPError('Failed to Send a Message',
                              400,
                              data=ve.to_dict())
-        data = {'receivers': message.receivers, 'timestamp': int(message.timestamp.timestamp())}
+        data = {
+            'receivers': message.receivers,
+            'timestamp': int(message.timestamp.timestamp())
+        }
         return HTTPResponse('Successfully Send', data=data)
 
     @Request.json('message_id')
@@ -38,7 +41,8 @@ def inbox(user):
         if message.receiver != user.username:
             return HTTPError('Failed to Read the Message', 403)
         message.change_status()
-        return HTTPResponse('Message Status Changed', data={'status': message.status})
+        return HTTPResponse('Message Status Changed',
+                            data={'status': message.status})
 
     @Request.json('message_id')
     def delete(message_id):
