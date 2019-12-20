@@ -3,6 +3,7 @@ from functools import wraps
 from flask import request
 
 from model import *
+from .response import *
 
 __all__ = ['Request']
 

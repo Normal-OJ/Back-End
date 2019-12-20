@@ -1,0 +1,11 @@
+{
+    "BaseTester": {
+        "admin": 0,
+        "teacher": 1,
+        "student": 2
+    },
+    "SubmissionTester": {
+        "teacher-2": 1,
+        "student-2": 2
+    }
+}

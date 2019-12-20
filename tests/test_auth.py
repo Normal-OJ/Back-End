@@ -116,7 +116,7 @@ class TestActive:
         assert json['message'] == 'Not Confirm the Agreement'
 
     def test_update(self, client, test_token):
-        # Update without agreement
+        # Update
         client.set_cookie('test.test', 'piann', test_token)
         rv = client.post(f'/auth/active',
                          json={
