@@ -51,7 +51,6 @@ class Inbox:
                        reverse=True)
         return [{
             'messageId': str(s.id),
-            'status': s.status,
             'receivers': s.receivers,
             'title': s.title,
             'message': s.markdown,

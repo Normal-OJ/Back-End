@@ -51,7 +51,7 @@ def inbox(user):
         if message.receiver != user.username:
             return HTTPError('Failed to Access the Message', 403)
         message.delete()
-        return HTTPResponse('Message is Deleted')
+        return HTTPResponse('Deleted')
 
     methods = {
         'GET': get_messages,
