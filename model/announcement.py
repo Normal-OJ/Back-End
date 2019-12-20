@@ -2,6 +2,7 @@ from flask import Blueprint, request
 from .auth import *
 from mongo import *
 from .utils import *
+from mongo.announcement import *
 import os
 
 __all__ = ['announcement_api']
@@ -47,16 +48,27 @@ def get_announcement(user,course): #course = rourse_id
         data.append(announcement)
     return HTTPResponse('Success get announcement.',200,'ok',data)
 
-@announcement_api.route('/', method=['POST','PUT','DELETE'])# admin not add
-@Required_json('course','title','content')
+@announcement_api.route('/', methods=['POST','PUT','DELETE'])
+@Request.json('course','title','content')
 @login_required
 def modify_announcement(user,course,title,content):
     # if you are a student
-    if user.role == 2:# if you are a student
+    if user.role == 2:
         return HTTPError('Forbidden.You canˊt post announcement.', 403)
     # System announcement must admin
     if course == 'Public' and user.role !=0:
         return HTTPError('Forbidden.You canˊt post announcement.', 403)
-    if request.method =='POST':
-        r = add_announcement(user,course,title,content)
-    
+    r = None
+    try:
+        if request.method == 'POST':
+            r = add_announcement(user,course,title,content)
+        if request.method == 'PUT':
+            r = edit_announcement(course,title,content)
+        if request.method == 'DELETE':
+            r = delete_announcement(course)
+        if r is not None:
+            return HTTPError(r, 403)
+    except NotUniqueError as ne:
+            return HTTPError('Announcement exist',400)
+
+    return HTTPResponse('Success')
