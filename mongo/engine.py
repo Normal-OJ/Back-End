@@ -72,8 +72,21 @@ class Homework(Document):
                                      db_field='duration',
                                      default=Duration)
     problem_ids = ListField(StringField(), db_field='problemIds')
-    student_status = DictField(db_field='studentStatus')
+    student_status = DictField(db_field='studentStatus')    
 
+class Contest(Document):
+    contest_name = StringField(max_length=64, required=True, db_field='contestName')
+    scoreboard_status = IntField(default=0,
+                                 choice=[0, 1],
+                                 db_field='scoreboardStatus')
+    duration = EmbeddedDocumentField(Duration,
+                                     db_field='duration',
+                                     default=Duration)
+    contest_mode = IntField(default=0,
+                                 choice=[0, 1],
+                                 db_field='contestMode')
+    problem_ids = ListField(StringField(), db_field='problemIds')
+    participants = DictField(db_field='participants') 
 
 class Course(Document):
     student_nicknames = DictField(db_field='studentNicknames')
