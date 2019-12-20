@@ -77,11 +77,12 @@ axios.post(`${API_BASE_URL}/auth/session`, DATA)
 ```json
 {
   "data": {
+    "messageId": "5dfc2fdb15f0a446e872ee3c",
+    "timestamp": 1576808411,
     "receivers": [
       "test_user1",
       "test_user2"
-    ],
-    "timestamp": 1576808411
+    ]
   },
   "message": "Successfully Send",
   "status": "ok"

@@ -29,6 +29,7 @@ def inbox(user):
                              400,
                              data=ve.to_dict())
         data = {
+            'messageId': str(message.id),
             'receivers': message.receivers,
             'timestamp': int(message.timestamp.timestamp())
         }
