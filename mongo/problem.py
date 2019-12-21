@@ -1,6 +1,10 @@
 from . import engine
+from .course import Course
 
-__all__ = ['Problem', 'get_problem_list', 'edit_problem', 'delete_problem']
+__all__ = [
+    'Problem', 'get_problem_list', 'add_problem', 'edit_problem',
+    'delete_problem', 'copy_problem', 'release_problem'
+]
 
 
 class Problem:
@@ -39,8 +43,8 @@ def get_problem_list(role, offset, count):
     return problem_list
 
 
-def edit_problem(user, problem_id, status, type, problem_name, description,
-                 tags, test_case):
+def add_problem(user, problem_id, status, type, problem_name, description,
+                tags, test_case):
     engine.Problem(
         problem_id=problem_id,
         problem_status=status,
@@ -50,9 +54,43 @@ def edit_problem(user, problem_id, status, type, problem_name, description,
         owner=user.username,
         tags=tags,
         test_case=test_case).save()
-    #engine.Problem.objects.order_by('problemName')
+
+
+def edit_problem(user, problem_id, status, type, problem_name, description,
+                 tags, test_case):
+    problem = Problem(problem_id).obj
+    problem.problem_status = status
+    problem.problem_type = type
+    problem.problem_name = problem_name
+    problem.description = description
+    problem.owner = user.username
+    problem.tags = tags
+    problem.test_case['language'] = test_case['language']
+    problem.test_case['fill_in_template'] = test_case['fillInTemplate']
+    problem.test_case['cases'] = test_case['cases']
+    problem.save()
 
 
 def delete_problem(problem_id):
     problem = Problem(problem_id).obj
     problem.delete()
+
+
+def copy_problem(user, problem_id, new_problem_id):
+    problem = Problem(problem_id).obj
+    engine.Problem(
+        problem_id=new_problem_id,
+        problem_status=problem.problem_status,
+        problem_type=problem.problem_type,
+        problem_name=problem.problem_name,
+        description=problem.description,
+        owner=user.username,
+        tags=problem.tags,
+        test_case=problem.test_case).save()
+
+
+def release_problem(problem_id):
+    course = Course('public').obj
+    problem = Problem(problem_id).obj
+    problem.course_ids.append(course)
+    problem.save()
