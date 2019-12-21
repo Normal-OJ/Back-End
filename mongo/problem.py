@@ -34,25 +34,29 @@ class Problem:
 
 
 def get_problem_list(role, offset, count):
+    serial_number = Number("serial_number").obj
     problem_list = []
-    obj_list = engine.Problem.objects.order_by('problem_name')
-
-    index = offset
+    index = offset + 1
+    amount = 0
     while True:
-        if index > (offset + count - 1):
+        if amount == count:
             break
-        if role != 2 or obj_list[index].problem_status == 0:
-            obj = obj_list[index]
+        if index == serial_number.number:
+            break
+        problem = Problem(index).obj
+        if problem is None:
+            continue
+        if role != 2 or problem.problem_status == 0:
             problem_list.append({
-                'problem_id': obj.problem_id,
-                'type': obj.problem_type,
-                'problem_name': obj.problem_name,
-                'tags': obj.tags,
-                'ACUser': obj.ac_user,
-                'submitter': obj.submitter
+                'problem_id': problem.problem_id,
+                'type': problem.problem_type,
+                'problem_name': problem.problem_name,
+                'tags': problem.tags,
+                'ACUser': problem.ac_user,
+                'submitter': problem.submitter
             })
-            index += 1
-
+            amount += 1
+        index += 1
     return problem_list
 
 
