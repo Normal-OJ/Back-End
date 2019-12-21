@@ -1,6 +1,7 @@
 from . import engine
 from .user import *
 from .utils import *
+import re
 
 __all__ = [
     'Course', 'get_all_courses', 'delete_course', 'add_course', 'edit_course',
@@ -46,6 +47,9 @@ def delete_course(user, course):
 
 
 def add_course(course, teacher):
+    if re.match('^\w+$', course) is None:
+        return 'Not allowed name.'
+
     te = User(teacher).obj
     if te is None:
         return "User not found."
@@ -54,6 +58,9 @@ def add_course(course, teacher):
 
 
 def edit_course(user, course, new_course, teacher):
+    if re.match('^\w+$', new_course) is None:
+        return 'Not allowed name.'
+
     co = Course(course).obj
     if co is None:
         return "Course not found."
