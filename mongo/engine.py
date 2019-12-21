@@ -58,10 +58,9 @@ class Course(Document):
     # post_ids = ListField(ReferenceField('Post'), db_field='postIds')
 
 
-class TestCase(EmbeddedDocument):
+class ProblemTestCase(EmbeddedDocument):
     language = IntField(choices=[1, 2, 4])
     fill_in_template = StringField(db_field='fillInTemplate', max_length=16000)
-    #cases = ListField(ReferenceField('Case'))
     cases = ListField(DictField())
 
 
@@ -77,6 +76,6 @@ class Problem(Document):
     # pdf =
     tags = ListField(StringField(max_length=16))
     test_case = EmbeddedDocumentField(
-        TestCase, db_field='testCase', default=TestCase, null=True)
+        ProblemTestCase, db_field='testCase', default=ProblemTestCase, null=True)
     ac_user = IntField(db_field='ACUser', default=0)
     submitter = IntField(default=0)
