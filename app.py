@@ -13,6 +13,7 @@ app.register_blueprint(course_api, url_prefix='/course')
 app.register_blueprint(submission_api, url_prefix='/submission')
 app.register_blueprint(hw_api, url_prefix='/homework')
 app.register_blueprint(inbox_api, url_prefix='/inbox')
+app.register_blueprint(annn_api, url_prefix='/annn')
 
 if __name__ == '__main__':
     app.run()
