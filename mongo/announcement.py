@@ -14,16 +14,13 @@ class Announcement:
         try:
             target_course = engine.Course.objects.get(course_name=course)
         except:
-            return "Announcement not found (course not exist)."
+            raise FileNotFoundError
         target = Announcement.objects(course_id=target_course.id)
         if target == None:
-            return "Announcement not found"
+            raise FileNotFoundError
         return target
 
 def add_announcement(user,course,title,content):# course=course_id
-    #target_course = engine.Course.objects(course_name=course)
-    #if target_course is None:
-    #    return "Course not found."
     try:
         target_course = engine.Course.objects.get(course_name=course)
     except:
@@ -40,18 +37,14 @@ def add_announcement(user,course,title,content):# course=course_id
                         markdown=content)
     new_announcement.save()
 
-def edit_announcement(user,course,title,content):
+def edit_announcement(user,course,title,content,targetAnnouncementId):
     try:
-        target_course = engine.Course.objects.get(course_name=course)
-    except:
-        return "Announcement not found (course not exist)."
-    if user.username != target_course.author:
-        return "Forbidden, Only author can edit."
-    course_id = target_course.id
-    try:
-        target = engine.Announcement.objects.get(course_id=course_id)
+        target = engine.Announcement.objects.get(id=targetAnnouncementId)
     except:
         return "Announcement not found."
+    #if user.username != target.author:
+    #    return "Forbidden, Only author can edit."
+    # DBRef bug #
     target.announcement_name = title
     target.markdown = content
     updated_time = datetime.now()
@@ -59,16 +52,12 @@ def edit_announcement(user,course,title,content):
     target.updated = updated_time
     target.save()
 
-def delete_announcement(user,course):
+def delete_announcement(user,targetAnnouncementId):
     try:
-        target_course = engine.Course.objects.get(course_name=course)
-    except:
-        return "Announcement not found (course not exist)."
-    if user.username != target_course.author:
-        return "Forbidden, Only author can delete."
-    course_id = target_course.id
-    try:
-        target = engine.Announcement.objects.get(course_id=course_id)
+        target = engine.Announcement.objects.get(id=targetAnnouncementId)
     except:
         return "Announcement not found."
+    #if user.username != target.author:
+    #    return "Forbidden, Only author can delete."
+    # DBRef bug #
     target.delete()

@@ -50,9 +50,9 @@ def get_announcement(user,course): #course = course_name
     return HTTPResponse('Success get announcement.',200,'ok',data)
 
 @announcement_api.route('/', methods=['POST','PUT','DELETE'])
-@Request.json('course','title','content')
+@Request.json('course','title','content','targetAnnouncementId')
 @login_required
-def modify_announcement(user,course,title,content):# course = course_name
+def modify_announcement(user,course,title,content,targetAnnouncementId):# course = course_name
     # if you are a student
     if user.role == 2:
         return HTTPError('Forbidden.You donˊt have authority to post/edit announcement.', 403)
@@ -63,9 +63,9 @@ def modify_announcement(user,course,title,content):# course = course_name
     if request.method == 'POST':
         r = add_announcement(user,course,title,content)
     if request.method == 'PUT':
-        r = edit_announcement(user,course,title,content)
+        r = edit_announcement(user,course,title,content,targetAnnouncementId)
     if request.method == 'DELETE':
-        r = delete_announcement(user,course)
+        r = delete_announcement(user,targetAnnouncementId)
 
     if r == "Forbidden, Only author can edit." or r == "Forbidden, Only author can delete.":
         return HTTPError(r, 403)
