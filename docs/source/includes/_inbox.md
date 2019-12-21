@@ -67,7 +67,7 @@ print(requests.post(f'{API_BASE_URL}/inbox', DATA).json())
 ```
 
 ```javascript
-axios.post(`${API_BASE_URL}/auth/session`, DATA)
+axios.post(`${API_BASE_URL}/inbox`, DATA)
   .then(response => console.log(response.data))
   .catch(error => console.log(error.response.data));
 ```
