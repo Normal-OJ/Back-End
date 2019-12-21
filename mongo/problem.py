@@ -60,15 +60,14 @@ def add_problem(user, status, type, problem_name, description, tags,
                 test_case):
     serial_number = Number("serial_number").obj
 
-    engine.Problem(
-        problem_id=serial_number.number,
-        problem_status=status,
-        problem_type=type,
-        problem_name=problem_name,
-        description=description,
-        owner=user.username,
-        tags=tags,
-        test_case=test_case).save()
+    engine.Problem(problem_id=serial_number.number,
+                   problem_status=status,
+                   problem_type=type,
+                   problem_name=problem_name,
+                   description=description,
+                   owner=user.username,
+                   tags=tags,
+                   test_case=test_case).save()
 
     serial_number.number += 1
     serial_number.save()
@@ -100,15 +99,14 @@ def copy_problem(user, problem_id):
     serial_number = Number("serial_number").obj
     problem = Problem(problem_id).obj
 
-    engine.Problem(
-        problem_id=serial_number.number,
-        problem_status=problem.problem_status,
-        problem_type=problem.problem_type,
-        problem_name=problem.problem_name,
-        description=problem.description,
-        owner=user.username,
-        tags=problem.tags,
-        test_case=problem.test_case).save()
+    engine.Problem(problem_id=serial_number.number,
+                   problem_status=problem.problem_status,
+                   problem_type=problem.problem_type,
+                   problem_name=problem.problem_name,
+                   description=problem.description,
+                   owner=user.username,
+                   tags=problem.tags,
+                   test_case=problem.test_case).save()
 
     serial_number.number += 1
     serial_number.save()
