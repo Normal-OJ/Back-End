@@ -1,9 +1,10 @@
-from flask import Blueprint, request
+from flask import Blueprint
 
-from mongo import User
+from mongo import *
+from .auth import *
+from .utils import *
 
-from .utils import HTTPResponse, HTTPRedirect, HTTPError, Request
-from .auth import login_required
+__all__ = ['profile_api']
 
 profile_api = Blueprint('profile_api', __name__)
 
@@ -11,13 +12,13 @@ profile_api = Blueprint('profile_api', __name__)
 @profile_api.route('/', methods=['GET'])
 @profile_api.route('/<username>', methods=['GET'])
 @login_required
-def view_others_profile(user, username=None):
+def view_profile(user, username=None):
     try:
         user = user if username is None else User(username)
         data = {
             'username': user.username,
             'email': user.obj.email,
-            'displayed_name': user.obj.profile.displayed_name,
+            'displayedName': user.obj.profile.displayed_name,
             'bio': user.obj.profile.bio
         }
     except:
@@ -28,8 +29,8 @@ def view_others_profile(user, username=None):
 
 @profile_api.route('/', methods=['POST'])
 @login_required
-@Request.json(['bio'], vars_dict={'displayed_name': 'displayedName'})
-def edit_profile(user, displayed_name=None, bio=None):
+@Request.json('bio', vars_dict={'displayed_name': 'displayedName'})
+def edit_profile(user, displayed_name, bio):
     try:
         profile = user.obj.profile
 
@@ -44,4 +45,5 @@ def edit_profile(user, displayed_name=None, bio=None):
     except:
         return HTTPError('Upload fail.', 400)
 
-    return HTTPResponse('Uploaded.')
+    cookies = {'jwt': user.cookie}
+    return HTTPResponse('Uploaded.', cookies=cookies)
