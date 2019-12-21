@@ -44,9 +44,7 @@ def get_problem_list(role, offset, count):
         if index == serial_number.number:
             break
         problem = Problem(index).obj
-        if problem is None:
-            continue
-        if role != 2 or problem.problem_status == 0:
+        if problem is not None and (role != 2 or problem.problem_status == 0):
             problem_list.append({
                 'problem_id': problem.problem_id,
                 'type': problem.problem_type,
