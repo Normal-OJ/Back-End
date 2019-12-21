@@ -47,7 +47,7 @@ def delete_course(user, course):
 
 
 def add_course(course, teacher):
-    if re.match('^\w+$', course) is None:
+    if re.match(r'^[a-zA-Z0-9._]+$', course) is None:
         return 'Not allowed name.'
 
     te = User(teacher).obj
@@ -58,7 +58,7 @@ def add_course(course, teacher):
 
 
 def edit_course(user, course, new_course, teacher):
-    if re.match('^\w+$', new_course) is None:
+    if re.match(r'^[a-zA-Z0-9._]+$', new_course) is None:
         return 'Not allowed name.'
 
     co = Course(course).obj

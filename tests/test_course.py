@@ -17,6 +17,18 @@ class TestAdminCourse(BaseTester):
         assert rv.status_code == 404
         assert json['status'] == 'err'
 
+    def test_add_with_invalid_course_name(self, client_admin):
+        # add a course with not allowed course name
+        rv = client_admin.post('/course',
+                               json={
+                                   'course': '體育',
+                                   'teacher': 'admin'
+                               })
+        json = rv.get_json()
+        assert json['message'] == 'Not allowed name.'
+        assert rv.status_code == 400
+        assert json['status'] == 'err'
+
     def test_add(self, client_admin):
         # add a course
         rv = client_admin.post('/course',
