@@ -1,121 +1,113 @@
-from . import engine
-from .course import Course
+from flask import Blueprint, request
 
-__all__ = [
-    'Number', 'Problem', 'get_problem_list', 'add_problem', 'edit_problem',
-    'delete_problem', 'copy_problem', 'release_problem'
-]
+from mongo import *
+from .auth import *
+from .utils import *
+from mongo.problem import *
 
+__all__ = ['problem_api']
 
-class Number:
-    def __init__(self, name):
-        self.name = name
-
-    @property
-    def obj(self):
-        try:
-            obj = engine.Number.objects.get(name=self.name)
-        except:
-            return None
-        return obj
+problem_api = Blueprint('problem_api', __name__)
 
 
-class Problem:
-    def __init__(self, problem_id):
-        self.problem_id = problem_id
-
-    @property
-    def obj(self):
-        try:
-            obj = engine.Problem.objects.get(problem_id=self.problem_id)
-        except:
-            return None
-        return obj
+@problem_api.route('/', methods=['GET'])
+@login_required
+@Request.json('offset', 'count')
+def view_problem_list(user, offset, count):
+    data = get_problem_list(user.role, offset, count)
+    return HTTPResponse('Success.', data=data)
 
 
-def get_problem_list(role, offset, count):
-    problem_list = []
-    obj_list = engine.Problem.objects.order_by('problem_name')
-
-    index = offset
-    while True:
-        if index > (offset + count - 1):
-            break
-        if role != 2 or obj_list[index].problem_status == 0:
-            obj = obj_list[index]
-            problem_list.append({
-                'problem_id': obj.problem_id,
-                'type': obj.problem_type,
-                'problem_name': obj.problem_name,
-                'tags': obj.tags,
-                'ACUser': obj.ac_user,
-                'submitter': obj.submitter
-            })
-            index += 1
-
-    return problem_list
-
-
-def add_problem(user, status, type, problem_name, description, tags,
-                test_case):
-    serial_number = Number("serial_number").obj
-
-    engine.Problem(
-        problem_id=serial_number.number,
-        problem_status=status,
-        problem_type=type,
-        problem_name=problem_name,
-        description=description,
-        owner=user.username,
-        tags=tags,
-        test_case=test_case).save()
-
-    serial_number.number += 1
-    serial_number.save()
-
-
-def edit_problem(user, problem_id, status, type, problem_name, description,
-                 tags, test_case):
+@problem_api.route('/<problem_id>', methods=['GET'])
+@login_required
+def view_problem(user, problem_id):
     problem = Problem(problem_id).obj
+    if problem is None:
+        return HTTPError('Problem not exist.', 404)
+    if user.role == 2 and problem.problem_status == 1:
+        return HTTPError('Problem cannot view.', 403)
 
-    problem.problem_status = status
-    problem.problem_type = type
-    problem.problem_name = problem_name
-    problem.description = description
-    problem.owner = user.username
-    problem.tags = tags
-    problem.test_case['language'] = test_case['language']
-    problem.test_case['fill_in_template'] = test_case['fillInTemplate']
-    problem.test_case['cases'] = test_case['cases']
+    data = {
+        'owner': problem.owner,
+        'description': problem.description,
+        #'pdf':
+    }
+    if problem.problem_type == 1:
+        data.update({'fillInTemplate': problem.test_case.fill_in_template})
 
-    problem.save()
+    return HTTPResponse('Problem can view.', data=data)
 
 
-def delete_problem(problem_id):
+@problem_api.route('/manage', methods=['POST'])
+@problem_api.route('/manage/<problem_id>', methods=['GET', 'PUT', 'DELETE'])
+@identity_verify(0, 1)
+def manage_problem(user, problem_id=None):
+    @Request.json(
+        'status',
+        'type',
+        'description',
+        'tags',
+        vars_dict={
+            'problem_name': 'problemName',
+            'test_case': 'testCase'
+        })
+    def modify_problem(status, type, problem_name, description, tags,
+                       test_case):
+        if request.method == 'POST':
+            add_problem(user, status, type, problem_name, description, tags,
+                        test_case)
+        elif request.method == 'PUT':
+            edit_problem(user, problem_id, status, type, problem_name,
+                         description, tags, test_case)
+
+    if request.method != 'POST':
+        problem = Problem(problem_id).obj
+        if problem is None:
+            return HTTPError('Problem not exist.', 404)
+        if user.role == 1 and problem.owner != user.username:
+            return HTTPError('Not the owner.', 403)
+
+    if request.method == 'GET':
+        data = {
+            'problemName': problem.problem_name,
+            'status': problem.problem_status,
+            'type': problem.problem_type,
+            'description': problem_type.description,
+            'tags': problem.tags,
+            'testCase': problem.test_case,
+            'ACUser': problem.ac_user,
+            'submitter': problem.submitter
+        }
+        return HTTPResponse('Success.', data=data)
+    elif request.method == 'DELETE':
+        delete_problem(problem_id)
+        return HTTPResponse('Success.')
+    else:
+        modify_problem()
+        return HTTPResponse('Success.')
+
+
+@problem_api.route('/clone', methods=['POST'])
+@identity_verify(0, 1)
+@Request.json(vars_dict={'problem_id': 'problemId'})
+def clone_problem(user, problem_id):
     problem = Problem(problem_id).obj
-    problem.delete()
+    if problem is None:
+        return HTTPError('Problem not exist.', 404)
+
+    copy_problem(user, problem_id)
+    return HTTPResponse('Success.')
 
 
-def copy_problem(user, problem_id):
-    serial_number = Number("serial_number").obj
+@problem_api.route('/publish', methods=['POST'])
+@identity_verify(0, 1)
+@Request.json(vars_dict={'problem_id': 'problemId'})
+def publish_problem(user, problem_id):
     problem = Problem(problem_id).obj
+    if problem is None:
+        return HTTPError('Problem not exist.', 404)
+    if user.role == 1 and problem.owner != user.username:
+        return HTTPError('Not the owner.', 403)
 
-    engine.Problem(
-        problem_id=serial_number.number,
-        problem_status=problem.problem_status,
-        problem_type=problem.problem_type,
-        problem_name=problem.problem_name,
-        description=problem.description,
-        owner=user.username,
-        tags=problem.tags,
-        test_case=problem.test_case).save()
-
-    serial_number.number += 1
-    serial_number.save()
-
-
-def release_problem(problem_id):
-    course = Course("Public").obj
-    problem = Problem(problem_id).obj
-    problem.course_ids.append(course)
-    problem.save()
+    release_problem(problem_id)
+    return HTTPResponse('Success.')
