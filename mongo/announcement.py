@@ -20,6 +20,10 @@ def found_announcement(course):
         target_course = engine.Course.objects.get(course_name=course)
     except FileNotFoundError as e:
         raise FileNotFoundError
+    except FileExistsError:
+        raise FileExistsError
+    except engine.DoesNotExist:
+        raise engine.DoesNotExist
     course_id = str(target_course.id)
     try:
         target = engine.Announcement.objects(course_id=course_id)
