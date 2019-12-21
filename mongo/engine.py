@@ -63,7 +63,7 @@ class Course(Document):
     tas = ListField(ReferenceField('User'), db_field='tas')
     student_nicknames = DictField(db_field='studentNicknames')
     # contest_ids = ListField(ReferenceField('Contest'), db_field='contestIds')
-    # homework_ids = ListField(ReferenceField('Homework'), db_field='homeworkIds')
+    homework_ids = ListField(ReferenceField('Homework'), db_field='homeworkIds')
     # announcement_ids = ListField(ReferenceField('Announcement'), db_field='announcementIds')
     # post_ids = ListField(ReferenceField('Post'), db_field='postIds')
 
@@ -97,3 +97,59 @@ class Problem(Document):
                                       null=True)
     ac_user = IntField(db_field='ACUser', default=0)
     submitter = IntField(default=0)
+
+
+class Duration(EmbeddedDocument):
+    start = DateTimeField()
+    end = DateTimeField()
+
+
+class Homework(Document):
+    name = StringField(max_length=64, required=True, db_field='homeworkName')
+    markdown = StringField(max_length=10000)
+    scoreboard_status = IntField(default=0,
+                                 choice=[0, 1],
+                                 db_field='scoreboardStatus')
+    course_id = StringField(db_field='courseId')
+    duration = EmbeddedDocumentField(Duration,
+                                     db_field='duration',
+                                     default=Duration)
+    problem_ids = ListField(StringField(), db_field='problemIds')
+    student_status = DictField(db_field='studentStatus')
+
+
+class TestCase(EmbeddedDocument):
+    status = IntField(required=True)
+    exec_time = IntField(required=True)
+    memory_usage = IntField(required=True)
+    stdout = StringField(required=True)
+    stderr = StringField(required=True)
+
+
+class Submission(Document):
+    problem_id = StringField(required=True)
+    user = ReferenceField(User, required=True)
+    language = IntField(required=True)
+    timestamp = DateTimeField(required=True)
+    status = IntField(default=-2)
+    score = IntField(default=0)
+    cases = ListField(EmbeddedDocumentField(TestCase), default=list)
+    exec_time = IntField(default=-1)
+    memory_usage = IntField(default=-1)
+    code = BooleanField(
+        default=False)  # wheather the user has uploaded source code
+
+
+class Message(Document):
+    timestamp = DateTimeField(default=datetime.utcnow)
+    sender = StringField(max_length=16, required=True)
+    receivers = ListField(StringField(max_length=16), required=True)
+    status = IntField(default=0, choices=[0, 1])  # not delete / delete
+    title = StringField(max_length=32, required=True)
+    markdown = StringField(max_length=100000, required=True)
+
+
+class Inbox(Document):
+    receiver = StringField(max_length=16, required=True)
+    status = IntField(default=0, choices=[0, 1, 2])  # unread / read / delete
+    message = ReferenceField('Message')
