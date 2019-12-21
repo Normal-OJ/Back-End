@@ -45,3 +45,12 @@ class BaseTester:
 
         user = User.signup(**USER)
         user.update(active=True, role=role)
+
+    @staticmethod
+    def request(client, method, url, **ks):
+        func = getattr(client, method)
+        rv = func(url, **ks)
+        rv_json = rv.get_json()
+        rv_data = rv_json['data']
+
+        return rv, rv_json, rv_data
