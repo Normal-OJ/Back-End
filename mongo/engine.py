@@ -112,3 +112,18 @@ class Submission(Document):
     memory_usage = IntField(default=-1)
     code = BooleanField(
         default=False)  # wheather the user has uploaded source code
+
+
+class Message(Document):
+    timestamp = DateTimeField(default=datetime.utcnow)
+    sender = StringField(max_length=16, required=True)
+    receivers = ListField(StringField(max_length=16), required=True)
+    status = IntField(default=0, choices=[0, 1])  # not delete / delete
+    title = StringField(max_length=32, required=True)
+    markdown = StringField(max_length=100000, required=True)
+
+
+class Inbox(Document):
+    receiver = StringField(max_length=16, required=True)
+    status = IntField(default=0, choices=[0, 1, 2])  # unread / read / delete
+    message = ReferenceField('Message')
