@@ -63,7 +63,8 @@ class Course(Document):
     tas = ListField(ReferenceField('User'), db_field='tas')
     student_nicknames = DictField(db_field='studentNicknames')
     # contest_ids = ListField(ReferenceField('Contest'), db_field='contestIds')
-    homework_ids = ListField(ReferenceField('Homework'), db_field='homeworkIds')
+    homework_ids = ListField(ReferenceField('Homework'),
+                             db_field='homeworkIds')
     # announcement_ids = ListField(ReferenceField('Announcement'), db_field='announcementIds')
     # post_ids = ListField(ReferenceField('Post'), db_field='postIds')
 
