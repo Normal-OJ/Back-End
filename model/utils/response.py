@@ -1,5 +1,7 @@
 from flask import jsonify, redirect
 
+__all__ = ['HTTPResponse', 'HTTPRedirect', 'HTTPError']
+
 
 class HTTPBaseResponese(tuple):
     def __new__(cls, resp, status_code=200, cookies={}):
@@ -7,7 +9,8 @@ class HTTPBaseResponese(tuple):
             if cookies[c] == None:
                 resp.delete_cookie(c)
             else:
-                resp.set_cookie(c, cookies[c])
+                d = c.split('_httponly')
+                resp.set_cookie(d[0], cookies[c], httponly=bool(d[1:]))
         return super().__new__(tuple, (resp, status_code))
 
 
@@ -33,5 +36,7 @@ class HTTPRedirect(HTTPBaseResponese):
 
 
 class HTTPError(HTTPResponse):
-    def __new__(cls, message, status_code, data=None):
-        return super().__new__(HTTPResponse, message, status_code, 'err', data)
+    def __new__(cls, message, status_code, data=None, logout=False):
+        cookies = {'piann': None, 'jwt': None} if logout else {}
+        return super().__new__(HTTPResponse, message, status_code, 'err', data,
+                               cookies)

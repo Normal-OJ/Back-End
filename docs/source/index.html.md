@@ -12,6 +12,7 @@ toc_footers:
 includes:
   - common
   - auth
+  - inbox
 
 search: true
 ---

@@ -6,3 +6,12 @@ __pycache__
 
 # Mac
 .DS_Store
+
+# virtual env
+.venv
+venv
+.env
+
+# vs & vs code cache
+.vs
+.vscode
