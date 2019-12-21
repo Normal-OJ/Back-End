@@ -18,7 +18,7 @@ def view_problem_list(user, offset, count):
     return HTTPResponse('Success.', data=data)
 
 
-@problem_api.route('/<problem_id>', methods=['GET'])
+@problem_api.route('/view/<problem_id>', methods=['GET'])
 @login_required
 def view_problem(user, problem_id):
     problem = Problem(problem_id).obj
@@ -30,6 +30,10 @@ def view_problem(user, problem_id):
     data = {
         'owner': problem.owner,
         'description': problem.description,
+        'type': problem.type,
+        'problemName': problem.problem_name,
+        'status': problem.problem_status,
+        'tags': problem.tags
         #'pdf':
     }
     if problem.problem_type == 1:
