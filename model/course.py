@@ -30,7 +30,9 @@ def get_courses(user):
                 r = delete_course(user, course)
 
             if r is not None:
-                return HTTPError(r, 403 if r == 'Forbidden.' else 400 if r == 'Not allowed name.' else 404)
+                return HTTPError(
+                    r, 403 if r == 'Forbidden.' else
+                    400 if r == 'Not allowed name.' else 404)
         except NotUniqueError as ne:
             return HTTPError('Course exists.', 400)
 
