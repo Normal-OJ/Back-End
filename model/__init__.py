@@ -19,7 +19,7 @@ from .test import *
 from .announcement import *
 
 __all__ = [
-    *auth.__all__, *course.__all__, *profile.__all__, *submission.__all__,
-    *test.__all__, *homework.__all__, *inbox.__all__, *test.__all__,
+    *auth.__all__, *profile.__all__, *problem.__all__, *submission.__all__,
+    *inbox.__all__, *course.__all__, *homework.__all__, *test.__all__,
     *announcement.__all__
 ]
