@@ -3,6 +3,7 @@ from .auth import *
 from mongo import *
 from .utils import *
 from mongo.announcement import *
+from mongo import announcement
 import os
 
 __all__ = ['announcement_api']
@@ -30,7 +31,7 @@ def get_system_announcement():
 
 @announcement_api.route('/<course>', methods=['GET'])
 @login_required
-def get_announcement(user,course): #course = rourse_id
+def get_announcement(user,course): #course = course_name
     try:
         announcements = get_announcement(course)
     except:
@@ -51,24 +52,24 @@ def get_announcement(user,course): #course = rourse_id
 @announcement_api.route('/', methods=['POST','PUT','DELETE'])
 @Request.json('course','title','content')
 @login_required
-def modify_announcement(user,course,title,content):
+def modify_announcement(user,course,title,content):# course = course_name
     # if you are a student
     if user.role == 2:
-        return HTTPError('Forbidden.You canˊt post announcement.', 403)
+        return HTTPError('Forbidden.You donˊt have authority to post/edit announcement.', 403)
     # System announcement must admin
     if course == 'Public' and user.role !=0:
-        return HTTPError('Forbidden.You canˊt post announcement.', 403)
+        return HTTPError('Forbidden.You donˊt have authority to post/edit announcement.', 403)
     r = None
-    try:
-        if request.method == 'POST':
-            r = add_announcement(user,course,title,content)
-        if request.method == 'PUT':
-            r = edit_announcement(course,title,content)
-        if request.method == 'DELETE':
-            r = delete_announcement(course)
-        if r is not None:
-            return HTTPError(r, 403)
-    except NotUniqueError as ne:
-            return HTTPError('Announcement exist',400)
+    if request.method == 'POST':
+        r = add_announcement(user,course,title,content)
+    if request.method == 'PUT':
+        r = edit_announcement(user,course,title,content)
+    if request.method == 'DELETE':
+        r = delete_announcement(user,course)
 
-    return HTTPResponse('Success')
+    if r == "Forbidden, Only author can edit." or r == "Forbidden, Only author can delete.":
+        return HTTPError(r, 403)
+    if r is not None:
+        return HTTPError(r, 404)
+
+    return HTTPResponse('Success',200,'ok')
