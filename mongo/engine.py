@@ -112,11 +112,15 @@ class Submission(Document):
     memory_usage = IntField(default=-1)
     code = BooleanField(
         default=False)  # wheather the user has uploaded source code
+
+
 class Announcement(Document):
     #announcement_id = StringField(db_field='announcementId', required=True, unique=True)
-    announcement_name = StringField(db_field='announcementName',required=True,max_length=64)
+    announcement_name = StringField(db_field='announcementName',
+                                    required=True,
+                                    max_length=64)
     course_id = ReferenceField('Course', db_field='courseId')
     author = ReferenceField('User', db_field='author')
     created = DateTimeField(required=True)
     updated = DateTimeField(required=True)
-    markdown = StringField(default='',required=True,max_length=100000)
+    markdown = StringField(default='', required=True, max_length=100000)
