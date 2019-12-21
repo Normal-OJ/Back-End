@@ -3,15 +3,50 @@ from tests.base_tester import BaseTester
 
 
 class TestInbox(BaseTester):
-    '''Test courses panel used my admins
+    '''Test inbox
     '''
-    def test_view_inbox(self, client_student):
-        # view inbox
-        rv = client_student.get('/inbox')
+
+    def test_send_with_invalid_username(self, client_student):
+        # send inbox with all invalide user
+        rv = client_student.post('/inbox',
+                                 json={
+                                     'receivers': ['nobody'], 'title': 'hi', 'message': 'AAA'
+                                 })
         json = rv.get_json()
-        assert json['message'] == 'User not found.'
-        assert rv.status_code == 404
+        assert json['message'] == 'At least one receiver is required'
+        assert rv.status_code == 400
         assert json['status'] == 'err'
+
+    def test_send_with_invalid_info(self, client_student):
+        # send inbox with wierd info
+        rv = client_student.post('/inbox',
+                                 json={
+                                     'receivers': ['teacher'], 'title': {}, 'message': 'AAA'
+                                 })
+        json = rv.get_json()
+        assert json['message'] == 'Failed to Send a Message'
+        assert rv.status_code == 400
+        assert json['status'] == 'err'
+
+    def test_send(self, client_student):
+        # send inbox
+        rv = client_student.post('/inbox',
+                                 json={
+                                     'receivers': ['teacher'], 'title': 'hi', 'message': 'AAA'
+                                 })
+        json = rv.get_json()
+        assert json['message'] == 'Successfully Send'
+        assert rv.status_code == 200
+        assert json['status'] == 'ok'
+
+    def test_view(self, client_admin):
+        # Get all courses
+        rv = client_admin.get('/inbox')
+        json = rv.get_json()
+        assert json['message'] == 'Received List'
+        assert rv.status_code == 200
+        assert json['status'] == 'ok'
+        assert json['data'] == [{'course': 'math', 'teacher': 'admin'}]
 
     def test_add(self, client_admin):
         # add a course
