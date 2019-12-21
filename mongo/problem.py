@@ -2,8 +2,8 @@ from . import engine
 from .course import Course
 
 __all__ = [
-    'Number', 'Problem', 'get_problem_list', 'add_problem',
-    'edit_problem', 'delete_problem', 'copy_problem', 'release_problem'
+    'Number', 'Problem', 'get_problem_list', 'add_problem', 'edit_problem',
+    'delete_problem', 'copy_problem', 'release_problem'
 ]
 
 
@@ -56,7 +56,8 @@ def get_problem_list(role, offset, count):
     return problem_list
 
 
-def add_problem(user, status, type, problem_name, description, tags, test_case):
+def add_problem(user, status, type, problem_name, description, tags,
+                test_case):
     serial_number = Number("serial_number").obj
 
     engine.Problem(

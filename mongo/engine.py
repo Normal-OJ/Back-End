@@ -81,6 +81,9 @@ class Problem(Document):
     # pdf =
     tags = ListField(StringField(max_length=16))
     test_case = EmbeddedDocumentField(
-        ProblemTestCase, db_field='testCase', default=ProblemTestCase, null=True)
+        ProblemTestCase,
+        db_field='testCase',
+        default=ProblemTestCase,
+        null=True)
     ac_user = IntField(db_field='ACUser', default=0)
     submitter = IntField(default=0)
