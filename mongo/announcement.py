@@ -13,11 +13,12 @@ class Announcement:
 def found_announcement(course):
     try:
         target_course = engine.Course.objects.get(course_name=course)
-    except:
+    except FileNotFoundError as e:
         raise FileNotFoundError
+    course_id = str(target_course.id)
     try:
-        target = engine.Announcement.objects.get(course_id=target_course.id)
-    except:
+        target = engine.Announcement.objects(course_id=course_id)
+    except FileNotFoundError as e:
         raise FileNotFoundError
     return target
 
@@ -31,7 +32,7 @@ def add_announcement(user,course,title,content):# course=course_id
     updated_time = created_time
     new_announcement = engine.Announcement(announcement_name=title,
                         course_id=target_course,
-                        author=user,
+                        author=user.obj,
                         created=created_time,
                         updated=updated_time,
                         markdown=content)
@@ -42,13 +43,12 @@ def edit_announcement(user,course,title,content,targetAnnouncementId):
         target = engine.Announcement.objects.get(id=targetAnnouncementId)
     except:
         return "Announcement not found."
-    #if user.username != target.author:
-    #    return "Forbidden, Only author can edit."
-    # DBRef bug #
-    target.announcement_name = title
-    target.markdown = content
+    if user.username != target.author.username:
+        return "Forbidden, Only author can edit."
     updated_time = datetime.now()
     updated_time.timestamp()
+    target.announcement_name = title
+    target.markdown = content
     target.updated = updated_time
     target.save()
 
@@ -57,7 +57,6 @@ def delete_announcement(user,targetAnnouncementId):
         target = engine.Announcement.objects.get(id=targetAnnouncementId)
     except:
         return "Announcement not found."
-    #if user.username != target.author:
-    #    return "Forbidden, Only author can delete."
-    # DBRef bug #
+    if user.username != target.author.username:
+        return "Forbidden, Only author can delete."
     target.delete()
