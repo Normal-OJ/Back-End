@@ -53,8 +53,12 @@ def manage_problem(user, problem_id):
         })
     def modify_problem(status, type, problem_name, description, tags,
                        test_case):
-        edit_problem(user, problem_id, status, type, problem_name, description,
-                     tags, test_case)
+        if request.method == 'POST':
+            add_problem(user, problem_id, status, type, problem_name,
+                        description, tags, test_case)
+        elif request.method == 'PUT':
+            edit_problem(user, problem_id, status, type, problem_name,
+                         description, tags, test_case)
 
     if request.method == 'POST':
         problem = Problem(problem_id).obj
@@ -85,3 +89,35 @@ def manage_problem(user, problem_id):
     else:
         modify_problem()
         return HTTPResponse('Success.')
+
+
+@problem_api.route('/clone', methods=['POST'])
+@identity_verify(0, 1)
+@Request.json(vars_dict={
+    'problem_id': 'problemId',
+    'new_problem_id': 'newProblemId'
+})
+def clone_problem(user, problem_id, new_problem_id):
+    problem = Problem(problem_id).obj
+    if problem is None:
+        return HTTPError('Problem not exist.', 404)
+    problem = Problem(new_problem_id).obj
+    if problem is not None:
+        return HTTPError('Problem exist.', 403)
+
+    copy_problem(user, problem_id, new_problem_id)
+    return HTTPResponse('Success.')
+
+
+@problem_api.route('/publish', methods=['POST'])
+@identity_verify(0, 1)
+@Request.json(vars_dict={'problem_id': 'problemId'})
+def publish_problem(user, problem_id):
+    problem = Problem(problem_id).obj
+    if problem is None:
+        return HTTPError('Problem not exist.', 404)
+    if user.role == 1 and problem.owner != user.username:
+        return HTTPError('Not the owner.', 403)
+
+    release_problem(problem_id)
+    return HTTPResponse('Success.')
