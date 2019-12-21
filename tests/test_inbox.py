@@ -1,6 +1,8 @@
 import pytest
 from tests.base_tester import BaseTester
 
+message_id = 0
+
 
 class TestInbox(BaseTester):
     '''Test inbox
@@ -9,7 +11,7 @@ class TestInbox(BaseTester):
         # send inbox with all invalide user
         rv = client_student.post('/inbox',
                                  json={
-                                     'receivers': ['nobody'],
+                                     'receivers': [],
                                      'title': 'hi',
                                      'message': 'AAA'
                                  })
@@ -47,7 +49,7 @@ class TestInbox(BaseTester):
         json = rv.get_json()
         assert json['message'] == 'Received List'
         assert rv.status_code == 200
-        assert json['data'][0]['message'] == 'aaa'
+        assert json['data'][0]['message'] == 'AAA'
         assert json['data'][0]['title'] == 'hi'
         assert json['data'][0]['sender'] == ['student']
         assert json['data'][0]['status'] == 0
@@ -96,7 +98,7 @@ class TestInbox(BaseTester):
         json = rv.get_json()
         assert json['message'] == 'Sent List'
         assert rv.status_code == 200
-        assert json['data'][0]['message'] == 'aaa'
+        assert json['data'][0]['message'] == 'AAA'
         assert json['data'][0]['title'] == 'hi'
         assert json['data'][0]['receivers'] == ['teacher']
 
