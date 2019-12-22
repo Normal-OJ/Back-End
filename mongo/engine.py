@@ -7,8 +7,8 @@ from datetime import datetime
 __all__ = [*mongoengine.__all__]
 
 MONGO_HOST = os.environ.get('MONGO_HOST', 'mongomock://localhost')
-connect('normal-oj', host=MONGO_HOST)
-#connect('normal-oj', host='localhost', port=27017)
+#connect('normal-oj', host=MONGO_HOST)
+connect('normal-oj', host='localhost', port=27017)
 
 
 class Profile(EmbeddedDocument):
@@ -75,10 +75,11 @@ class Homework(Document):
     student_status = DictField(db_field='studentStatus')    
 
 class Contest(Document):
-    contest_name = StringField(max_length=64, required=True, db_field='contestName')
+    name = StringField(max_length=64, required=True, db_field='contestName')
     scoreboard_status = IntField(default=0,
                                  choice=[0, 1],
                                  db_field='scoreboardStatus')
+    course_id = StringField(db_field='courseId')
     duration = EmbeddedDocumentField(Duration,
                                      db_field='duration',
                                      default=Duration)
@@ -97,7 +98,7 @@ class Course(Document):
                               db_field='courseName')
     teacher = ReferenceField('User', db_field='teacher')
     tas = ListField(ReferenceField('User'), db_field='tas')
-    # contest_ids = ListField(ReferenceField('Contest'), db_field='contestIds')
+    contest = ListField(ReferenceField('Contest', reverse_delete_rule=PULL), db_field='contestIds')
     #reverse_delete_rule:CASCADE->delete the doc and the referenced object
     homework = ListField(ReferenceField('Homework', reverse_delete_rule=PULL),
                          db_field='homeworkIds')
