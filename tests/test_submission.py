@@ -208,14 +208,28 @@ class TestGetSubmission(SubmissionTester):
         for s in rv_data['submissions']:
             assert sorted(s.keys()) == excepted_field_names
 
-    def test_get_truncated_submission_list(self, client):
-        rv, rv_json, rv_data = self.submission_request(
-            client, 'get', '/submission/?offset=0&count=1')
+    @pytest.mark.parametrize('offset, count',
+                             [(0, 1),
+                              (SubmissionTester.init_submission_count // 2, 1)]
+                             )
+    def test_get_truncated_submission_list(self, client, offset, count):
+        rv, rv_json, rv_data = self.request(client, 'get',
+                                            '/submission/?offset=0&count=1')
 
         pprint(rv_json)
 
         assert rv.status_code == 200
         assert len(rv_data['submissions']) == 1
+
+    def test_get_submission_list_with_maximun_offset(self, client):
+        rv, rv_json, rv_data = self.request(
+            client, 'get',
+            f'/submission/?offset={SubmissionTester.init_submission_count}&count=1'
+        )
+
+        print(rv_json)
+
+        assert rv.status_code == 400
 
     def test_get_all_submission(self, client):
         rv, rv_json, rv_data = self.submission_request(

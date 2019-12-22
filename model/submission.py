@@ -156,8 +156,8 @@ def get_submission_list(offset, count, problem_id, submission_id, username,
         del q[k]
     submissions = submissions.filter(**q)
 
-    if offset > len(submissions):
-        return HTTPError(f'offset ({offset}) is out of range!')
+    if offset >= len(submissions):
+        return HTTPError(f'offset ({offset}) is out of range!', 400)
 
     right = min(len(submissions), offset +
                 count) if count != -1 else len(submissions)
