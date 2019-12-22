@@ -5,6 +5,7 @@ from . import submission
 from . import inbox
 from . import course
 from . import homework
+from . import inbox
 from . import test
 from . import announcement
 
@@ -15,6 +16,7 @@ from .submission import *
 from .inbox import *
 from .course import *
 from .homework import *
+from .inbox import *
 from .test import *
 from .announcement import *
 
