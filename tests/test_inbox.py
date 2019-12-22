@@ -1,8 +1,6 @@
 import pytest
 from tests.base_tester import BaseTester
 
-message_id = 0
-
 
 class TestInbox(BaseTester):
     '''Test inbox
@@ -54,6 +52,7 @@ class TestInbox(BaseTester):
         assert json['data'][0]['sender'] == 'student'
         assert json['data'][0]['status'] == 0
 
+        global message_id
         message_id = json['data'][0]['messageId']
 
     def test_read_without_owner(self, client_student):
@@ -102,6 +101,7 @@ class TestInbox(BaseTester):
         assert json['data'][0]['title'] == 'hi'
         assert json['data'][0]['receivers'] == ['teacher']
 
+        global message_id
         message_id = json['data'][0]['messageId']
 
     def test_delete_sent_with_invalid_id(self, client_student):
