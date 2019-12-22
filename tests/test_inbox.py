@@ -114,9 +114,9 @@ class TestInbox(BaseTester):
         assert json['message'] == 'Message Not Found'
         assert rv.status_code == 404
 
-    def test_delete_sent_without_owner(self, client_student):
+    def test_delete_sent_without_owner(self, client_teacher):
         # delete a inbox message when you are not the owner
-        rv = client_student.delete('/inbox/sent',
+        rv = client_teacher.delete('/inbox/sent',
                                    json={'messageId': message_id})
         json = rv.get_json()
         assert json['message'] == 'Failed to Access the Message'
