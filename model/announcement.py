@@ -1,6 +1,7 @@
 from flask import Blueprint, request
 from .auth import *
 from mongo import *
+from mongo import engine
 from .utils import *
 from mongo.announcement import *
 from mongo.course import *
@@ -39,7 +40,7 @@ def get_announcement(user, course):  #course = course_name
     announcements = None
     try:
         announcements = found_announcement(course)
-    except engine.engine.DoesNotExist:
+    except engine.DoesNotExist:
         return HTTPError('Announcement not exists', 404)
     except FileNotFoundError:
         return HTTPError('Announcement not exists', 404)
