@@ -92,7 +92,57 @@ class Course(Document):
     # post_ids = ListField(ReferenceField('Post'), db_field='postIds')
 
 
-class TestCase(EmbeddedDocument):
+class Number(Document):
+    name = StringField()
+    number = IntField()
+
+
+class ProblemTestCase(EmbeddedDocument):
+    language = IntField(choices=[1, 2, 4])
+    fill_in_template = StringField(db_field='fillInTemplate', max_length=16000)
+    cases = ListField(DictField())
+
+
+class Problem(Document):
+    problem_id = IntField(db_field='problemId', required=True, unique=True)
+    course_ids = ListField(ReferenceField('Course'), db_field='courseIds')
+    problem_status = IntField(default=1, choices=[0, 1])
+    problem_type = IntField(default=0, choices=[0, 1])
+    problem_name = StringField(db_field='problemName',
+                               max_length=64,
+                               required=True)
+    description = StringField(max_length=100000, required=True)
+    owner = StringField(max_length=16, required=True)
+    # pdf =
+    tags = ListField(StringField(max_length=16))
+    test_case = EmbeddedDocumentField(ProblemTestCase,
+                                      db_field='testCase',
+                                      default=ProblemTestCase,
+                                      null=True)
+    ac_user = IntField(db_field='ACUser', default=0)
+    submitter = IntField(default=0)
+
+
+class Duration(EmbeddedDocument):
+    start = DateTimeField()
+    end = DateTimeField()
+
+
+class Homework(Document):
+    name = StringField(max_length=64, required=True, db_field='homeworkName')
+    markdown = StringField(max_length=10000)
+    scoreboard_status = IntField(default=0,
+                                 choice=[0, 1],
+                                 db_field='scoreboardStatus')
+    course_id = StringField(db_field='courseId')
+    duration = EmbeddedDocumentField(Duration,
+                                     db_field='duration',
+                                     default=Duration)
+    problem_ids = ListField(StringField(), db_field='problemIds')
+    student_status = DictField(db_field='studentStatus')
+
+
+class TestCaseResult(EmbeddedDocument):
     status = IntField(required=True)
     exec_time = IntField(required=True)
     memory_usage = IntField(required=True)
@@ -107,7 +157,7 @@ class Submission(Document):
     timestamp = DateTimeField(required=True)
     status = IntField(default=-2)
     score = IntField(default=0)
-    cases = ListField(EmbeddedDocumentField(TestCase), default=list)
+    cases = ListField(EmbeddedDocumentField(TestCaseResult), default=list)
     exec_time = IntField(default=-1)
     memory_usage = IntField(default=-1)
     code = BooleanField(
@@ -127,3 +177,15 @@ class Inbox(Document):
     receiver = StringField(max_length=16, required=True)
     status = IntField(default=0, choices=[0, 1, 2])  # unread / read / delete
     message = ReferenceField('Message')
+
+
+class Announcement(Document):
+    #announcement_id = StringField(db_field='announcementId', required=True, unique=True)
+    announcement_name = StringField(db_field='announcementName',
+                                    required=True,
+                                    max_length=64)
+    course_id = ReferenceField('Course', db_field='courseId')
+    author = ReferenceField('User', db_field='author')
+    created = DateTimeField(required=True)
+    updated = DateTimeField(required=True)
+    markdown = StringField(default='', required=True, max_length=100000)

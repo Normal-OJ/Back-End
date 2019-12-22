@@ -196,6 +196,11 @@ def active(token=None):
                         })
         except ValidationError as ve:
             return HTTPError('Failed', 400, data=ve.to_dict())
+        pub_course = Course('Public').obj
+        if pub_course is None:
+            return HTTPError('Public Course Not Exists', 500)
+        pub_course.student_nicknames.update({user.username: user.username})
+        pub_course.save()
         cookies = {'jwt': user.cookie}
         return HTTPResponse('User Is Now Active', cookies=cookies)
 

@@ -129,20 +129,35 @@ def get_submission_list(offset, count, problem_id, submission_id, username,
     # query all
     submissions = engine.Submission.objects.order_by('-timestamp')
 
-    # filter query result
-    if problem_id:
-        submissions = submissions.get(problem_id=problem_id)
-    if submission_id:
-        submissions = submissions.get(id=submission_id)
-    if status:
-        submissions = submissions.get(status=status)
-    if language_type:
-        submissions = submissions.get(language=language_type)
-    if username:
-        submissions = submissions.get(user=User(username=username).obj)
+    # filter by role
+    @identity_verify(0, 1)
+    def view_offline_problem_submissions():
+        '''
+        teachers and admin can view offline problems
+        '''
+        return True
 
-    if offset > len(submissions):
-        return HTTPError(f'offset ({offset}) is out of range!')
+    def truncate_offline_problem_submissions(submissions):
+        pass
+
+    view_offline_problem_submissions() != True or \
+        truncate_offline_problem_submissions(submissions)
+
+    # filter by user args
+    q = {
+        'problem_id': problem_id,
+        'id': submission_id,
+        'status': status,
+        'language': language_type,
+        'user': User(username=username).obj
+    }
+    nk = [k for k, v in q.items() if v is None]
+    for k in nk:
+        del q[k]
+    submissions = submissions.filter(**q)
+
+    if offset >= len(submissions):
+        return HTTPError(f'offset ({offset}) is out of range!', 400)
 
     right = min(len(submissions), offset +
                 count) if count != -1 else len(submissions)
@@ -162,23 +177,35 @@ def get_submission_list(offset, count, problem_id, submission_id, username,
 
         s['timestamp'] = s['timestamp']['$date']
 
+        s['submissionId'] = s['_id']['$oid']
+        del s['_id']
+
         # field name convertion
-        curr = ['memory_usage', 'exec_time', 'problem_id', '_id', 'language']
-        want = [
-            'memoryUsage', 'runTime', 'problemId', 'submissionId',
-            'languageType'
-        ]
+        curr = ['memory_usage', 'exec_time', 'problem_id', 'language']
+        want = ['memoryUsage', 'runTime', 'problemId', 'languageType']
         for c, w in zip(curr, want):
             s[w] = s[c]
             del s[c]
 
-    return HTTPResponse(data=submissions)
+    unicorns = [
+        'https://media.giphy.com/media/xTiTnLmaxrlBHxsMMg/giphy.gif',
+        'https://media.giphy.com/media/26AHG5KGFxSkUWw1i/giphy.gif',
+        'https://media.giphy.com/media/g6i1lEax9Pa24/giphy.gif',
+        'https://media.giphy.com/media/tTyTbFF9uEbPW/giphy.gif'
+    ]
+
+    ret = {'unicorn': random.choice(unicorns), 'submissions': submissions}
+
+    return HTTPResponse('here you are, bro', data=ret)
 
 
 @submission_api.route('/<submission_id>', methods=['GET'])
 @login_required
 def get_submission(user, submission_id):
     submission = Submission(submission_id)
+    if not submission.exist:
+        return HTTPError(f'{submission} not found!', 404)
+
     ret = submission.to_json()
     ret = json.loads(ret)
 
@@ -236,7 +263,6 @@ def update_submission(user, submission_id, token):
                     f'{submission} has been uploaded source file!', 403)
             else:
                 # save submission source
-                print(f'SOURCE: {SOURCE_PATH}')
                 submission_path = f'{SOURCE_PATH}/{submission_id}'
                 if os.path.isdir(submission_path):
                     raise FileExistsError(f'{submission} code found on server')
@@ -254,16 +280,16 @@ def update_submission(user, submission_id, token):
                 with ZipFile(zip_path, 'r') as f:
                     f.extractall(submission_path)
                 os.remove(zip_path)
-                submission.update(code=True)
+                submission.update(code=True, status=-1)
 
                 return judgement(submission)
         else:
             return HTTPError(f'can not find the source file', 400)
 
-    @Request.json('score', 'problem_status', 'cases')
-    def recieve_submission_result(submission, score, problem_status, cases):
+    @Request.json('score', 'status', 'cases')
+    def recieve_submission_result(submission, score, status, cases):
         try:
-            submission.update(status=problem_status,
+            submission.update(status=status,
                               cases=cases,
                               exec_time=cases[-1]['execTime'],
                               memory_usage=cases[-1]['memoryUsage'])

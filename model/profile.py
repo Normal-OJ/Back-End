@@ -12,7 +12,7 @@ profile_api = Blueprint('profile_api', __name__)
 @profile_api.route('/', methods=['GET'])
 @profile_api.route('/<username>', methods=['GET'])
 @login_required
-def view_others_profile(user, username=None):
+def view_profile(user, username=None):
     try:
         user = user if username is None else User(username)
         data = {
@@ -29,7 +29,7 @@ def view_others_profile(user, username=None):
 
 @profile_api.route('/', methods=['POST'])
 @login_required
-@Request.json('bio', 'displayed_name')
+@Request.json('bio', vars_dict={'displayed_name': 'displayedName'})
 def edit_profile(user, displayed_name, bio):
     try:
         profile = user.obj.profile
