@@ -68,15 +68,6 @@ class SubmissionTester(BaseTester):
     }
 
     @classmethod
-    def submission_request(cls, client, method, url, **ks):
-        func = getattr(client, method)
-        rv = func(url, **ks)
-        rv_json = rv.get_json()
-        rv_data = rv_json['data']
-
-        return rv, rv_json, rv_data
-
-    @classmethod
     def lang_to_code(cls, lang: str):
         '''
         convert language to corresponded code
@@ -173,7 +164,7 @@ class SubmissionTester(BaseTester):
 
 class TestGetSubmission(SubmissionTester):
     def test_normal_get_submission_list(self, client):
-        rv, rv_json, rv_data = self.submission_request(
+        rv, rv_json, rv_data = self.request(
             client, 'get',
             f'/submission/?offset=0&count={self.init_submission_count}')
 
@@ -196,8 +187,8 @@ class TestGetSubmission(SubmissionTester):
                               (SubmissionTester.init_submission_count // 2, 1)]
                              )
     def test_get_truncated_submission_list(self, client, offset, count):
-        rv, rv_json, rv_data = self.request(client, 'get',
-                                            '/submission/?offset=0&count=1')
+        rv, rv_json, rv_data = self.request(
+            client, 'get', f'/submission/?offset={offset}&count={count}')
 
         pprint(rv_json)
 
@@ -215,8 +206,8 @@ class TestGetSubmission(SubmissionTester):
         assert rv.status_code == 400
 
     def test_get_all_submission(self, client):
-        rv, rv_json, rv_data = self.submission_request(
-            client, 'get', '/submission/?offset=0&count=-1')
+        rv, rv_json, rv_data = self.request(client, 'get',
+                                            '/submission/?offset=0&count=-1')
 
         pprint(rv_json)
 
@@ -224,7 +215,7 @@ class TestGetSubmission(SubmissionTester):
         assert len(rv_data['submissions']) == self.init_submission_count
 
         offset = self.init_submission_count // 2
-        rv, rv_json, rv_data = self.submission_request(
+        rv, rv_json, rv_data = self.request(
             client, 'get', f'/submission/?offset={offset}&count=-1')
 
         pprint(rv_json)
@@ -234,7 +225,7 @@ class TestGetSubmission(SubmissionTester):
                                                offset)
 
     def test_get_submission_list_over_db_size(self, client):
-        rv, rv_json, rv_data = self.submission_request(
+        rv, rv_json, rv_data = self.request(
             client, 'get',
             f'/submission/?offset=0&count={SubmissionTester.init_submission_count ** 2}'
         )
@@ -260,8 +251,8 @@ class TestGetSubmission(SubmissionTester):
         pprint(ids)
 
         for _id in ids:
-            rv, rv_json, rv_data = self.submission_request(
-                client_student, 'get', f'/submission/{_id}')
+            rv, rv_json, rv_data = self.request(client_student, 'get',
+                                                f'/submission/{_id}')
             assert rv.status_code == 200
             assert 'code' not in rv_data
 
@@ -273,8 +264,8 @@ class TestGetSubmission(SubmissionTester):
         pprint(ids)
 
         for _id in ids:
-            rv, rv_json, rv_data = self.submission_request(
-                client_student, 'get', f'/submission/{_id}')
+            rv, rv_json, rv_data = self.request(client_student, 'get',
+                                                f'/submission/{_id}')
             assert rv.status_code == 200
             assert 'code' in rv_data
 
@@ -282,14 +273,14 @@ class TestGetSubmission(SubmissionTester):
                                                (None, None)])
     def test_get_submission_list_with_missing_args(self, client, offset,
                                                    count):
-        rv, rv_json, rv_data = self.submission_request(
+        rv, rv_json, rv_data = self.request(
             client, 'get', f'/submission/?offset={offset}&count={count}')
         assert rv.status_code == 400
 
     @pytest.mark.parametrize('offset, count', [(-1, 2), (2, -2)])
     def test_get_submission_list_with_out_ranged_negative_arg(
         self, client, offset, count):
-        rv, rv_json, rv_data = self.submission_request(
+        rv, rv_json, rv_data = self.request(
             client, 'get', f'/submission/?offset={offset}&count={count}')
         assert rv.status_code == 400
 
@@ -300,7 +291,7 @@ class TestGetSubmission(SubmissionTester):
          #TODO: test for submission id filter
          ])
     def test_get_submission_list_by_filter(self, client, key, except_val):
-        rv, rv_json, rv_data = self.submission_request(
+        rv, rv_json, rv_data = self.request(
             client, 'get',
             f'/submission/?offset=0&count=-1&{key}={except_val}')
 
@@ -318,10 +309,10 @@ class TestCreateSubmission(SubmissionTester):
         # first claim a new submission to backend server
         post_json = {'problemId': '8888', 'languageType': submission['lang']}
         # recieve response, which include the submission id and a token to validat next request
-        rv, rv_json, rv_data = self.submission_request(client_student,
-                                                       'post',
-                                                       '/submission',
-                                                       json=post_json)
+        rv, rv_json, rv_data = self.request(client_student,
+                                            'post',
+                                            '/submission',
+                                            json=post_json)
 
         pprint(f'post: {rv_json}')
 
@@ -342,10 +333,10 @@ class TestCreateSubmission(SubmissionTester):
     def test_wrong_language_type(self, client_student):
         submission = self.source['c11']
         post_json = {'problemId': '8888', 'languageType': 2}  # 2 for py3
-        rv, rv_json, rv_data = self.submission_request(client_student,
-                                                       'post',
-                                                       '/submission',
-                                                       json=post_json)
+        rv, rv_json, rv_data = self.request(client_student,
+                                            'post',
+                                            '/submission',
+                                            json=post_json)
 
         pprint(f'post: {rv_json}')
 
@@ -362,10 +353,10 @@ class TestCreateSubmission(SubmissionTester):
     def test_empty_source(self, client_student):
         submission = self.source['c11']
         post_json = {'problemId': '8888', 'languageType': submission['lang']}
-        rv, rv_json, rv_data = self.submission_request(client_student,
-                                                       'post',
-                                                       '/submission',
-                                                       json=post_json)
+        rv, rv_json, rv_data = self.request(client_student,
+                                            'post',
+                                            '/submission',
+                                            json=post_json)
 
         pprint(f'post: {rv_json}')
 
@@ -382,10 +373,10 @@ class TestCreateSubmission(SubmissionTester):
     @pytest.mark.parametrize('submission', SubmissionTester.source.values())
     def test_no_source_upload(self, client_student, submission):
         post_json = {'problemId': '8888', 'languageType': submission['lang']}
-        rv, rv_json, rv_data = self.submission_request(client_student,
-                                                       'post',
-                                                       '/submission',
-                                                       json=post_json)
+        rv, rv_json, rv_data = self.request(client_student,
+                                            'post',
+                                            '/submission',
+                                            json=post_json)
 
         pprint(f'post: {rv_json}')
 
