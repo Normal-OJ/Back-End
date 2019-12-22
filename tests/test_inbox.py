@@ -1,6 +1,8 @@
 import pytest
 from tests.base_tester import BaseTester
 
+message_id = 0
+
 
 class TestInbox(BaseTester):
     '''Test inbox
