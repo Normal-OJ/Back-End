@@ -20,7 +20,8 @@ from .contest import *
 
 __all__ = [
     *course.__all__, *engine.__all__, *user.__all__, *submission.__all__,
-    *homework.__all__, *inbox.__all__, *problem.__all__, *announcement.__all__,*contest.__all__
+    *homework.__all__, *inbox.__all__, *problem.__all__, *announcement.__all__,
+    *contest.__all__
 ]
 
 if User("first_admin").obj is None:

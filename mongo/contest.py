@@ -1,17 +1,20 @@
 from . import engine
 from mongo.course import *
-from mongoengine import DoesNotExist,NotUniqueError
+from mongoengine import DoesNotExist, NotUniqueError
 from datetime import datetime
-__all__ = ['Contest','AuthorityError']
+__all__ = ['Contest', 'AuthorityError']
+
 
 class AuthorityError(Exception):
     '''check whether the user is teacher/ta/admin in this course'''
     pass
 
+
 class Contest:
     @staticmethod
-    def add_contest(user,course_name,contest_name,start,end,problem_ids,scoreboard_status,contest_mode):
-        #check the contest name won't repeat 
+    def add_contest(user, course_name, contest_name, start, end, problem_ids,
+                    scoreboard_status, contest_mode):
+        #check the contest name won't repeat
         course = engine.Course.objects.get(course_name=course_name)
         for x in course.contest:
             if x.name == contest_name:
@@ -25,11 +28,11 @@ class Contest:
                     break
         if (is_ta_match != 1 and course.teacher.username != user.username
                 and user.role != 0):
-            raise AuthorityError  
+            raise AuthorityError
         students = course.student_nicknames
         contest = engine.Contest(name=contest_name,
-                                   course_id =str(course.id), 
-                                   problem_ids=problem_ids)
+                                 course_id=str(course.id),
+                                 problem_ids=problem_ids)
         contest.duration.start = datetime.now() if start is None else start
         contest.duration.end = datetime.now() if end is None else end
         contest.contest_mode = 0 if contest_mode is None else contest_mode
@@ -48,13 +51,14 @@ class Contest:
             user_ids[key] = user_problems
         contest.participants = user_ids
         contest.save()
-        #get contestId then store in the correspond course                
+        #get contestId then store in the correspond course
         course.contest.append(contest.id)
         course.save()
         return contest
-    
+
     @staticmethod
-    def update(user,course_name,contest_name,new_contest_name,start,end,problem_ids,scoreboard_status,contest_mode):        
+    def update(user, course_name, contest_name, new_contest_name, start, end,
+               problem_ids, scoreboard_status, contest_mode):
         course = engine.Course.objects(course_name=course_name).first()
 
         #verify user's role
@@ -69,7 +73,8 @@ class Contest:
             raise AuthorityError
 
         students = course.student_nicknames
-        contest = engine.Contest.objects.get(name=contest_name,course_id=str(course.id))
+        contest = engine.Contest.objects.get(name=contest_name,
+                                             course_id=str(course.id))
         if contest is None:
             raise DoesNotExist
         #check the new_name hasn't been use in this course
@@ -111,9 +116,10 @@ class Contest:
         return contest
 
     @staticmethod
-    def delete(user,course_name,contest_name):
+    def delete(user, course_name, contest_name):
         course = engine.Course.objects.get(course_name=course_name)
-        contest = engine.Contest.objects.get(name=contest_name,course_id=str(course.id))
+        contest = engine.Contest.objects.get(name=contest_name,
+                                             course_id=str(course.id))
         #check user is teacher or ta
         is_ta_match = 0
         if len(course.tas) != 0:
@@ -130,7 +136,7 @@ class Contest:
         contest.delete()
         course.save()
         return contest
-    
+
     @staticmethod
     def get_course_contests(course_name):
         course = engine.Course.objects(course_name=course_name).first()
@@ -148,5 +154,3 @@ class Contest:
         if contest is None:
             raise DoesNotExist
         return contest
-    
-       
