@@ -53,7 +53,7 @@ def add_announcement(user, course, title, content):  # course=course_id
     new_announcement.save()
 
 
-def edit_announcement(user, course, title, content, targetAnnouncementId):
+def edit_announcement(user, title, content, targetAnnouncementId):
     try:
         target = engine.Announcement.objects.get(id=targetAnnouncementId)
     except FileNotFoundError:
@@ -62,8 +62,6 @@ def edit_announcement(user, course, title, content, targetAnnouncementId):
         return "Announcement not found."
     except engine.DoesNotExist:
         return "Announcement not found."
-    if user.username != target.author.username:
-        return "Forbidden, Only author can edit."
     updated_time = datetime.now()
     updated_time.timestamp()
     target.announcement_name = title
@@ -81,6 +79,4 @@ def delete_announcement(user, targetAnnouncementId):
         return "Announcement not found."
     except engine.DoesNotExist:
         return "Announcement not found."
-    if user.username != target.author.username:
-        return "Forbidden, Only author can delete."
     target.delete()
