@@ -142,7 +142,7 @@ class Homework(Document):
     student_status = DictField(db_field='studentStatus')
 
 
-class TestCase(EmbeddedDocument):
+class TestCaseResult(EmbeddedDocument):
     status = IntField(required=True)
     exec_time = IntField(required=True)
     memory_usage = IntField(required=True)
@@ -157,7 +157,7 @@ class Submission(Document):
     timestamp = DateTimeField(required=True)
     status = IntField(default=-2)
     score = IntField(default=0)
-    cases = ListField(EmbeddedDocumentField(TestCase), default=list)
+    cases = ListField(EmbeddedDocumentField(TestCaseResult), default=list)
     exec_time = IntField(default=-1)
     memory_usage = IntField(default=-1)
     code = BooleanField(
