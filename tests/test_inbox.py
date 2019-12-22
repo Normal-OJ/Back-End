@@ -86,7 +86,7 @@ class TestInbox(BaseTester):
         # delete a inbox message
         rv = client_teacher.delete('/inbox', json={'messageId': message_id})
         json = rv.get_json()
-        assert json['message'] == 'Message is Deleted'
+        assert json['message'] == 'Deleted'
         assert rv.status_code == 200
 
         rv = client_teacher.get('/inbox')
