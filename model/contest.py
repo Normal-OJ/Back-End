@@ -11,12 +11,12 @@ __all__ = ['contest_api']
 contest_api = Blueprint('contest_api', __name__)
 
 @contest_api.route('/<course_name>', methods=['POST', 'PUT', 'DELETE', 'GET'])
-@Request.json('name','new_name','start','end','problem_ids','scoreboard_status')
+@Request.json('name','new_name','start','end','problem_ids','scoreboard_status','contest_mode')
 @login_required
-def contest(user,course_name,name,new_name,start,end,problem_ids,scoreboard_status):
+def contest(user,course_name,name,new_name,start,end,problem_ids,scoreboard_status,contest_mode):
     if request.method == 'POST':
        try:
-           Contest.add_contest(user,course_name,name,start,end,problem_ids,scoreboard_status)
+           Contest.add_contest(user,course_name,name,start,end,problem_ids,scoreboard_status,contest_mode)
        except NotUniqueError:
            return HTTPError('the same contest name has already exist in course',400)
        except AuthorityError:
@@ -28,7 +28,7 @@ def contest(user,course_name,name,new_name,start,end,problem_ids,scoreboard_stat
         )
     if request.method == 'PUT':
        try:
-           Contest.update(user,course_name,name,new_name,start,end,problem_ids,scoreboard_status)
+           Contest.update(user,course_name,name,new_name,start,end,problem_ids,scoreboard_status,contest_mode)
        except DoesNotExist:
            return HTTPError('the contest does not exist in this course',404)
        except NotUniqueError:
@@ -57,23 +57,21 @@ def contest(user,course_name,name,new_name,start,end,problem_ids,scoreboard_stat
             for x in contests:
                 contest = {
                     "name": x.name,
-                    "markdown": x.markdown,
                     "start": x.duration.start,
-                    "end": x.end,
+                    "end": x.duration.end,
                     "problemIds":x.problem_ids,
                     "scoreboard_status": x.scoreboard_status
                 }
                 if (user.role <= 1):
                     contest["participants"] = x.participants
-                data.append(homework)
+                data.append(contest)
         except DoesNotExist:
             return HTTPError('course not exists', 404)
         return HTTPResponse('get contest', 200, 'ok', data)
 
 @contest_api.route('/get/<id>', methods=['GET'])
-@Request.json('name','start','end','problem_ids')
 @login_required
-def get_single_contest(user,contest_name,name,start,end,problem_ids):
+def get_single_contest(user,id):
     try:
         contest = Contest.get_single_contest(id)
     except DoesNotExist:

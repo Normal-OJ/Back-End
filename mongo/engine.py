@@ -99,7 +99,6 @@ class Course(Document):
     teacher = ReferenceField('User', db_field='teacher')
     tas = ListField(ReferenceField('User'), db_field='tas')
     contest = ListField(ReferenceField('Contest', reverse_delete_rule=PULL), db_field='contestIds')
-    #reverse_delete_rule:CASCADE->delete the doc and the referenced object
     homework = ListField(ReferenceField('Homework', reverse_delete_rule=PULL),
                          db_field='homeworkIds')
     # announcement_ids = ListField(ReferenceField('Announcement'), db_field='announcementIds')
@@ -135,25 +134,6 @@ class Problem(Document):
                                       null=True)
     ac_user = IntField(db_field='ACUser', default=0)
     submitter = IntField(default=0)
-
-
-class Duration(EmbeddedDocument):
-    start = DateTimeField()
-    end = DateTimeField()
-
-
-class Homework(Document):
-    name = StringField(max_length=64, required=True, db_field='homeworkName')
-    markdown = StringField(max_length=10000)
-    scoreboard_status = IntField(default=0,
-                                 choice=[0, 1],
-                                 db_field='scoreboardStatus')
-    course_id = StringField(db_field='courseId')
-    duration = EmbeddedDocumentField(Duration,
-                                     db_field='duration',
-                                     default=Duration)
-    problem_ids = ListField(StringField(), db_field='problemIds')
-    student_status = DictField(db_field='studentStatus')
 
 
 class TestCaseResult(EmbeddedDocument):

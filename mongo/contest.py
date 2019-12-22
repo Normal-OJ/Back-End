@@ -10,7 +10,7 @@ class AuthorityError(Exception):
 
 class Contest:
     @staticmethod
-    def add_contest(user,course_name,contest_name,start,end,problem_ids,scoreboard_status):
+    def add_contest(user,course_name,contest_name,start,end,problem_ids,scoreboard_status,contest_mode):
         #check the contest name won't repeat 
         course = engine.Course.objects.get(course_name=course_name)
         for x in course.contest:
@@ -32,6 +32,7 @@ class Contest:
                                    problem_ids=problem_ids)
         contest.duration.start = datetime.now() if start is None else start
         contest.duration.end = datetime.now() if end is None else end
+        contest.contest_mode = 0 if contest_mode is None else contest_mode
         contest.scoreboard_status = 0 if scoreboard_status is None else scoreboard_status
         #init participants status
         user_ids = {}
@@ -53,7 +54,7 @@ class Contest:
         return contest
     
     @staticmethod
-    def update(user,course_name,contest_name,new_contest_name,start,end,problem_ids,scoreboard_status):        
+    def update(user,course_name,contest_name,new_contest_name,start,end,problem_ids,scoreboard_status,contest_mode):        
         course = engine.Course.objects(course_name=course_name).first()
 
         #verify user's role
@@ -86,6 +87,8 @@ class Contest:
             contest.duration.end = end
         if scoreboard_status is not None:
             contest.scoreboard_status = scoreboard_status
+        if contest_mode is not None:
+            contest.contest_mode = contest_mode
         #if problemid exist then delete ,else add it in list
         user_problems = {}
         user_ids = {}
@@ -110,8 +113,7 @@ class Contest:
     @staticmethod
     def delete(user,course_name,contest_name):
         course = engine.Course.objects.get(course_name=course_name)
-        course_id = course.id
-        contest = engine.Contest.objects.get(name=contest_name)
+        contest = engine.Contest.objects.get(name=contest_name,course_id=str(course.id))
         #check user is teacher or ta
         is_ta_match = 0
         if len(course.tas) != 0:
@@ -130,7 +132,7 @@ class Contest:
         return contest
     
     @staticmethod
-    def get_course_contests(user,course_name):
+    def get_course_contests(course_name):
         course = engine.Course.objects(course_name=course_name).first()
         if course is None:
             raise DoesNotExist
