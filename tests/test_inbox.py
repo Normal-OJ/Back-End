@@ -51,7 +51,7 @@ class TestInbox(BaseTester):
         assert rv.status_code == 200
         assert json['data'][0]['message'] == 'AAA'
         assert json['data'][0]['title'] == 'hi'
-        assert json['data'][0]['sender'] == ['student']
+        assert json['data'][0]['sender'] == 'student'
         assert json['data'][0]['status'] == 0
 
         message_id = json['data'][0]['messageId']
@@ -63,9 +63,9 @@ class TestInbox(BaseTester):
         assert json['message'] == 'Failed to Read the Message'
         assert rv.status_code == 403
 
-    def test_read(self, client_student):
+    def test_read(self, client_teacher):
         # read a inbox message
-        rv = client_student.put('/inbox', json={'messageId': message_id})
+        rv = client_teacher.put('/inbox', json={'messageId': message_id})
         json = rv.get_json()
         assert json['message'] == 'Message Status Changed'
         assert rv.status_code == 200
@@ -81,9 +81,9 @@ class TestInbox(BaseTester):
         assert json['message'] == 'Failed to Access the Message'
         assert rv.status_code == 403
 
-    def test_delete(self, client_student):
+    def test_delete(self, client_teacher):
         # delete a inbox message
-        rv = client_student.delete('/inbox', json={'messageId': message_id})
+        rv = client_teacher.delete('/inbox', json={'messageId': message_id})
         json = rv.get_json()
         assert json['message'] == 'Message is Deleted'
         assert rv.status_code == 200
@@ -102,10 +102,12 @@ class TestInbox(BaseTester):
         assert json['data'][0]['title'] == 'hi'
         assert json['data'][0]['receivers'] == ['teacher']
 
+        message_id = json['data'][0]['messageId']
+
     def test_delete_sent_with_invalid_id(self, client_student):
         # delete a none-exist inbox message
         rv = client_student.delete('/inbox/sent',
-                                   json={'messageId': message_id})
+                                   json={'messageId': 'random_id'})
         json = rv.get_json()
         assert json['message'] == 'Message Not Found'
         assert rv.status_code == 404
