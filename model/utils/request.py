@@ -4,6 +4,7 @@ from flask import request
 
 from .response import HTTPError
 from model import *
+from .response import *
 
 __all__ = ['Request']
 

@@ -78,7 +78,7 @@ def create_submission(user, language_type, problem_id):
             lang=language_type,
             timestamp=now)
     except ValidationError:
-        return HTTPError(f'invalid data!', 400)
+        return HTTPError(f'invalid data!', 404)
 
     user.update(last_submit=datetime.now())
 

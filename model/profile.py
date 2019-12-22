@@ -12,13 +12,13 @@ profile_api = Blueprint('profile_api', __name__)
 @profile_api.route('/', methods=['GET'])
 @profile_api.route('/<username>', methods=['GET'])
 @login_required
-def view_others_profile(user, username=None):
+def view_profile(user, username=None):
     try:
         user = user if username is None else User(username)
         data = {
             'username': user.username,
             'email': user.obj.email,
-            'displayed_name': user.obj.profile.displayed_name,
+            'displayedName': user.obj.profile.displayed_name,
             'bio': user.obj.profile.bio
         }
     except:
@@ -45,4 +45,5 @@ def edit_profile(user, displayed_name, bio):
     except:
         return HTTPError('Upload fail.', 400)
 
-    return HTTPResponse('Uploaded.')
+    cookies = {'jwt': user.cookie}
+    return HTTPResponse('Uploaded.', cookies=cookies)

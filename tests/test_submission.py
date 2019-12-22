@@ -145,25 +145,8 @@ class SubmissionTester(BaseTester):
         submission.SOURCE_PATH = submission.SOURCE_PATH.absolute()
         os.makedirs(submission.SOURCE_PATH, exist_ok=True)
 
-        # new user: teacher-2 & student-2
-        TEACHER2 = {
-            'username': 'teacher-2',
-            'password': 'Sup3r53cRet4ndV3rys+rongpassw0rdforanotherteacher',
-            'email': 'i.am.another.teacher@noj.tw'
-        }
-
-        teacher = User.signup(**TEACHER2)
-        teacher.update(active=True, role=1)
-
-        STUDENT2 = {
-            'username': 'student-2',
-            'password': 'this_password_is_not_so_strong',
-            'email': 'i.am.another.student@noj.tw'
-        }
-
-        student = User.signup(**STUDENT2)
-        student.update(active=True)
-
+        # insert some submission into db
+        cls.submissions = []
         names = itertools.cycle(
             ['student', 'teacher', 'admin', 'teacher-2', 'student-2'])
         pids = itertools.cycle(['6666', '8888', '55688'])
