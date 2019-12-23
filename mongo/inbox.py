@@ -1,21 +1,13 @@
 from . import engine
 from .user import *
-
-import html
+from .base import *
 
 __all__ = ['Inbox']
 
 
-class Inbox:
+class Inbox(MongoBase, engine=engine.Inbox):
     def __init__(self, message_id):
         self.message_id = message_id
-
-    def __getattr__(self, name):
-        try:
-            obj = engine.Inbox.objects.get(id=self.message_id, status__ne=2)
-        except (engine.DoesNotExist, engine.ValidationError):
-            return None
-        return obj.__getattribute__(name)
 
     @staticmethod
     def send(sender, receivers, title, message):

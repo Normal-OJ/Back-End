@@ -11,10 +11,10 @@ annn_api = Blueprint('annn_api', __name__)
 
 
 @annn_api.route('/', methods=['GET', 'POST', 'PUT', 'DELETE'])
-@annn_api.route('/<course_name>', methods=['GET'])
 @login_required
-def annncmnt(user, course_name=None):
-    def get_annns():
+def annncmnt(user):
+    @Request.json('course_name')
+    def get_annns(course_name):
         # Get an announcement list
         try:
             annns = Announcement.annn_list(user.obj, course_name or 'Public')
@@ -55,7 +55,7 @@ def annncmnt(user, course_name=None):
     def update(annn_id, title, markdown):
         # Update an announcement
         annn = Announcement(annn_id)
-        if annn.id is None:
+        if not annn:
             return HTTPError('Announcement Not Found', 404)
         course = annn.course
         if user.role != 0 and user != course.teacher and user not in course.tas:
@@ -75,7 +75,7 @@ def annncmnt(user, course_name=None):
     def delete(annn_id):
         # Delete an announcement
         annn = Announcement(annn_id)
-        if annn.id is None:
+        if not annn:
             return HTTPError('Announcement Not Found', 404)
         course = annn.course
         if user.role != 0 and user != course.teacher and user.obj not in course.tas:

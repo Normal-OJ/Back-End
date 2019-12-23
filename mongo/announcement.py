@@ -1,20 +1,23 @@
 from . import engine
 from .user import *
 from .course import *
+from .base import *
 
 __all__ = ['Announcement']
 
 
-class Announcement:
+class Announcement(MongoBase, engine=engine.Announcement):
+    qs_filter = {'status': 0}
+
     def __init__(self, annn_id):
         self.annn_id = annn_id
 
-    def __getattr__(self, name):
-        try:
-            obj = engine.Announcement.objects.get(id=self.annn_id, status=0)
-        except (engine.DoesNotExist, engine.ValidationError):
-            return None
-        return obj.__getattribute__(name)
+    # def __getattr__(self, name):
+    #     try:
+    #         obj = engine.Announcement.objects.get(id=self.annn_id, status=0)
+    #     except (engine.DoesNotExist, engine.ValidationError):
+    #         return None
+    #     return obj.__getattribute__(name)
 
     @staticmethod
     def annn_list(user, course_name):
