@@ -18,7 +18,10 @@ def get_ranking():
         username = submission.user.username
         if username not in users:
             users[username] = {
-                "ACProblem": Set(), "ACSubmission": 0, "Submission": 0}
+                "ACProblem": Set(),
+                "ACSubmission": 0,
+                "Submission": 0
+            }
 
         if submission.score == 100:
             users[username]["ACProblem"].add(submission.problem_id)
