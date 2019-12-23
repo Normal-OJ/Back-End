@@ -46,9 +46,8 @@ class Inbox:
 
     @staticmethod
     def sents(username):
-        sents = sorted(engine.Message.objects(sender=username, status=0),
-                       key=lambda x: x.timestamp,
-                       reverse=True)
+        sents = engine.Message.objects(sender=username,
+                                       status=0).order_by('-timestamp')
         return [{
             'messageId': str(s.id),
             'receivers': s.receivers,

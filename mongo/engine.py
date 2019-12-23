@@ -56,7 +56,7 @@ class User(Document):
                                           default=EditorConfig,
                                           null=True)
     # contest_id = ReferenceField('Contest', db_field='contestId')
-    course_ids = ListField(ReferenceField('Course'), db_field='courseIds')
+    courses = ListField(ReferenceField('Course'))
     # submission_ids = ListField(ReferenceField('Submission'), db_field='submissionIds')
     last_submit = DateTimeField(default=datetime.min)
 
@@ -176,16 +176,15 @@ class Message(Document):
 class Inbox(Document):
     receiver = StringField(max_length=16, required=True)
     status = IntField(default=0, choices=[0, 1, 2])  # unread / read / delete
-    message = ReferenceField('Message', required=True)
+    message = ReferenceField('Message')
 
 
 class Announcement(Document):
-    #announcement_id = StringField(db_field='announcementId', required=True, unique=True)
-    announcement_name = StringField(db_field='announcementName',
-                                    required=True,
-                                    max_length=64)
-    course_id = ReferenceField('Course', db_field='courseId')
-    author = ReferenceField('User', db_field='author')
-    created = DateTimeField(required=True)
-    updated = DateTimeField(required=True)
-    markdown = StringField(default='', required=True, max_length=100000)
+    status = IntField(default=0, choices=[0, 1])  # not delete / delete
+    title = StringField(max_length=32, required=True)
+    course = ReferenceField('Course', required=True)
+    create_time = DateTimeField(db_field='createTime', default=datetime.utcnow)
+    update_time = DateTimeField(db_field='updateTime', default=datetime.utcnow)
+    creater = ReferenceField('User', required=True)
+    updater = ReferenceField('User', required=True)
+    markdown = StringField(max_length=100000, required=True)

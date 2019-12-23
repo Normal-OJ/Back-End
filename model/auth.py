@@ -192,12 +192,15 @@ def active(token=None):
             return HTTPError('User Not Exists', 400)
         if user.active:
             return HTTPError('User Has Been Actived', 400)
+        courses = user.courses
+        courses.append(Course('Public').obj)
         try:
             user.update(active=True,
                         profile={
                             'displayed_name': profile.get('displayedName'),
                             'bio': profile.get('bio'),
-                        })
+                        },
+                        courses=courses)
         except ValidationError as ve:
             return HTTPError('Failed', 400, data=ve.to_dict())
         pub_course = Course('Public').obj
