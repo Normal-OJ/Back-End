@@ -1,5 +1,5 @@
 from . import engine
-from mongo.course import *
+from mongo.course import perm
 from mongoengine import DoesNotExist, NotUniqueError
 from datetime import datetime
 __all__ = ['Contest', 'AuthorityError']
@@ -19,16 +19,13 @@ class Contest:
         for x in course.contest:
             if x.name == contest_name:
                 raise NotUniqueError
-        #verify user's roles
-        is_ta_match = 0
-        if len(course.tas) != 0:
-            for ta in tas:
-                if course.ta.username == user.name:
-                    is_ta_match = 1
-                    break
-        if (is_ta_match != 1 and course.teacher.username != user.username
-                and user.role != 0):
+        #verify user's roles(teacher/admin)
+        role = perm(course, user)
+        if (course.teacher.username != user.username and user.role != 0):
             raise AuthorityError
+        if (role != 4 and role != 3):
+            raise AuthorityError
+
         students = course.student_nicknames
         contest = engine.Contest(name=contest_name,
                                  course_id=str(course.id),
@@ -61,15 +58,9 @@ class Contest:
                problem_ids, scoreboard_status, contest_mode):
         course = engine.Course.objects(course_name=course_name).first()
 
-        #verify user's role
-        is_ta_match = 0
-        if len(course.tas) != 0:
-            for ta in tas:
-                if course.ta.username == user.name:
-                    is_ta_match = 1
-                    break
-        if (is_ta_match != 1 and course.teacher.username != user.username
-                and user.role != 0):
+        #verify user's roles(teacher/admin)
+        role = perm(course, user)
+        if role != 4 and role != 3:
             raise AuthorityError
 
         students = course.student_nicknames
@@ -120,15 +111,9 @@ class Contest:
         course = engine.Course.objects.get(course_name=course_name)
         contest = engine.Contest.objects.get(name=contest_name,
                                              course_id=str(course.id))
-        #check user is teacher or ta
-        is_ta_match = 0
-        if len(course.tas) != 0:
-            for ta in tas:
-                if course.ta.username == user.name:
-                    is_ta_match = 1
-                    break
-        if (is_ta_match != 1 and course.teacher.username != user.username
-                and user.role != 0):
+        #verify user's roles(teacher/admin)
+        role = perm(course, user)
+        if role != 4 and role != 3:
             raise AuthorityError
 
         if contest is None:

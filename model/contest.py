@@ -1,6 +1,5 @@
 from flask import Blueprint, request
 from .auth import *
-from mongo import User
 from mongo.contest import *
 from mongoengine import DoesNotExist, NotUniqueError
 from .utils import HTTPResponse, HTTPRedirect, HTTPError, Request
@@ -27,11 +26,7 @@ def contest(user, course_name, name, new_name, start, end, problem_ids,
         except AuthorityError:
             return HTTPError('user must be the teacher or ta of this course',
                              403)
-        return HTTPResponse(
-            'Add contest Success',
-            200,
-            'ok',
-        )
+        return HTTPResponse('Add contest Success')
     if request.method == 'PUT':
         try:
             Contest.update(user, course_name, name, new_name, start, end,
@@ -43,22 +38,14 @@ def contest(user, course_name, name, new_name, start, end, problem_ids,
                 'the same contest name has already exist in this course', 400)
         except AuthorityError:
             HTTPError('user must be the teacher or ta of this course', 403)
-        return HTTPResponse(
-            'update contest Success',
-            200,
-            'ok',
-        )
+        return HTTPResponse('update contest Success')
     if request.method == 'DELETE':
         try:
             Contest.delete(user, course_name, name)
         except AuthorityError:
             return HTTPError('user must be the teacher or ta of this course',
                              403)
-        return HTTPResponse(
-            'delete contest Success',
-            200,
-            'ok',
-        )
+        return HTTPResponse('delete contest Success')
     if request.method == 'GET':
         try:
             contests = Contest.get_course_contests(course_name)
@@ -76,7 +63,7 @@ def contest(user, course_name, name, new_name, start, end, problem_ids,
                 data.append(contest)
         except DoesNotExist:
             return HTTPError('course not exists', 404)
-        return HTTPResponse('get contest', 200, 'ok', data)
+        return HTTPResponse('get contest', data=data)
 
 
 @contest_api.route('/get/<id>', methods=['GET'])
@@ -87,11 +74,10 @@ def get_single_contest(user, id):
     except DoesNotExist:
         HTTPError('unable to find contest', 404)
     return HTTPResponse('get contest success',
-                        200,
-                        'ok',
                         data={
                             "name": contest.name,
                             "start": contest.duration.start,
                             "end": contest.duration.end,
-                            "problemIds": contest.problem_ids
+                            "problemIds": contest.problem_ids,
+                            "scoreboard_status": contest.scoreboard_status
                         })
