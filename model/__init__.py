@@ -7,6 +7,7 @@ from . import course
 from . import homework
 from . import inbox
 from . import announcement
+from . import test
 
 from .auth import *
 from .profile import *
@@ -17,8 +18,9 @@ from .course import *
 from .homework import *
 from .inbox import *
 from .announcement import *
+from .test import *
 
 __all__ = [
     *auth.__all__, *course.__all__, *profile.__all__, *submission.__all__,
-    *test.__all__, *homework.__all__, *inbox.__all__, *announcement.__all__
+    *test.__all__, *homework.__all__, *inbox.__all__, *announcement.__all__, *problem.__all__
 ]

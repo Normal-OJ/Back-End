@@ -16,9 +16,7 @@ app.register_blueprint(course_api, url_prefix='/course')
 app.register_blueprint(hw_api, url_prefix='/homework')
 app.register_blueprint(inbox_api, url_prefix='/inbox')
 app.register_blueprint(annn_api, url_prefix='/annn')
-
 app.register_blueprint(test_api, url_prefix='/test')
-app.register_blueprint(announcement_api, url_prefix='/announcement')
 
 if not User("first_admin"):
     ADMIN = {
