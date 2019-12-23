@@ -1,5 +1,6 @@
 from flask import Flask
 from model import *
+from mongo import *
 
 # Create a flask app
 app = Flask(__name__)
@@ -18,5 +19,15 @@ app.register_blueprint(inbox_api, url_prefix='/inbox')
 app.register_blueprint(test_api, url_prefix='/test')
 app.register_blueprint(announcement_api, url_prefix='/announcement')
 
-if __name__ == '__main__':
-    app.run()
+if not User("first_admin"):
+    ADMIN = {
+        'username': 'first_admin',
+        'password': 'firstpasswordforadmin',
+        'email': 'i.am.first.admin@noj.tw'
+    }
+
+    admin = User.signup(**ADMIN)
+    admin.update(active=True, role=0)
+
+if Course("Public").obj is None:
+    add_course("Public", "first_admin")

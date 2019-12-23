@@ -42,11 +42,11 @@ class Duration(EmbeddedDocument):
 
 
 class User(Document):
+    username = StringField(max_length=16, required=True, primary_key=True)
     user_id = StringField(db_field='userId',
                           max_length=24,
                           required=True,
                           unique=True)
-    username = StringField(max_length=16, required=True, unique=True)
     email = EmailField(required=True, unique=True)
     active = BooleanField(default=False)
     role = IntField(default=2, choices=[0, 1, 2])
@@ -176,7 +176,7 @@ class Message(Document):
 class Inbox(Document):
     receiver = StringField(max_length=16, required=True)
     status = IntField(default=0, choices=[0, 1, 2])  # unread / read / delete
-    message = ReferenceField('Message')
+    message = ReferenceField('Message', required=True)
 
 
 class Announcement(Document):
