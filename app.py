@@ -17,6 +17,7 @@ app.register_blueprint(inbox_api, url_prefix='/inbox')
 
 app.register_blueprint(test_api, url_prefix='/test')
 app.register_blueprint(announcement_api, url_prefix='/announcement')
+app.register_blueprint(post_api, url_prefix='/post')
 
 if __name__ == '__main__':
     app.run()
