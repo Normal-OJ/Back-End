@@ -194,6 +194,7 @@ class Announcement(Document):
 class PostThread(Document):
     markdown = StringField(default='', required=True, max_length=100000)
     author = ReferenceField('User', db_field='author')
+    course_id = ReferenceField('Course', db_field='courseId')
     #status = StringField(default='')
     reply = ListField(ReferenceField('PostThread', db_field='postThread'),
                       null=True)
@@ -201,5 +202,4 @@ class PostThread(Document):
 
 class Post(Document):
     post_name = StringField(default='', required=True, max_length=64)
-    course_id = ReferenceField('Course', db_field='courseId')
     thread = ReferenceField('PostThread', db_field='postThread')
