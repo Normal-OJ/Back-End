@@ -65,5 +65,6 @@ def edit_config(user, font_size, theme, indent_type, tab_size, language):
     except ValidationError as ve:
         return HTTPError('Update fail.', 400, data=ve.to_dict())
 
+    user.reload()
     cookies = {'jwt': user.cookie}
     return HTTPResponse('Uploaded.', cookies=cookies)
