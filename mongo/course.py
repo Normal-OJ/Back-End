@@ -50,11 +50,11 @@ def add_course(course, teacher):
     if re.match(r'^[a-zA-Z0-9._]+$', course) is None:
         return 'Not allowed name.'
 
-    te = User(teacher).obj
-    if te is None:
+    te = User(teacher)
+    if not te:
         return "User not found."
 
-    engine.Course(course_name=course, teacher=te).save()
+    engine.Course(course_name=course, teacher=te.obj).save()
 
 
 def edit_course(user, course, new_course, teacher):
@@ -68,10 +68,10 @@ def edit_course(user, course, new_course, teacher):
     if not perm(co, user):
         return "Forbidden."
 
-    te = User(teacher).obj
-    if te is None:
+    te = User(teacher)
+    if not te:
         return "User not found."
 
     co.course_name = new_course
-    co.teacher = te
+    co.teacher = te.obj
     co.save()
