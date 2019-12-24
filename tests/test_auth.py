@@ -196,18 +196,10 @@ class TestLogout:
     '''Test Logout
     '''
     def test_logout(self, client, test_token):
-        # Logout before login
+        # Logout
         client.set_cookie('test.test', 'piann', test_token)
         rv = client.get('/auth/session')
         json = rv.get_json()
         assert rv.status_code == 200
         assert json['status'] == 'ok'
-        assert json['message'] == 'Goodbye test'
-
-    def test_before_login(self, client):
-        # Logout before login
-        rv = client.get('/auth/session')
-        json = rv.get_json()
-        assert rv.status_code == 403
-        assert json['status'] == 'err'
-        assert json['message'] == 'Not Logged In'
+        assert json['message'] == 'Goodbye'
