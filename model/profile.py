@@ -53,7 +53,7 @@ def edit_profile(user, displayed_name, bio):
 @Request.json('font_size', 'theme', 'indent_type', 'tab_size', 'language')
 def edit_config(user, font_size, theme, indent_type, tab_size, language):
     try:
-        config = user.obj.editor_config or {
+        config = {
             'font_size': font_size,
             'theme': theme,
             'indent_type': indent_type,
