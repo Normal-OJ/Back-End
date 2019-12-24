@@ -46,11 +46,11 @@ def delete_course(user, course):
 
 
 def add_course(course, teacher):
-    te = User(teacher).obj
-    if te is None:
+    te = User(teacher)
+    if not te:
         return "User not found."
 
-    engine.Course(course_name=course, teacher=te).save()
+    engine.Course(course_name=course, teacher=te.obj).save()
 
 
 def edit_course(user, course, new_course, teacher):
@@ -61,10 +61,10 @@ def edit_course(user, course, new_course, teacher):
     if not perm(co, user):
         return "Forbidden."
 
-    te = User(teacher).obj
-    if te is None:
+    te = User(teacher)
+    if not te:
         return "User not found."
 
     co.course_name = new_course
-    co.teacher = te
+    co.teacher = te.obj
     co.save()

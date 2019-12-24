@@ -151,18 +151,17 @@ def get_submission_list(offset, count, problem_id, submission_id, username,
         truncate_offline_problem_submissions(submissions)
 
     # filter by user args
+    user = User(username)
     q = {
         'problem_id': problem_id,
         'id': submission_id,
         'status': status,
         'language': language_type,
-        'user': User(username=username).obj
+        'user': user.obj if user else None
     }
-    # get unpassed query keys
     nk = [k for k, v in q.items() if v is None]
     for k in nk:
         del q[k]
-    # get submission result by filtered query params
     submissions = submissions.filter(**q)
 
     if offset >= len(submissions):

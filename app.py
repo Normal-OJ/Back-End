@@ -1,5 +1,6 @@
 from flask import Flask
 from model import *
+from mongo import *
 
 # Create a flask app
 app = Flask(__name__)
@@ -13,7 +14,21 @@ app.register_blueprint(submission_api, url_prefix='/submission')
 app.register_blueprint(inbox_api, url_prefix='/inbox')
 app.register_blueprint(course_api, url_prefix='/course')
 app.register_blueprint(hw_api, url_prefix='/homework')
+app.register_blueprint(inbox_api, url_prefix='/inbox')
 app.register_blueprint(test_api, url_prefix='/test')
+app.register_blueprint(ann_api, url_prefix='/ann')
+app.register_blueprint(ranking_api, url_prefix='/ranking')
+app.register_blueprint(contest_api, url_prefix='/contest')
 
-if __name__ == '__main__':
-    app.run()
+if not User("first_admin"):
+    ADMIN = {
+        'username': 'first_admin',
+        'password': 'firstpasswordforadmin',
+        'email': 'i.am.first.admin@noj.tw'
+    }
+
+    admin = User.signup(**ADMIN)
+    admin.update(active=True, role=0)
+
+if Course("Public").obj is None:
+    add_course("Public", "first_admin")
