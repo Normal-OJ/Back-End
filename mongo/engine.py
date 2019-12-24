@@ -144,8 +144,8 @@ class Homework(Document):
 
 class TestCaseResult(EmbeddedDocument):
     status = IntField(required=True)
-    exec_time = IntField(required=True)
-    memory_usage = IntField(required=True)
+    exec_time = IntField(required=True, db_field='execTime')
+    memory_usage = IntField(required=True, db_field='memoryUsage')
     stdout = StringField(required=True)
     stderr = StringField(required=True)
 

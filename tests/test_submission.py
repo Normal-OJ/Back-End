@@ -130,11 +130,13 @@ class SubmissionTester(BaseTester):
         SubmissionTester.path = tmp_path
         cls.prepare_problem()
 
-        # use tmp dir to save user source code
         from model import submission
+        # use tmp dir to save user source code
         submission.SOURCE_PATH = tmp_path / submission.SOURCE_PATH
         submission.SOURCE_PATH = submission.SOURCE_PATH.absolute()
         os.makedirs(submission.SOURCE_PATH, exist_ok=True)
+        # replace judge url with test route
+        submission.JUDGE_URL = 'https://www.csie.ntnu.edu.tw?magic='
 
         # insert some submission into db
         cls.submissions = []

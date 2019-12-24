@@ -18,3 +18,12 @@ def test(user):
 @identity_verify(0, 1, ...)
 def role(user):
     return HTTPResponse(str(user.obj.role))
+
+
+@test_api.route('/sandbox/<submission_id>')
+def sandbox(submission_id):
+    '''
+    a fake sanbox
+    '''
+    # TODO
+    return HTTPResponse()

@@ -2,6 +2,7 @@ import os
 import requests as rq
 import random
 import json
+import pathlib
 from zipfile import ZipFile, is_zipfile
 from requests import status_codes
 from flask import Blueprint, request
@@ -17,8 +18,14 @@ submission_api = Blueprint('submission_api', __name__)
 
 # submission api config
 RATE_LIMIT = int(os.environ.get('SUBMISSION_RATE_LIMIT', 180))
-SOURCE_PATH = os.environ.get('SUBMISSION_SOURCE_PATH', 'submissions')
-os.makedirs(SOURCE_PATH, exist_ok=True)
+SOURCE_PATH = pathlib.Path(
+    os.environ.get('SUBMISSION_SOURCE_PATH', 'submissions'))
+SOURCE_PATH.mkdir(exist_ok=True)
+TMP_DIR = pathlib.Path(
+    os.environ.get('SUBMISSION_TMP_DIR', '/tmp' / SOURCE_PATH))
+TMP_DIR.mkdir(exist_ok=True)
+JUDGE_URL = os.environ.get('JUDGE_URL', 'http://sandbox:1450/submit')
+
 # TODO: save tokens in db
 tokens = {}
 
@@ -80,7 +87,7 @@ def create_submission(user, language_type, problem_id):
     except ValidationError:
         return HTTPError(f'invalid data!', 404)
 
-    user.update(last_submit=datetime.now())
+    user.update(last_submit=now)
 
     # generate token for upload file
     token = assign_token(submission_id)
@@ -151,9 +158,11 @@ def get_submission_list(offset, count, problem_id, submission_id, username,
         'language': language_type,
         'user': User(username=username).obj
     }
+    # get unpassed query keys
     nk = [k for k, v in q.items() if v is None]
     for k in nk:
         del q[k]
+    # get submission result by filtered query params
     submissions = submissions.filter(**q)
 
     if offset >= len(submissions):
@@ -163,7 +172,7 @@ def get_submission_list(offset, count, problem_id, submission_id, username,
                 count) if count != -1 else len(submissions)
     submissions = submissions[offset:right]
 
-    usernames = [*map(lambda s: s.user.username, submissions)]
+    usernames = [s.user.username for s in submissions]
     submissions = submissions.to_json()
     submissions = json.loads(submissions)
 
@@ -224,35 +233,37 @@ def get_submission(user, submission_id):
 @login_required
 @Request.args('token')
 def update_submission(user, submission_id, token):
-    def judgement(submission):
+    def judgement(submission, zip_path: pathlib.Path):
         '''
         send submission data to sandbox
         '''
         # prepare submission data
         # TODO: get problem testcase
-        judge_url = 'localhost:8888/submit'
+        judge_url = f'{JUDGE_URL}/{submission_id}'
 
         # generate token for submission
         token = assign_token(submission_id)
 
         post_data = {
-            'lang': submission.language,
-            'submission_id': submission_id,
-            'token': token
+            'languageId': submission.language,
+            'token': token,
+            'checker': 'print("not implement yet. qaq")'
         }
+        files = {'code': (f'{submission_id}.zip', open(zip_path, 'rb'))}
 
         # send submission to snadbox for judgement
         # TODO: send submission to sanbox
-        # resp = rq.post(judge_url, data=post_data)
-        resp = rq.get('https://www.csie.ntnu.edu.tw')
+        resp = rq.post(
+            judge_url, data=post_data, files=files,
+            cookies=request.cookies)  # cookie: for debug, need better solution
 
         if resp.status_code == 400:
-            return HTTPError('', 400)
+            return HTTPError(resp.text, 400)
         elif resp.status_code != 200:
             # unhandled error
-            return HTTPError('', 500)
+            return HTTPError(resp.text, 500)
         else:
-            return HTTPResponse('submission recieved.')
+            return HTTPResponse(f'{submission} recieved.')
 
     @Request.files('code')
     def recieve_source_file(submission, code):
@@ -263,39 +274,39 @@ def update_submission(user, submission_id, token):
                     f'{submission} has been uploaded source file!', 403)
             else:
                 # save submission source
-                submission_path = f'{SOURCE_PATH}/{submission_id}'
-                if os.path.isdir(submission_path):
+                submission_dir = SOURCE_PATH / submission_id
+                if submission_dir.is_dir():
                     raise FileExistsError(f'{submission} code found on server')
 
                 # create submission folder
-                os.mkdir(submission_path)
+                submission_dir.mkdir()
                 # tmp file to store zipfile
-                zip_path = f'/tmp/submission/{submission_id}/source.zip'
-                os.makedirs(os.path.dirname(zip_path))
-                with open(zip_path, 'wb') as f:
-                    f.write(code.read())
+                zip_path = TMP_DIR / submission_id / 'source.zip'
+                zip_path.parent.mkdir()
+                zip_path.write_bytes(code.read())
                 if not is_zipfile(zip_path):
-                    os.remove(zip_path)
+                    zip_path.unlink()
                     return HTTPError('only accept zip file', 400)
                 with ZipFile(zip_path, 'r') as f:
-                    f.extractall(submission_path)
-                os.remove(zip_path)
+                    f.extractall(submission_dir)
                 submission.update(code=True, status=-1)
 
-                return judgement(submission)
+                return judgement(submission, zip_path)
         else:
             return HTTPError(f'can not find the source file', 400)
 
     @Request.json('score', 'status', 'cases')
     def recieve_submission_result(submission, score, status, cases):
         try:
+            for case in cases:
+                del case['exitCode']
             submission.update(status=status,
                               cases=cases,
                               exec_time=cases[-1]['execTime'],
                               memory_usage=cases[-1]['memoryUsage'])
         except ValidationError:
             return HTTPError(f'invalid data!', 400)
-        return HTTPResponse(f'submission [{submission_id}] result recieved.')
+        return HTTPResponse(f'{submission} result recieved.')
 
     ## put handler
     # validate this reques
@@ -305,8 +316,7 @@ def update_submission(user, submission_id, token):
         return HTTPError(f'{submission} not found!', 404)
 
     if submission.status >= 0:
-        return HTTPError(
-            f'submission [{submission.id}] has finished judgement.', 403)
+        return HTTPError(f'{submission} has finished judgement.', 403)
 
     if verify_token(submission_id, token) == False:
         return HTTPError(f'invalid token.',
