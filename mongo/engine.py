@@ -191,15 +191,16 @@ class Announcement(Document):
     markdown = StringField(default='', required=True, max_length=100000)
 
 
-class PostThread(Document):
+class PostThread(EmbeddedDocument):
     markdown = StringField(default='', required=True, max_length=100000)
     author = ReferenceField('User', db_field='author')
     course_id = ReferenceField('Course', db_field='courseId')
     #status = StringField(default='')
-    reply = ListField(ReferenceField('PostThread', db_field='postThread'),
+    reply = ListField(EmbeddedDocumentField('PostThread',
+                                            db_field='postThread'),
                       null=True)
 
 
 class Post(Document):
     post_name = StringField(default='', required=True, max_length=64)
-    thread = ReferenceField('PostThread', db_field='postThread')
+    thread = EmbeddedDocumentField('PostThread', db_field='postThread')
