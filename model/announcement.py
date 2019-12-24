@@ -11,10 +11,10 @@ ann_api = Blueprint('ann_api', __name__)
 
 
 @ann_api.route('/', methods=['GET', 'POST', 'PUT', 'DELETE'])
+@ann_api.route('/<course_name>', methods=['GET'])
 @login_required
-def anncmnt(user):
-    @Request.json('course_name')
-    def get_anns(course_name):
+def anncmnt(user, course_name=None):
+    def get_anns():
         # Get an announcement list
         try:
             anns = Announcement.ann_list(user.obj, course_name or 'Public')
