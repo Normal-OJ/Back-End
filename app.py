@@ -1,6 +1,7 @@
 from flask import Flask
 from model import *
 from mongo import *
+from mongo import engine
 
 # Create a flask app
 app = Flask(__name__)
