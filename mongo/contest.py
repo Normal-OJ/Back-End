@@ -21,9 +21,7 @@ class Contest:
                 raise NotUniqueError
         #verify user's roles(teacher/admin)
         role = perm(course, user)
-        if (course.teacher.username != user.username and user.role != 0):
-            raise AuthorityError
-        if (role != 4 and role != 3):
+        if role != 4 and role != 3 and role != 2:
             raise AuthorityError
 
         students = course.student_nicknames
@@ -60,7 +58,7 @@ class Contest:
 
         #verify user's roles(teacher/admin)
         role = perm(course, user)
-        if role != 4 and role != 3:
+        if role != 4 and role != 3 and role != 2:
             raise AuthorityError
 
         students = course.student_nicknames
@@ -113,7 +111,7 @@ class Contest:
                                              course_id=str(course.id))
         #verify user's roles(teacher/admin)
         role = perm(course, user)
-        if role != 4 and role != 3:
+        if role != 4 and role != 3 and role != 2:
             raise AuthorityError
 
         if contest is None:
