@@ -32,3 +32,6 @@ if not User("first_admin"):
 
 if Course("Public").obj is None:
     add_course("Public", "first_admin")
+
+if Number("serial_number").obj is None:
+    engine.Number(name="serial_number").save()
