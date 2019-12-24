@@ -18,7 +18,7 @@ def get_ranking():
         username = submission.user.username
         if username not in users:
             users[username] = {
-                "ACProblem": Set(),
+                "ACProblem": set(),
                 "ACSubmission": 0,
                 "Submission": 0
             }
