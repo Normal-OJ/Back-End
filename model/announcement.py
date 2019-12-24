@@ -38,7 +38,7 @@ def anncmnt(user):
         # Create a new announcement
         try:
             ann = Announcement.new_ann(course_name or 'Public', title,
-                                         user.obj, markdown)
+                                       user.obj, markdown)
         except ValidationError as ve:
             return HTTPError('Failed to Create Announcement',
                              400,
@@ -62,9 +62,9 @@ def anncmnt(user):
             return HTTPError('Failed to Update Announcement', 403)
         try:
             ann.update(title=title,
-                        markdown=markdown,
-                        update_time=datetime.utcnow(),
-                        updater=user.obj)
+                       markdown=markdown,
+                       update_time=datetime.utcnow(),
+                       updater=user.obj)
         except ValidationError as ve:
             return HTTPError('Failed to Update Announcement',
                              400,
@@ -78,7 +78,7 @@ def anncmnt(user):
         if not ann:
             return HTTPError('Announcement Not Found', 404)
         course = ann.course
-        if user.role != 0 and user != course.teacher and user.obj not in course.tas:
+        if user.role != 0 and user != course.teacher and user not in course.tas:
             return HTTPError('Failed to Delete Announcement', 403)
         ann.update(status=1)
         return HTTPResponse('Deleted')

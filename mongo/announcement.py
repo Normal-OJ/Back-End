@@ -20,7 +20,7 @@ class Announcement(MongoBase, engine=engine.Announcement):
         if user.role != 0 and user != course.teacher and user not in course.tas and course not in user.courses:
             return None
         anns = engine.Announcement.objects(course=course,
-                                            status=0).order_by('-createTime')
+                                           status=0).order_by('-createTime')
         return anns
 
     @staticmethod
@@ -31,9 +31,9 @@ class Announcement(MongoBase, engine=engine.Announcement):
         if creater.role != 0 and creater != course.teacher and creater not in course.tas:
             return None
         ann = engine.Announcement(title=title,
-                                   course=course,
-                                   creater=creater,
-                                   updater=creater,
-                                   markdown=markdown)
+                                  course=course,
+                                  creater=creater,
+                                  updater=creater,
+                                  markdown=markdown)
         ann.save()
         return ann
