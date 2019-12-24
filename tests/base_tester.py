@@ -44,7 +44,12 @@ class BaseTester:
         }
 
         user = User.signup(**USER)
-        user.update(active=True, role=role, profile={'displayedName': '', 'bio': ''})
+        user.update(active=True,
+                    role=role,
+                    profile={
+                        'displayedName': '',
+                        'bio': ''
+                    })
 
     @staticmethod
     def request(client, method, url, **ks):

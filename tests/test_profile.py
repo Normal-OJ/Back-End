@@ -4,12 +4,11 @@ from tests.base_tester import BaseTester
 
 class TestViewProfile(BaseTester):
     def test_edit_profile(self, client_student):
-        rv = client_student.post(
-            '/profile',
-            json={
-                'displayedName': 'aisu_0911',
-                'bio': 'Hello World!'
-            })
+        rv = client_student.post('/profile',
+                                 json={
+                                     'displayedName': 'aisu_0911',
+                                     'bio': 'Hello World!'
+                                 })
         json = rv.get_json()
         assert rv.status_code == 200
         assert json['status'] == 'ok'
