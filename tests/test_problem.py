@@ -20,11 +20,11 @@ class ProblemData:
 
 
 @pytest.fixture(params={'name': 'Hello World!'})
-def problem_data(request, client_admin):
+def problem_data(request):
     BaseTester.setup_class()
     pd = ProblemData(**request.param)
     # add problem
-    add_problem(user=client_admin,
+    add_problem(user=User("admin"),
                 status=pd.status,
                 type=pd.type,
                 problem_name=pd.name,
@@ -36,8 +36,8 @@ def problem_data(request, client_admin):
 
 
 @pytest.fixture(params={'name': 'Goodbye health~'})
-def another_problem(request, problem_data, client_admin):
-    return problem_data(request, client_admin)
+def another_problem(request, problem_data):
+    return problem_data(request)
 
 
 class TestAddProblem(BaseTester):
