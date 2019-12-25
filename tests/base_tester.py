@@ -35,9 +35,6 @@ class BaseTester:
         if Number("serial_number").obj is None:
             engine.Number(name="serial_number").save()
 
-        for i in range(5):
-            cls.new_problem()
-
     @classmethod
     def teardown_class(cls):
         cls.drop_db()
@@ -57,26 +54,6 @@ class BaseTester:
                         'displayedName': '',
                         'bio': ''
                     })
-
-    @classmethod
-    def new_problem(cls):
-        add_problem(
-            user = User("admin"),
-            status = 0,
-            type = 1,
-            problem_name = 'Test problem name',
-            description = 'Test description.',
-            tags = ['TestTag01', 'TestTag02'],
-            test_case = {
-                'language': 2,
-                'fillInTemplate': 'Test f__l in t__pl__e.',
-                'cases': [{
-                    'input': 'TestInput01',
-                    'output': 'TestOutput01',
-                    'caseScore': 1,
-                    'memoryLimit': 1,
-                    'timeLimit': 1
-                }]})
 
     @staticmethod
     def request(client, method, url, **ks):

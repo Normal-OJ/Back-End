@@ -69,7 +69,6 @@ def manage_problem(user, problem_id=None):
             return HTTPError('Problem not exist.', 404)
         if user.role == 1 and problem.owner != user.username:
             return HTTPError('Not the owner.', 403)
-
     '''
     if request.method == 'POST' or request.method == 'PUT':
         test_case
