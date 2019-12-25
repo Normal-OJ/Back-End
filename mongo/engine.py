@@ -111,9 +111,9 @@ class Number(Document):
 
 
 class ProblemTestCase(EmbeddedDocument):
-    language = IntField(required=True, choices=[1, 2, 4])
+    language = IntField(choices=[1, 2, 4])
     fill_in_template = StringField(db_field='fillInTemplate', max_length=16000)
-    cases = ListField(DictField(), required=True)
+    cases = ListField(DictField())
 
 
 class Problem(Document):
