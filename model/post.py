@@ -18,17 +18,18 @@ def get_post(user, course):
         target_course = engine.Course.objects.get(course_name=course)
     except engine.DoesNotExist:
         return HTTPError("Course not found.", 404)
-    try:
-        target_thread = engine.PostThread.objects.get(course_id=target_course)
-    except engine.DoesNotExist:
-        return HTTPError("Post/Reply not found.", 404)
-    #refer course
-    course_name = course
-    course_obj = Course(course_name).obj
-    permission = perm(course_obj, user)
+    permission = perm(target_course, user)
     if not permission:
         return HTTPError('You are not in this course.', 403)
+    posts = found_post(target_course)
+    '''try:
+        target_thread = engine.PostThread.objects.get(course_id=target_course)
+    except engine.DoesNotExist:
+        return HTTPError("Post/Reply not found.", 404)'''
+    #refer course
     data = []
+    thread = []
+    for x
     return HTTPResponse('success', data=data)
 
 
