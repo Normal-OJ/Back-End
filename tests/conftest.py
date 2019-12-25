@@ -16,30 +16,36 @@ def client(app):
 
 
 @pytest.fixture
-def client_admin(client):
-    client.set_cookie('test.test', 'piann', User('admin').jwt)
-    return client
+def forge_client(client):
+    def seted_cookie(username):
+        client.set_cookie('test.test', 'piann', User(username).secret)
+        return client
+
+    return seted_cookie
 
 
 @pytest.fixture
-def client_teacher(client):
-    client.set_cookie('test.test', 'piann', User('teacher').jwt)
-    return client
+def client_admin(forge_client):
+    return forge_client('admin')
 
 
 @pytest.fixture
-def client_student(client):
-    client.set_cookie('test.test', 'piann', User('student').jwt)
-    return client
+def client_teacher(forge_client):
+    return forge_client('teacher')
+
+
+@pytest.fixture
+def client_student(forge_client):
+    return forge_client('student')
 
 
 @pytest.fixture
 def test_token():
     # Token for user: test
-    return 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJ0ZXN0LnRlc3QiLCJleHAiOjI0MzkzNjk2MzEsImRhdGEiOnsidXNlcm5hbWUiOiJ0ZXN0In19.jXZuwP6JJpIHCsAFjZAHove3FYwr2tRgFZYRIbAJhJo'
+    return 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJ0ZXN0LnRlc3QiLCJleHAiOjE1NzkyNzEzMDksInNlY3JldCI6dHJ1ZSwiZGF0YSI6eyJ1c2VybmFtZSI6InRlc3QiLCJ1c2VySWQiOiI2NGMzN2YxNWNhNzNmMDRkNGFiMzRmNmYifX0.QUYwwR_RPVLAHZ9GxbUNyqI4w6w429kE6GCgmp5my9o'
 
 
 @pytest.fixture
 def test2_token():
     # Token for user: test2
-    return 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJ0ZXN0LnRlc3QiLCJleHAiOjI0MzkzNzI2OTIsImRhdGEiOnsidXNlcm5hbWUiOiJ0ZXN0MiJ9fQ.lXtoQJNgLjwjum6ChbdTVpcPIBtwrKgNQcT6ZjApfYc'
+    return 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJ0ZXN0LnRlc3QiLCJleHAiOjE1NzkyNzE0NjgsInNlY3JldCI6dHJ1ZSwiZGF0YSI6eyJ1c2VybmFtZSI6InRlc3QyIiwidXNlcklkIjoiOTdlYzJhNmY3ZTA2YWY3YTUwMmUzMWVkIn19.WVuSHj55b23kS_qb07ER15lRSdr20zBL-FdCRTk7pqM'
