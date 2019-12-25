@@ -30,6 +30,7 @@ class TestSubmissionUtils:
 
 class SubmissionTester(BaseTester):
     init_submission_count = 5
+    submissions = []
     source = {
         'c11': {
             'lang': 0,
@@ -157,9 +158,8 @@ class SubmissionTester(BaseTester):
             })
 
     @classmethod
-    def teardown_class(cls):
+    def teardown_method(cls):
         cls.submissions = []
-        return super().teardown_class()
 
 
 class TestGetSubmission(SubmissionTester):
@@ -171,24 +171,39 @@ class TestGetSubmission(SubmissionTester):
         pprint(rv_json)
 
         assert rv.status_code == 200
-        assert len(rv_data) == self.init_submission_count
+        assert 'unicorn' in rv_data
+        assert len(rv_data['submissions']) == self.init_submission_count
 
         excepted_field_names = sorted([
             'submissionId', 'problemId', 'username', 'status', 'score',
             'runTime', 'memoryUsage', 'languageType', 'timestamp'
         ])
 
-        for s in rv_data:
+        for s in rv_data['submissions']:
             assert sorted(s.keys()) == excepted_field_names
 
-    def test_get_truncated_submission_list(self, client):
-        rv, rv_json, rv_data = self.request(client, 'get',
-                                            '/submission/?offset=0&count=1')
+    @pytest.mark.parametrize('offset, count',
+                             [(0, 1),
+                              (SubmissionTester.init_submission_count // 2, 1)]
+                             )
+    def test_get_truncated_submission_list(self, client, offset, count):
+        rv, rv_json, rv_data = self.request(
+            client, 'get', f'/submission/?offset={offset}&count={count}')
 
         pprint(rv_json)
 
         assert rv.status_code == 200
-        assert len(rv_data) == 1
+        assert len(rv_data['submissions']) == 1
+
+    def test_get_submission_list_with_maximun_offset(self, client):
+        rv, rv_json, rv_data = self.request(
+            client, 'get',
+            f'/submission/?offset={SubmissionTester.init_submission_count}&count=1'
+        )
+
+        print(rv_json)
+
+        assert rv.status_code == 400
 
     def test_get_all_submission(self, client):
         rv, rv_json, rv_data = self.request(client, 'get',
@@ -197,7 +212,7 @@ class TestGetSubmission(SubmissionTester):
         pprint(rv_json)
 
         assert rv.status_code == 200
-        assert len(rv_data) == self.init_submission_count
+        assert len(rv_data['submissions']) == self.init_submission_count
 
         offset = self.init_submission_count // 2
         rv, rv_json, rv_data = self.request(
@@ -206,7 +221,8 @@ class TestGetSubmission(SubmissionTester):
         pprint(rv_json)
 
         assert rv.status_code == 200
-        assert len(rv_data) == (self.init_submission_count - offset)
+        assert len(rv_data['submissions']) == (self.init_submission_count -
+                                               offset)
 
     def test_get_submission_list_over_db_size(self, client):
         rv, rv_json, rv_data = self.request(
@@ -217,7 +233,8 @@ class TestGetSubmission(SubmissionTester):
         pprint(rv_json)
 
         assert rv.status_code == 200
-        assert len(rv_data) == SubmissionTester.init_submission_count
+        assert len(
+            rv_data['submissions']) == SubmissionTester.init_submission_count
 
     def test_get_submission_without_login(self, client):
         rv = client.get(f'/submission/{self.submissions[0]["submissionId"]}')
@@ -266,6 +283,24 @@ class TestGetSubmission(SubmissionTester):
         rv, rv_json, rv_data = self.request(
             client, 'get', f'/submission/?offset={offset}&count={count}')
         assert rv.status_code == 400
+
+    @pytest.mark.parametrize(
+        'key, except_val',
+        [('problemId', '8888'), ('status', -2), ('languageType', 0),
+         ('username', 'student')
+         #TODO: test for submission id filter
+         ])
+    def test_get_submission_list_by_filter(self, client, key, except_val):
+        rv, rv_json, rv_data = self.request(
+            client, 'get',
+            f'/submission/?offset=0&count=-1&{key}={except_val}')
+
+        pprint(rv_json)
+
+        assert rv.status_code == 200
+        assert len(rv_data['submissions']) != 0
+        assert all(map(lambda x: x[key] == except_val,
+                       rv_data['submissions'])) == True
 
 
 class TestCreateSubmission(SubmissionTester):

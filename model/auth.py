@@ -33,7 +33,7 @@ def login_required(func):
             return HTTPError('Invalid Token', 403)
         user = User(json['data']['username'])
         if json['data'].get('userId') != user.user_id:
-            return HTTPError('Authorization Expired', 403)
+            return HTTPError(f'Authorization Expired', 403)
         if not user.active:
             return HTTPError('Inactive User', 403)
         kwargs['user'] = user
@@ -68,14 +68,13 @@ def session():
         GET: Logout
         POST: Login
     '''
-    @login_required
-    def logout(user):
+    def logout():
         '''Logout a user.
         Returns:
             - 200 Logout Success
         '''
         cookies = {'jwt': None, 'piann': None}
-        return HTTPResponse(f'Goodbye {user.username}', cookies=cookies)
+        return HTTPResponse(f'Goodbye', cookies=cookies)
 
     @Request.json('username', 'password')
     def login(username, password):
@@ -86,8 +85,9 @@ def session():
         '''
         if not all([username, password]):
             return HTTPError('Incomplete Data', 400)
-        user = User.login(username, password)
-        if user is None:
+        try:
+            user = User.login(username, password)
+        except DoesNotExist:
             return HTTPError('Login Failed', 403)
         if not user.active:
             return HTTPError('Invalid User', 403)
@@ -138,15 +138,19 @@ def check(item):
     '''
     @Request.json('username')
     def check_username(username):
-        if User(username).user_id is not None:
-            return HTTPResponse('User Exists', data={'valid': 0})
-        return HTTPResponse('Username Can Be Used', data={'valid': 1})
+        try:
+            User.get_by_username(username)
+        except DoesNotExist:
+            return HTTPResponse('Username Can Be Used', data={'valid': 1})
+        return HTTPResponse('User Exists', data={'valid': 0})
 
     @Request.json('email')
     def check_email(email):
-        if User.get_username_by_email(email) is not None:
-            return HTTPResponse('Email Has Been Used', data={'valid': 0})
-        return HTTPResponse('Email Can Be Used', data={'valid': 1})
+        try:
+            User.get_by_email(email)
+        except DoesNotExist:
+            return HTTPResponse('Email Can Be Used', data={'valid': 1})
+        return HTTPResponse('Email Has Been Used', data={'valid': 0})
 
     method = {'username': check_username, 'email': check_email}.get(item)
     return method() if method else HTTPError('Ivalid Checking Type', 400)
@@ -155,10 +159,10 @@ def check(item):
 @auth_api.route('/resend-email', methods=['POST'])
 @Request.json('email')
 def resend_email(email):
-    username = User.get_username_by_email(email)
-    if username is None:
+    try:
+        user = User.get_by_email(email)
+    except DoesNotExist:
         return HTTPError('User Not Exists', 400)
-    user = User(username)
     if user.active:
         return HTTPError('User Has Been Actived', 400)
     verify_link = f'https://noj.tw/api/auth/active/{user.cookie}'
@@ -184,18 +188,26 @@ def active(token=None):
         if json is None or not json.get('secret'):
             return HTTPError('Invalid Token.', 403)
         user = User(json['data']['username'])
-        if user.user_id is None:
+        if not user:
             return HTTPError('User Not Exists', 400)
         if user.active:
             return HTTPError('User Has Been Actived', 400)
+        courses = user.courses
+        courses.append(Course('Public').obj)
         try:
             user.update(active=True,
                         profile={
                             'displayed_name': profile.get('displayedName'),
                             'bio': profile.get('bio'),
-                        })
+                        },
+                        courses=courses)
         except ValidationError as ve:
             return HTTPError('Failed', 400, data=ve.to_dict())
+        pub_course = Course('Public').obj
+        if pub_course is None:
+            return HTTPError('Public Course Not Exists', 500)
+        pub_course.student_nicknames.update({user.username: user.username})
+        pub_course.save()
         cookies = {'jwt': user.cookie}
         return HTTPResponse('User Is Now Active', cookies=cookies)
 

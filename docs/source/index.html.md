@@ -12,7 +12,7 @@ toc_footers:
 includes:
   - common
   - auth
-  - course
+  - inbox
 
 search: true
 ---

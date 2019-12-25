@@ -12,7 +12,7 @@ profile_api = Blueprint('profile_api', __name__)
 @profile_api.route('/', methods=['GET'])
 @profile_api.route('/<username>', methods=['GET'])
 @login_required
-def view_others_profile(user, username=None):
+def view_profile(user, username=None):
     try:
         user = user if username is None else User(username)
         data = {
@@ -29,21 +29,41 @@ def view_others_profile(user, username=None):
 
 @profile_api.route('/', methods=['POST'])
 @login_required
-@Request.json('bio', 'displayed_name')
+@Request.json('bio', vars_dict={'displayed_name': 'displayedName'})
 def edit_profile(user, displayed_name, bio):
     try:
-        profile = user.obj.profile
+        profile = user.obj.profile or {}
 
         if displayed_name is not None:
-            profile['displayed_name'] = displayed_name
-        elif displayed_name == "":
-            profile['displayed_name'] = user.username
+            profile[
+                'displayed_name'] = displayed_name if displayed_name != "" else user.username
         if bio is not None:
             profile['bio'] = bio
 
         user.obj.update(profile=profile)
     except:
         return HTTPError('Upload fail.', 400)
+
+    cookies = {'jwt': user.cookie}
+    return HTTPResponse('Uploaded.', cookies=cookies)
+
+
+@profile_api.route('/config', methods=['PUT'])
+@login_required
+@Request.json('font_size', 'theme', 'indent_type', 'tab_size', 'language')
+def edit_config(user, font_size, theme, indent_type, tab_size, language):
+    try:
+        config = user.obj.editor_config or {
+            'font_size': font_size,
+            'theme': theme,
+            'indent_type': indent_type,
+            'tab_size': tab_size,
+            'language': language
+        }
+
+        user.obj.update(editor_config=config)
+    except ValidationError as ve:
+        return HTTPError('Update fail.', 400, data=ve.to_dict())
 
     cookies = {'jwt': user.cookie}
     return HTTPResponse('Uploaded.', cookies=cookies)
