@@ -1,0 +1,21 @@
+{
+    "pylint":{
+        "shutUp":[
+            "W",
+            "R",
+            "C",
+            "E"
+        ],
+        "alaRduTP":[
+            "W"
+        ],
+        "default":[
+            
+        ]
+    },
+    "cppcheck":{
+        "default":[
+            
+        ]
+    }
+}
