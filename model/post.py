@@ -1,5 +1,6 @@
 from flask import Blueprint, request
 from mongo import *
+from mongo import engine
 from .auth import *
 from .utils import *
 from mongo.post import *
@@ -37,23 +38,50 @@ def get_post(user, course):
 def modify_post(user, course, title, content, targetThreadId):
     if course == 'Public':
         return HTTPError('You can not add post in system.', 403)
-    permission = perm(Course(course).obj, user)
+    if course and targetThreadId:
+        return HTTPError(
+            'Request is fail,course or targetThreadId must be none', 403)
+    elif course:
+        try:
+            permission = perm(Course(course).obj, user)
+        except engine.DoesNotExist:
+            return HTTPError('Course not exist', 404)
+    elif targetThreadId:
+        try:
+            target_thread = engine.PostThread.objects.get(id=targetThreadId)
+        except engine.DoesNotExist:
+            try:  # to protect input post id
+                target_post = engine.Post.objects.get(id=targetThreadId)
+                target_thread = target_post.thread
+                targetThreadId = target_thread.id
+            except engine.DoesNotExist:
+                return HTTPError('Post/reply not exist', 404)
+        target_course = target_thread.course_id
+        permission = perm(target_course, user)
+    else:
+        return HTTPError(
+            'Request is fail,course or targetThreadId must be none', 403)
     if not permission:
         return HTTPError('You are not in this course.', 403)
     if request.method == 'POST':
         #add reply
-        if not course:
-            r = add_reply(targetThreadId, user, content)
-        #add course post
-        elif not targetThreadId:
+        if course:
             r = add_post(course, user, content, title)
-        else:
-            return HTTPError(
-                'Request is fail,course or targetThreadId must be none', 403)
+        #add course post
+        elif targetThreadId:
+            r = add_reply(target_thread, user, content)
     if request.method == 'PUT':  #permission not use
-        r = edit_post(targetThreadId, user, content, title)
+        if course:
+            return HTTPError(
+                "Request is fail,you should provide targetThreadId replace course ",
+                403)
+        r = edit_post(target_thread, user, content, title, permission)
     if request.method == 'DELETE':  #permission not use
-        r = delete_post(targetThreadId, user)
+        if course:
+            return HTTPError(
+                "Request is fail,you should provide targetThreadId replace course ",
+                403)
+        r = delete_post(target_thread, user, permission)
     if r is not None:
         return HTTPError(r, 403 if r == "Forbidden." else 404)
     return HTTPResponse('success')
