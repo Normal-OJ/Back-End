@@ -1,0 +1,17 @@
+cppcheck:
+
+clang-format:
+@@ -1,6 +1,7 @@
+-#include<stdio.h>
+-int main()
+-{
+-    int p=50;
+-if(p==87) printf("yee");return 0;
++#include <stdio.h>
++int main() {
++  int p = 50;
++  if (p == 87)
++    printf("yee");
++  return 0;
+ }
+\ No newline at end of file

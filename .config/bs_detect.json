@@ -10,12 +10,22 @@
             "W"
         ],
         "default":[
-            
+            "R",
+            "W"
         ]
     },
-    "cppcheck":{
-        "default":[
-            
-        ]
+    "c&cpp_checkers":{
+        "default":{
+            "cppcheck":[
+                "-q"
+            ],
+            "clang-format":[
+
+            ] ,
+            "diff":[
+                "-u" , "-b"
+            ] 
+        }
+        
     }
 }
