@@ -70,6 +70,11 @@ def manage_problem(user, problem_id=None):
         if user.role == 1 and problem.owner != user.username:
             return HTTPError('Not the owner.', 403)
 
+    '''
+    if request.method == 'POST' or request.method == 'PUT':
+        test_case
+    '''
+
     if request.method == 'GET':
         data = {
             'problemName': problem.problem_name,
@@ -86,7 +91,12 @@ def manage_problem(user, problem_id=None):
         delete_problem(problem_id)
         return HTTPResponse('Success.')
     else:
-        modify_problem()
+        try:
+            modify_problem()
+        except ValidationError as ve:
+            return HTTPError('Invalid or missing arguments.',
+                             400,
+                             data=ve.to_dict())
         return HTTPResponse('Success.')
 
 

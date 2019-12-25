@@ -2,8 +2,8 @@ import pytest
 from tests.base_tester import BaseTester
 
 
-class TestViewProfile(BaseTester):
-    def test_edit_profile(self, client_student):
+class TestProfile(BaseTester):
+    def test_edit(self, client_student):
         rv = client_student.post('/profile',
                                  json={
                                      'displayedName': 'aisu_0911',
@@ -14,7 +14,7 @@ class TestViewProfile(BaseTester):
         assert json['status'] == 'ok'
         assert json['message'] == 'Uploaded.'
 
-    def test_view_profile_without_username(self, client_student):
+    def test_view_without_username(self, client_student):
         rv = client_student.get('/profile')
         json = rv.get_json()
         assert rv.status_code == 200
@@ -23,7 +23,7 @@ class TestViewProfile(BaseTester):
         assert json['data']['displayedName'] == 'aisu_0911'
         assert json['data']['bio'] == 'Hello World!'
 
-    def test_view_profile_with_username(self, client_student):
+    def test_view_with_username(self, client_student):
         rv = client_student.get('/profile/student')
         json = rv.get_json()
         assert rv.status_code == 200
@@ -32,14 +32,14 @@ class TestViewProfile(BaseTester):
         assert json['data']['displayedName'] == 'aisu_0911'
         assert json['data']['bio'] == 'Hello World!'
 
-    def test_view_profile_with_nonexist_username(self, client_student):
+    def test_view_with_nonexist_username(self, client_student):
         rv = client_student.get('/profile/a_username_not_exist')
         json = rv.get_json()
         assert rv.status_code == 404
         assert json['status'] == 'err'
         assert json['message'] == 'Profile not exist.'
 
-    def test_invalid_config(self, client_student):
+    def test_set_invalid_config(self, client_student):
         rv = client_student.put('/profile/config',
                                 json={
                                     'fontSize': 87,
