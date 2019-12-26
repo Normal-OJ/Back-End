@@ -36,8 +36,8 @@ class EditorConfig(EmbeddedDocument):
 
 
 class Duration(EmbeddedDocument):
-    start = DateTimeField()
-    end = DateTimeField()
+    start = DateTimeField(default=datetime.now())
+    end = DateTimeField(default=datetime.max)
 
 
 class User(Document):
@@ -61,15 +61,15 @@ class User(Document):
 
 
 class Homework(Document):
-    name = StringField(max_length=64, required=True, db_field='homeworkName')
-    markdown = StringField(max_length=10000)
+    homework_name = StringField(max_length=64,
+                                required=True,
+                                db_field='homeworkName')
+    markdown = StringField(max_length=10000, default='')
     scoreboard_status = IntField(default=0,
-                                 choice=[0, 1],
+                                 choices=[0, 1],
                                  db_field='scoreboardStatus')
-    course_id = StringField(db_field='courseId')
-    duration = EmbeddedDocumentField(Duration,
-                                     db_field='duration',
-                                     default=Duration)
+    course_id = StringField(required=True, db_field='courseId')
+    duration = EmbeddedDocumentField(Duration, default=Duration)
     problem_ids = ListField(StringField(), db_field='problemIds')
     student_status = DictField(db_field='studentStatus')
 

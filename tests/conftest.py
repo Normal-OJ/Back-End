@@ -16,21 +16,27 @@ def client(app):
 
 
 @pytest.fixture
-def client_admin(client):
-    client.set_cookie('test.test', 'piann', User('admin').secret)
-    return client
+def forge_client(client):
+    def seted_cookie(username):
+        client.set_cookie('test.test', 'piann', User(username).secret)
+        return client
+
+    return seted_cookie
 
 
 @pytest.fixture
-def client_teacher(client):
-    client.set_cookie('test.test', 'piann', User('teacher').secret)
-    return client
+def client_admin(forge_client):
+    return forge_client('admin')
 
 
 @pytest.fixture
-def client_student(client):
-    client.set_cookie('test.test', 'piann', User('student').secret)
-    return client
+def client_teacher(forge_client):
+    return forge_client('teacher')
+
+
+@pytest.fixture
+def client_student(forge_client):
+    return forge_client('student')
 
 
 @pytest.fixture
