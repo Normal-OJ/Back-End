@@ -283,12 +283,12 @@ def update_submission(user, submission_id, token):
                 with open(task_dir / 'out', 'w') as f:
                     f.write(case['output'])
 
-                zf.write(task_dir / 'in')
-                zf.write(task_dir / 'out')
+                zf.write(task_dir / 'in', f'{i}/in')
+                zf.write(task_dir / 'out', f'{i}/out')
 
             with open(testcase_dir / 'meta.json', 'w') as f:
                 json.dump(meta, f)
-            zf.write(testcase_dir / 'meta.json')
+            zf.write(testcase_dir / 'meta.json', 'meta.json')
 
         # generate token for submission
         token = assign_token(submission_id)
