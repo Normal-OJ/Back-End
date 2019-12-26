@@ -30,7 +30,7 @@ def view_problem(user, problem_id):
     data = {
         'owner': problem.owner,
         'description': problem.description,
-        'type': problem.type,
+        'type': problem.problem_type,
         'problemName': problem.problem_name,
         'status': problem.problem_status,
         'tags': problem.tags
