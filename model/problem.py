@@ -57,11 +57,11 @@ def manage_problem(user, problem_id=None):
     def modify_problem(status, type, problem_name, description, tags,
                        test_case):
         if request.method == 'POST':
-            add_problem(user, status, type, problem_name, description, tags,
-                        test_case)
+            return add_problem(user, status, type, problem_name, description,
+                               tags, test_case)
         elif request.method == 'PUT':
-            edit_problem(user, problem_id, status, type, problem_name,
-                         description, tags, test_case)
+            return edit_problem(user, problem_id, status, type, problem_name,
+                                description, tags, test_case)
 
     if request.method != 'POST':
         problem = Problem(problem_id).obj
@@ -76,6 +76,7 @@ def manage_problem(user, problem_id=None):
 
     if request.method == 'GET':
         data = {
+            'problemId': problem.problem_id,
             'problemName': problem.problem_name,
             'status': problem.problem_status,
             'type': problem.problem_type,
@@ -91,12 +92,12 @@ def manage_problem(user, problem_id=None):
         return HTTPResponse('Success.')
     else:
         try:
-            modify_problem()
+            problem = modify_problem()
         except ValidationError as ve:
             return HTTPError('Invalid or missing arguments.',
                              400,
                              data=ve.to_dict())
-        return HTTPResponse('Success.')
+        return HTTPResponse('Success.', data={'problemId': problem.problem_id})
 
 
 @problem_api.route('/clone', methods=['POST'])

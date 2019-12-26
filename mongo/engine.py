@@ -107,11 +107,11 @@ class Course(Document):
 
 class Number(Document):
     name = StringField()
-    number = IntField()
+    number = IntField(default=1)
 
 
 class ProblemTestCase(EmbeddedDocument):
-    language = IntField(required=True, choices=[1, 2, 4])
+    language = IntField(choices=[0, 1, 2])
     fill_in_template = StringField(db_field='fillInTemplate', max_length=16000)
     cases = ListField(DictField(), required=True)
 
@@ -146,7 +146,7 @@ class TestCaseResult(EmbeddedDocument):
 
 
 class Submission(Document):
-    problem_id = StringField(required=True)
+    problem = ReferenceField(Problem, required=True)
     user = ReferenceField(User, required=True)
     language = IntField(required=True)
     timestamp = DateTimeField(required=True)

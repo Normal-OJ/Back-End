@@ -64,10 +64,18 @@ def create_submission(user, language_type, problem_id):
             f'Please wait for {RATE_LIMIT - delta} seconds to submit.',
             429)  # Too many request
 
-    # check user permission
+    # TODO: check user permission
     # 1. if the problem is in a contest and this user is not a participant
     # 2. user is in a contest and the problem doesn't belong to that contest
     # 3. if the user doesn't bolong to the course and the problem does
+    problem = Problem(problem_id).obj
+    if problem is None:
+        return HTTPError('Unexisted problem id', 404)
+    for course_id in problem.course_ids:
+        course = Course(course_id)
+        if perm(course, user) == 0:
+            return HTTPError('You have no permission to submit this problem!',
+                             403)
 
     if language_type is None or problem_id is None:
         return HTTPError(f'post data missing!',
@@ -79,13 +87,14 @@ def create_submission(user, language_type, problem_id):
 
     # insert submission to DB
     try:
-        submission_id = Submission.add(
-            problem_id=problem_id,
-            user=engine.User.objects.get(username=user.username),
-            lang=language_type,
-            timestamp=now)
+        submission_id = Submission.add(problem_id=problem_id,
+                                       username=user.username,
+                                       lang=language_type,
+                                       timestamp=now)
     except ValidationError:
         return HTTPError(f'invalid data!', 404)
+    except engine.DoesNotExist as e:
+        return HTTPError(str(e), 404)
 
     user.update(last_submit=now)
 
@@ -138,7 +147,7 @@ def get_submission_list(offset, count, problem_id, submission_id, username,
 
     # filter by role
     @identity_verify(0, 1)
-    def view_offline_problem_submissions():
+    def view_offline_problem_submissions(user):
         '''
         teachers and admin can view offline problems
         '''
@@ -153,7 +162,7 @@ def get_submission_list(offset, count, problem_id, submission_id, username,
     # filter by user args
     user = User(username)
     q = {
-        'problem_id': problem_id,
+        'problem': Problem(problem_id).obj,
         'id': submission_id,
         'status': status,
         'language': language_type,
@@ -188,9 +197,12 @@ def get_submission_list(offset, count, problem_id, submission_id, username,
         s['submissionId'] = s['_id']['$oid']
         del s['_id']
 
+        s['problemId'] = s['problem']['$oid']
+        del s['problem']
+
         # field name convertion
-        curr = ['memory_usage', 'exec_time', 'problem_id', 'language']
-        want = ['memoryUsage', 'runTime', 'problemId', 'languageType']
+        curr = ['memory_usage', 'exec_time', 'language']
+        want = ['memoryUsage', 'runTime', 'languageType']
         for c, w in zip(curr, want):
             s[w] = s[c]
             del s[c]
@@ -221,9 +233,16 @@ def get_submission(user, submission_id):
         # normal user can not view other's source
         if user.role == 2:
             del ret['code']
-        # TODO: teachers and TAs can view those who in thrie courses
+        # teachers and TAs can view those who in thrie courses
         elif user.role == 1:
-            pass
+            try:
+                for course_id in submission.problem.course_ids:
+                    course = Course(id=course_id)
+                    if perm(course, user) <= 1:
+                        del ret['code']
+                        break
+            except engine.DoesNotExist:
+                return HTTPError(f'course {course_id} not found', 404)
 
     return HTTPResponse(data=ret)
 
@@ -236,33 +255,68 @@ def update_submission(user, submission_id, token):
         '''
         send submission data to sandbox
         '''
-        # prepare submission data
-        # TODO: get problem testcase
-        judge_url = f'{JUDGE_URL}/{submission_id}'
+        ## prepare submission data
+        # prepare problem testcase
+        # get testcases
+        cases = submission.problem.test_case.cases
+        # metadata
+        meta = {}
+        meta['cases'] = []
+        # problem path
+        testcase_dir = zip_path.parent / 'testcase'
+        testcase_dir.mkdir()
+        testcase_zip_path = zip_path.parent / 'testcase.zip'
+
+        with ZipFile(testcase_zip_path, 'w') as zf:
+            for i, case in enumerate(cases):
+                meta['cases'].append({
+                    'caseScore': case['caseScore'],
+                    'memoryLimit': case['memoryLimit'],
+                    'timeLimit': case['timeLimit']
+                })
+
+                task_dir = testcase_dir / str(i)
+                task_dir.mkdir()
+
+                with open(task_dir / 'in', 'w') as f:
+                    f.write(case['input'])
+                with open(task_dir / 'out', 'w') as f:
+                    f.write(case['output'])
+
+                zf.write(task_dir / 'in')
+                zf.write(task_dir / 'out')
+
+            with open(testcase_dir / 'meta.json', 'w') as f:
+                json.dump(meta, f)
+            zf.write(testcase_dir / 'meta.json')
 
         # generate token for submission
         token = assign_token(submission_id)
-
+        # setup post body
         post_data = {
             'languageId': submission.language,
             'token': token,
             'checker': 'print("not implement yet. qaq")'
         }
-        files = {'code': (f'{submission_id}.zip', open(zip_path, 'rb'))}
+        files = {
+            'code': (f'{submission_id}-source.zip', open(zip_path, 'rb')),
+            'testcase':
+            (f'{submission_id}-testcase.zip', open(testcase_zip_path, 'rb'))
+        }
+
+        judge_url = f'{JUDGE_URL}/{submission_id}'
 
         # send submission to snadbox for judgement
-        # TODO: send submission to sanbox
         resp = rq.post(
             judge_url, data=post_data, files=files,
             cookies=request.cookies)  # cookie: for debug, need better solution
 
         if resp.status_code == 400:
             return HTTPError(resp.text, 400)
-        elif resp.status_code != 200:
+        if resp.status_code != 200:
             # unhandled error
             return HTTPError(resp.text, 500)
-        else:
-            return HTTPResponse(f'{submission} recieved.')
+        return HTTPResponse(f'{submission} recieved.')
 
     @Request.files('code')
     def recieve_source_file(submission, code):

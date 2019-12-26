@@ -4,6 +4,7 @@ from typing import List
 
 from . import engine
 from .user import User
+from .problem import Problem
 
 __all__ = ['Submission']
 
@@ -32,7 +33,7 @@ class Submission:
         return True
 
     @classmethod
-    def add(cls, problem_id: str, user: User, lang: int,
+    def add(cls, problem_id: str, username: str, lang: int,
             timestamp: date) -> str:
         '''
         Insert a new submission into db
@@ -40,8 +41,16 @@ class Submission:
         Returns:
             The created submission's unique id in string type
         '''
-        submission = engine.Submission(problem_id=problem_id,
-                                       user=user,
+        user = User(username)
+        if not user:
+            raise engine.DoesNotExist(f'{username} does not exist')
+
+        problem = Problem(problem_id)
+        if problem.obj is None:
+            raise engine.DoesNotExist(f'problem {problem_id} dose not exist')
+
+        submission = engine.Submission(problem=problem.obj,
+                                       user=engine.User(username=username),
                                        language=lang,
                                        timestamp=timestamp)
         submission.save()

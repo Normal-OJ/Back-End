@@ -62,17 +62,20 @@ def add_problem(user, status, type, problem_name, description, tags,
                 test_case):
     serial_number = Number("serial_number").obj
 
-    engine.Problem(problem_id=serial_number.number,
-                   problem_status=status,
-                   problem_type=type,
-                   problem_name=problem_name,
-                   description=description,
-                   owner=user.username,
-                   tags=tags,
-                   test_case=test_case).save()
+    problem = engine.Problem(problem_id=serial_number.number,
+                             problem_status=status,
+                             problem_type=type,
+                             problem_name=problem_name,
+                             description=description,
+                             owner=user.username,
+                             tags=tags,
+                             test_case=test_case)
+    problem.save()
 
     serial_number.number += 1
     serial_number.save()
+
+    return problem
 
 
 def edit_problem(user, problem_id, status, type, problem_name, description,
@@ -90,6 +93,8 @@ def edit_problem(user, problem_id, status, type, problem_name, description,
     problem.test_case['cases'] = test_case['cases']
 
     problem.save()
+
+    return problem
 
 
 def delete_problem(problem_id):
