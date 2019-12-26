@@ -186,7 +186,6 @@ class Announcement(Document):
     markdown = StringField(max_length=100000, required=True)
 
 
-
 class PostThread(Document):
     markdown = StringField(default='', required=True, max_length=100000)
     author = ReferenceField('User', db_field='author')
