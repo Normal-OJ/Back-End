@@ -21,15 +21,7 @@ def get_post(user, course):
     permission = perm(target_course, user)
     if not permission:
         return HTTPError('You are not in this course.', 403)
-    posts = found_post(target_course)
-    '''try:
-        target_thread = engine.PostThread.objects.get(course_id=target_course)
-    except engine.DoesNotExist:
-        return HTTPError("Post/Reply not found.", 404)'''
-    #refer course
-    data = []
-    thread = []
-    for x
+    data = found_post(target_course)
     return HTTPResponse('success', data=data)
 
 
@@ -39,24 +31,26 @@ def get_post(user, course):
 def modify_post(user, course, title, content, targetThreadId):
     if course == 'Public':
         return HTTPError('You can not add post in system.', 403)
+    # 0 1 or 1 0
     if course and targetThreadId:
         return HTTPError(
             'Request is fail,course or targetThreadId must be none', 403)
     elif course:
         try:
-            permission = perm(Course(course).obj, user)
+            course_obj = Course(course).obj
         except engine.DoesNotExist:
             return HTTPError('Course not exist', 404)
+        permission = perm(course_obj, user)
     elif targetThreadId:
         try:
             target_thread = engine.PostThread.objects.get(id=targetThreadId)
         except engine.DoesNotExist:
             try:  # to protect input post id
                 target_post = engine.Post.objects.get(id=targetThreadId)
-                target_thread = target_post.thread
-                targetThreadId = target_thread.id
             except engine.DoesNotExist:
                 return HTTPError('Post/reply not exist', 404)
+                target_thread = target_post.thread
+                targetThreadId = target_thread.id
         target_course = target_thread.course_id
         permission = perm(target_course, user)
     else:
@@ -71,18 +65,18 @@ def modify_post(user, course, title, content, targetThreadId):
         #add course post
         elif targetThreadId:
             r = add_reply(target_thread, user, content)
-    if request.method == 'PUT':  #permission not use
+    if request.method == 'PUT':
         if course:
             return HTTPError(
                 "Request is fail,you should provide targetThreadId replace course ",
                 403)
         r = edit_post(target_thread, user, content, title, permission)
-    if request.method == 'DELETE':  #permission not use
+    if request.method == 'DELETE':
         if course:
             return HTTPError(
                 "Request is fail,you should provide targetThreadId replace course ",
                 403)
         r = delete_post(target_thread, user, permission)
     if r is not None:
-        return HTTPError(r, 403 if r == "Forbidden." else 404)
+        return HTTPError(r, 403)
     return HTTPResponse('success')

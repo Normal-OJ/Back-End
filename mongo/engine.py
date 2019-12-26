@@ -89,7 +89,9 @@ class Course(Document):
     homework = ListField(ReferenceField('Homework', reverse_delete_rule=PULL),
                          db_field='homeworkIds')
     # announcement_ids = ListField(ReferenceField('Announcement'), db_field='announcementIds')
-    # post_ids = ListField(ReferenceField('Post'), db_field='postIds')
+    post_ids = ListField(ReferenceField('Post'),
+                         db_field='postIds',
+                         default=list)
 
 
 class Number(Document):
@@ -195,6 +197,9 @@ class PostThread(Document):
     markdown = StringField(default='', required=True, max_length=100000)
     author = ReferenceField('User', db_field='author')
     course_id = ReferenceField('Course', db_field='courseId')
+    depth = IntField(default=0)  # 0 is top post, 1 is reply to post
+    created = DateTimeField(required=True)
+    updated = DateTimeField(required=True)
     #status = StringField(default='')
     reply = ListField(ReferenceField('PostThread', db_field='postThread'),
                       null=True)
