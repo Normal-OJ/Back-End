@@ -1,5 +1,6 @@
 from mongoengine import connect
-from mongo.user import User
+from mongo import *
+from mongo import engine, add_problem
 from .conftest import *
 
 
@@ -31,6 +32,9 @@ class BaseTester:
             for name, role in users.items():
                 cls.new_user(name, role)
 
+        if Number("serial_number").obj is None:
+            engine.Number(name="serial_number").save()
+
     @classmethod
     def teardown_class(cls):
         cls.drop_db()
@@ -44,7 +48,12 @@ class BaseTester:
         }
 
         user = User.signup(**USER)
-        user.update(active=True, role=role)
+        user.update(active=True,
+                    role=role,
+                    profile={
+                        'displayedName': '',
+                        'bio': ''
+                    })
 
     @staticmethod
     def request(client, method, url, **ks):
