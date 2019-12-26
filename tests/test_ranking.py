@@ -1,19 +1,24 @@
 import pytest
 from tests.base_tester import BaseTester
+from tests.test_submission import problem_ids
 
 
 class TestRanking(BaseTester):
     '''Test ranking
     '''
-    def test_get(self, client_student):
-        # send inbox with all invalide user
-        client_student.post('/submission',
-                            json={
-                                'problemId': '8888',
-                                'languageType': 0
-                            })
+    def test_get(self, forge_client, problem_ids):
+        pid = problem_ids('teacher', 1)[0]
 
-        rv = client_student.get('/ranking')
+        # send inbox with all invalide user
+        client = forge_client('student')
+        rv = client.post('/submission',
+                         json={
+                             'problemId': pid,
+                             'languageType': 0
+                         })
+        print(rv.get_json())
+
+        rv = client.get('/ranking')
         json = rv.get_json()
         assert json['message'] == 'Success.'
         assert rv.status_code == 200

@@ -13,15 +13,57 @@ from tests.base_tester import BaseTester
 from model.submission import assign_token, verify_token, tokens
 
 
+@pytest.fixture()
+def problem_ids(forge_client):
+    import random
+
+    def problem_data():
+        return {
+            'status': 1,
+            'type': 0,
+            'description': '',
+            'tags': ['test'],
+            'problemName': f'prob {hash(str(random.random()))}',
+            'testCase': {
+                'language':
+                2,
+                'fillInTemplate':
+                '',
+                'cases': [{
+                    'input': str(random.random()),
+                    'output': f'Hello, {random.random()}',
+                    'caseScore': 100,
+                    'memoryLimit': 512,
+                    'timeLimit': 1000
+                }]
+            }
+        }
+
+    def problem_ids(username, length):
+        '''
+        insert dummy problems into db
+
+        Args:
+            - username: the problem owner's username
+            - length: how many problem you want to create
+        Return:
+            a list of problem id that you create
+        '''
+        client = forge_client(username)
+        rets = []  # created problem ids
+        for _ in range(length):
+            rv = client.post('/problem/manage', json=problem_data())
+            assert rv.status_code == 200
+            rets.append(rv.get_json()['data']['problemId'])
+        # don't leave cookies!
+        client.cookie_jar.clear()
+
+        return rets
+
+    return problem_ids
+
+
 class TestSubmissionUtils:
-    @classmethod
-    def setup_class(cls):
-        tokens = {}
-
-    @classmethod
-    def teardown_class(cls):
-        tokens = {}
-
     def test_token_assign(self):
         token = assign_token('8888')
         assert token is not None
@@ -29,7 +71,7 @@ class TestSubmissionUtils:
 
 
 class SubmissionTester(BaseTester):
-    init_submission_count = 5
+    init_submission_count = 16
     submissions = []
     source = {
         'c11': {
@@ -79,7 +121,7 @@ class SubmissionTester(BaseTester):
             return None
 
     @classmethod
-    def prepare_problem(cls):
+    def prepare_submission(cls):
         for src in cls.source.values():
             with open(cls.path / f'main{src["ext"]}', 'w') as f:
                 f.write(src['code'])
@@ -123,12 +165,12 @@ class SubmissionTester(BaseTester):
 
     @classmethod
     @pytest.fixture(autouse=True)
-    def setup_class(cls, tmp_path):
+    def setup_class(cls, tmp_path, problem_ids):
         super().setup_class()
 
         # prepare problem data
         SubmissionTester.path = tmp_path
-        cls.prepare_problem()
+        cls.prepare_submission()
 
         from model import submission
         # use tmp dir to save user source code
@@ -142,13 +184,17 @@ class SubmissionTester(BaseTester):
         cls.submissions = []
         names = itertools.cycle(
             ['student', 'teacher', 'admin', 'teacher-2', 'student-2'])
-        pids = itertools.cycle(['6666', '8888', '55688'])
+        pids = itertools.cycle([
+            *problem_ids('admin', 3),
+            *problem_ids('teacher', 2),
+            *problem_ids('teacher-2', 4),
+        ])
         for _, name, pid in zip('x' * SubmissionTester.init_submission_count,
                                 names, pids):
             lang = 0
             now = datetime.now()
             _id = Submission.add(problem_id=pid,
-                                 user=User(name).obj,
+                                 username=name,
                                  lang=lang,
                                  timestamp=now)
             cls.submissions.append({
@@ -240,6 +286,8 @@ class TestGetSubmission(SubmissionTester):
 
     def test_get_submission_without_login(self, client):
         rv = client.get(f'/submission/{self.submissions[0]["submissionId"]}')
+        print(*client.cookie_jar)
+        pprint(rv.get_json())
         assert rv.status_code == 403
 
     def test_normal_user_get_others_submission(self, client_student):
@@ -288,9 +336,9 @@ class TestGetSubmission(SubmissionTester):
 
     @pytest.mark.parametrize(
         'key, except_val',
-        [('problemId', '8888'), ('status', -2), ('languageType', 0),
-         ('username', 'student')
-         #TODO: test for submission id filter
+        [('status', -2), ('languageType', 0), ('username', 'student')
+         # TODO: test for submission id filter
+         # TODO: test for problem id filter
          ])
     def test_get_submission_list_by_filter(self, client, key, except_val):
         rv, rv_json, rv_data = self.request(
@@ -309,7 +357,10 @@ class TestCreateSubmission(SubmissionTester):
     @pytest.mark.parametrize('submission', SubmissionTester.source.values())
     def test_normal_submission(self, client_student, submission):
         # first claim a new submission to backend server
-        post_json = {'problemId': '8888', 'languageType': submission['lang']}
+        post_json = {
+            'problemId': self.submissions[0]['problemId'],
+            'languageType': submission['lang']
+        }
         # recieve response, which include the submission id and a token to validat next request
         rv, rv_json, rv_data = self.request(client_student,
                                             'post',
@@ -334,7 +385,10 @@ class TestCreateSubmission(SubmissionTester):
 
     def test_wrong_language_type(self, client_student):
         submission = self.source['c11']
-        post_json = {'problemId': '8888', 'languageType': 2}  # 2 for py3
+        post_json = {
+            'problemId': self.submissions[0]['problemId'],
+            'languageType': 2
+        }  # 2 for py3
         rv, rv_json, rv_data = self.request(client_student,
                                             'post',
                                             '/submission',
@@ -354,7 +408,10 @@ class TestCreateSubmission(SubmissionTester):
 
     def test_empty_source(self, client_student):
         submission = self.source['c11']
-        post_json = {'problemId': '8888', 'languageType': submission['lang']}
+        post_json = {
+            'problemId': self.submissions[0]['problemId'],
+            'languageType': submission['lang']
+        }
         rv, rv_json, rv_data = self.request(client_student,
                                             'post',
                                             '/submission',
@@ -374,7 +431,10 @@ class TestCreateSubmission(SubmissionTester):
 
     @pytest.mark.parametrize('submission', SubmissionTester.source.values())
     def test_no_source_upload(self, client_student, submission):
-        post_json = {'problemId': '8888', 'languageType': submission['lang']}
+        post_json = {
+            'problemId': self.submissions[0]['problemId'],
+            'languageType': submission['lang']
+        }
         rv, rv_json, rv_data = self.request(client_student,
                                             'post',
                                             '/submission',
@@ -394,7 +454,10 @@ class TestCreateSubmission(SubmissionTester):
 
     def test_reach_rate_limit(self, client_student):
         submission = self.source['c11']
-        post_json = {'problemId': '8888', 'languageType': submission['lang']}
+        post_json = {
+            'problemId': self.submissions[0]['problemId'],
+            'languageType': submission['lang']
+        }
         client_student.post('/submission', json=post_json)
         rv = client_student.post('/submission', json=post_json)
 
