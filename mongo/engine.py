@@ -11,27 +11,23 @@ connect('normal-oj', host=MONGO_HOST)
 
 
 class Profile(EmbeddedDocument):
-    displayed_name = StringField(db_field='displayedName',
-                                 required=True,
-                                 max_length=16)
+    displayed_name = StringField(
+        db_field='displayedName', required=True, max_length=16)
     bio = StringField(max_length=64, required=True, default='')
 
 
 class EditorConfig(EmbeddedDocument):
-    font_size = IntField(db_field='fontSize',
-                         min_value=8,
-                         max_value=72,
-                         default=14)
-    theme = StringField(default='default',
-                        choices=[
-                            "default", "base16-dark", "base16-light",
-                            "dracula", "eclipse", "material", "monokai"
-                        ])
+    font_size = IntField(
+        db_field='fontSize', min_value=8, max_value=72, default=14)
+    theme = StringField(
+        default='default',
+        choices=[
+            "default", "base16-dark", "base16-light", "dracula", "eclipse",
+            "material", "monokai"
+        ])
     indent_type = IntField(db_field='indentType', default=1, choices=[0, 1])
-    tab_size = IntField(db_field='tabSize',
-                        default=4,
-                        min_value=1,
-                        max_value=8)
+    tab_size = IntField(
+        db_field='tabSize', default=4, min_value=1, max_value=8)
     language = IntField(default=0, choices=[0, 1, 2])
 
 
@@ -42,18 +38,14 @@ class Duration(EmbeddedDocument):
 
 class User(Document):
     username = StringField(max_length=16, required=True, primary_key=True)
-    user_id = StringField(db_field='userId',
-                          max_length=24,
-                          required=True,
-                          unique=True)
+    user_id = StringField(
+        db_field='userId', max_length=24, required=True, unique=True)
     email = EmailField(required=True, unique=True)
     active = BooleanField(default=False)
     role = IntField(default=2, choices=[0, 1, 2])
     profile = EmbeddedDocumentField(Profile, default=Profile, null=True)
-    editor_config = EmbeddedDocumentField(EditorConfig,
-                                          db_field='editorConfig',
-                                          default=EditorConfig,
-                                          null=True)
+    editor_config = EmbeddedDocumentField(
+        EditorConfig, db_field='editorConfig', default=EditorConfig, null=True)
     # contest_id = ReferenceField('Contest', db_field='contestId')
     courses = ListField(ReferenceField('Course'))
     # submission_ids = ListField(ReferenceField('Submission'), db_field='submissionIds')
@@ -63,26 +55,22 @@ class User(Document):
 class Homework(Document):
     name = StringField(max_length=64, required=True, db_field='homeworkName')
     markdown = StringField(max_length=10000)
-    scoreboard_status = IntField(default=0,
-                                 choice=[0, 1],
-                                 db_field='scoreboardStatus')
+    scoreboard_status = IntField(
+        default=0, choice=[0, 1], db_field='scoreboardStatus')
     course_id = StringField(db_field='courseId')
-    duration = EmbeddedDocumentField(Duration,
-                                     db_field='duration',
-                                     default=Duration)
+    duration = EmbeddedDocumentField(
+        Duration, db_field='duration', default=Duration)
     problem_ids = ListField(StringField(), db_field='problemIds')
     student_status = DictField(db_field='studentStatus')
 
 
 class Contest(Document):
     name = StringField(max_length=64, required=True, db_field='contestName')
-    scoreboard_status = IntField(default=0,
-                                 choice=[0, 1],
-                                 db_field='scoreboardStatus')
+    scoreboard_status = IntField(
+        default=0, choice=[0, 1], db_field='scoreboardStatus')
     course_id = StringField(db_field='courseId')
-    duration = EmbeddedDocumentField(Duration,
-                                     db_field='duration',
-                                     default=Duration)
+    duration = EmbeddedDocumentField(
+        Duration, db_field='duration', default=Duration)
     contest_mode = IntField(default=0, choice=[0, 1], db_field='contestMode')
     problem_ids = ListField(StringField(), db_field='problemIds')
     participants = DictField(db_field='participants')
@@ -91,16 +79,16 @@ class Contest(Document):
 class Course(Document):
     student_nicknames = DictField(db_field='studentNicknames')
     course_status = IntField(default=0, choices=[0, 1])
-    course_name = StringField(max_length=64,
-                              required=True,
-                              unique=True,
-                              db_field='courseName')
+    course_name = StringField(
+        max_length=64, required=True, unique=True, db_field='courseName')
     teacher = ReferenceField('User', db_field='teacher')
     tas = ListField(ReferenceField('User'), db_field='tas')
-    contest = ListField(ReferenceField('Contest', reverse_delete_rule=PULL),
-                        db_field='contestIds')
-    homework = ListField(ReferenceField('Homework', reverse_delete_rule=PULL),
-                         db_field='homeworkIds')
+    contest = ListField(
+        ReferenceField('Contest', reverse_delete_rule=PULL),
+        db_field='contestIds')
+    homework = ListField(
+        ReferenceField('Homework', reverse_delete_rule=PULL),
+        db_field='homeworkIds')
     # announcement_ids = ListField(ReferenceField('Announcement'), db_field='announcementIds')
     # post_ids = ListField(ReferenceField('Post'), db_field='postIds')
 
@@ -121,17 +109,17 @@ class Problem(Document):
     course_ids = ListField(ReferenceField('Course'), db_field='courseIds')
     problem_status = IntField(default=1, choices=[0, 1])
     problem_type = IntField(default=0, choices=[0, 1])
-    problem_name = StringField(db_field='problemName',
-                               max_length=64,
-                               required=True)
+    problem_name = StringField(
+        db_field='problemName', max_length=64, required=True)
     description = StringField(max_length=100000, required=True)
     owner = StringField(max_length=16, required=True)
     # pdf =
     tags = ListField(StringField(max_length=16))
-    test_case = EmbeddedDocumentField(ProblemTestCase,
-                                      db_field='testCase',
-                                      default=ProblemTestCase,
-                                      null=True)
+    test_case = EmbeddedDocumentField(
+        ProblemTestCase,
+        db_field='testCase',
+        default=ProblemTestCase,
+        null=True)
     ac_user = IntField(db_field='ACUser', default=0)
     submitter = IntField(default=0)
 

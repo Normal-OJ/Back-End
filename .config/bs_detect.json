@@ -7,14 +7,20 @@
             "E"
         ],
         "alaRduTP":[
-            "W"
+            "W",
+            "C",
+            "E",
+            "R0911"
         ],
         "default":[
             "R",
             "W"
+        ],
+        "inferno":[
+            
         ]
     },
-    "c&cpp_checkers":{
+    "cpp_checkers":{
         "default":{
             "cppcheck":[
                 "-q"

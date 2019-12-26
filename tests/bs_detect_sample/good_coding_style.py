@@ -1,6 +1,8 @@
 """
     some doc str
 """
+
+
 def long_function_name(var_one):
     """
 	Summary or Description of the Function
@@ -13,5 +15,6 @@ def long_function_name(var_one):
 
     """
     print(var_one)
+
 
 print(long_function_name(1))

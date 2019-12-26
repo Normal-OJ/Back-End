@@ -12,8 +12,8 @@ class HomeWork:
         course = engine.Course.objects(course_name=course_name).first()
         course_id = course.id
         students = course.student_nicknames
-        homework = engine.Homework.objects(course_id=str(course_id),
-                                           name=hw_name)
+        homework = engine.Homework.objects(
+            course_id=str(course_id), name=hw_name)
         #check user is teacher or ta
         role = perm(course, user)
         is_ta_match = 0
@@ -28,9 +28,8 @@ class HomeWork:
         if (len(homework) != 0):
             raise FileExistsError
 
-        homework = engine.Homework(name=hw_name,
-                                   course_id=str(course_id),
-                                   problem_ids=problem_ids)
+        homework = engine.Homework(
+            name=hw_name, course_id=str(course_id), problem_ids=problem_ids)
         homework.duration.start = datetime.now() if start is None else start
         homework.duration.end = datetime.now() if end is None else end
         homework.markdown = '' if markdown is None else markdown
@@ -82,12 +81,12 @@ class HomeWork:
         course_id = course.id
         students = course.student_nicknames
         #get the homework
-        homework = engine.Homework.objects.get(course_id=str(course_id),
-                                               name=hw_name)
+        homework = engine.Homework.objects.get(
+            course_id=str(course_id), name=hw_name)
         #check the new_name hasn't been use in this course
         if new_hw_name is not None:
-            result = engine.Homework.objects(course_id=str(course_id),
-                                             name=new_hw_name)
+            result = engine.Homework.objects(
+                course_id=str(course_id), name=new_hw_name)
             if (len(result) != 0):
                 raise FileExistsError
             else:

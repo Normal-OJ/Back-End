@@ -23,6 +23,7 @@ def login_required(func):
         - 403 Invalid Token
         - 403 Inactive User
     '''
+
     @wraps(func)
     @Request.cookies(vars_dict={'token': 'piann'})
     def wrapper(token, *args, **kwargs):
@@ -47,6 +48,7 @@ def identity_verify(*roles):
 
     You can find an example in `model/test.py`
     '''
+
     def verify(func):
         @wraps(func)
         @login_required
@@ -68,6 +70,7 @@ def session():
         GET: Logout
         POST: Login
     '''
+
     def logout():
         '''Logout a user.
         Returns:
@@ -103,9 +106,10 @@ def session():
 @Request.json('username', 'password', 'email')
 def signup(username, password, email):
     if password is None:
-        return HTTPError('Signup Failed',
-                         400,
-                         data={'password': 'Field is required'})
+        return HTTPError(
+            'Signup Failed', 400, data={
+                'password': 'Field is required'
+            })
     try:
         user = User.signup(username, password, email)
     except ValidationError as ve:
@@ -122,9 +126,10 @@ def signup(username, password, email):
 @Request.json('old_password', 'new_password')
 def change_password(user, old_password, new_password):
     if new_password is None:
-        return HTTPError('Signup Failed',
-                         400,
-                         data={'newPassword': 'Field is required'})
+        return HTTPError(
+            'Signup Failed', 400, data={
+                'newPassword': 'Field is required'
+            })
     if User.login(user.username, old_password) is None:
         return HTTPError('Wrong Password', 403)
     user.change_password(new_password)
@@ -136,6 +141,7 @@ def change_password(user, old_password, new_password):
 def check(item):
     '''Checking when the user is registing.
     '''
+
     @Request.json('username')
     def check_username(username):
         try:
@@ -175,6 +181,7 @@ def resend_email(email):
 def active(token=None):
     '''Activate a user.
     '''
+
     @Request.json('profile', 'agreement')
     @Request.cookies(vars_dict={'token': 'piann'})
     def update(profile, agreement, token):
@@ -195,12 +202,13 @@ def active(token=None):
         courses = user.courses
         courses.append(Course('Public').obj)
         try:
-            user.update(active=True,
-                        profile={
-                            'displayed_name': profile.get('displayedName'),
-                            'bio': profile.get('bio'),
-                        },
-                        courses=courses)
+            user.update(
+                active=True,
+                profile={
+                    'displayed_name': profile.get('displayedName'),
+                    'bio': profile.get('bio'),
+                },
+                courses=courses)
         except ValidationError as ve:
             return HTTPError('Failed', 400, data=ve.to_dict())
         pub_course = Course('Public').obj

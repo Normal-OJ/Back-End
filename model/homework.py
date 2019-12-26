@@ -90,12 +90,13 @@ def get_homework(user, id):
         homework = HomeWork.get_signal_homework(id)
     except FileNotFoundError:
         return HTTPError('homework not exists', 404)
-    return HTTPResponse('get homeworks',
-                        200,
-                        'ok',
-                        data={
-                            "name": homework.name,
-                            "start": homework.duration.start,
-                            "end": homework.duration.end,
-                            "problemIds": homework.problem_ids
-                        })
+    return HTTPResponse(
+        'get homeworks',
+        200,
+        'ok',
+        data={
+            "name": homework.name,
+            "start": homework.duration.start,
+            "end": homework.duration.end,
+            "problemIds": homework.problem_ids
+        })

@@ -40,9 +40,10 @@ class Submission:
         Returns:
             The created submission's unique id in string type
         '''
-        submission = engine.Submission(problem_id=problem_id,
-                                       user=user,
-                                       language=lang,
-                                       timestamp=timestamp)
+        submission = engine.Submission(
+            problem_id=problem_id,
+            user=user,
+            language=lang,
+            timestamp=timestamp)
         submission.save()
         return str(submission.id)

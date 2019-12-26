@@ -95,11 +95,12 @@ def get_course(user, course_name):
         for student, nickname in course.student_nicknames.items():
             student_dict[student] = nickname
 
-        return HTTPResponse('Success.',
-                            data={
-                                "teacher": course.teacher.username,
-                                "TAs": tas,
-                                "studentNicknames": student_dict
-                            })
+        return HTTPResponse(
+            'Success.',
+            data={
+                "teacher": course.teacher.username,
+                "TAs": tas,
+                "studentNicknames": student_dict
+            })
     else:
         return modify_course()
