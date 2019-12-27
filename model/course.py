@@ -30,13 +30,13 @@ def get_courses(user):
             if request.method == 'DELETE':
                 r = delete_course(user, course)
         except ValueError:
-            return HTTPError('Not allowed name', 400)
+            return HTTPError('Not allowed name.', 400)
         except NotUniqueError:
             return HTTPError('Course exists.', 400)
         except PermissionError:
             return HTTPError('Forbidden.', 403)
         except engine.DoesNotExist as e:
-            return HTTPError(f'{e} not found', 404)
+            return HTTPError(f'{e} not found.', 404)
 
         return HTTPResponse('Success.')
 
