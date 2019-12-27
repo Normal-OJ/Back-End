@@ -20,7 +20,7 @@ class CourseData:
 
 
 @pytest.fixture(params=[{
-    'name': 'Programming-I',
+    'name': 'Programming_I',
     'teacher': 'Po-Wen-Chi',
     'students': {
         'Yin-Da-Chen': 'ala',
@@ -59,7 +59,7 @@ def course_data(request, client_admin):
 
 @pytest.fixture(
     params={
-        'name': 'Advanced Programming',
+        'name': 'Advanced_Programming',
         'teacher': 'Tsung-Che-Chiang',
         'students': {
             'Tzu-Wei-Yu': 'Uier',
