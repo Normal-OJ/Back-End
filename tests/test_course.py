@@ -126,8 +126,96 @@ class TestAdminCourse(BaseTester):
         })
         json = rv.get_json()
         assert rv.status_code == 200
-        assert json['status'] == 'ok'
 
         rv = client_admin.get('/course')
         json = rv.get_json()
         assert json['data'] == []
+
+
+class TestTeacherCourse(BaseTester):
+    '''Test courses panel used my teachers and admins
+    '''
+    def test_modify_invalid_course(self, client_admin):
+        # modify a non-existent course
+
+        # create a course
+        client_admin.post('/course',
+                          json={
+                              'course': 'math',
+                              'teacher': 'admin'
+                          })
+
+        rv = client_admin.put('/course/PE',
+                              json={
+                                  'TAs': ['admin'],
+                                  'studentNicknames': {
+                                      'student': 'noobs'
+                                  }
+                              })
+        json = rv.get_json()
+        assert json['message'] == 'Course not found.'
+        assert rv.status_code == 404
+
+    def test_modify_when_not_in_course(self, client_teacher):
+        # modify a course when not in it
+        rv = client_teacher.put('/course/math',
+                                json={
+                                    'TAs': ['admin'],
+                                    'studentNicknames': {
+                                        'student': 'noobs'
+                                    }
+                                })
+        json = rv.get_json()
+        assert json['message'] == 'You are not in this course.'
+        assert rv.status_code == 403
+
+    def test_modify_with_invalid_user(self, client_admin):
+        # modify a course with non-exist user
+        rv = client_admin.put('/course/math',
+                              json={
+                                  'TAs': ['admin'],
+                                  'studentNicknames': {
+                                      'studentt': 'noobs'
+                                  }
+                              })
+        json = rv.get_json()
+        assert json['message'] == 'User: studentt not found.'
+        assert rv.status_code == 404
+
+    def test_modify(self, client_admin):
+        # modify a course
+        rv = client_admin.put('/course/math',
+                              json={
+                                  'TAs': ['admin'],
+                                  'studentNicknames': {
+                                      'student': 'noobs'
+                                  }
+                              })
+        json = rv.get_json()
+        assert rv.status_code == 200
+
+    def test_modify_with_only_student(self, client_student):
+        # modify a course when not TA up
+        rv = client_student.put('/course/math',
+                                json={
+                                    'TAs': ['admin'],
+                                    'studentNicknames': {
+                                        'student': 'noobs'
+                                    }
+                                })
+        json = rv.get_json()
+        assert json['message'] == 'Forbidden.'
+        assert rv.status_code == 403
+
+    def test_view(self, client_student):
+        # view a course when not in it
+        rv = client_student.get('/course/math')
+        json = rv.get_json()
+        assert rv.status_code == 200
+        assert json['data'] == {
+            'TAs': ['admin'],
+            'studentNicknames': {
+                'student': 'noobs'
+            },
+            'teacher': 'admin'
+        }

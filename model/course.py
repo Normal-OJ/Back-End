@@ -74,7 +74,7 @@ def get_course(user, course_name):
             tas = []
             for ta in TAs:
                 user = User(ta).obj
-                if user is None:
+                if not User(ta):
                     return HTTPResponse(f'User: {ta} not found.', 404)
                 tas.append(user)
             course.tas = tas
@@ -82,7 +82,7 @@ def get_course(user, course_name):
         student_dict = {}
         for student, nickname in student_nicknames.items():
             user = User(student).obj
-            if user is None:
+            if not User(student):
                 return HTTPResponse(f'User: {student} not found.', 404)
             student_dict[student] = nickname
         course.student_nicknames = student_dict
