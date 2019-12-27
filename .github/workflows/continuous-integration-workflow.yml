@@ -18,7 +18,7 @@ jobs:
         python -m pip install --upgrade pip
     - name: Install clang-format & pylint
       run: |
-	apt install -y clang-format pylint
+	      apt install -y clang-format pylint
     - name: YAPF
       run: |
         pip install yapf
