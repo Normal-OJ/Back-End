@@ -13,7 +13,6 @@ class TestAdminCourse(BaseTester):
                                    'teacher': 'adminn'
                                })
         json = rv.get_json()
-        assert json['message'] == 'User not found.'
         assert rv.status_code == 404
         assert json['status'] == 'err'
 
@@ -25,7 +24,6 @@ class TestAdminCourse(BaseTester):
                                    'teacher': 'admin'
                                })
         json = rv.get_json()
-        assert json['message'] == 'Not allowed name.'
         assert rv.status_code == 400
         assert json['status'] == 'err'
 
@@ -37,7 +35,6 @@ class TestAdminCourse(BaseTester):
                                    'teacher': 'admin'
                                })
         json = rv.get_json()
-        assert json['message'] == 'Success.'
         assert rv.status_code == 200
         assert json['status'] == 'ok'
 
@@ -53,7 +50,6 @@ class TestAdminCourse(BaseTester):
                                    'teacher': 'admin'
                                })
         json = rv.get_json()
-        assert json['message'] == 'Course exists.'
         assert rv.status_code == 400
         assert json['status'] == 'err'
 
@@ -61,7 +57,6 @@ class TestAdminCourse(BaseTester):
         # Get all courses
         rv = client_admin.get('/course')
         json = rv.get_json()
-        assert json['message'] == 'Success.'
         assert rv.status_code == 200
         assert json['status'] == 'ok'
         assert json['data'] == [{'course': 'math', 'teacher': 'admin'}]
@@ -70,7 +65,6 @@ class TestAdminCourse(BaseTester):
         # Get all courses with a user that is not a member
         rv = client_student.get('/course')
         json = rv.get_json()
-        assert json['message'] == 'Success.'
         assert rv.status_code == 200
         assert json['status'] == 'ok'
         assert json['data'] == []
@@ -84,7 +78,6 @@ class TestAdminCourse(BaseTester):
                                   'teacher': 'admin'
                               })
         json = rv.get_json()
-        assert json['message'] == 'Course not found.'
         assert rv.status_code == 404
         assert json['status'] == 'err'
 
@@ -97,7 +90,6 @@ class TestAdminCourse(BaseTester):
                                   'teacher': 'adminn'
                               })
         json = rv.get_json()
-        assert json['message'] == 'User not found.'
         assert rv.status_code == 404
         assert json['status'] == 'err'
 
@@ -110,7 +102,6 @@ class TestAdminCourse(BaseTester):
                                   'teacher': 'admin'
                               })
         json = rv.get_json()
-        assert json['message'] == 'Success.'
         assert rv.status_code == 200
         assert json['status'] == 'ok'
 
@@ -122,7 +113,6 @@ class TestAdminCourse(BaseTester):
         # delete a course with non-existent course name
         rv = client_admin.delete('/course', json={'course': 'math'})
         json = rv.get_json()
-        assert json['message'] == 'Course not found.'
         assert rv.status_code == 404
         assert json['status'] == 'err'
 
@@ -130,7 +120,6 @@ class TestAdminCourse(BaseTester):
         # delete a course with a user that is not the owner nor an admin
         rv = client_teacher.delete('/course', json={'course': 'PE'})
         json = rv.get_json()
-        assert json['message'] == 'Forbidden.'
         assert rv.status_code == 403
         assert json['status'] == 'err'
 
@@ -140,7 +129,6 @@ class TestAdminCourse(BaseTester):
             'course': 'PE',
         })
         json = rv.get_json()
-        assert json['message'] == 'Success.'
         assert rv.status_code == 200
         assert json['status'] == 'ok'
 

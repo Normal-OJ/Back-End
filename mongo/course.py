@@ -38,40 +38,41 @@ def get_all_courses():
 def delete_course(user, course):
     co = Course(course).obj
     if co is None:
-        return "Course not found."
-
+        # course not found
+        raise engine.DoesNotExist('course')
     if not perm(co, user):
-        return "Forbidden."
+        # user is not the TA or teacher in course
+        raise PermissionError
 
     co.delete()
+    return True
 
 
 def add_course(course, teacher):
     if re.match(r'^[a-zA-Z0-9._]+$', course) is None:
-        return 'Not allowed name.'
+        raise ValueError
+    te = User(teacher).obj
+    if te is None:
+        raise engine.DoesNotExist('teacher')
 
-    te = User(teacher)
-    if not te:
-        return "User not found."
-
-    engine.Course(course_name=course, teacher=te.obj).save()
+    engine.Course(course_name=course, teacher=te).save()
+    return True
 
 
 def edit_course(user, course, new_course, teacher):
     if re.match(r'^[a-zA-Z0-9._]+$', new_course) is None:
-        return 'Not allowed name.'
+        raise ValueError
 
     co = Course(course).obj
     if co is None:
-        return "Course not found."
-
+        raise engine.DoesNotExist('course')
     if not perm(co, user):
-        return "Forbidden."
-
-    te = User(teacher)
-    if not te:
-        return "User not found."
+        raise PermissionError
+    te = User(teacher).obj
+    if te is None:
+        raise engine.DoesNotExist('teacher')
 
     co.course_name = new_course
     co.teacher = te.obj
     co.save()
+    return True
