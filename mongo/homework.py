@@ -1,170 +1,159 @@
-from . import engine
-from mongo.course import *
+from mongo import *
+from mongo.course import perm
 from datetime import datetime
-__all__ = ['HomeWork']
+
+__all__ = ['Homework']
 
 
-class HomeWork:
+class Homework:
     @staticmethod
-    def add_hw(user, course_name, markdown, hw_name, start, end, problem_ids,
-               scoreboard_status):
-        #query db check the hw doesn't exist
+    def add_hw(user,
+               course_name,
+               hw_name,
+               problem_ids,
+               markdown='',
+               scoreboard_status=0,
+               start=None,
+               end=None):
+        # query db check the hw doesn't exist
         course = engine.Course.objects(course_name=course_name).first()
         course_id = course.id
         students = course.student_nicknames
         homework = engine.Homework.objects(course_id=str(course_id),
-                                           name=hw_name)
-        #check user is teacher or ta
-        role = perm(course, user)
-        is_ta_match = 0
-        if (len(course.tas) != 0):
-            for ta in tas:
-                if (course.ta.username == user.name):
-                    is_ta_match = 1
-                    break
-        if (is_ta_match != 1 and course.teacher.username != user.username
-                and user.role != 0):
+                                           homework_name=hw_name)
+        # check user is teacher or ta
+        course_role = perm(course, user)
+
+        if course_role > 1 and course.teacher.username != user.username \
+            and user.role != 0:
             raise NameError
-        if (len(homework) != 0):
+        if len(homework) != 0:
             raise FileExistsError
 
-        homework = engine.Homework(name=hw_name,
+        homework = engine.Homework(homework_name=hw_name,
                                    course_id=str(course_id),
-                                   problem_ids=problem_ids)
-        homework.duration.start = datetime.now() if start is None else start
-        homework.duration.end = datetime.now() if end is None else end
-        homework.markdown = '' if markdown is None else markdown
-        homework.scoreboard_status = 0 if scoreboard_status is None else scoreboard_status
-        #init student status
+                                   problem_ids=problem_ids,
+                                   scoreboard_status=scoreboard_status,
+                                   markdown=markdown)
+        if start:
+            homework.duration.start = datetime.fromtimestamp(start)
+        if end:
+            homework.duration.end = datetime.fromtimestamp(end)
+        # init student status
         user_ids = {}
         user_problems = {}
-        if (problem_ids is not None):
+        if problem_ids is not None:
             for problem_id in problem_ids:
                 user_problems[str(problem_id)] = {
-                    "score": 0,
-                    "problemStatus": 1,
-                    "submissonIds": []
+                    'score': 0,
+                    'problemStatus': 1,
+                    'submissonIds': []
                 }
         for key in students:
             user_ids[key] = user_problems
         homework.student_status = user_ids
         homework.save()
-        #get homeworkId then store in the correspond course
-        homework = engine.Homework.objects(
-            name=hw_name,
-            course_id=str(course_id),
-        ).first()
+        # get homeworkId then store in the correspond course
         homeworkid = homework.id
         course = engine.Course.objects.get(id=course_id)
         course.homework.append(homeworkid)
         course.save()
+
         return homework
 
     @staticmethod
-    def update(user, course_name, markdown, hw_name, new_hw_name, start, end,
+    def update(user, homework_id, markdown, new_hw_name, start, end,
                problem_ids, scoreboard_status):
-        #check course exist
-        course = engine.Course.objects(course_name=course_name).first()
-        if (course is None):
-            raise FileNotFoundError
+        homework = engine.Homework.objects.get(id=homework_id)
+        course = engine.Course.objects.get(id=homework.course_id)
 
-        #check user is teacher or ta
-        is_ta_match = 0
-        if (len(course.tas) != 0):
-            for ta in tas:
-                if (course.ta.username == user.name):
-                    is_ta_match = 1
-                    break
-        if (is_ta_match != 1 and course.teacher.username != user.username
-                and user.role != 0):
+        # check user is teacher or ta
+        if perm(course, user) <= 1:
             raise NameError
 
         course_id = course.id
         students = course.student_nicknames
-        #get the homework
-        homework = engine.Homework.objects.get(course_id=str(course_id),
-                                               name=hw_name)
-        #check the new_name hasn't been use in this course
+        # check the new_name hasn't been use in this course
         if new_hw_name is not None:
             result = engine.Homework.objects(course_id=str(course_id),
-                                             name=new_hw_name)
-            if (len(result) != 0):
+                                             homework_name=new_hw_name)
+            if len(result) != 0:
                 raise FileExistsError
             else:
-                homework.name = new_hw_name
+                homework.homework_name = new_hw_name
+                homework.save()
 
-        #update fields
-        if (start is not None):
-            homework.duration.start = start
-        if (end is not None):
-            homework.duration.end = end
-        if (scoreboard_status is not None):
+        # update fields
+        if start is not None:
+            homework.duration.start = datetime.fromtimestamp(start)
+        if end is not None:
+            homework.duration.end = datetime.fromtimestamp(end)
+        if scoreboard_status is not None:
             homework.scoreboard_status = scoreboard_status
-        #if problemid exist then delete ,else add it in list
-        user_problems = {}
-        user_ids = {}
-        #傳進來的problem_ids應該只有要新增/刪除的
-        if (problem_ids is not None):
-            for id in problem_ids:
-                if (id in homework.problem_ids):
-                    homework.problem_ids.remove(id)
-                    for userId in homework.student_status:
-                        homework.student_status[userId].pop(id)
-                else:
-                    homework.problem_ids.append(id)
-                    for key in students:
-                        homework.student_status[key][id] = {
-                            "score": 0,
-                            "problemStatus": 1,
-                            "submissonIds": []
-                        }
-
+        drop_ids = set(homework.problem_ids) - set(problem_ids)
+        new_ids = set(problem_ids) - set(homework.problem_ids)
+        # add
+        for pid in new_ids:
+            if pid not in homework.problem_ids:
+                homework.problem_ids.append(pid)
+                for key in students:
+                    homework.student_status[key][pid] = {
+                        'score': 0,
+                        'problemStatus': 1,
+                        'submissonIds': []
+                    }
+        # delete
+        for pid in drop_ids:
+            homework.problem_ids.remove(pid)
+            for user_id in homework.student_status:
+                homework.student_status[user_id].pop(pid)
         if markdown is not None:
             homework.markdown = markdown
+
         homework.save()
         return homework
 
-    #delete  problems/paticipants in hw
+    # delete  problems/paticipants in hw
     @staticmethod
-    def delete_problems(user, course_name, hw_name):
-        course = engine.Course.objects(course_name=course_name).first()
-        course_id = course.id
-        homework = engine.Homework.objects(
-            course_id=str(course_id),
-            name=hw_name,
-        ).first()
+    def delete_problems(user, homework_id):
+        homework = engine.Homework.objects.get(id=homework_id)
+        if homework is None:
+            raise FileNotFoundError
 
-        #check user is teacher or ta
-        is_ta_match = 0
-        if (len(course.tas) != 0):
-            for ta in tas:
-                if (course.ta.username == user.name):
-                    is_ta_match = 1
-                    break
-        if (is_ta_match != 1 and course.teacher.username != user.username
-                and user.role != 0):
+        course = engine.Course.objects.get(id=homework.course_id)
+        # check user is teacher or ta
+        if perm(course, user) <= 1:
             raise NameError
 
-        if (homework is None):
-            raise FileNotFoundError
         homework.delete()
         course.save()
+
         return homework
 
     @staticmethod
     def get_homeworks(course_name):
         course = engine.Course.objects(course_name=course_name).first()
-        if (course is None):
+        if course is None:
             raise FileNotFoundError
         course_id = str(course.id)
         homeworks = engine.Homework.objects(course_id=course_id)
-        if (homeworks is None):
-            homeworks = {}
+        if homeworks is None:
+            homeworks = []
         return homeworks
 
     @staticmethod
-    def get_signal_homework(id):
-        homework = engine.Homework.objects(id=id).first()
-        if (homework is None):
+    def get_by_id(homework_id):
+        try:
+            homework = engine.Homework.objects.get(id=homework_id)
+        except engine.DoesNotExist:
+            raise FileNotFoundError
+        return homework
+
+    @staticmethod
+    def get_by_name(course_name, homework_name):
+        try:
+            homework = engine.Homework.objects.get(
+                course_id=Course(course_name).id, homework_name=homework_name)
+        except engine.DoesNotExist:
             raise FileNotFoundError
         return homework
