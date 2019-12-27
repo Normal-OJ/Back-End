@@ -208,7 +208,7 @@ class TestTeacherCourse(BaseTester):
         assert rv.status_code == 403
 
     def test_view(self, client_student):
-        # view a course when not in it
+        # view a course
         rv = client_student.get('/course/math')
         json = rv.get_json()
         assert rv.status_code == 200
