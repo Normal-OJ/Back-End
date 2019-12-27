@@ -193,9 +193,9 @@ class PostThread(Document):
     depth = IntField(default=0)  # 0 is top post, 1 is reply to post
     created = DateTimeField(required=True)
     updated = DateTimeField(required=True)
-    #status = StringField(default='')
+    status = IntField(default=0, choices=[0, 1])  # not delete / delete
     reply = ListField(ReferenceField('PostThread', db_field='postThread'),
-                      null=True)
+                      dafault=list)
 
 
 class Post(Document):
