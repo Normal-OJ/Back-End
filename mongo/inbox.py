@@ -12,8 +12,10 @@ class Inbox(MongoBase, engine=engine.Inbox):
     @staticmethod
     def send(sender, receivers, title, message):
         receivers = [*filter(lambda n: User(n).user_id, receivers)]
-        message = engine.Message(
-            sender=sender, receivers=receivers, title=title, markdown=message)
+        message = engine.Message(sender=sender,
+                                 receivers=receivers,
+                                 title=title,
+                                 markdown=message)
         message.save()
         for r in receivers:
             engine.Inbox(receiver=r, message=message).save()
@@ -21,10 +23,10 @@ class Inbox(MongoBase, engine=engine.Inbox):
 
     @staticmethod
     def messages(username):
-        messages = sorted(
-            engine.Inbox.objects(receiver=username, status__ne=2),
-            key=lambda x: x.message.timestamp,
-            reverse=True)
+        messages = sorted(engine.Inbox.objects(receiver=username,
+                                               status__ne=2),
+                          key=lambda x: x.message.timestamp,
+                          reverse=True)
         return [{
             'messageId': str(m.id),
             'status': m.status,
@@ -36,8 +38,8 @@ class Inbox(MongoBase, engine=engine.Inbox):
 
     @staticmethod
     def sents(username):
-        sents = engine.Message.objects(
-            sender=username, status=0).order_by('-timestamp')
+        sents = engine.Message.objects(sender=username,
+                                       status=0).order_by('-timestamp')
         return [{
             'messageId': str(s.id),
             'receivers': s.receivers,

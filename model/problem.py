@@ -46,15 +46,14 @@ def view_problem(user, problem_id):
 @problem_api.route('/manage/<problem_id>', methods=['GET', 'PUT', 'DELETE'])
 @identity_verify(0, 1)
 def manage_problem(user, problem_id=None):
-    @Request.json(
-        'status',
-        'type',
-        'description',
-        'tags',
-        vars_dict={
-            'problem_name': 'problemName',
-            'test_case': 'testCase'
-        })
+    @Request.json('status',
+                  'type',
+                  'description',
+                  'tags',
+                  vars_dict={
+                      'problem_name': 'problemName',
+                      'test_case': 'testCase'
+                  })
     def modify_problem(status, type, problem_name, description, tags,
                        test_case):
         if request.method == 'POST':

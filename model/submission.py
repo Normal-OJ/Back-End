@@ -63,13 +63,12 @@ def create_submission(user, language_type, problem_id):
     # 3. if the user doesn't bolong to the course and the problem does
 
     if language_type is None or problem_id is None:
-        return HTTPError(
-            f'post data missing!',
-            400,
-            data={
-                'languageType': language_type,
-                'problemId': problem_id
-            })
+        return HTTPError(f'post data missing!',
+                         400,
+                         data={
+                             'languageType': language_type,
+                             'problemId': problem_id
+                         })
 
     # insert submission to DB
     try:
@@ -161,8 +160,8 @@ def get_submission_list(offset, count, problem_id, submission_id, username,
     if offset >= len(submissions):
         return HTTPError(f'offset ({offset}) is out of range!', 400)
 
-    right = min(len(submissions),
-                offset + count) if count != -1 else len(submissions)
+    right = min(len(submissions), offset +
+                count) if count != -1 else len(submissions)
     submissions = submissions[offset:right]
 
     usernames = [*map(lambda s: s.user.username, submissions)]
@@ -291,11 +290,10 @@ def update_submission(user, submission_id, token):
     @Request.json('score', 'status', 'cases')
     def recieve_submission_result(submission, score, status, cases):
         try:
-            submission.update(
-                status=status,
-                cases=cases,
-                exec_time=cases[-1]['execTime'],
-                memory_usage=cases[-1]['memoryUsage'])
+            submission.update(status=status,
+                              cases=cases,
+                              exec_time=cases[-1]['execTime'],
+                              memory_usage=cases[-1]['memoryUsage'])
         except ValidationError:
             return HTTPError(f'invalid data!', 400)
         return HTTPResponse(f'submission [{submission_id}] result recieved.')
@@ -312,13 +310,12 @@ def update_submission(user, submission_id, token):
             f'submission [{submission.id}] has finished judgement.', 403)
 
     if verify_token(submission_id, token) == False:
-        return HTTPError(
-            f'invalid token.',
-            403,
-            data={
-                'excepted': tokens[submission_id],
-                'got': token
-            })
+        return HTTPError(f'invalid token.',
+                         403,
+                         data={
+                             'excepted': tokens[submission_id],
+                             'got': token
+                         })
 
     # if user not equal, reject
     if user.user_id != submission.user.user_id:
@@ -327,19 +324,18 @@ def update_submission(user, submission_id, token):
         f'The user {user} (id: {user.user_id}) is trying to '
         f'submit data to {submission}, '
         f'which shold belong to {submission.user.username} (id: {submission.user.user_id})'
-        return HTTPError(
-            err_msg,
-            403,
-            data={
-                'excepted': {
-                    'username': submission.user.username,
-                    'userId': submission.user.user_id
-                },
-                'received': {
-                    'username': submission.user.username,
-                    'userId': submission.user.user_id
-                }
-            })
+        return HTTPError(err_msg,
+                         403,
+                         data={
+                             'excepted': {
+                                 'username': submission.user.username,
+                                 'userId': submission.user.user_id
+                             },
+                             'received': {
+                                 'username': submission.user.username,
+                                 'userId': submission.user.user_id
+                             }
+                         })
 
     if request.content_type == 'application/json':
         return recieve_submission_result(submission)

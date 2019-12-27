@@ -25,8 +25,9 @@ def inbox(user):
         try:
             message = Inbox.send(user.username, receivers, title, message)
         except ValidationError as ve:
-            return HTTPError(
-                'Failed to Send a Message', 400, data=ve.to_dict())
+            return HTTPError('Failed to Send a Message',
+                             400,
+                             data=ve.to_dict())
         data = {
             'messageId': str(message.id),
             'receivers': message.receivers,
@@ -41,10 +42,8 @@ def inbox(user):
         if message.receiver != user.username:
             return HTTPError('Failed to Read the Message', 403)
         message.change_status()
-        return HTTPResponse(
-            'Message Status Changed', data={
-                'status': message.status
-            })
+        return HTTPResponse('Message Status Changed',
+                            data={'status': message.status})
 
     @Request.json('message_id')
     def delete(message_id):

@@ -25,10 +25,9 @@ class Contest:
             raise AuthorityError
 
         students = course.student_nicknames
-        contest = engine.Contest(
-            name=contest_name,
-            course_id=str(course.id),
-            problem_ids=problem_ids)
+        contest = engine.Contest(name=contest_name,
+                                 course_id=str(course.id),
+                                 problem_ids=problem_ids)
         contest.duration.start = datetime.now() if start is None else start
         contest.duration.end = datetime.now() if end is None else end
         contest.contest_mode = 0 if contest_mode is None else contest_mode
@@ -63,8 +62,8 @@ class Contest:
             raise AuthorityError
 
         students = course.student_nicknames
-        contest = engine.Contest.objects.get(
-            name=contest_name, course_id=str(course.id))
+        contest = engine.Contest.objects.get(name=contest_name,
+                                             course_id=str(course.id))
         if contest is None:
             raise DoesNotExist
         #check the new_name hasn't been use in this course
@@ -108,8 +107,8 @@ class Contest:
     @staticmethod
     def delete(user, course_name, contest_name):
         course = engine.Course.objects.get(course_name=course_name)
-        contest = engine.Contest.objects.get(
-            name=contest_name, course_id=str(course.id))
+        contest = engine.Contest.objects.get(name=contest_name,
+                                             course_id=str(course.id))
         #verify user's roles(teacher/admin)
         role = perm(course, user)
         if role != 4 and role != 3 and role != 2:

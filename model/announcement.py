@@ -40,8 +40,9 @@ def anncmnt(user, course_name=None):
             ann = Announcement.new_ann(course_name or 'Public', title,
                                        user.obj, markdown)
         except ValidationError as ve:
-            return HTTPError(
-                'Failed to Create Announcement', 400, data=ve.to_dict())
+            return HTTPError('Failed to Create Announcement',
+                             400,
+                             data=ve.to_dict())
         if ann is None:
             return HTTPError('Failed to Create Announcement', 403)
         data = {
@@ -60,14 +61,14 @@ def anncmnt(user, course_name=None):
         if user.role != 0 and user != course.teacher and user not in course.tas:
             return HTTPError('Failed to Update Announcement', 403)
         try:
-            ann.update(
-                title=title,
-                markdown=markdown,
-                update_time=datetime.utcnow(),
-                updater=user.obj)
+            ann.update(title=title,
+                       markdown=markdown,
+                       update_time=datetime.utcnow(),
+                       updater=user.obj)
         except ValidationError as ve:
-            return HTTPError(
-                'Failed to Update Announcement', 400, data=ve.to_dict())
+            return HTTPError('Failed to Update Announcement',
+                             400,
+                             data=ve.to_dict())
         return HTTPResponse('Updated')
 
     @Request.json('ann_id')

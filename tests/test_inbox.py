@@ -7,41 +7,38 @@ message_id = 0
 class TestInbox(BaseTester):
     '''Test inbox
     '''
-
     def test_send_with_invalid_username(self, client_student):
         # send inbox with all invalide user
-        rv = client_student.post(
-            '/inbox', json={
-                'receivers': [],
-                'title': 'hi',
-                'message': 'AAA'
-            })
+        rv = client_student.post('/inbox',
+                                 json={
+                                     'receivers': [],
+                                     'title': 'hi',
+                                     'message': 'AAA'
+                                 })
         json = rv.get_json()
         assert json['message'] == 'At least one receiver is required'
         assert rv.status_code == 400
 
     def test_send_with_invalid_info(self, client_student):
         # send inbox with wierd info
-        rv = client_student.post(
-            '/inbox',
-            json={
-                'receivers': ['teacher'],
-                'title': {},
-                'message': 'AAA'
-            })
+        rv = client_student.post('/inbox',
+                                 json={
+                                     'receivers': ['teacher'],
+                                     'title': {},
+                                     'message': 'AAA'
+                                 })
         json = rv.get_json()
         assert json['message'] == 'Failed to Send a Message'
         assert rv.status_code == 400
 
     def test_send(self, client_student):
         # send inbox
-        rv = client_student.post(
-            '/inbox',
-            json={
-                'receivers': ['teacher'],
-                'title': 'hi',
-                'message': 'AAA'
-            })
+        rv = client_student.post('/inbox',
+                                 json={
+                                     'receivers': ['teacher'],
+                                     'title': 'hi',
+                                     'message': 'AAA'
+                                 })
         json = rv.get_json()
         assert json['message'] == 'Successfully Send'
         assert rv.status_code == 200
@@ -111,30 +108,24 @@ class TestInbox(BaseTester):
 
     def test_delete_sent_with_invalid_id(self, client_student):
         # delete a none-exist inbox message
-        rv = client_student.delete(
-            '/inbox/sent', json={
-                'messageId': 'random_id'
-            })
+        rv = client_student.delete('/inbox/sent',
+                                   json={'messageId': 'random_id'})
         json = rv.get_json()
         assert json['message'] == 'Message Not Found'
         assert rv.status_code == 404
 
     def test_delete_sent_without_owner(self, client_teacher):
         # delete a inbox message when you are not the owner
-        rv = client_teacher.delete(
-            '/inbox/sent', json={
-                'messageId': message_id
-            })
+        rv = client_teacher.delete('/inbox/sent',
+                                   json={'messageId': message_id})
         json = rv.get_json()
         assert json['message'] == 'Failed to Access the Message'
         assert rv.status_code == 403
 
     def test_delete_sent(self, client_student):
         # delete a inbox message
-        rv = client_student.delete(
-            '/inbox/sent', json={
-                'messageId': message_id
-            })
+        rv = client_student.delete('/inbox/sent',
+                                   json={'messageId': message_id})
         json = rv.get_json()
         assert json['message'] == 'Deleted'
         assert rv.status_code == 200

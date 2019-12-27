@@ -27,9 +27,10 @@ class User(MongoBase, engine=engine.User):
     def signup(cls, username, password, email):
         user = cls(username)
         user_id = hash_id(user.username, password)
-        cls.engine(
-            user_id=user_id, username=user.username, email=email,
-            active=False).save(force_insert=True)
+        cls.engine(user_id=user_id,
+                   username=user.username,
+                   email=email,
+                   active=False).save(force_insert=True)
         return user.reload()
 
     @classmethod
@@ -88,8 +89,10 @@ class User(MongoBase, engine=engine.User):
 
 def jwt_decode(token):
     try:
-        json = jwt.decode(
-            token, JWT_SECRET, issuer=JWT_ISS, algorithms='HS256')
+        json = jwt.decode(token,
+                          JWT_SECRET,
+                          issuer=JWT_ISS,
+                          algorithms='HS256')
     except jwt.exceptions.PyJWTError:
         return None
     return json

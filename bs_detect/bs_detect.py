@@ -40,9 +40,8 @@ class BSDetect:
                 "diff"]
 
         except json.JSONDecodeError:
-            print(
-                "json file format error, use null config by default",
-                file=sys.stderr)
+            print("json file format error, use null config by default",
+                  file=sys.stderr)
             self.__profile__ = {}
             self.__pylint_args__ = []
             self.__cppcheck_args__ = []
@@ -82,9 +81,8 @@ class BSDetect:
                 self.__diff_args__ = self.__profile__[detector_type][mode][
                     "diff"]
         except KeyError:
-            print(
-                "can not found matched detector or mode configuration",
-                file=sys.stderr)
+            print("can not found matched detector or mode configuration",
+                  file=sys.stderr)
 
     @staticmethod
     def __command_runner__(command, args, time_limit):
@@ -118,13 +116,13 @@ class BSDetect:
                                                 time_limit)
         except TimeoutError:
             print(
-                "waiting too long for python bad smelling , wait for over {0} second(s)".
-                format(str(time_limit)),
+                "waiting too long for python bad smelling , wait for over {0} second(s)"
+                .format(str(time_limit)),
                 file=sys.stderr)
             raise TimeoutError
         return len([
-            line for line in result.splitlines()
-            if str(line).strip("\n ") != ""
+            line
+            for line in result.splitlines() if str(line).strip("\n ") != ""
         ]) <= 2, result
 
     def __c_checker__(self, code_filename, time_limit):
@@ -134,13 +132,13 @@ class BSDetect:
         for arg in self.__cppcheck_args__:
             cppcheck_args.append(arg)
         try:
-            result, use_time = self.__command_runner__(
-                "cppcheck", cppcheck_args, time_limit)
+            result, use_time = self.__command_runner__("cppcheck",
+                                                       cppcheck_args,
+                                                       time_limit)
         except TimeoutError:
-            print(
-                "wait too long for cppcheck , wait for over {0} seccond(s)".
-                format(str(time_limit)),
-                file=sys.stderr)
+            print("wait too long for cppcheck , wait for over {0} seccond(s)".
+                  format(str(time_limit)),
+                  file=sys.stderr)
         report.update({"cppcheck": result})
         time_limit -= use_time
 
@@ -150,13 +148,13 @@ class BSDetect:
         for arg in self.__clang_format_args__:
             clang_format_args.append(arg)
         try:
-            result, use_time = self.__command_runner__(
-                "clang-format", clang_format_args, time_limit)
+            result, use_time = self.__command_runner__("clang-format",
+                                                       clang_format_args,
+                                                       time_limit)
         except TimeoutError:
-            print(
-                "wait too long for cppcheck , wait for over {0} seccond(s)".
-                format(str(time_limit)),
-                file=sys.stderr)
+            print("wait too long for cppcheck , wait for over {0} seccond(s)".
+                  format(str(time_limit)),
+                  file=sys.stderr)
         time_limit -= use_time
 
         # create tmp files
@@ -188,7 +186,8 @@ class BSDetect:
         formated_report = "cppcheck:\n{0}\n".format(
             report["cppcheck"]) + "clang-format:\n{0}\n".format(
                 report["clang-format"])
-        return report["cppcheck"] == "" and report["clang-format"] == "", formated_report
+        return report["cppcheck"] == "" and report[
+            "clang-format"] == "", formated_report
 
     def detect(self, code_filename, detector_type, time_limit):
         """

@@ -73,12 +73,11 @@ def get_single_contest(user, id):
         contest = Contest.get_single_contest(id)
     except DoesNotExist:
         HTTPError('unable to find contest', 404)
-    return HTTPResponse(
-        'get contest success',
-        data={
-            "name": contest.name,
-            "start": contest.duration.start,
-            "end": contest.duration.end,
-            "problemIds": contest.problem_ids,
-            "scoreboard_status": contest.scoreboard_status
-        })
+    return HTTPResponse('get contest success',
+                        data={
+                            "name": contest.name,
+                            "start": contest.duration.start,
+                            "end": contest.duration.end,
+                            "problemIds": contest.problem_ids,
+                            "scoreboard_status": contest.scoreboard_status
+                        })
