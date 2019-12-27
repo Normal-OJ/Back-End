@@ -48,15 +48,15 @@ def modify_post(user, course, title, content, target_thread_id):
                 target_post = engine.Post.objects.get(id=target_thread_id)
             except engine.DoesNotExist:
                 return HTTPError('Post/reply not exist', 404)
-            target_thread = target_post.thread
-            target_thread_id = target_thread.id
+        target_thread = target_post.thread
+        target_thread_id = target_thread.id
         if target_thread.status:  #1 is deleted
             return HTTPResponse('Forbidden,the post/reply is deleted.', 403)
         target_course = target_thread.course_id
         permission = perm(target_course, user)
     else:
         return HTTPError(
-            'Request is fail,course or target_thread_id are both none', 400)
+            'Request is fail,course and target_thread_id are both none', 400)
     if not permission:
         return HTTPError('You are not in this course.', 403)
     if request.method == 'POST':
@@ -70,13 +70,13 @@ def modify_post(user, course, title, content, target_thread_id):
         if course:
             return HTTPError(
                 "Request is fail,you should provide target_thread_id replace course ",
-                403)
+                400)
         r = edit_post(target_thread, user, content, title, permission)
     if request.method == 'DELETE':
         if course:
             return HTTPError(
                 "Request is fail,you should provide target_thread_id replace course ",
-                403)
+                400)
         r = delete_post(target_thread, user, permission)
     if r is not None:
         return HTTPError(r, 403)

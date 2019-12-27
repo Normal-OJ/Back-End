@@ -28,8 +28,9 @@ def found_thread(target_thread):
 def found_post(course_obj):
     data = []
     for x in course_obj.post_ids:  #target_threads
+        post = dict()
         x_thread = x.thread
-        post = found_thread(x_thread)
+        post["thread"] = found_thread(x_thread)
         post["title"] = x.post_name
         data.append(post)
     return data
