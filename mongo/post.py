@@ -4,54 +4,34 @@ from datetime import datetime
 from .user import *
 from .utils import *
 __all__ = [
-    'Post', 'add_post', 'add_reply', 'edit_post', 'delete_post', 'found_post',
-    'found_reply'
+    'add_post', 'add_reply', 'edit_post', 'delete_post', 'found_post',
+    'found_thread'
 ]
 
 
-class Post:
-    @staticmethod
-    def get_all_announcement():
-        return engine.announcement.object
-
-
-def found_reply(target_thread):  #recursive
-    all_data = []
-    for x in target_thread.reply:
-        all_data.append(found_reply(x))
-    if target_thread.depth == 0:
-        return all_data
-    thread_data = {
+def found_thread(target_thread):
+    reply_thread = []
+    if target_thread.reply:
+        for reply in target_thread.reply:
+            reply_thread.append(found_thread(reply))
+    thread = {
         "id": str(target_thread.id),
         "content": target_thread.markdown,
         "author": target_thread.author.username,
         "created": target_thread.created.timestamp(),
-        "updated": target_thread.updated.timestamp()
+        "updated": target_thread.updated.timestamp(),
+        "reply": reply_thread
     }
-    all_data.append(thread_data)
-    ''' Only two layer to use '''
-    if len(all_data) == 1:
-        return thread_data
-    ''' Only two layer to use '''
-    return all_data
+    return thread
 
 
 def found_post(course_obj):
     data = []
     for x in course_obj.post_ids:  #target_threads
         x_thread = x.thread
-        thread = {
-            "title": x.post_name,
-            "id": str(x_thread.id),
-            "content": x_thread.markdown,
-            "author": x_thread.author.username,
-            "created": x_thread.created.timestamp(),
-            "updated": x_thread.updated.timestamp()
-        }
-        data.append(thread)
-        replys = found_reply(x_thread)
-        if replys:
-            data.append(replys)
+        post = found_thread(x_thread)
+        post["title"] = x.post_name
+        data.append(post)
     return data
 
 
@@ -64,8 +44,7 @@ def add_post(course, user, content, title):
                                    course_id=course_obj,
                                    author=user.obj,
                                    created=created_time,
-                                   updated=updated_time,
-                                   reply=list())
+                                   updated=updated_time)
     new_thread.save()
     new_post = engine.Post(post_name=title, thread=new_thread)
     new_post.save()
@@ -87,28 +66,35 @@ def add_reply(target_thread, user, content):
                                    depth=new_depth,
                                    created=created_time,
                                    updated=updated_time,
-                                   author=user.obj,
-                                   reply=list())
+                                   author=user.obj)
     new_thread.save()
     target_thread.reply.append(new_thread)
     target_thread.save()
 
 
-def edit_post(target_thread, user, content, title, permission):
+def edit_post(target_thread, user, content, title, permission, delete=0):
     # permission
     author = target_thread.author
-    if permission == 0 or (permission == 1
-                           and user != author):  #if is student and not author
-        return "Forbidden,you donˊt have enough Authority to edit/delete it."
-    try:
-        target_post = engine.Post.objects.get(thread=target_thread)
-    except engine.DoesNotExist:
-        target_post = None
+    ''' Authority check (use by edit or delete) '''
+    if delete == 1:  # deete
+        if permission == 1 and user != author:  # teacher,ta,author can delete
+            return "Forbidden,you donˊt have enough Authority to delete it."
+        target_thread.status = 1
+    else:  #  edit
+        author = target_thread.author
+        if user != author and permission < 4:  #only author or admin can edit
+            return "Forbidden,you donˊt have enough Authority to edit it."
+    ''' update thread '''
     updated_time = datetime.now()  # local time use utc
     updated_time.timestamp()
     target_thread.updated = updated_time
     target_thread.markdown = content
     target_thread.save()
+    ''' check it is post,true to update'''
+    try:
+        target_post = engine.Post.objects.get(thread=target_thread)
+    except engine.DoesNotExist:
+        target_post = None
     if target_post is not None:  # edit post
         target_post.post_name = title
         target_post.save()
@@ -117,4 +103,4 @@ def edit_post(target_thread, user, content, title, permission):
 def delete_post(target_thread, user, permission):
     content = "Content is deleted."
     title = "The Post is deleted."
-    return edit_post(target_thread, user, content, title, permission)
+    return edit_post(target_thread, user, content, title, permission, 1)
