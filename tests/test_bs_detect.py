@@ -1,5 +1,6 @@
 import pytest
 import bs_detect
+import subprocess
 bs = bs_detect.BSDetect()
 
 
@@ -39,8 +40,8 @@ def test_time_out_exception():
     route = "./tests/bs_detect_sample/one_line_a_plus_b.py"
     excpt = False
     try:
-        status, responese_str = bs.detect(route, "pylint", 0)
-    except TimeoutError:
+        status, responese_str = bs.detect(route, "pylint", 0.0001)
+    except subprocess.TimeoutExpired:
         excpt = True
     assert excpt
 
@@ -48,5 +49,7 @@ def test_time_out_exception():
 if __name__ == "__main__":
     test_pylint_failed()
     test_pylint_success()
+    test_cppcheck_success()
     test_cppcheck_failed()
-    test_pylint_success()
+    test_set_settings()
+    test_time_out_exception()

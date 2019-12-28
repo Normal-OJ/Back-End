@@ -96,9 +96,9 @@ class BSDetect:
             p = process.communicate(timeout=time_limit)[0]
             result = bytes(p).decode()
             return result, time.time() - cur
-        except TimeoutError:
+        except subprocess.TimeoutExpired:
             process.kill()
-            raise TimeoutError
+            raise subprocess.TimeoutExpired(full_command , time_limit)
 
     def __python_checker__(self, code_filename, time_limit):
         command_args = []
@@ -111,15 +111,8 @@ class BSDetect:
         command_args.append(disable_item)
         command_args.append(code_filename)
         # run bad smell detection & set up timer
-        try:
-            result, _ = self.__command_runner__("pylint", command_args,
+        result, _ = self.__command_runner__("pylint", command_args,
                                                 time_limit)
-        except TimeoutError:
-            print(
-                "waiting too long for python bad smelling , wait for over {0} second(s)"
-                .format(str(time_limit)),
-                file=sys.stderr)
-            raise TimeoutError
         return len([
             line
             for line in result.splitlines() if str(line).strip("\n ") != ""
@@ -131,14 +124,10 @@ class BSDetect:
         cppcheck_args = [code_filename]
         for arg in self.__cppcheck_args__:
             cppcheck_args.append(arg)
-        try:
-            result, use_time = self.__command_runner__("cppcheck",
+        
+        result, use_time = self.__command_runner__("cppcheck",
                                                        cppcheck_args,
                                                        time_limit)
-        except TimeoutError:
-            print("wait too long for cppcheck , wait for over {0} seccond(s)".
-                  format(str(time_limit)),
-                  file=sys.stderr)
         report.update({"cppcheck": result})
         time_limit -= use_time
 
@@ -147,14 +136,9 @@ class BSDetect:
 
         for arg in self.__clang_format_args__:
             clang_format_args.append(arg)
-        try:
-            result, use_time = self.__command_runner__("clang-format",
+        result, use_time = self.__command_runner__("clang-format",
                                                        clang_format_args,
                                                        time_limit)
-        except TimeoutError:
-            print("wait too long for cppcheck , wait for over {0} seccond(s)".
-                  format(str(time_limit)),
-                  file=sys.stderr)
         time_limit -= use_time
 
         # create tmp files
@@ -166,13 +150,7 @@ class BSDetect:
         diff_args = [code_filename, "/tmp/{0}".format(filename)]
         for arg in self.__diff_args__:
             diff_args.append(arg)
-        try:
-            result, _ = self.__command_runner__("diff", diff_args, time_limit)
-        except TimeoutError:
-            print(
-                "wait too long for diff , wait for over {0} seccond(s)".format(
-                    str(time_limit)),
-                file=sys.stderr)
+        result, _ = self.__command_runner__("diff", diff_args, time_limit)
         formated_result = ""
         if result != "":
             result = result.splitlines()[2:]
@@ -193,7 +171,7 @@ class BSDetect:
         """
             the trigger to run detection task .if its runtime exceeed time_limit ,
 
-            it will raise a TimeOutError exception.
+            it will raise a subprocess.TimeoutExpired exception.
 
             Parameter:
 
@@ -209,5 +187,4 @@ class BSDetect:
         elif detector_type == "cpp_checkers":
             return self.__c_checker__(code_filename, time_limit)
         else:
-            raise KeyError(
-                "unexpected detector type:{0}".format(detector_type))
+            raise KeyError("unexpected detector type:{0}".format(detector_type))
