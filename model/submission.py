@@ -224,13 +224,6 @@ def get_submission_list(offset, count, problem_id, submission_id, username,
         s['problemId'] = s['problem']['$oid']
         del s['problem']
 
-        # field name convertion
-        curr = ['memory_usage', 'exec_time', 'language']
-        want = ['memoryUsage', 'runTime', 'languageType']
-        for c, w in zip(curr, want):
-            s[w] = s[c]
-            del s[c]
-
     unicorns = [
         'https://media.giphy.com/media/xTiTnLmaxrlBHxsMMg/giphy.gif',
         'https://media.giphy.com/media/26AHG5KGFxSkUWw1i/giphy.gif',

@@ -148,13 +148,13 @@ class TestCaseResult(EmbeddedDocument):
 class Submission(Document):
     problem = ReferenceField(Problem, required=True)
     user = ReferenceField(User, required=True)
-    language = IntField(required=True)
+    language = IntField(required=True, db_field='languageType')
     timestamp = DateTimeField(required=True)
     status = IntField(default=-2)
     score = IntField(default=0)
     cases = ListField(EmbeddedDocumentField(TestCaseResult), default=list)
-    exec_time = IntField(default=-1)
-    memory_usage = IntField(default=-1)
+    exec_time = IntField(default=-1, db_field='runTime')
+    memory_usage = IntField(default=-1, db_field='memoryUsage')
     code = BooleanField(
         default=False)  # wheather the user has uploaded source code
 
