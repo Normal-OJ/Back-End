@@ -16,11 +16,11 @@ def view_profile(user, username=None):
     try:
         user = user if username is None else User(username)
         data = {
-            'username': user.username,
             'email': user.obj.email,
             'displayedName': user.obj.profile.displayed_name,
             'bio': user.obj.profile.bio
         }
+        data.update(user.info)
     except:
         return HTTPError('Profile not exist.', 404)
 

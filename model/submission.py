@@ -173,8 +173,7 @@ def get_submission_list(offset, count, problem_id, submission_id, username,
         del s['cases']
 
         # replace user field with username
-        s['username'] = n
-        del s['user']
+        s['user'] = User(n).info
 
         s['timestamp'] = s['timestamp']['$date']
 
