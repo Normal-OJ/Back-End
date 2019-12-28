@@ -61,22 +61,10 @@ def create_submission(user, language_type, problem_id):
     if delta <= RATE_LIMIT:
         return HTTPError(
             'Submit too fast!\n'
-            f'Please wait for {RATE_LIMIT - delta} seconds to submit.',
+            f'Please wait for {RATE_LIMIT - delta:.2f} seconds to submit.',
             429)  # Too many request
 
-    # TODO: check user permission
-    # 1. if the problem is in a contest and this user is not a participant
-    # 2. user is in a contest and the problem doesn't belong to that contest
-    # 3. if the user doesn't bolong to the course and the problem does
-    problem = Problem(problem_id).obj
-    if problem is None:
-        return HTTPError('Unexisted problem id', 404)
-    for course_id in problem.course_ids:
-        course = Course(course_id)
-        if perm(course, user) == 0:
-            return HTTPError('You have no permission to submit this problem!',
-                             403)
-
+    # check for fields
     if language_type is None or problem_id is None:
         return HTTPError(f'post data missing!',
                          400,
@@ -84,6 +72,38 @@ def create_submission(user, language_type, problem_id):
                              'languageType': language_type,
                              'problemId': problem_id
                          })
+
+    # search for problem
+    problem = Problem(problem_id).obj
+    if problem is None:
+        return HTTPError('Unexisted problem id', 404)
+
+    # permission check
+    # 1. if the problem is in a contest and this user is not a participant
+    if user.contest:
+        if problem_id not in user.contest.problem_ids:
+            return HTTPError(
+                f'problem not belong to the contest {user.contest.name} and you are current in it.',
+                403)
+    # 2. user is not in a contest and the problem belong to a contest
+    elif len(problem.course_ids) != 0:
+        contest_names = [
+            engine.Contest(id=_id).name for _id in problem.contest_ids
+        ]
+        contest_names = '\n'.join(contest_names)
+        return HTTPError(
+            f'you are not a particenpate of these contests:\n {contest_names}',
+            403)
+    # 3. if the user doesn't bolong to the course and the problem does
+    course_names = ''
+    course_permissions = []
+    for course_id in problem.course_ids:
+        course = Course(course_id)
+        course_permissions.append(perm(course, user))
+        course_names += course.name + '\n'
+    if any(course_permissions):
+        return HTTPError(
+            f'You are not a student of these courses: {course_names}', 403)
 
     # insert submission to DB
     try:
@@ -116,7 +136,7 @@ def get_submission_list(offset, count, problem_id, submission_id, username,
                         status, language_type):
     '''
     get the list of submission data
-    include:
+    avaliable filter:
         - submission id
         - problem id
         - timestamp
@@ -145,20 +165,6 @@ def get_submission_list(offset, count, problem_id, submission_id, username,
     # query all
     submissions = engine.Submission.objects.order_by('-timestamp')
 
-    # filter by role
-    @identity_verify(0, 1)
-    def view_offline_problem_submissions(user):
-        '''
-        teachers and admin can view offline problems
-        '''
-        return True
-
-    def truncate_offline_problem_submissions(submissions):
-        pass
-
-    view_offline_problem_submissions() != True or \
-        truncate_offline_problem_submissions(submissions)
-
     # filter by user args
     user = User(username)
     q = {
@@ -172,6 +178,25 @@ def get_submission_list(offset, count, problem_id, submission_id, username,
     for k in nk:
         del q[k]
     submissions = submissions.filter(**q)
+
+    # filter by role
+    @identity_verify(0, 1)
+    def view_offline_problem_submissions(user):
+        '''
+        return True if user is teacher or admin
+        '''
+        return True
+
+    def truncate_offline_problem_submissions(submissions):
+        # status == 0 for online problem
+        submissions = [
+            submission.problem.problem_status == 0
+            for submission in submissions
+        ]
+
+    # teachers and admin can view offline problems
+    if view_offline_problem_submissions() != True:
+        truncate_offline_problem_submissions(submissions)
 
     if offset >= len(submissions):
         return HTTPError(f'offset ({offset}) is out of range!', 400)
@@ -192,7 +217,7 @@ def get_submission_list(offset, count, problem_id, submission_id, username,
         s['username'] = n
         del s['user']
 
-        s['timestamp'] = s['timestamp']['$date']
+        s['timestamp'] = s['timestamp']['$date'] // 1000
 
         s['submissionId'] = s['_id']['$oid']
         del s['_id']
