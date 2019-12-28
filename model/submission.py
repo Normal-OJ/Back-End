@@ -7,6 +7,7 @@ from zipfile import ZipFile, is_zipfile
 from requests import status_codes
 from flask import Blueprint, request
 from datetime import datetime, timedelta
+from functools import wraps
 
 from mongo import *
 from mongo import engine
@@ -49,6 +50,25 @@ def verify_token(submission_id, token):
     if submission_id not in tokens:
         return False
     return tokens[submission_id] == token
+
+
+def submission_required(func):
+    '''
+    get submission via route param "submission_id"
+    '''
+    @wraps(func)
+    def wrapper(*args, **ks):
+        submission = Submission(request.view_args.get('submission_id'))
+        if not submission:
+            return HTTPError(
+                f'{submission} not exist',
+                404,
+            )
+        del ks['submission_id']
+        ks.update({'submission': submission})
+        return func(*args, **ks)
+
+    return wrapper
 
 
 @submission_api.route('/', methods=['POST'])
@@ -113,26 +133,27 @@ def create_submission(user, language_type, problem_id):
 
     # insert submission to DB
     try:
-        submission_id = Submission.add(
+        submission = Submission.add(
             problem_id=problem_id,
             username=user.username,
             lang=language_type,
             timestamp=now,
         )
     except ValidationError:
-        return HTTPError(f'invalid data!', 404)
+        return HTTPError(f'invalid data!', 400)
     except engine.DoesNotExist as e:
         return HTTPError(str(e), 404)
 
     user.update(last_submit=now)
+    user.submissions.append(submission)
 
     # generate token for upload file
-    token = assign_token(submission_id)
+    token = assign_token(submission.id)
     return HTTPResponse(
         'submission recieved.\n'
         'please send source code with the given token and submission id.',
         data={
-            'submissionId': submission_id,
+            'submissionId': submission.id,
             'token': token
         },
     )
@@ -201,23 +222,27 @@ def get_submission_list(offset, count, problem_id, submission_id, username,
     submissions = submissions.filter(**q)
 
     # filter by role
-    @identity_verify(0, 1)
-    def view_offline_problem_submissions(user):
-        '''
-        return True if user is teacher or admin
-        '''
-        return True
+    @identity_verify(0, 1, 2)
+    def get_user(user) -> User:
+        return user
 
-    def truncate_offline_problem_submissions(submissions):
-        # status == 0 for online problem
-        return [
-            submission for submission in submissions
-            if submission.problem.problem_status == 0
-        ]
+    def can_view_offline(user, submission):
+        # everyone can view online submission
+        if submission.problem.problem_status == 0:
+            return True
+        # guest can not view offline problem
+        if not isinstance(user, User):
+            return False
+        # user
+        return any(
+            perm(Course(id=course_id), user) >= 2
+            for course_id in submission.problem.course_ids)
 
-    # teachers and admin can view offline problems
-    if view_offline_problem_submissions() != True:
-        submissions = truncate_offline_problem_submissions(submissions)
+    user = get_user()
+    submissions = [
+        submission for submission in submissions
+        if can_view_offline(user, submission)
+    ]
 
     if offset >= len(submissions):
         return HTTPError(
@@ -260,14 +285,8 @@ def get_submission_list(offset, count, problem_id, submission_id, username,
 
 @submission_api.route('/<submission_id>', methods=['GET'])
 @login_required
-def get_submission(user, submission_id):
-    submission = Submission(submission_id)
-    if not submission:
-        return HTTPError(
-            f'{submission} not found!',
-            404,
-        )
-
+@submission_required
+def get_submission(user, submission):
     ret = submission.to_py_obj
 
     if submission.user.username != user.username:
@@ -293,9 +312,10 @@ def get_submission(user, submission_id):
 
 @submission_api.route('/<submission_id>', methods=['PUT'])
 @login_required
+@submission_required
 @Request.args('token')
-def update_submission(user, submission_id, token):
-    def judgement(submission, zip_path: pathlib.Path):
+def update_submission(user, submission, token):
+    def judgement(zip_path: pathlib.Path):
         '''
         send submission data to sandbox
         '''
@@ -335,7 +355,7 @@ def update_submission(user, submission_id, token):
             zf.write(testcase_dir / 'meta.json', 'meta.json')
 
         # generate token for submission
-        token = assign_token(submission_id)
+        token = assign_token(submission.id)
         # setup post body
         post_data = {
             'languageId': submission.language,
@@ -344,16 +364,16 @@ def update_submission(user, submission_id, token):
         }
         files = {
             'code': (
-                f'{submission_id}-source.zip',
+                f'{submission.id}-source.zip',
                 open(zip_path, 'rb'),
             ),
             'testcase': (
-                f'{submission_id}-testcase.zip',
+                f'{submission.id}-testcase.zip',
                 open(testcase_zip_path, 'rb'),
             ),
         }
 
-        judge_url = f'{JUDGE_URL}/{submission_id}'
+        judge_url = f'{JUDGE_URL}/{submission.id}'
 
         # send submission to snadbox for judgement
         resp = rq.post(
@@ -374,7 +394,7 @@ def update_submission(user, submission_id, token):
         return HTTPResponse(f'{submission} recieved.')
 
     @Request.files('code')
-    def recieve_source_file(submission, code):
+    def recieve_source_file(code):
         # if source code found
         if code is not None:
             if submission.code:
@@ -384,14 +404,14 @@ def update_submission(user, submission_id, token):
                 )
             else:
                 # save submission source
-                submission_dir = SOURCE_PATH / submission_id
+                submission_dir = SOURCE_PATH / submission.id
                 if submission_dir.is_dir():
                     raise FileExistsError(f'{submission} code found on server')
 
                 # create submission folder
                 submission_dir.mkdir()
                 # tmp file to store zipfile
-                zip_path = TMP_DIR / submission_id / 'source.zip'
+                zip_path = TMP_DIR / submission.id / 'source.zip'
                 zip_path.parent.mkdir()
                 zip_path.write_bytes(code.read())
                 if not is_zipfile(zip_path):
@@ -404,7 +424,7 @@ def update_submission(user, submission_id, token):
                     f.extractall(submission_dir)
                 submission.update(code=True, status=-1)
 
-                return judgement(submission, zip_path)
+                return judgement(zip_path)
         else:
             return HTTPError(
                 f'can not find the source file',
@@ -412,7 +432,7 @@ def update_submission(user, submission_id, token):
             )
 
     @Request.json('score', 'status', 'cases')
-    def recieve_submission_result(submission, score, status, cases):
+    def recieve_submission_result(score, status, cases):
         try:
             for case in cases:
                 del case['exitCode']
@@ -431,26 +451,18 @@ def update_submission(user, submission_id, token):
 
     ## put handler
     # validate this reques
-    submission = Submission(submission_id)
-
-    if not submission:
-        return HTTPError(
-            f'{submission} not found!',
-            404,
-        )
-
     if submission.status >= 0:
         return HTTPError(
             f'{submission} has finished judgement.',
             403,
         )
 
-    if verify_token(submission_id, token) == False:
+    if verify_token(submission.id, token) == False:
         return HTTPError(
             f'invalid token.',
             403,
             data={
-                'excepted': tokens[submission_id],
+                'excepted': tokens[submission.id],
                 'got': token
             },
         )
@@ -478,9 +490,9 @@ def update_submission(user, submission_id, token):
         )
 
     if request.content_type == 'application/json':
-        return recieve_submission_result(submission)
+        return recieve_submission_result()
     elif request.content_type.startswith('multipart/form-data'):
-        return recieve_source_file(submission)
+        return recieve_source_file()
     else:
         return HTTPError(
             f'Unaccepted Content-Type {request.content_type}',
