@@ -4,6 +4,7 @@ from mongo import *
 from .auth import *
 from .utils import *
 from mongo.course import *
+from mongo import engine
 
 __all__ = ['course_api']
 
@@ -28,11 +29,14 @@ def get_courses(user):
                 r = edit_course(user, course, new_course, teacher)
             if request.method == 'DELETE':
                 r = delete_course(user, course)
-
-            if r is not None:
-                return HTTPError(r, 403 if r == "Forbidden." else 404)
-        except NotUniqueError as ne:
+        except ValueError:
+            return HTTPError('Not allowed name.', 400)
+        except NotUniqueError:
             return HTTPError('Course exists.', 400)
+        except PermissionError:
+            return HTTPError('Forbidden.', 403)
+        except engine.DoesNotExist as e:
+            return HTTPError(f'{e} not found.', 404)
 
         return HTTPResponse('Success.')
 
@@ -54,10 +58,10 @@ def get_courses(user):
 @login_required
 def get_course(user, course_name):
     course = Course(course_name).obj
-    permission = perm(course, user)
-
     if course is None:
         return HTTPError('Course not found.', 404)
+
+    permission = perm(course, user)
     if not permission:
         return HTTPError('You are not in this course.', 403)
 
@@ -70,7 +74,7 @@ def get_course(user, course_name):
             tas = []
             for ta in TAs:
                 user = User(ta).obj
-                if user is None:
+                if not User(ta):
                     return HTTPResponse(f'User: {ta} not found.', 404)
                 tas.append(user)
             course.tas = tas
@@ -78,7 +82,7 @@ def get_course(user, course_name):
         student_dict = {}
         for student, nickname in student_nicknames.items():
             user = User(student).obj
-            if user is None:
+            if not User(student):
                 return HTTPResponse(f'User: {student} not found.', 404)
             student_dict[student] = nickname
         course.student_nicknames = student_dict
