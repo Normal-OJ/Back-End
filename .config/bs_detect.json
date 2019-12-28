@@ -1,0 +1,37 @@
+{
+    "pylint":{
+        "shutUp":[
+            "W",
+            "R",
+            "C",
+            "E"
+        ],
+        "alaRduTP":[
+            "W",
+            "C",
+            "E",
+            "R0911"
+        ],
+        "default":[
+            "R",
+            "W"
+        ],
+        "inferno":[
+            
+        ]
+    },
+    "cpp_checkers":{
+        "default":{
+            "cppcheck":[
+                "-q"
+            ],
+            "clang-format":[
+
+            ] ,
+            "diff":[
+                "-u" , "-b"
+            ] 
+        }
+        
+    }
+}
