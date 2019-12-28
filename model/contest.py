@@ -23,6 +23,10 @@ def contest(user, course_name, name, new_name, start, end, problem_ids,
             contest = Contest.add_contest(user, course_name, name, problem_ids,
                                           scoreboard_status, contest_mode,
                                           start, end)
+        except ProblemNotExist:
+            return HTTPError('there is problem does not exist', 404)
+        except CourseNotExist:
+            return HTTPError('the course does not exist', 404)
         except NotUniqueError:
             return HTTPError(
                 'the same contest name has already exist in course', 400)
@@ -34,6 +38,10 @@ def contest(user, course_name, name, new_name, start, end, problem_ids,
         try:
             Contest.update(user, course_name, name, new_name, start, end,
                            problem_ids, scoreboard_status, contest_mode)
+        except ProblemNotExist:
+            return HTTPError('there is problem does not exist', 404)
+        except CourseNotExist:
+            return HTTPError('the course does not exist', 404)
         except DoesNotExist:
             return HTTPError('the contest does not exist in this course', 404)
         except NotUniqueError:
@@ -45,6 +53,10 @@ def contest(user, course_name, name, new_name, start, end, problem_ids,
     if request.method == 'DELETE':
         try:
             Contest.delete(user, course_name, name)
+        except DoesNotExist:
+            return HTTPError('the contest does not exist', 404)
+        except CourseNotExist:
+            return HTTPError('the course of this contest does not exist', 404)
         except AuthorityError:
             return HTTPError('user must be the teacher or ta of this course',
                              403)
@@ -63,6 +75,8 @@ def contest(user, course_name, name, new_name, start, end, problem_ids,
                 if (user.role <= 1):
                     contest["participants"] = x.participants
                 data.append(contest)
+        except CourseNotExist:
+            return HTTPError('the course does not exist', 404)
         except DoesNotExist:
             return HTTPError('course not exists', 404)
         return HTTPResponse('get contest', data=data)
@@ -75,6 +89,8 @@ def get_single_contest(user, id):
         data = Contest.get_single_contest(user, id)
     except DoesNotExist:
         return HTTPError('unable to find contest', 404)
+    except CourseNotExist:
+        return HTTPError('the course of this contest does not exist', 404)
     return HTTPResponse('get contest success', data=data)
 
 
@@ -97,6 +113,8 @@ def check_user_is_in_contest(user):
 def join_contest(user, id):
     try:
         Contest.add_user_in_contest(user, id)
+    except CourseNotExist:
+        return HTTPError('the course of this contest does not exist', 404)
     except DoesNotExist:
         return HTTPError('contest is not exist', 404)
     except UserIsNotInCourse:

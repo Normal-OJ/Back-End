@@ -11,6 +11,7 @@ from tests.test_homework import CourseData
 
 @pytest.fixture
 def app():
+    flask_app.config['TESTING'] = True
     return flask_app
 
 

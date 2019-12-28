@@ -8,7 +8,7 @@ from model.submission_config import SubmissionConfig
 from . import engine
 from .base import MongoBase
 from .user import User
-from .problem import Problem
+from .problem import Problem, can_view
 
 __all__ = ['Submission']
 
@@ -26,6 +26,10 @@ class Submission(MongoBase, engine=engine.Submission):
         convert mongo ObjectId to hex string for serialize
         '''
         return str(self.obj.id)
+
+    @property
+    def problem_id(self):
+        return self.problem.problem_id
 
     def to_dict(self):
         _ret = {
@@ -54,10 +58,65 @@ class Submission(MongoBase, engine=engine.Submission):
         if not path.exists():
             raise FileNotFoundError(path)
 
-        with open(path) as f:
-            ret = f.read()
+        return path.read_text()
 
-        return ret
+    @staticmethod
+    def count():
+        return len(engine.Submission.objects)
+
+    @staticmethod
+    def filter(
+        user,
+        offset,
+        count,
+        problem=None,
+        submission=None,
+        q_user=None,
+        status=None,
+        language_type=None,
+    ):
+        if offset is None or count is None:
+            raise ValueError('offset and count are required!')
+        try:
+            offset = int(offset)
+            count = int(count)
+        except ValueError:
+            raise ValueError('offset and count must be integer!')
+        if offset < 0:
+            raise ValueError(f'offset must >= 0! get {offset}')
+        if count < -1:
+            raise ValueError(f'count must >=-1! get {count}')
+        if not isinstance(problem, Problem):
+            problem = Problem(problem).obj
+        if isinstance(submission, Submission):
+            submission = submission.id
+        if not isinstance(q_user, User):
+            q_user = User(q_user)
+            q_user = q_user.obj if q_user else None
+
+        # query args
+        q = {
+            'problem': problem,
+            'id': submission,
+            'status': status,
+            'language': language_type,
+            'user': q_user
+        }
+        q = {k: v for k, v in q.items() if v is not None}
+
+        submissions = engine.Submission.objects(**q).order_by('-timestamp')
+        submissions = [
+            *filter(lambda s: can_view(user, s.problem), submissions)
+        ]
+
+        if offset >= len(submissions) and len(submissions):
+            raise ValueError(f'offset ({offset}) is out of range!')
+
+        right = min(offset + count, len(submissions))
+        if count == -1:
+            right = len(submissions)
+
+        return submissions[offset:right]
 
     @staticmethod
     def count():
@@ -87,10 +146,10 @@ class Submission(MongoBase, engine=engine.Submission):
 
         submission = engine.Submission(
             problem=problem.obj,
-            user=engine.User(username=username),
+            user=user.obj,
             language=lang,
             timestamp=timestamp,
         )
         submission.save()
 
-        return cls(str(submission.id))
+        return cls(submission.id)
