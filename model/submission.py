@@ -66,12 +66,14 @@ def create_submission(user, language_type, problem_id):
 
     # check for fields
     if language_type is None or problem_id is None:
-        return HTTPError(f'post data missing!',
-                         400,
-                         data={
-                             'languageType': language_type,
-                             'problemId': problem_id
-                         })
+        return HTTPError(
+            f'post data missing!',
+            400,
+            data={
+                'languageType': language_type,
+                'problemId': problem_id
+            },
+        )
 
     # search for problem
     problem = Problem(problem_id).obj
@@ -84,7 +86,8 @@ def create_submission(user, language_type, problem_id):
         if problem_id not in user.contest.problem_ids:
             return HTTPError(
                 f'problem not belong to the contest {user.contest.name} and you are current in it.',
-                403)
+                403,
+            )
     # 2. user is not in a contest and the problem belong to a contest
     elif len(problem.course_ids) != 0:
         contest_names = [
@@ -93,7 +96,8 @@ def create_submission(user, language_type, problem_id):
         contest_names = '\n'.join(contest_names)
         return HTTPError(
             f'you are not a particenpate of these contests:\n {contest_names}',
-            403)
+            403,
+        )
     # 3. if the user doesn't bolong to the course and the problem does
     course_names = ''
     course_permissions = []
@@ -103,14 +107,18 @@ def create_submission(user, language_type, problem_id):
         course_names += course.name + '\n'
     if any(course_permissions):
         return HTTPError(
-            f'You are not a student of these courses: {course_names}', 403)
+            f'You are not a student of these courses: {course_names}',
+            403,
+        )
 
     # insert submission to DB
     try:
-        submission_id = Submission.add(problem_id=problem_id,
-                                       username=user.username,
-                                       lang=language_type,
-                                       timestamp=now)
+        submission_id = Submission.add(
+            problem_id=problem_id,
+            username=user.username,
+            lang=language_type,
+            timestamp=now,
+        )
     except ValidationError:
         return HTTPError(f'invalid data!', 404)
     except engine.DoesNotExist as e:
@@ -126,7 +134,8 @@ def create_submission(user, language_type, problem_id):
         data={
             'submissionId': submission_id,
             'token': token
-        })
+        },
+    )
 
 
 @submission_api.route('/', methods=['GET'])
@@ -147,20 +156,32 @@ def get_submission_list(offset, count, problem_id, submission_id, username,
         - language
     '''
     if offset is None or count is None:
-        return HTTPError('offset and count are required!', 400)
+        return HTTPError(
+            'offset and count are required!',
+            400,
+        )
 
     # casting args
     try:
         offset = int(offset)
         count = int(count)
     except ValueError:
-        return HTTPError('offset and count must be integer!', 400)
+        return HTTPError(
+            'offset and count must be integer!',
+            400,
+        )
 
     # check range
     if offset < 0:
-        return HTTPError('offset must >= 0!', 400)
+        return HTTPError(
+            'offset must >= 0!',
+            400,
+        )
     if count < -1:
-        return HTTPError('count must >=-1!', 400)
+        return HTTPError(
+            'count must >=-1!',
+            400,
+        )
 
     # query all
     submissions = engine.Submission.objects.order_by('-timestamp')
@@ -199,14 +220,17 @@ def get_submission_list(offset, count, problem_id, submission_id, username,
         submissions = truncate_offline_problem_submissions(submissions)
 
     if offset >= len(submissions):
-        return HTTPError(f'offset ({offset}) is out of range!', 400)
+        return HTTPError(
+            f'offset ({offset}) is out of range!',
+            400,
+        )
 
     right = min(len(submissions), offset +
                 count) if count != -1 else len(submissions)
     submissions = submissions[offset:right]
 
     usernames = [s.user.username for s in submissions]
-    submissions = [json.loads(s.to_json()) for s in submissions]
+    submissions = [s.py_obj for s in submissions]
 
     for s, n in zip(submissions, usernames):
         del s['code']
@@ -218,12 +242,6 @@ def get_submission_list(offset, count, problem_id, submission_id, username,
 
         s['timestamp'] = s['timestamp']['$date'] // 1000
 
-        s['submissionId'] = s['_id']['$oid']
-        del s['_id']
-
-        s['problemId'] = s['problem']['$oid']
-        del s['problem']
-
     unicorns = [
         'https://media.giphy.com/media/xTiTnLmaxrlBHxsMMg/giphy.gif',
         'https://media.giphy.com/media/26AHG5KGFxSkUWw1i/giphy.gif',
@@ -231,9 +249,15 @@ def get_submission_list(offset, count, problem_id, submission_id, username,
         'https://media.giphy.com/media/tTyTbFF9uEbPW/giphy.gif'
     ]
 
-    ret = {'unicorn': random.choice(unicorns), 'submissions': submissions}
+    ret = {
+        'unicorn': random.choice(unicorns),
+        'submissions': submissions,
+    }
 
-    return HTTPResponse('here you are, bro', data=ret)
+    return HTTPResponse(
+        'here you are, bro',
+        data=ret,
+    )
 
 
 @submission_api.route('/<submission_id>', methods=['GET'])
@@ -241,10 +265,12 @@ def get_submission_list(offset, count, problem_id, submission_id, username,
 def get_submission(user, submission_id):
     submission = Submission(submission_id)
     if not submission.exist:
-        return HTTPError(f'{submission} not found!', 404)
+        return HTTPError(
+            f'{submission} not found!',
+            404,
+        )
 
-    ret = submission.to_json()
-    ret = json.loads(ret)
+    ret = submission.py_obj
 
     if submission.user.username != user.username:
         # normal user can not view other's source
@@ -259,7 +285,10 @@ def get_submission(user, submission_id):
                         del ret['code']
                         break
             except engine.DoesNotExist:
-                return HTTPError(f'course {course_id} not found', 404)
+                return HTTPError(
+                    f'course {course_id} not found',
+                    404,
+                )
 
     return HTTPResponse(data=ret)
 
@@ -313,12 +342,17 @@ def update_submission(user, submission_id, token):
         post_data = {
             'languageId': submission.language,
             'token': token,
-            'checker': 'print("not implement yet. qaq")'
+            'checker': 'print("not implement yet. qaq")',
         }
         files = {
-            'code': (f'{submission_id}-source.zip', open(zip_path, 'rb')),
-            'testcase':
-            (f'{submission_id}-testcase.zip', open(testcase_zip_path, 'rb'))
+            'code': (
+                f'{submission_id}-source.zip',
+                open(zip_path, 'rb'),
+            ),
+            'testcase': (
+                f'{submission_id}-testcase.zip',
+                open(testcase_zip_path, 'rb'),
+            ),
         }
 
         judge_url = f'{JUDGE_URL}/{submission_id}'
@@ -329,10 +363,16 @@ def update_submission(user, submission_id, token):
             cookies=request.cookies)  # cookie: for debug, need better solution
 
         if resp.status_code == 400:
-            return HTTPError(resp.text, 400)
+            return HTTPError(
+                resp.text,
+                400,
+            )
         if resp.status_code != 200:
             # unhandled error
-            return HTTPError(resp.text, 500)
+            return HTTPError(
+                resp.text,
+                500,
+            )
         return HTTPResponse(f'{submission} recieved.')
 
     @Request.files('code')
@@ -341,7 +381,9 @@ def update_submission(user, submission_id, token):
         if code is not None:
             if submission.code:
                 return HTTPError(
-                    f'{submission} has been uploaded source file!', 403)
+                    f'{submission} has been uploaded source file!',
+                    403,
+                )
             else:
                 # save submission source
                 submission_dir = SOURCE_PATH / submission_id
@@ -356,26 +398,37 @@ def update_submission(user, submission_id, token):
                 zip_path.write_bytes(code.read())
                 if not is_zipfile(zip_path):
                     zip_path.unlink()
-                    return HTTPError('only accept zip file', 400)
+                    return HTTPError(
+                        'only accept zip file',
+                        400,
+                    )
                 with ZipFile(zip_path, 'r') as f:
                     f.extractall(submission_dir)
                 submission.update(code=True, status=-1)
 
                 return judgement(submission, zip_path)
         else:
-            return HTTPError(f'can not find the source file', 400)
+            return HTTPError(
+                f'can not find the source file',
+                400,
+            )
 
     @Request.json('score', 'status', 'cases')
     def recieve_submission_result(submission, score, status, cases):
         try:
             for case in cases:
                 del case['exitCode']
-            submission.update(status=status,
-                              cases=cases,
-                              exec_time=cases[-1]['execTime'],
-                              memory_usage=cases[-1]['memoryUsage'])
+            submission.update(
+                status=status,
+                cases=cases,
+                exec_time=cases[-1]['execTime'],
+                memory_usage=cases[-1]['memoryUsage'],
+            )
         except ValidationError:
-            return HTTPError(f'invalid data!', 400)
+            return HTTPError(
+                f'invalid data!',
+                400,
+            )
         return HTTPResponse(f'{submission} result recieved.')
 
     ## put handler
@@ -383,18 +436,26 @@ def update_submission(user, submission_id, token):
     submission = Submission(submission_id)
 
     if not submission.exist:
-        return HTTPError(f'{submission} not found!', 404)
+        return HTTPError(
+            f'{submission} not found!',
+            404,
+        )
 
     if submission.status >= 0:
-        return HTTPError(f'{submission} has finished judgement.', 403)
+        return HTTPError(
+            f'{submission} has finished judgement.',
+            403,
+        )
 
     if verify_token(submission_id, token) == False:
-        return HTTPError(f'invalid token.',
-                         403,
-                         data={
-                             'excepted': tokens[submission_id],
-                             'got': token
-                         })
+        return HTTPError(
+            f'invalid token.',
+            403,
+            data={
+                'excepted': tokens[submission_id],
+                'got': token
+            },
+        )
 
     # if user not equal, reject
     if user.user_id != submission.user.user_id:
@@ -403,23 +464,27 @@ def update_submission(user, submission_id, token):
         f'The user {user} (id: {user.user_id}) is trying to '
         f'submit data to {submission}, '
         f'which shold belong to {submission.user.username} (id: {submission.user.user_id})'
-        return HTTPError(err_msg,
-                         403,
-                         data={
-                             'excepted': {
-                                 'username': submission.user.username,
-                                 'userId': submission.user.user_id
-                             },
-                             'received': {
-                                 'username': submission.user.username,
-                                 'userId': submission.user.user_id
-                             }
-                         })
+        return HTTPError(
+            err_msg,
+            403,
+            data={
+                'excepted': {
+                    'username': submission.user.username,
+                    'userId': submission.user.user_id,
+                },
+                'received': {
+                    'username': submission.user.username,
+                    'userId': submission.user.user_id,
+                }
+            },
+        )
 
     if request.content_type == 'application/json':
         return recieve_submission_result(submission)
     elif request.content_type.startswith('multipart/form-data'):
         return recieve_source_file(submission)
     else:
-        return HTTPError(f'Unaccepted Content-Type {request.content_type}',
-                         415)
+        return HTTPError(
+            f'Unaccepted Content-Type {request.content_type}',
+            415,
+        )
