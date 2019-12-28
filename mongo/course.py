@@ -1,6 +1,7 @@
 from . import engine
 from .user import *
 from .utils import *
+import re
 
 __all__ = [
     'Course', 'get_all_courses', 'delete_course', 'add_course', 'edit_course',
@@ -37,34 +38,41 @@ def get_all_courses():
 def delete_course(user, course):
     co = Course(course).obj
     if co is None:
-        return "Course not found."
-
+        # course not found
+        raise engine.DoesNotExist('Course')
     if not perm(co, user):
-        return "Forbidden."
+        # user is not the TA or teacher in course
+        raise PermissionError
 
     co.delete()
+    return True
 
 
 def add_course(course, teacher):
+    if re.match(r'^[a-zA-Z0-9._]+$', course) is None:
+        raise ValueError
     te = User(teacher)
     if not te:
-        return "User not found."
+        raise engine.DoesNotExist('User')
 
     engine.Course(course_name=course, teacher=te.obj).save()
+    return True
 
 
 def edit_course(user, course, new_course, teacher):
+    if re.match(r'^[a-zA-Z0-9._]+$', new_course) is None:
+        raise ValueError
+
     co = Course(course).obj
     if co is None:
-        return "Course not found."
-
+        raise engine.DoesNotExist('Course')
     if not perm(co, user):
-        return "Forbidden."
-
+        raise PermissionError
     te = User(teacher)
     if not te:
-        return "User not found."
+        raise engine.DoesNotExist('User')
 
     co.course_name = new_course
     co.teacher = te.obj
     co.save()
+    return True
