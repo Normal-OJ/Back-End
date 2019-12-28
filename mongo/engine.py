@@ -120,7 +120,7 @@ class ProblemTestCase(EmbeddedDocument):
 
 class Problem(Document):
     problem_id = IntField(db_field='problemId', required=True, unique=True)
-    courses = ListField(ReferenceField('Course'))
+    courses = ListField(ReferenceField('Course'), default=list)
     problem_status = IntField(default=1, choices=[0, 1])
     problem_type = IntField(default=0, choices=[0, 1])
     problem_name = StringField(db_field='problemName',

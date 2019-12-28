@@ -1,6 +1,7 @@
 from flask import Blueprint, request
 
 from mongo import *
+from mongo import engine
 from .auth import *
 from .utils import *
 from mongo.problem import *
@@ -14,7 +15,7 @@ problem_api = Blueprint('problem_api', __name__)
 @login_required
 @Request.json('offset', 'count')
 def view_problem_list(user, offset, count):
-    data = get_problem_list(user.role, offset, count)
+    data = get_problem_list(user, offset, count)
     return HTTPResponse('Success.', data=data)
 
 
@@ -24,7 +25,7 @@ def view_problem(user, problem_id):
     problem = Problem(problem_id).obj
     if problem is None:
         return HTTPError('Problem not exist.', 404)
-    if user.role == 2 and problem.problem_status == 1:
+    if not can_view(user, problem):
         return HTTPError('Problem cannot view.', 403)
 
     data = {
@@ -34,7 +35,7 @@ def view_problem(user, problem_id):
         'description': problem.description,
         'owner': problem.owner,
         'tags': problem.tags
-        #'pdf':
+        # 'pdf':
     }
     if problem.problem_type == 1:
         data.update({'fillInTemplate': problem.test_case.fill_in_template})
@@ -75,7 +76,7 @@ def manage_problem(user, problem_id=None):
 
     if request.method == 'GET':
         data = {
-            'courses': problem.courses,
+            'courses': list(course.course_name for course in problem.courses),
             'status': problem.problem_status,
             'type': problem.problem_type,
             'problemName': problem.problem_name,
@@ -100,6 +101,8 @@ def manage_problem(user, problem_id=None):
             return HTTPError('Invalid or missing arguments.',
                              400,
                              data=ve.to_dict())
+        except engine.DoesNotExist:
+            return HTTPError('Course not found.', 404)
 
 
 @problem_api.route('/clone', methods=['POST'])
@@ -109,8 +112,8 @@ def clone_problem(user, problem_id):
     problem = Problem(problem_id).obj
     if problem is None:
         return HTTPError('Problem not exist.', 404)
-    if user.role == 1 and problem.owner != user.username:
-        return HTTPError('Not the owner.', 403)
+    if not can_view(user, problem):
+        return HTTPError('Problem can not view.', 403)
 
     copy_problem(user, problem_id)
     return HTTPResponse('Success.')

@@ -51,8 +51,23 @@ def another_problem(request, problem_data):
 class TestProblem(BaseTester):
     # add a problem which status value is invalid (POST /problem/manage)
     def test_add_with_invalid_value(self, client_admin):
+
+        # create a course
+        client_admin.post('/course',
+                          json={
+                              'course': 'math',
+                              'teacher': 'admin'
+                          })
+        client_admin.put('/course/math',
+                         json={
+                             'TAs': ['admin'],
+                             'studentNicknames': {
+                                 'student': 'noobs'
+                             }
+                         })
+
         request_json_with_invalid_json = {
-            'courses': [],
+            'courses': ['math'],
             'status': 2,  # Invalid value
             'type': 0,
             'problemName': 'Test problem name',
@@ -74,7 +89,7 @@ class TestProblem(BaseTester):
     # add a problem which problem name is misssing (POST /problem/manage)
     def test_add_with_missing_argument(self, client_admin):
         request_json_with_missing_argument = {
-            'courses': [],
+            'courses': ['math'],
             'status': 1,
             'type': 0,
             #  'problem_name': 'Test problem name',	# missing argument
@@ -96,7 +111,7 @@ class TestProblem(BaseTester):
     # add a offline problem which problem_id = 1 (POST /problem/manage)
     def test_add_offline_problem(self, client_admin):
         request_json = {
-            'courses': [],
+            'courses': ['math'],
             'status': 1,
             'type': 0,
             'problemName': 'Offline problem',
@@ -117,7 +132,7 @@ class TestProblem(BaseTester):
     # add a online problem which problem_id = 2 (POST /problem/manage)
     def test_add_online_problem(self, client_admin):
         request_json = {
-            'courses': [],
+            'courses': ['math'],
             'status': 0,
             'type': 0,
             'problemName': 'Online problem',
