@@ -58,7 +58,8 @@ def manage_problem(user, problem_id=None):
     def modify_problem(courses, status, type, problem_name, description, tags,
                        test_case):
         if request.method == 'POST':
-            number = add_problem(user, courses, status, type, problem_name, description, tags, test_case)
+            number = add_problem(user, courses, status, type, problem_name,
+                                 description, tags, test_case)
             return HTTPResponse('Success.', data={'problemId': number})
         elif request.method == 'PUT':
             edit_problem(user, problem_id, courses, status, type, problem_name,
