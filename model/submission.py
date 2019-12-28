@@ -285,6 +285,7 @@ def get_submission_list(offset, count, problem_id, submission_id, username,
 @submission_required
 def get_submission(user, submission):
     ret = submission.to_py_obj
+    ret['problemId'] = engine.Problem.objects.get(id=ret['problemId']).problem_id
 
     if submission.user.username != user.username:
         # normal user can not view other's source
