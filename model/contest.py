@@ -10,7 +10,8 @@ __all__ = ['contest_api']
 contest_api = Blueprint('contest_api', __name__)
 
 
-@contest_api.route('/<course_name>', methods=['POST', 'PUT', 'DELETE', 'GET'])
+@contest_api.route('/<course_name>/content',
+                   methods=['POST', 'PUT', 'DELETE', 'GET'])
 @Request.json('name', 'new_name', 'start', 'end', 'problem_ids',
               'scoreboard_status', 'contest_mode')
 @login_required
@@ -55,8 +56,7 @@ def contest(user, course_name, name, new_name, start, end, problem_ids,
                     "name": x.name,
                     "start": x.duration.start,
                     "end": x.duration.end,
-                    "problemIds": x.problem_ids,
-                    "scoreboard_status": x.scoreboard_status
+                    "id": x.id
                 }
                 if (user.role <= 1):
                     contest["participants"] = x.participants
@@ -66,18 +66,49 @@ def contest(user, course_name, name, new_name, start, end, problem_ids,
         return HTTPResponse('get contest', data=data)
 
 
-@contest_api.route('/get/<id>', methods=['GET'])
+@contest_api.route('/view/<id>', methods=['GET'])
 @login_required
 def get_single_contest(user, id):
     try:
-        contest = Contest.get_single_contest(id)
+        data = Contest.get_single_contest(id)
     except DoesNotExist:
-        HTTPError('unable to find contest', 404)
+        return HTTPError('unable to find contest', 404)
+    return HTTPResponse('get contest success', data=data)
+
+
+@contest_api.route('/contest', methods=['GET'])
+@login_required
+def check_user_is_in_contest(user):
+    try:
+        contest = get_user_contest(user)
+    except DoesNotExist:
+        HTTPError('user is not in contest', 404)
     return HTTPResponse('get contest success',
                         data={
                             "name": contest.name,
-                            "start": contest.duration.start,
-                            "end": contest.duration.end,
-                            "problemIds": contest.problem_ids,
-                            "scoreboard_status": contest.scoreboard_status
+                            "id": contest.id
                         })
+
+
+@contest_api.route('/join/<id>', methods=['GET'])
+@login_required
+def join_contest(user, id):
+    try:
+        Contest.add_user_in_contest(user, id)
+    except DoesNotExist:
+        return HTTPError('contest is not exist', 404)
+    except UserIsNotInCourse:
+        return HTTPError("user not in the contest's course", 403)
+    except ExistError:
+        return HTTPError("user is already in a contest", 400)
+    return HTTPResponse('user join contest success')
+
+
+@contest_api.route('/leave', methods=['GET'])
+@login_required
+def leave_contest(user):
+    try:
+        Contest.user_leave_contest(user)
+    except UserIsNotInCourse:
+        return HTTPError("user not in the contest", 400)
+    return HTTPResponse('user leave contest success')

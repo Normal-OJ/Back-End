@@ -55,7 +55,7 @@ class User(Document):
                                           db_field='editorConfig',
                                           default=EditorConfig,
                                           null=True)
-    contest = ReferenceField('Contest')
+    contest = ReferenceField('Contest', db_field='contestId')
     courses = ListField(ReferenceField('Course'))
     submissions = ListField(ReferenceField('Submission'))
     last_submit = DateTimeField(default=datetime.min)

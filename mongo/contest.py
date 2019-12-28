@@ -3,11 +3,21 @@ from mongo.course import perm
 from mongoengine import DoesNotExist, NotUniqueError
 from datetime import datetime
 from mongo.problem import Problem
-__all__ = ['Contest', 'AuthorityError']
+__all__ = ['Contest', 'AuthorityError', 'UserIsNotInCourse', 'ExistError']
 
 
 class AuthorityError(Exception):
     '''check whether the user is teacher/ta/admin in this course'''
+    pass
+
+
+class UserIsNotInCourse(Exception):
+    '''check whether the user is in this course when they want to join in the contest'''
+    pass
+
+
+class ExistError(Exception):
+    '''if user is already in contest , then throw this exception'''
     pass
 
 
@@ -22,7 +32,7 @@ class Contest:
                 raise NotUniqueError
         # verify user's roles(teacher/admin)
         role = perm(course, user)
-        if role != 4 and role != 3 and role != 2:
+        if role < 2:
             raise AuthorityError
 
         students = course.student_nicknames
@@ -33,19 +43,6 @@ class Contest:
         contest.duration.end = datetime.now() if end is None else end
         contest.contest_mode = 0 if contest_mode is None else contest_mode
         contest.scoreboard_status = 0 if scoreboard_status is None else scoreboard_status
-        # init participants status
-        user_ids = {}
-        user_problems = {}
-        if problem_ids is not None:
-            for problem_id in problem_ids:
-                user_problems[str(problem_id)] = {
-                    "score": 0,
-                    "problemStatus": 1,
-                    "submissonIds": []
-                }
-        for key in students:
-            user_ids[key] = user_problems
-        contest.participants = user_ids
         contest.save()
 
         if problem_ids is not None:
@@ -66,7 +63,7 @@ class Contest:
 
         # verify user's roles(teacher/admin)
         role = perm(course, user)
-        if role != 4 and role != 3 and role != 2:
+        if role < 2:
             raise AuthorityError
 
         students = course.student_nicknames
@@ -107,7 +104,7 @@ class Contest:
                     problem.save()
                 else:
                     contest.problem_ids.append(id)
-                    for key in students:
+                    for key in contest.participants:
                         contest.participants[key][id] = {
                             "score": 0,
                             "problemStatus": 1,
@@ -127,7 +124,7 @@ class Contest:
                                              course_id=str(course.id))
         # verify user's roles(teacher/admin)
         role = perm(course, user)
-        if role != 4 and role != 3 and role != 2:
+        if role < 2:
             raise AuthorityError
 
         if contest is None:
@@ -158,4 +155,82 @@ class Contest:
         contest = engine.Contest.objects.get(id=id)
         if contest is None:
             raise DoesNotExist
-        return contest
+        course = engine.Course.objects.get(id=contest.course_id)
+        data = {
+            "start": contest.duration.start,
+            "end": contest.duration.end,
+            "contestMode": contest.contest_mode,
+            "scoreboard_status": contest.scoreboard_status,
+            "courseName": course.course_name
+        }
+        role = perm(course, user)
+        if role < 2 or datetime.now() > contest.duration.start:
+            data["problemIds"] = contest.problem_ids
+        if contest.scoreboard_status == 0:
+            data["participants"] = contest.participants
+        return data
+
+    @staticmethod
+    def get_user_contest(user):
+        if user.contest_id is None:
+            raise DoesNotExist
+        return user.contest_id
+
+    @staticmethod
+    def add_user_in_contest(user, contest_id):
+        #get course of this contest
+        contest = engine.Contest.objects.get(id=contest_id)
+        db_user = engine.User.objects.get(username=user.username)
+        course_of_contest = engine.Course.objects.get(id=contest.course_id)
+        if contest is None:
+            raise DoesNotExist
+
+        #check if user is in the contest's course
+        is_in_course = False
+        for course in user.courses:
+            if course.id == course_of_contest.id:
+                is_in_course = True
+                break
+        if is_in_course == False:
+            raise UserIsNotInCourse
+
+        #check if user already is in this contest
+        if user.contest is not None:
+            raise ExistError
+
+        #add this user in contest
+        user_ids = {}
+        user_problems = {}
+        if contest.problem_ids is not None:
+            for problem_id in contest.problem_ids:
+                user_problems[str(problem_id)] = {
+                    "score": 0,
+                    "problemStatus": 1,
+                    "submissonIds": []
+                }
+        contest.participants[user.username] = user_problems
+        db_user.contest = contest
+        contest.save()
+        db_user.save()
+
+    @staticmethod
+    def user_leave_contest(user):
+        #get course of this contest
+        contest = engine.Contest.objects.get(id=user.contest.id)
+        db_user = engine.User.objects.get(username=user.id)
+        course_of_contest = engine.Course.objects.get(id=contest.course_id)
+
+        #check if user is in the contest's course
+        is_in_course = False
+        for course in user.courses:
+            if course.id == course_of_contest.id:
+                is_in_course = True
+                break
+        if is_in_course == False:
+            raise UserIsNotInCourse
+
+        #pop student from participants and remove contest
+        contest.participants.pop(user.username)
+        db_user.contest = None
+        db_user.save()
+        contest.save()
