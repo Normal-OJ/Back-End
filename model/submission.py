@@ -230,7 +230,7 @@ def get_submission_list(offset, count, problem_id, submission_id, username,
     submissions = submissions[offset:right]
 
     usernames = [s.user.username for s in submissions]
-    submissions = [s.py_obj for s in submissions]
+    submissions = [Submission(s.id).to_py_obj for s in submissions]
 
     for s, n in zip(submissions, usernames):
         del s['code']
@@ -239,8 +239,6 @@ def get_submission_list(offset, count, problem_id, submission_id, username,
         # replace user field with username
         s['username'] = n
         del s['user']
-
-        s['timestamp'] = s['timestamp']['$date'] // 1000
 
     unicorns = [
         'https://media.giphy.com/media/xTiTnLmaxrlBHxsMMg/giphy.gif',
@@ -264,13 +262,13 @@ def get_submission_list(offset, count, problem_id, submission_id, username,
 @login_required
 def get_submission(user, submission_id):
     submission = Submission(submission_id)
-    if not submission.exist:
+    if not submission:
         return HTTPError(
             f'{submission} not found!',
             404,
         )
 
-    ret = submission.py_obj
+    ret = submission.to_py_obj
 
     if submission.user.username != user.username:
         # normal user can not view other's source
@@ -435,7 +433,7 @@ def update_submission(user, submission_id, token):
     # validate this reques
     submission = Submission(submission_id)
 
-    if not submission.exist:
+    if not submission:
         return HTTPError(
             f'{submission} not found!',
             404,
