@@ -18,7 +18,7 @@ __all__ = ['submission_api']
 submission_api = Blueprint('submission_api', __name__)
 
 # submission api config
-RATE_LIMIT = int(os.environ.get('SUBMISSION_RATE_LIMIT', 180))
+RATE_LIMIT = int(os.environ.get('SUBMISSION_RATE_LIMIT', 0))
 SOURCE_PATH = pathlib.Path(
     os.environ.get('SUBMISSION_SOURCE_PATH', 'submissions'))
 SOURCE_PATH.mkdir(exist_ok=True)
@@ -239,10 +239,7 @@ def get_submission_list(offset, count, problem_id, submission_id, username,
             for course_id in submission.problem.course_ids)
 
     user = get_user()
-    submissions = [
-        submission for submission in submissions
-        if can_view_offline(user, submission)
-    ]
+    submissions = [*filter(lambda s: can_view_offline(user, s), submissions)]
 
     if offset >= len(submissions):
         return HTTPError(
@@ -295,17 +292,10 @@ def get_submission(user, submission):
             del ret['code']
         # teachers and TAs can view those who in thrie courses
         elif user.role == 1:
-            try:
-                for course_id in submission.problem.course_ids:
-                    course = Course(id=course_id)
-                    if perm(course, user) <= 1:
-                        del ret['code']
-                        break
-            except engine.DoesNotExist:
-                return HTTPError(
-                    f'course {course_id} not found',
-                    404,
-                )
+            for course in submission.problem.course_ids:
+                if perm(course, user) <= 1:
+                    del ret['code']
+                    break
 
     return HTTPResponse(data=ret)
 
@@ -442,9 +432,9 @@ def update_submission(user, submission, token):
                 exec_time=cases[-1]['execTime'],
                 memory_usage=cases[-1]['memoryUsage'],
             )
-        except ValidationError:
+        except ValidationError as e:
             return HTTPError(
-                f'invalid data!',
+                f'invalid data!\n{e}',
                 400,
             )
         return HTTPResponse(f'{submission} result recieved.')
@@ -461,10 +451,6 @@ def update_submission(user, submission, token):
         return HTTPError(
             f'invalid token.',
             403,
-            data={
-                'excepted': tokens[submission.id],
-                'got': token
-            },
         )
 
     # if user not equal, reject

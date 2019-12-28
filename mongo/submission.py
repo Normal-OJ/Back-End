@@ -53,7 +53,7 @@ class Submission(MongoBase, engine=engine.Submission):
             username: str,
             lang: int,
             timestamp: date,
-    ) -> str:
+    ) -> 'Submission':
         '''
         Insert a new submission into db
 
@@ -75,4 +75,5 @@ class Submission(MongoBase, engine=engine.Submission):
             timestamp=timestamp,
         )
         submission.save()
-        return str(submission.id)
+
+        return cls(str(submission.id))
