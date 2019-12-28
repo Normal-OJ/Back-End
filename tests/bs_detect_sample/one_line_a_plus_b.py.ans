@@ -1,6 +1,0 @@
-************* Module one_line_a_plus_b
-tests/bs_detect_sample/one_line_a_plus_b.py:1:0: C0111: Missing module docstring (missing-docstring)
-
-------------------------------------------------------------------
-Your code has been rated at 0.00/10 (previous run: 0.00/10, +0.00)
-
