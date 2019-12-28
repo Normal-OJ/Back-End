@@ -58,11 +58,12 @@ def get_problem_list(role, offset, count):
     return problem_list
 
 
-def add_problem(user, status, type, problem_name, description, tags,
+def add_problem(user, courses, status, type, problem_name, description, tags,
                 test_case):
     serial_number = Number("serial_number").obj
 
     engine.Problem(problem_id=serial_number.number,
+                   courses=courses,
                    problem_status=status,
                    problem_type=type,
                    problem_name=problem_name,
@@ -75,10 +76,11 @@ def add_problem(user, status, type, problem_name, description, tags,
     serial_number.save()
 
 
-def edit_problem(user, problem_id, status, type, problem_name, description,
+def edit_problem(user, problem_id, courses, status, type, problem_name, description,
                  tags, test_case):
     problem = Problem(problem_id).obj
 
+    problem.courses = courses
     problem.problem_status = status
     problem.problem_type = type
     problem.problem_name = problem_name
@@ -117,5 +119,5 @@ def copy_problem(user, problem_id):
 def release_problem(problem_id):
     course = Course("Public").obj
     problem = Problem(problem_id).obj
-    problem.course_ids.append(course)
+    problem.courses.append(course)
     problem.save()

@@ -46,7 +46,8 @@ def view_problem(user, problem_id):
 @problem_api.route('/manage/<problem_id>', methods=['GET', 'PUT', 'DELETE'])
 @identity_verify(0, 1)
 def manage_problem(user, problem_id=None):
-    @Request.json('status',
+    @Request.json('courses',
+                  'status',
                   'type',
                   'description',
                   'tags',
@@ -54,14 +55,11 @@ def manage_problem(user, problem_id=None):
                       'problem_name': 'problemName',
                       'test_case': 'testCase'
                   })
-    def modify_problem(status, type, problem_name, description, tags,
-                       test_case):
+    def modify_problem(courses, status, type, problem_name, description, tags, test_case):
         if request.method == 'POST':
-            add_problem(user, status, type, problem_name, description, tags,
-                        test_case)
+            add_problem(user, courses, status, type, problem_name, description, tags, test_case)
         elif request.method == 'PUT':
-            edit_problem(user, problem_id, status, type, problem_name,
-                         description, tags, test_case)
+            edit_problem(user, problem_id, courses, status, type, problem_name, description, tags, test_case)
 
     if request.method != 'POST':
         problem = Problem(problem_id).obj
@@ -72,9 +70,10 @@ def manage_problem(user, problem_id=None):
 
     if request.method == 'GET':
         data = {
-            'problemName': problem.problem_name,
+            'courses': problem.courses,
             'status': problem.problem_status,
             'type': problem.problem_type,
+            'problemName': problem.problem_name,
             'description': problem.description,
             'tags': problem.tags,
             'testCase': {

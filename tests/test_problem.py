@@ -52,6 +52,7 @@ class TestProblem(BaseTester):
     # add a problem which status value is invalid (POST /problem/manage)
     def test_add_with_invalid_value(self, client_admin):
         request_json_with_invalid_json = {
+            'courses': [],
             'status': 2,  # Invalid value
             'type': 0,
             'problemName': 'Test problem name',
@@ -73,6 +74,7 @@ class TestProblem(BaseTester):
     # add a problem which problem name is misssing (POST /problem/manage)
     def test_add_with_missing_argument(self, client_admin):
         request_json_with_missing_argument = {
+            'courses': [],
             'status': 1,
             'type': 0,
             #  'problem_name': 'Test problem name',	# missing argument
@@ -94,6 +96,7 @@ class TestProblem(BaseTester):
     # add a offline problem which problem_id = 1 (POST /problem/manage)
     def test_add_offline_problem(self, client_admin):
         request_json = {
+            'courses': [],
             'status': 1,
             'type': 0,
             'problemName': 'Offline problem',
@@ -114,6 +117,7 @@ class TestProblem(BaseTester):
     # add a online problem which problem_id = 2 (POST /problem/manage)
     def test_add_online_problem(self, client_admin):
         request_json = {
+            'courses': [],
             'status': 0,
             'type': 0,
             'problemName': 'Online problem',
@@ -221,6 +225,7 @@ class TestProblem(BaseTester):
     # student change the name of a problem (PUT /problem/manage/<problem_id>)
     def test_student_edit_problem(self, client_student):
         request_json = {
+            'courses': [],
             'status': 1,
             'type': 0,
             'problemName': 'Offline problem (edit)',
@@ -241,6 +246,7 @@ class TestProblem(BaseTester):
     # non-owner teacher change the name of a problem (PUT /problem/manage/<problem_id>)
     def test_teacher_not_owner_edit_problem(self, client_teacher):
         request_json = {
+            'courses': [],
             'status': 1,
             'type': 0,
             'problemName': 'Offline problem (edit)',
@@ -261,6 +267,7 @@ class TestProblem(BaseTester):
     # admin change the name of a problem (PUT /problem/manage/<problem_id>)
     def test_admin_edit_problem(self, client_admin):
         request_json = {
+            'courses': [],
             'status': 1,
             'type': 0,
             'problemName': 'Offline problem (edit)',
@@ -286,6 +293,7 @@ class TestProblem(BaseTester):
         assert json['status'] == 'ok'
         assert json['message'] == 'Success.'
         assert json['data'] == {
+            'courses': [],
             'status': 1,
             'type': 0,
             'problemName': 'Offline problem (edit)',
