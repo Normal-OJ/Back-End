@@ -101,6 +101,7 @@ class TestInbox(BaseTester):
         assert rv.status_code == 200
         assert json['data'][0]['message'] == 'AAA'
         assert json['data'][0]['title'] == 'hi'
+
     #     assert json['data'][0]['receivers'] == ['teacher']
 
     #     global message_id
