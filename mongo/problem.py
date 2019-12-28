@@ -36,19 +36,19 @@ class Problem:
 def get_problem_list(role, offset, count):
     serial_number = Number("serial_number").obj
     problem_list = []
-    index = offset + 1
+    index = offset
     amount = 0
     while True:
-        if amount == count:
+        if amount >= count:
             break
-        if index == serial_number.number:
+        if index >= serial_number.number:
             break
         problem = Problem(index).obj
         if problem is not None and (role != 2 or problem.problem_status == 0):
             problem_list.append({
-                'problem_id': problem.problem_id,
+                'problemId': problem.problem_id,
                 'type': problem.problem_type,
-                'problem_name': problem.problem_name,
+                'problemName': problem.problem_name,
                 'tags': problem.tags,
                 'ACUser': problem.ac_user,
                 'submitter': problem.submitter

@@ -28,11 +28,11 @@ def view_problem(user, problem_id):
         return HTTPError('Problem cannot view.', 403)
 
     data = {
-        'owner': problem.owner,
-        'description': problem.description,
+        'status': problem.problem_status,
         'type': problem.problem_type,
         'problemName': problem.problem_name,
-        'status': problem.problem_status,
+        'description': problem.description,
+        'owner': problem.owner,
         'tags': problem.tags
         #'pdf':
     }
@@ -69,19 +69,19 @@ def manage_problem(user, problem_id=None):
             return HTTPError('Problem not exist.', 404)
         if user.role == 1 and problem.owner != user.username:
             return HTTPError('Not the owner.', 403)
-    '''
-    if request.method == 'POST' or request.method == 'PUT':
-        test_case
-    '''
 
     if request.method == 'GET':
         data = {
             'problemName': problem.problem_name,
             'status': problem.problem_status,
             'type': problem.problem_type,
-            'description': problem_type.description,
+            'description': problem.description,
             'tags': problem.tags,
-            'testCase': problem.test_case,
+            'testCase': {
+                'language': problem.test_case['language'],
+                'fillInTemplate': problem.test_case['fill_in_template'],
+                'cases': problem.test_case['cases']
+            },
             'ACUser': problem.ac_user,
             'submitter': problem.submitter
         }

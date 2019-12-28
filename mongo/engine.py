@@ -107,7 +107,7 @@ class Course(Document):
 
 class Number(Document):
     name = StringField()
-    number = IntField()
+    number = IntField(default=1)
 
 
 class ProblemTestCase(EmbeddedDocument):

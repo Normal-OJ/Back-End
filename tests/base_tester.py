@@ -1,6 +1,6 @@
 from mongoengine import connect
 from mongo import *
-from mongo import engine, add_problem
+from mongo import engine
 from .conftest import *
 
 
