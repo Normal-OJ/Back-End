@@ -189,14 +189,14 @@ def get_submission_list(offset, count, problem_id, submission_id, username,
 
     def truncate_offline_problem_submissions(submissions):
         # status == 0 for online problem
-        submissions = [
-            submission.problem.problem_status == 0
-            for submission in submissions
+        return [
+            submission for submission in submissions
+            if submission.problem.problem_status == 0
         ]
 
     # teachers and admin can view offline problems
     if view_offline_problem_submissions() != True:
-        truncate_offline_problem_submissions(submissions)
+        submissions = truncate_offline_problem_submissions(submissions)
 
     if offset >= len(submissions):
         return HTTPError(f'offset ({offset}) is out of range!', 400)
@@ -206,8 +206,7 @@ def get_submission_list(offset, count, problem_id, submission_id, username,
     submissions = submissions[offset:right]
 
     usernames = [s.user.username for s in submissions]
-    submissions = submissions.to_json()
-    submissions = json.loads(submissions)
+    submissions = [json.loads(s.to_json()) for s in submissions]
 
     for s, n in zip(submissions, usernames):
         del s['code']

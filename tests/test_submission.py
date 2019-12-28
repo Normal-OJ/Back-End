@@ -8,6 +8,7 @@ from datetime import datetime
 from pprint import pprint
 
 from mongo import *
+from mongo import engine
 from tests.base_tester import BaseTester
 
 from model.submission import assign_token, verify_token, tokens
@@ -19,7 +20,7 @@ def problem_ids(forge_client):
 
     def problem_data():
         return {
-            'status': 1,
+            'status': random.randint(0, 1),
             'type': 0,
             'description': '',
             'tags': ['test'],
@@ -71,8 +72,9 @@ class TestSubmissionUtils:
 
 
 class SubmissionTester(BaseTester):
-    init_submission_count = 16
+    init_submission_count = 32
     submissions = []
+    offline_submissions = []
     source = {
         'c11': {
             'lang': 0,
@@ -182,28 +184,58 @@ class SubmissionTester(BaseTester):
 
         # insert some submission into db
         cls.submissions = []
-        names = itertools.cycle(
-            ['student', 'teacher', 'admin', 'teacher-2', 'student-2'])
-        pids = itertools.cycle([
-            *problem_ids('admin', 3),
-            *problem_ids('teacher', 2),
-            *problem_ids('teacher-2', 4),
+        cls.offline_submissions = []
+
+        # funtionc for create submissions
+        def submit(count, names, pids):
+            for _, name, pid in zip('x' * count, names, pids):
+                lang = 0
+                now = datetime.now()
+                _id = Submission.add(problem_id=pid,
+                                     username=name,
+                                     lang=lang,
+                                     timestamp=now)
+                status = engine.Problem.objects.get(
+                    problem_id=pid).problem_status
+                submission = {
+                    'submissionId': _id,
+                    'problemId': pid,
+                    'problemStatus': status,
+                    'username': name,
+                    'lang': lang,
+                    'timestamp': now
+                }
+
+                if status == 0:
+                    cls.submissions.append(submission)
+                else:
+                    cls.offline_submissions.append(submission)
+
+        # name for teacher and admin
+        a_names = itertools.cycle([
+            'teacher',
+            'admin',
+            'teacher-2',
         ])
-        for _, name, pid in zip('x' * SubmissionTester.init_submission_count,
-                                names, pids):
-            lang = 0
-            now = datetime.now()
-            _id = Submission.add(problem_id=pid,
-                                 username=name,
-                                 lang=lang,
-                                 timestamp=now)
-            cls.submissions.append({
-                'submissionId': _id,
-                'problemId': pid,
-                'username': name,
-                'lang': lang,
-                'timestamp': now
-            })
+        # student names
+        s_names = itertools.cycle([
+            'student',
+            'student-2',
+        ])
+        pids = itertools.cycle([
+            *problem_ids('admin', 5),
+            *problem_ids('teacher', 5),
+            *problem_ids('teacher-2', 5),
+        ])
+        submit(cls.init_submission_count, a_names, pids)
+
+        # fliter online problem ids
+        pids = [next(pids) for _ in range(15)]
+        pids = itertools.cycle([
+            pid for pid in pids
+            if engine.Problem.objects.get(problem_id=pid).problem_status == 0
+        ])
+        submit(cls.init_submission_count, s_names, pids)
 
     @classmethod
     def teardown_method(cls):
@@ -246,7 +278,7 @@ class TestGetSubmission(SubmissionTester):
     def test_get_submission_list_with_maximun_offset(self, client):
         rv, rv_json, rv_data = self.request(
             client, 'get',
-            f'/submission/?offset={SubmissionTester.init_submission_count}&count=1'
+            f'/submission/?offset={SubmissionTester.init_submission_count * 2}&count=1'
         )
 
         print(rv_json)
@@ -260,7 +292,8 @@ class TestGetSubmission(SubmissionTester):
         pprint(rv_json)
 
         assert rv.status_code == 200
-        assert len(rv_data['submissions']) == self.init_submission_count
+        # only get online submissions
+        assert len(rv_data['submissions']) == len(self.submissions)
 
         offset = self.init_submission_count // 2
         rv, rv_json, rv_data = self.request(
@@ -269,8 +302,7 @@ class TestGetSubmission(SubmissionTester):
         pprint(rv_json)
 
         assert rv.status_code == 200
-        assert len(rv_data['submissions']) == (self.init_submission_count -
-                                               offset)
+        assert len(rv_data['submissions']) == (len(self.submissions) - offset)
 
     def test_get_submission_list_over_db_size(self, client):
         rv, rv_json, rv_data = self.request(
@@ -281,8 +313,7 @@ class TestGetSubmission(SubmissionTester):
         pprint(rv_json)
 
         assert rv.status_code == 200
-        assert len(
-            rv_data['submissions']) == SubmissionTester.init_submission_count
+        assert len(rv_data['submissions']) == len(self.submissions)
 
     def test_get_submission_without_login(self, client):
         rv = client.get(f'/submission/{self.submissions[0]["submissionId"]}')
