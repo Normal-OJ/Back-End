@@ -62,7 +62,8 @@ def add_problem(user, courses, status, type, problem_name, description, tags,
                 test_case):
     serial_number = Number("serial_number").obj
 
-    engine.Problem(problem_id=serial_number.number,
+    problem_id = serial_number.number
+    engine.Problem(problem_id=problem_id,
                    courses=courses,
                    problem_status=status,
                    problem_type=type,
@@ -75,9 +76,11 @@ def add_problem(user, courses, status, type, problem_name, description, tags,
     serial_number.number += 1
     serial_number.save()
 
+    return problem_id
 
-def edit_problem(user, problem_id, courses, status, type, problem_name, description,
-                 tags, test_case):
+
+def edit_problem(user, problem_id, courses, status, type, problem_name,
+                 description, tags, test_case):
     problem = Problem(problem_id).obj
 
     problem.courses = courses

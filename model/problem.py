@@ -55,11 +55,15 @@ def manage_problem(user, problem_id=None):
                       'problem_name': 'problemName',
                       'test_case': 'testCase'
                   })
-    def modify_problem(courses, status, type, problem_name, description, tags, test_case):
+    def modify_problem(courses, status, type, problem_name, description, tags,
+                       test_case):
         if request.method == 'POST':
-            add_problem(user, courses, status, type, problem_name, description, tags, test_case)
+            number = add_problem(user, courses, status, type, problem_name, description, tags, test_case)
+            return HTTPResponse('Success.', data={'problemId': number})
         elif request.method == 'PUT':
-            edit_problem(user, problem_id, courses, status, type, problem_name, description, tags, test_case)
+            edit_problem(user, problem_id, courses, status, type, problem_name,
+                         description, tags, test_case)
+            return HTTPResponse('Success.')
 
     if request.method != 'POST':
         problem = Problem(problem_id).obj
@@ -90,12 +94,11 @@ def manage_problem(user, problem_id=None):
         return HTTPResponse('Success.')
     else:
         try:
-            modify_problem()
+            return modify_problem()
         except ValidationError as ve:
             return HTTPError('Invalid or missing arguments.',
                              400,
                              data=ve.to_dict())
-        return HTTPResponse('Success.')
 
 
 @problem_api.route('/clone', methods=['POST'])
@@ -105,6 +108,8 @@ def clone_problem(user, problem_id):
     problem = Problem(problem_id).obj
     if problem is None:
         return HTTPError('Problem not exist.', 404)
+    if user.role == 1 and problem.owner != user.username:
+        return HTTPError('Not the owner.', 403)
 
     copy_problem(user, problem_id)
     return HTTPResponse('Success.')
