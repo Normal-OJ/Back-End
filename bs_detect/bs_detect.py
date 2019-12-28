@@ -98,7 +98,7 @@ class BSDetect:
             return result, time.time() - cur
         except subprocess.TimeoutExpired:
             process.kill()
-            raise subprocess.TimeoutExpired(full_command , time_limit)
+            raise subprocess.TimeoutExpired(full_command, time_limit)
 
     def __python_checker__(self, code_filename, time_limit):
         command_args = []
@@ -111,8 +111,7 @@ class BSDetect:
         command_args.append(disable_item)
         command_args.append(code_filename)
         # run bad smell detection & set up timer
-        result, _ = self.__command_runner__("pylint", command_args,
-                                                time_limit)
+        result, _ = self.__command_runner__("pylint", command_args, time_limit)
         return len([
             line
             for line in result.splitlines() if str(line).strip("\n ") != ""
@@ -124,10 +123,9 @@ class BSDetect:
         cppcheck_args = [code_filename]
         for arg in self.__cppcheck_args__:
             cppcheck_args.append(arg)
-        
-        result, use_time = self.__command_runner__("cppcheck",
-                                                       cppcheck_args,
-                                                       time_limit)
+
+        result, use_time = self.__command_runner__("cppcheck", cppcheck_args,
+                                                   time_limit)
         report.update({"cppcheck": result})
         time_limit -= use_time
 
@@ -137,8 +135,8 @@ class BSDetect:
         for arg in self.__clang_format_args__:
             clang_format_args.append(arg)
         result, use_time = self.__command_runner__("clang-format",
-                                                       clang_format_args,
-                                                       time_limit)
+                                                   clang_format_args,
+                                                   time_limit)
         time_limit -= use_time
 
         # create tmp files
@@ -187,4 +185,5 @@ class BSDetect:
         elif detector_type == "cpp_checkers":
             return self.__c_checker__(code_filename, time_limit)
         else:
-            raise KeyError("unexpected detector type:{0}".format(detector_type))
+            raise KeyError(
+                "unexpected detector type:{0}".format(detector_type))
