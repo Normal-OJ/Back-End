@@ -28,7 +28,7 @@ class TestAdminCourse(BaseTester):
         assert rv.status_code == 400
 
     def test_add(self, client_admin):
-        # add a course
+        # add courses
         rv = client_admin.post('/course',
                                json={
                                    'course': 'math',
@@ -37,9 +37,13 @@ class TestAdminCourse(BaseTester):
         json = rv.get_json()
         assert rv.status_code == 200
 
-        rv = client_admin.get('/course')
+        rv = client_admin.post('/course',
+                               json={
+                                   'course': 'history',
+                                   'teacher': 'teacher'
+                               })
         json = rv.get_json()
-        # assert json['data'] == [{'course': 'math', 'teacher': 'admin'}]
+        assert rv.status_code == 200
 
     def test_add_with_existent_course_name(self, client_admin):
         # add a course with existent name
@@ -52,27 +56,13 @@ class TestAdminCourse(BaseTester):
         assert json['message'] == 'Course exists.'
         assert rv.status_code == 400
 
-    def test_view(self, client_admin):
-        # Get all courses
-        rv = client_admin.get('/course')
-        json = rv.get_json()
-        assert rv.status_code == 200
-        # assert json['data'] == [{'course': 'math', 'teacher': 'admin'}]
-
-    def test_view_with_non_member(self, client_student):
-        # Get all courses with a user that is not a member
-        rv = client_student.get('/course')
-        json = rv.get_json()
-        assert rv.status_code == 200
-        assert json['data'] == []
-
     def test_edit_with_invalid_course_name(self, client_admin):
         # edit a course with non-existent course
         rv = client_admin.put('/course',
                               json={
-                                  'course': 'history',
+                                  'course': 'c++',
                                   'newCourse': 'PE',
-                                  'teacher': 'admin'
+                                  'teacher': 'teacher'
                               })
         json = rv.get_json()
         assert json['message'] == 'Course not found.'
@@ -82,9 +72,9 @@ class TestAdminCourse(BaseTester):
         # edit a course with non-existent username
         rv = client_admin.put('/course',
                               json={
-                                  'course': 'math',
+                                  'course': 'history',
                                   'newCourse': 'PE',
-                                  'teacher': 'adminn'
+                                  'teacher': 'teacherr'
                               })
         json = rv.get_json()
         assert json['message'] == 'User not found.'
@@ -94,27 +84,23 @@ class TestAdminCourse(BaseTester):
         # edit a course
         rv = client_admin.put('/course',
                               json={
-                                  'course': 'math',
+                                  'course': 'history',
                                   'newCourse': 'PE',
-                                  'teacher': 'admin'
+                                  'teacher': 'teacher'
                               })
         json = rv.get_json()
         assert rv.status_code == 200
 
-        rv = client_admin.get('/course')
-        json = rv.get_json()
-        # assert json['data'] == [{'course': 'PE', 'teacher': 'admin'}]
-
     def test_delete_with_invalid_course_name(self, client_admin):
         # delete a course with non-existent course name
-        rv = client_admin.delete('/course', json={'course': 'math'})
+        rv = client_admin.delete('/course', json={'course': 'art'})
         json = rv.get_json()
         assert json['message'] == 'Course not found.'
         assert rv.status_code == 404
 
     def test_delete_with_non_owner(self, client_teacher):
         # delete a course with a user that is not the owner nor an admin
-        rv = client_teacher.delete('/course', json={'course': 'PE'})
+        rv = client_teacher.delete('/course', json={'course': 'math'})
         json = rv.get_json()
         assert json['message'] == 'Forbidden.'
         assert rv.status_code == 403
@@ -122,13 +108,25 @@ class TestAdminCourse(BaseTester):
     def test_delete(self, client_admin):
         # delete a course
         rv = client_admin.delete('/course', json={
-            'course': 'PE',
+            'course': 'math',
         })
         json = rv.get_json()
         assert rv.status_code == 200
 
+    def test_view(self, client_admin):
+        # Get all courses
         rv = client_admin.get('/course')
         json = rv.get_json()
+        assert rv.status_code == 200
+        assert len(json['data']) == 1
+        assert json['data'][0]['course'] == 'PE'
+        assert json['data'][0]['teacher']['username'] == 'teacher'
+
+    def test_view_with_non_member(self, client_student):
+        # Get all courses with a user that is not a member
+        rv = client_student.get('/course')
+        json = rv.get_json()
+        assert rv.status_code == 200
         assert json['data'] == []
 
 
@@ -212,10 +210,6 @@ class TestTeacherCourse(BaseTester):
         rv = client_student.get('/course/math')
         json = rv.get_json()
         assert rv.status_code == 200
-        assert json['data'] == {
-            'TAs': ['admin'],
-            'studentNicknames': {
-                'student': 'noobs'
-            },
-            'teacher': 'admin'
-        }
+        assert json['data']['TAs'][0]['username'] == 'admin'
+        assert json['data']['teacher']['username'] == 'admin'
+        assert json['data']['studentNicknames'] == {'student': 'noobs'}

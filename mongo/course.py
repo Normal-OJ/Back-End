@@ -5,7 +5,7 @@ import re
 
 __all__ = [
     'Course', 'get_all_courses', 'delete_course', 'add_course', 'edit_course',
-    'perm'
+    'perm', 'edit_user', 'get_user_courses'
 ]
 
 
@@ -35,6 +35,20 @@ def get_all_courses():
     return engine.Course.objects
 
 
+def get_user_courses(user):
+    return user.courses if user.role != 0 else get_all_courses()
+
+
+def edit_user(user, course, add):
+    if add:
+        if course not in user.courses:
+            user.courses.append(course)
+    elif course in user.courses:
+        user.courses.remove(course)
+
+    user.reload()
+
+
 def delete_course(user, course):
     co = Course(course).obj
     if co is None:
@@ -44,6 +58,7 @@ def delete_course(user, course):
         # user is not the TA or teacher in course
         raise PermissionError
 
+    edit_user(co.teacher, co, False)
     co.delete()
     return True
 
@@ -55,7 +70,9 @@ def add_course(course, teacher):
     if not te:
         raise engine.DoesNotExist('User')
 
-    engine.Course(course_name=course, teacher=te.obj).save()
+    co = engine.Course(course_name=course, teacher=te.obj)
+    co.save()
+    edit_user(te.obj, co, True)
     return True
 
 
@@ -73,6 +90,9 @@ def edit_course(user, course, new_course, teacher):
         raise engine.DoesNotExist('User')
 
     co.course_name = new_course
+    if te.obj != co.teacher:
+        edit_user(co.teacher, co, False)
+        edit_user(te.obj, co, True)
     co.teacher = te.obj
     co.save()
     return True
