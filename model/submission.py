@@ -18,7 +18,7 @@ __all__ = ['submission_api']
 submission_api = Blueprint('submission_api', __name__)
 
 # submission api config
-RATE_LIMIT = int(os.environ.get('SUBMISSION_RATE_LIMIT', 0))
+RATE_LIMIT = int(os.environ.get('SUBMISSION_RATE_LIMIT', 5))
 SOURCE_PATH = pathlib.Path(
     os.environ.get('SUBMISSION_SOURCE_PATH', 'submissions'))
 SOURCE_PATH.mkdir(exist_ok=True)
@@ -109,27 +109,28 @@ def create_submission(user, language_type, problem_id):
                 403,
             )
     # 2. user is not in a contest and the problem belong to a contest
-    elif len(problem.course_ids) != 0:
-        contest_names = [
-            engine.Contest(id=_id).name for _id in problem.contest_ids
-        ]
-        contest_names = '\n'.join(contest_names)
-        return HTTPError(
-            f'you are not a particenpate of these contests:\n {contest_names}',
-            403,
-        )
+    # TODO: fix permission check about contests, this part still has problem 🦄
+    # elif len(problem.courses) != 0:
+    #     contest_names = [
+    #         engine.Contest(id=_id).name for _id in problem.contest
+    #     ]
+    #     contest_names = '\n'.join(contest_names)
+    #     return HTTPError(
+    #         f'you are not a particenpate of these contests:\n {contest_names}',
+    #         403,
+    #     )
     # 3. if the user doesn't bolong to the course and the problem does
-    course_names = ''
-    course_permissions = []
-    for course_id in problem.course_ids:
-        course = Course(course_id)
-        course_permissions.append(perm(course, user))
-        course_names += course.name + '\n'
-    if any(course_permissions):
-        return HTTPError(
-            f'You are not a student of these courses: {course_names}',
-            403,
-        )
+    if len(problem.courses):
+        course_names = ''
+        course_permissions = []
+        for course in problem.courses:
+            course_permissions.append(perm(course, user))
+            course_names += course.course_name + '\n'
+        if not any(course_permissions):
+            return HTTPError(
+                f'You are not a student of these courses: {course_names}',
+                403,
+            )
 
     # insert submission to DB
     try:
@@ -160,10 +161,11 @@ def create_submission(user, language_type, problem_id):
 
 
 @submission_api.route('/', methods=['GET'])
+@login_required
 @Request.args('offset', 'count', 'problem_id', 'submission_id', 'username',
               'status', 'language_type')
-def get_submission_list(offset, count, problem_id, submission_id, username,
-                        status, language_type):
+def get_submission_list(user, offset, count, problem_id, submission_id,
+                        username, status, language_type):
     '''
     get the list of submission data
     avaliable filter:
@@ -208,49 +210,32 @@ def get_submission_list(offset, count, problem_id, submission_id, username,
     submissions = engine.Submission.objects.order_by('-timestamp')
 
     # filter by user args
-    user = User(username)
+    q_user = User(username)
     q = {
         'problem': Problem(problem_id).obj,
         'id': submission_id,
         'status': status,
         'language': language_type,
-        'user': user.obj if user else None
+        'user': q_user.obj if q_user else None
     }
     nk = [k for k, v in q.items() if v is None]
     for k in nk:
         del q[k]
-    submissions = submissions.filter(**q)
+    submissions = [
+        *filter(lambda s: can_view(user, s.problem), submissions.filter(**q))
+    ]
 
-    # filter by role
-    @identity_verify(0, 1, 2)
-    def get_user(user) -> User:
-        return user
-
-    def can_view_offline(user, submission):
-        # everyone can view online submission
-        if submission.problem.problem_status == 0:
-            return True
-        # guest can not view offline problem
-        if not isinstance(user, User):
-            return False
-        # user
-        return any(
-            perm(Course(id=course_id), user) >= 2
-            for course_id in submission.problem.course_ids)
-
-    user = get_user()
-    submissions = [*filter(lambda s: can_view_offline(user, s), submissions)]
-
-    if offset >= len(submissions):
+    if offset >= len(submissions) and len(submissions):
         return HTTPError(
             f'offset ({offset}) is out of range!',
             400,
         )
 
-    right = min(len(submissions), offset +
-                count) if count != -1 else len(submissions)
-    submissions = submissions[offset:right]
+    right = min(offset + count, len(submissions))
+    if count == -1:
+        right = len(submissions)
 
+    submissions = submissions[offset:right]
     usernames = [s.user.username for s in submissions]
     submissions = [Submission(s.id).to_py_obj for s in submissions]
 
@@ -285,18 +270,17 @@ def get_submission_list(offset, count, problem_id, submission_id, username,
 @submission_required
 def get_submission(user, submission):
     ret = submission.to_py_obj
-    ret['problemId'] = engine.Problem.objects.get(id=ret['problemId']).problem_id
 
-    if submission.user.username != user.username:
-        # normal user can not view other's source
-        if user.role == 2:
-            del ret['code']
-        # teachers and TAs can view those who in thrie courses
-        elif user.role == 1:
-            for course in submission.problem.course_ids:
-                if perm(course, user) <= 1:
-                    del ret['code']
-                    break
+    # can not view the problem, also the submission
+    if not can_view(user, submission.problem):
+        del ret['code']
+    # you can view self submission
+    elif user.username != submission.user.username:
+        # TA and teacher can view students' submissions
+        for course in submission.problem.courses:
+            if perm(course, user) >= 2:
+                break
+        del ret['code']
 
     return HTTPResponse(data=ret)
 
@@ -368,20 +352,15 @@ def update_submission(user, submission, token):
 
         # send submission to snadbox for judgement
         resp = rq.post(
-            judge_url, data=post_data, files=files,
-            cookies=request.cookies)  # cookie: for debug, need better solution
+            judge_url,
+            data=post_data,
+            files=files,
+            cookies=request.cookies,
+        )  # cookie: for debug, need better solution
 
-        if resp.status_code == 400:
-            return HTTPError(
-                resp.text,
-                400,
-            )
         if resp.status_code != 200:
             # unhandled error
-            return HTTPError(
-                resp.text,
-                500,
-            )
+            return HTTPError(resp.text, 500)
         return HTTPResponse(f'{submission} recieved.')
 
     @Request.files('code')
@@ -427,11 +406,14 @@ def update_submission(user, submission, token):
         try:
             for case in cases:
                 del case['exitCode']
+            # get the case which has the longest execution time
+            m_case = sorted(cases, key=lambda c: c['execTime'])[-1]
             submission.update(
+                score=score,
                 status=status,
                 cases=cases,
-                exec_time=cases[-1]['execTime'],
-                memory_usage=cases[-1]['memoryUsage'],
+                exec_time=m_case['execTime'],
+                memory_usage=m_case['memoryUsage'],
             )
         except ValidationError as e:
             return HTTPError(
@@ -455,25 +437,10 @@ def update_submission(user, submission, token):
         )
 
     # if user not equal, reject
-    if user.user_id != submission.user.user_id:
-        err_msg = \
-        '!!!!Warning!!!!\n'
-        f'The user {user} (id: {user.user_id}) is trying to '
-        f'submit data to {submission}, '
-        f'which shold belong to {submission.user.username} (id: {submission.user.user_id})'
+    if submission.user != user:
         return HTTPError(
-            err_msg,
+            'user not equal!',
             403,
-            data={
-                'excepted': {
-                    'username': submission.user.username,
-                    'userId': submission.user.user_id,
-                },
-                'received': {
-                    'username': submission.user.username,
-                    'userId': submission.user.user_id,
-                }
-            },
         )
 
     if request.content_type == 'application/json':

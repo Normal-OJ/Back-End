@@ -29,7 +29,6 @@ class Problem:
         try:
             obj = engine.Problem.objects.get(problem_id=self.problem_id)
         except:
-            print(engine.Problem.objects)
             return None
         return obj
 
@@ -39,7 +38,7 @@ def can_view(user, problem):
     if user.role == 0:
         return True
     for course in problem.courses:
-        permission = 1 if problem.problem_name == "Public" else perm(
+        permission = 1 if course.course_name == "Public" else perm(
             course, user)
         if permission and (problem.problem_status == 0 or permission >= 2):
             return True

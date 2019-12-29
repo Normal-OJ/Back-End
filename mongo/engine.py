@@ -70,7 +70,7 @@ class Homework(Document):
                                  db_field='scoreboardStatus')
     course_id = StringField(required=True, db_field='courseId')
     duration = EmbeddedDocumentField(Duration, default=Duration)
-    problem_ids = ListField(StringField(), db_field='problemIds')
+    problem_ids = ListField(IntField(), db_field='problemIds')
     student_status = DictField(db_field='studentStatus')
 
 
@@ -84,7 +84,7 @@ class Contest(Document):
                                      db_field='duration',
                                      default=Duration)
     contest_mode = IntField(default=0, choice=[0, 1], db_field='contestMode')
-    problem_ids = ListField(StringField(), db_field='problemIds')
+    problem_ids = ListField(IntField(), db_field='problemIds')
     participants = DictField(db_field='participants')
 
 

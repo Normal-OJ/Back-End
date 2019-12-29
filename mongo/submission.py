@@ -31,11 +31,11 @@ class Submission(MongoBase, engine=engine.Submission):
 
         old_keys = [
             '_id',
-            'problem',
+            # 'problem',
         ]
         new_keys = [
             'submissionId',
-            'problemId',
+            # 'problemId',
         ]
         ret = json.loads(self.obj.to_json())
         for old, new in zip(old_keys, new_keys):
@@ -43,6 +43,9 @@ class Submission(MongoBase, engine=engine.Submission):
             del ret[old]
 
         ret['timestamp'] = ret['timestamp']['$date'] // 1000
+        ret['problemId'] = engine.Problem.objects.get(
+            id=ret['problem']['$oid']).problem_id
+        del ret['problem']
 
         return ret
 
