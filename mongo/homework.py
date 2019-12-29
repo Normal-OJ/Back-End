@@ -1,5 +1,6 @@
 from mongo import *
 from mongo.course import perm
+from mongo.problem import Problem
 from datetime import datetime
 
 __all__ = ['Homework']
@@ -49,6 +50,11 @@ class Homework:
                     'problemStatus': 1,
                     'submissonIds': []
                 }
+                # add course to each problem
+                problem = Problem(problem_id=problem_id).obj
+                problem.courses.append(course)
+                problem.save()
+
         for key in students:
             user_ids[key] = user_problems
         homework.student_status = user_ids
@@ -96,8 +102,11 @@ class Homework:
         for pid in new_ids:
             if pid not in homework.problem_ids:
                 homework.problem_ids.append(pid)
+                problem = Problem(problem_id=pid).obj
+                problem.courses.append(course)
+                problem.save()
                 for key in students:
-                    homework.student_status[key][pid] = {
+                    homework.student_status[key][str(pid)] = {
                         'score': 0,
                         'problemStatus': 1,
                         'submissonIds': []
@@ -105,8 +114,11 @@ class Homework:
         # delete
         for pid in drop_ids:
             homework.problem_ids.remove(pid)
-            for user_id in homework.student_status:
-                homework.student_status[user_id].pop(pid)
+            problem = Problem(problem_id=pid).obj
+            problem.courses.remove(course)
+            problem.save()
+            for status in homework.student_status.values():
+                del status[str(pid)]
         if markdown is not None:
             homework.markdown = markdown
 

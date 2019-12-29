@@ -1,6 +1,7 @@
 from flask import Flask
 from model import *
 from mongo import *
+from mongo import engine
 
 # Create a flask app
 app = Flask(__name__)
@@ -33,3 +34,6 @@ if not User("first_admin"):
 
 if Course("Public").obj is None:
     add_course("Public", "first_admin")
+
+if Number("serial_number").obj is None:
+    engine.Number(name="serial_number").save()
