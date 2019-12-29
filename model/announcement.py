@@ -1,104 +1,93 @@
-from flask import Blueprint, request
-from .auth import *
-from mongo import *
-from mongo import engine
-from .utils import *
-from mongo.announcement import *
-from mongo.course import *
 from datetime import datetime
-import os
+from flask import Blueprint, request
 
-__all__ = ['announcement_api']
+from mongo import *
+from .auth import *
+from .utils import *
 
-announcement_api = Blueprint('announcement_api', __name__)
+__all__ = ['ann_api']
 
-
-@announcement_api.route('/System', methods=['GET'])
-def get_system_announcement():
-    try:
-        system_announcements = found_announcement('Public')
-    except:
-        return HTTPError('Announcement not exists', 404)
-    data = []
-    system_announcement = {}
-    for x in system_announcements:
-        system_announcement = {
-            "id": str(x.id),
-            "title": x.announcement_name,
-            "content": x.markdown,
-            "author": x.author.username,
-            "created": x.created.timestamp(),
-            "updated": x.updated.timestamp()
-        }
-        data.append(system_announcement)
-    return HTTPResponse('Success get announcement.', 200, 'ok', data)
+ann_api = Blueprint('ann_api', __name__)
 
 
-@announcement_api.route('/<course>', methods=['GET'])
+@ann_api.route('/', methods=['GET', 'POST', 'PUT', 'DELETE'])
+@ann_api.route('/<course_name>', methods=['GET'])
 @login_required
-def get_announcement(user, course):  #course = course_name
-    announcements = None
-    try:
-        announcements = found_announcement(course)
-    except engine.DoesNotExist:
-        return HTTPError('Announcement not exists', 404)
-    except FileNotFoundError:
-        return HTTPError('Announcement not exists', 404)
-    except FileExistsError:
-        return HTTPError('Announcement not exists', 404)
-    #refer course
-    course_name = course
-    course_obj = Course(course_name).obj
-    permission = perm(course_obj, user)
-    if not permission:
-        return HTTPError('You are not in this course.', 403)
-    data = []
-    announcement = {}
-    for x in announcements:
-        announcement = {
-            "id": str(x.id),
-            "title": x.announcement_name,
-            "content": x.markdown,
-            "author": x.author.username,
-            "created": x.created.timestamp(),
-            "updated": x.updated.timestamp()
+def anncmnt(user, course_name=None):
+    def get_anns():
+        # Get an announcement list
+        try:
+            anns = Announcement.ann_list(user.obj, course_name or 'Public')
+        except (DoesNotExist, ValidationError):
+            return HTTPError('Cannot Access a Announcement', 403)
+        if anns is None:
+            return HTTPError('Announcement Not Found', 404)
+        data = [{
+            'annId': str(an.id),
+            'title': an.title,
+            'createTime': int(an.create_time.timestamp()),
+            'updateTime': int(an.update_time.timestamp()),
+            'creater': User(an.creater.username).info,
+            'updater': User(an.updater.username).info,
+            'markdown': an.markdown
+        } for an in anns]
+        return HTTPResponse('Announcement List', data=data)
+
+    @Request.json('title', 'markdown', 'course_name')
+    def create(title, markdown, course_name):
+        # Create a new announcement
+        try:
+            ann = Announcement.new_ann(course_name or 'Public', title,
+                                       user.obj, markdown)
+        except ValidationError as ve:
+            return HTTPError('Failed to Create Announcement',
+                             400,
+                             data=ve.to_dict())
+        if ann is None:
+            return HTTPError('Failed to Create Announcement', 403)
+        data = {
+            'annId': str(ann.id),
+            'createTime': int(ann.create_time.timestamp())
         }
-        data.append(announcement)
-    return HTTPResponse('Success get announcement.', data=data)
+        return HTTPResponse('Announcement Created', data=data)
 
+    @Request.json('ann_id', 'title', 'markdown')
+    def update(ann_id, title, markdown):
+        # Update an announcement
+        ann = Announcement(ann_id)
+        if not ann:
+            return HTTPError('Announcement Not Found', 404)
+        course = ann.course
+        if user.role != 0 and user != course.teacher and user not in course.tas:
+            return HTTPError('Failed to Update Announcement', 403)
+        try:
+            ann.update(title=title,
+                       markdown=markdown,
+                       update_time=datetime.utcnow(),
+                       updater=user.obj)
+        except ValidationError as ve:
+            return HTTPError('Failed to Update Announcement',
+                             400,
+                             data=ve.to_dict())
+        return HTTPResponse('Updated')
 
-@announcement_api.route('/', methods=['POST', 'PUT', 'DELETE'])
-@Request.json('course', 'title', 'content', 'targetAnnouncementId')
-@login_required
-def modify_announcement(user, course, title, content,
-                        targetAnnouncementId):  # course = course_name
-    #refer course
-    '''permission 4: admin, 3: teacher, 2: TA, 1: student, 0: not found
-    '''
-    forbidden_message = 'Forbidden.You donˊt have authority to post/edit announcement.'
-    # if you only want to edit() or delete(), have id not know couse
-    if course == "":
-        course = "Public"
-    course_obj = Course(course).obj
-    if course_obj is None:
-        return HTTPError('Course not found.', 404)
-    permission = perm(course_obj, user)
-    if permission == 0:
-        return HTTPError('You are not in this course.', 403)
-    if permission == 1:
-        return HTTPError(forbidden_message, 403)
-    # System announcement must admin
-    if course == 'Public' and user.role != 0:
-        return HTTPError(forbidden_message, 403)
-    r = None  # r set Response message
-    if request.method == 'POST':
-        r = add_announcement(user, course, title, content)
-    if request.method == 'PUT':
-        r = edit_announcement(user, title, content, targetAnnouncementId)
-    if request.method == 'DELETE':
-        r = delete_announcement(user, targetAnnouncementId)
-    # Response
-    if r is not None:
-        return HTTPError(r, 404)
+    @Request.json('ann_id')
+    def delete(ann_id):
+        # Delete an announcement
+        ann = Announcement(ann_id)
+        if not ann:
+            return HTTPError('Announcement Not Found', 404)
+        course = ann.course
+        if user.role != 0 and user != course.teacher and user not in course.tas:
+            return HTTPError('Failed to Delete Announcement', 403)
+        ann.update(status=1)
+        return HTTPResponse('Deleted')
 
-    return HTTPResponse('Success modify announcement.')
+    methods = {
+        'GET': get_anns,
+        'POST': create,
+        'PUT': update,
+        'DELETE': delete
+    }
+
+    return methods[request.method]()

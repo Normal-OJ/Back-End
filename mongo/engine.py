@@ -12,7 +12,7 @@ connect('normal-oj', host=MONGO_HOST)
 
 class Profile(EmbeddedDocument):
     displayed_name = StringField(db_field='displayedName',
-                                 required=True,
+                                 default='',
                                  max_length=16)
     bio = StringField(max_length=64, required=True, default='')
 
@@ -36,40 +36,41 @@ class EditorConfig(EmbeddedDocument):
 
 
 class Duration(EmbeddedDocument):
-    start = DateTimeField()
-    end = DateTimeField()
+    start = DateTimeField(default=datetime.now())
+    end = DateTimeField(default=datetime.max)
 
 
 class User(Document):
+    username = StringField(max_length=16, required=True, primary_key=True)
     user_id = StringField(db_field='userId',
                           max_length=24,
                           required=True,
                           unique=True)
-    username = StringField(max_length=16, required=True, unique=True)
     email = EmailField(required=True, unique=True)
+    md5 = StringField(required=True)
     active = BooleanField(default=False)
     role = IntField(default=2, choices=[0, 1, 2])
-    profile = EmbeddedDocumentField(Profile, default=Profile, null=True)
+    profile = EmbeddedDocumentField(Profile, default=Profile)
     editor_config = EmbeddedDocumentField(EditorConfig,
                                           db_field='editorConfig',
                                           default=EditorConfig,
                                           null=True)
     # contest_id = ReferenceField('Contest', db_field='contestId')
-    course_ids = ListField(ReferenceField('Course'), db_field='courseIds')
+    courses = ListField(ReferenceField('Course'))
     # submission_ids = ListField(ReferenceField('Submission'), db_field='submissionIds')
     last_submit = DateTimeField(default=datetime.min)
 
 
 class Homework(Document):
-    name = StringField(max_length=64, required=True, db_field='homeworkName')
-    markdown = StringField(max_length=10000)
+    homework_name = StringField(max_length=64,
+                                required=True,
+                                db_field='homeworkName')
+    markdown = StringField(max_length=10000, default='')
     scoreboard_status = IntField(default=0,
-                                 choice=[0, 1],
+                                 choices=[0, 1],
                                  db_field='scoreboardStatus')
-    course_id = StringField(db_field='courseId')
-    duration = EmbeddedDocumentField(Duration,
-                                     db_field='duration',
-                                     default=Duration)
+    course_id = StringField(required=True, db_field='courseId')
+    duration = EmbeddedDocumentField(Duration, default=Duration)
     problem_ids = ListField(StringField(), db_field='problemIds')
     student_status = DictField(db_field='studentStatus')
 
@@ -102,7 +103,9 @@ class Course(Document):
     homework = ListField(ReferenceField('Homework', reverse_delete_rule=PULL),
                          db_field='homeworkIds')
     # announcement_ids = ListField(ReferenceField('Announcement'), db_field='announcementIds')
-    # post_ids = ListField(ReferenceField('Post'), db_field='postIds')
+    post_ids = ListField(ReferenceField('Post'),
+                         db_field='postIds',
+                         default=list)
 
 
 class Number(Document):
@@ -174,12 +177,28 @@ class Inbox(Document):
 
 
 class Announcement(Document):
-    #announcement_id = StringField(db_field='announcementId', required=True, unique=True)
-    announcement_name = StringField(db_field='announcementName',
-                                    required=True,
-                                    max_length=64)
-    course_id = ReferenceField('Course', db_field='courseId')
+    status = IntField(default=0, choices=[0, 1])  # not delete / delete
+    title = StringField(max_length=32, required=True)
+    course = ReferenceField('Course', required=True)
+    create_time = DateTimeField(db_field='createTime', default=datetime.utcnow)
+    update_time = DateTimeField(db_field='updateTime', default=datetime.utcnow)
+    creater = ReferenceField('User', required=True)
+    updater = ReferenceField('User', required=True)
+    markdown = StringField(max_length=100000, required=True)
+
+
+class PostThread(Document):
+    markdown = StringField(default='', required=True, max_length=100000)
     author = ReferenceField('User', db_field='author')
+    course_id = ReferenceField('Course', db_field='courseId')
+    depth = IntField(default=0)  # 0 is top post, 1 is reply to post
     created = DateTimeField(required=True)
     updated = DateTimeField(required=True)
-    markdown = StringField(default='', required=True, max_length=100000)
+    status = IntField(default=0, choices=[0, 1])  # not delete / delete
+    reply = ListField(ReferenceField('PostThread', db_field='postThread'),
+                      dafault=list)
+
+
+class Post(Document):
+    post_name = StringField(default='', required=True, max_length=64)
+    thread = ReferenceField('PostThread', db_field='postThread')

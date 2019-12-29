@@ -4,15 +4,13 @@ import pytest
 class TestSignup:
     '''Test Signup
     '''
-    def test_without_username_and_password(self, client):
+    def test_without_username_and_email(self, client):
         # Signup without username and password
         rv = client.post('/auth/signup', json={'password': 'test'})
         json = rv.get_json()
         assert rv.status_code == 400
         assert json['status'] == 'err'
-        assert json['message'] == 'Signup Failed'
-        assert json['data']['email'] == 'Field is required'
-        assert json['data']['username'] == 'Field is required'
+        assert json['message'] == 'Requested Value With Wrong Type'
 
     def test_empty_password(self, client):
         # Signup with empty password
@@ -24,8 +22,7 @@ class TestSignup:
         json = rv.get_json()
         assert rv.status_code == 400
         assert json['status'] == 'err'
-        assert json['message'] == 'Signup Failed'
-        assert json['data']['password'] == 'Field is required'
+        assert json['message'] == 'Requested Value With Wrong Type'
 
     def test_signup(self, client):
         # Signup
@@ -196,18 +193,10 @@ class TestLogout:
     '''Test Logout
     '''
     def test_logout(self, client, test_token):
-        # Logout before login
+        # Logout
         client.set_cookie('test.test', 'piann', test_token)
         rv = client.get('/auth/session')
         json = rv.get_json()
         assert rv.status_code == 200
         assert json['status'] == 'ok'
-        assert json['message'] == 'Goodbye test'
-
-    def test_before_login(self, client):
-        # Logout before login
-        rv = client.get('/auth/session')
-        json = rv.get_json()
-        assert rv.status_code == 403
-        assert json['status'] == 'err'
-        assert json['message'] == 'Not Logged In'
+        assert json['message'] == 'Goodbye'

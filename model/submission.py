@@ -144,12 +144,13 @@ def get_submission_list(offset, count, problem_id, submission_id, username,
         truncate_offline_problem_submissions(submissions)
 
     # filter by user args
+    user = User(username)
     q = {
         'problem_id': problem_id,
         'id': submission_id,
         'status': status,
         'language': language_type,
-        'user': User(username=username).obj
+        'user': user.obj if user else None
     }
     nk = [k for k, v in q.items() if v is None]
     for k in nk:
@@ -172,8 +173,7 @@ def get_submission_list(offset, count, problem_id, submission_id, username,
         del s['cases']
 
         # replace user field with username
-        s['username'] = n
-        del s['user']
+        s['user'] = User(n).info
 
         s['timestamp'] = s['timestamp']['$date']
 
