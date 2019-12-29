@@ -42,12 +42,11 @@ def get_courses(user):
 
     if request.method == 'GET':
         data = []
-        for co in get_all_courses():
-            if perm(co, user):
-                data.append({
-                    'course': co.course_name,
-                    'teacher': User(co.teacher.username).info
-                })
+        for co in get_user_courses(user):
+            data.append({
+                'course': co.course_name,
+                'teacher': User(co.teacher.username).info
+            })
 
         return HTTPResponse('Success.', data=data)
     else:
@@ -77,6 +76,11 @@ def get_course(user, course_name):
                 if not User(ta):
                     return HTTPResponse(f'User: {ta} not found.', 404)
                 tas.append(user)
+
+            for user in course.tas:
+                edit_user(user, course, False)
+            for user in tas:
+                edit_user(user, course, True)
             course.tas = tas
 
         student_dict = {}
@@ -85,6 +89,11 @@ def get_course(user, course_name):
             if not User(student):
                 return HTTPResponse(f'User: {student} not found.', 404)
             student_dict[student] = nickname
+
+        for user in course.student_nicknames:
+            edit_user(User(user).obj, course, False)
+        for user in student_dict:
+            edit_user(User(user).obj, course, True)
         course.student_nicknames = student_dict
 
         course.save()
