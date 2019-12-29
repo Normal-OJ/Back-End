@@ -102,7 +102,9 @@ class Course(Document):
     homework = ListField(ReferenceField('Homework', reverse_delete_rule=PULL),
                          db_field='homeworkIds')
     # announcement_ids = ListField(ReferenceField('Announcement'), db_field='announcementIds')
-    # post_ids = ListField(ReferenceField('Post'), db_field='postIds')
+    post_ids = ListField(ReferenceField('Post'),
+                         db_field='postIds',
+                         default=list)
 
 
 class Number(Document):
@@ -113,12 +115,12 @@ class Number(Document):
 class ProblemTestCase(EmbeddedDocument):
     language = IntField(choices=[0, 1, 2])
     fill_in_template = StringField(db_field='fillInTemplate', max_length=16000)
-    cases = ListField(DictField(), required=True)
+    cases = ListField(DictField())
 
 
 class Problem(Document):
     problem_id = IntField(db_field='problemId', required=True, unique=True)
-    course_ids = ListField(ReferenceField('Course'), db_field='courseIds')
+    courses = ListField(ReferenceField('Course'), default=list)
     problem_status = IntField(default=1, choices=[0, 1])
     problem_type = IntField(default=0, choices=[0, 1])
     problem_name = StringField(db_field='problemName',
@@ -183,3 +185,20 @@ class Announcement(Document):
     creater = ReferenceField('User', required=True)
     updater = ReferenceField('User', required=True)
     markdown = StringField(max_length=100000, required=True)
+
+
+class PostThread(Document):
+    markdown = StringField(default='', required=True, max_length=100000)
+    author = ReferenceField('User', db_field='author')
+    course_id = ReferenceField('Course', db_field='courseId')
+    depth = IntField(default=0)  # 0 is top post, 1 is reply to post
+    created = DateTimeField(required=True)
+    updated = DateTimeField(required=True)
+    status = IntField(default=0, choices=[0, 1])  # not delete / delete
+    reply = ListField(ReferenceField('PostThread', db_field='postThread'),
+                      dafault=list)
+
+
+class Post(Document):
+    post_name = StringField(default='', required=True, max_length=64)
+    thread = ReferenceField('PostThread', db_field='postThread')

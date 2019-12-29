@@ -1,6 +1,7 @@
 from flask import Blueprint, request
 
 from mongo import *
+from mongo import engine
 from .auth import *
 from .utils import *
 from mongo.problem import *
@@ -14,7 +15,7 @@ problem_api = Blueprint('problem_api', __name__)
 @login_required
 @Request.json('offset', 'count')
 def view_problem_list(user, offset, count):
-    data = get_problem_list(user.role, offset, count)
+    data = get_problem_list(user, offset, count)
     return HTTPResponse('Success.', data=data)
 
 
@@ -24,17 +25,17 @@ def view_problem(user, problem_id):
     problem = Problem(problem_id).obj
     if problem is None:
         return HTTPError('Problem not exist.', 404)
-    if user.role == 2 and problem.problem_status == 1:
+    if not can_view(user, problem):
         return HTTPError('Problem cannot view.', 403)
 
     data = {
-        'owner': problem.owner,
-        'description': problem.description,
+        'status': problem.problem_status,
         'type': problem.problem_type,
         'problemName': problem.problem_name,
-        'status': problem.problem_status,
+        'description': problem.description,
+        'owner': problem.owner,
         'tags': problem.tags
-        #'pdf':
+        # 'pdf':
     }
     if problem.problem_type == 1:
         data.update({'fillInTemplate': problem.test_case.fill_in_template})
@@ -46,7 +47,8 @@ def view_problem(user, problem_id):
 @problem_api.route('/manage/<problem_id>', methods=['GET', 'PUT', 'DELETE'])
 @identity_verify(0, 1)
 def manage_problem(user, problem_id=None):
-    @Request.json('status',
+    @Request.json('courses',
+                  'status',
                   'type',
                   'description',
                   'tags',
@@ -54,14 +56,16 @@ def manage_problem(user, problem_id=None):
                       'problem_name': 'problemName',
                       'test_case': 'testCase'
                   })
-    def modify_problem(status, type, problem_name, description, tags,
+    def modify_problem(courses, status, type, problem_name, description, tags,
                        test_case):
         if request.method == 'POST':
-            return add_problem(user, status, type, problem_name, description,
-                               tags, test_case)
+            number = add_problem(user, courses, status, type, problem_name,
+                                 description, tags, test_case)
+            return HTTPResponse('Success.', data={'problemId': number})
         elif request.method == 'PUT':
-            return edit_problem(user, problem_id, status, type, problem_name,
-                                description, tags, test_case)
+            edit_problem(user, problem_id, courses, status, type, problem_name,
+                         description, tags, test_case)
+            return HTTPResponse('Success.')
 
     if request.method != 'POST':
         problem = Problem(problem_id).obj
@@ -69,20 +73,20 @@ def manage_problem(user, problem_id=None):
             return HTTPError('Problem not exist.', 404)
         if user.role == 1 and problem.owner != user.username:
             return HTTPError('Not the owner.', 403)
-    '''
-    if request.method == 'POST' or request.method == 'PUT':
-        test_case
-    '''
 
     if request.method == 'GET':
         data = {
-            'problemId': problem.problem_id,
-            'problemName': problem.problem_name,
+            'courses': list(course.course_name for course in problem.courses),
             'status': problem.problem_status,
             'type': problem.problem_type,
-            'description': problem_type.description,
+            'problemName': problem.problem_name,
+            'description': problem.description,
             'tags': problem.tags,
-            'testCase': problem.test_case,
+            'testCase': {
+                'language': problem.test_case['language'],
+                'fillInTemplate': problem.test_case['fill_in_template'],
+                'cases': problem.test_case['cases']
+            },
             'ACUser': problem.ac_user,
             'submitter': problem.submitter
         }
@@ -92,12 +96,13 @@ def manage_problem(user, problem_id=None):
         return HTTPResponse('Success.')
     else:
         try:
-            problem = modify_problem()
+            return modify_problem()
         except ValidationError as ve:
             return HTTPError('Invalid or missing arguments.',
                              400,
                              data=ve.to_dict())
-        return HTTPResponse('Success.', data={'problemId': problem.problem_id})
+        except engine.DoesNotExist:
+            return HTTPError('Course not found.', 404)
 
 
 @problem_api.route('/clone', methods=['POST'])
@@ -107,6 +112,8 @@ def clone_problem(user, problem_id):
     problem = Problem(problem_id).obj
     if problem is None:
         return HTTPError('Problem not exist.', 404)
+    if not can_view(user, problem):
+        return HTTPError('Problem can not view.', 403)
 
     copy_problem(user, problem_id)
     return HTTPResponse('Success.')
