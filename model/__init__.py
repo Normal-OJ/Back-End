@@ -10,6 +10,7 @@ from . import announcement
 from . import test
 from . import ranking
 from . import contest
+from . import post
 
 from .auth import *
 from .profile import *
@@ -23,9 +24,10 @@ from .announcement import *
 from .test import *
 from .ranking import *
 from .contest import *
+from .post import *
 
 __all__ = [
     *auth.__all__, *profile.__all__, *problem.__all__, *submission.__all__,
     *inbox.__all__, *course.__all__, *homework.__all__, *test.__all__,
-    *announcement.__all__, *ranking.__all__, *contest.__all__
+    *announcement.__all__, *ranking.__all__, *contest.__all__, *post.__all__
 ]

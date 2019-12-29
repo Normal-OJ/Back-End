@@ -100,7 +100,7 @@ def session():
 
 
 @auth_api.route('/signup', methods=['POST'])
-@Request.json('username', 'password', 'email')
+@Request.json('username: str', 'password: str', 'email: str')
 def signup(username, password, email):
     if password is None:
         return HTTPError('Signup Failed',

@@ -28,7 +28,7 @@ def view_problem(user, problem_id):
         return HTTPError('Problem cannot view.', 403)
 
     data = {
-        'owner': problem.owner,
+        'owner': User(problem.owner).info,
         'description': problem.description,
         'type': problem.type,
         'problemName': problem.problem_name,
