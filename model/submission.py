@@ -244,8 +244,7 @@ def get_submission_list(user, offset, count, problem_id, submission_id,
         del s['cases']
 
         # replace user field with username
-        s['username'] = n
-        del s['user']
+        s['user'] = User(n).info
 
     unicorns = [
         'https://media.giphy.com/media/xTiTnLmaxrlBHxsMMg/giphy.gif',

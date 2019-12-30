@@ -27,8 +27,8 @@ def anncmnt(user, course_name=None):
             'title': an.title,
             'createTime': int(an.create_time.timestamp()),
             'updateTime': int(an.update_time.timestamp()),
-            'creater': an.creater.username,
-            'updater': an.updater.username,
+            'creater': User(an.creater.username).info,
+            'updater': User(an.updater.username).info,
             'markdown': an.markdown
         } for an in anns]
         return HTTPResponse('Announcement List', data=data)

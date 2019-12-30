@@ -12,7 +12,7 @@ connect('normal-oj', host=MONGO_HOST)
 
 class Profile(EmbeddedDocument):
     displayed_name = StringField(db_field='displayedName',
-                                 required=True,
+                                 default='',
                                  max_length=16)
     bio = StringField(max_length=64, required=True, default='')
 
@@ -47,9 +47,10 @@ class User(Document):
                           required=True,
                           unique=True)
     email = EmailField(required=True, unique=True)
+    md5 = StringField(required=True)
     active = BooleanField(default=False)
     role = IntField(default=2, choices=[0, 1, 2])
-    profile = EmbeddedDocumentField(Profile, default=Profile, null=True)
+    profile = EmbeddedDocumentField(Profile, default=Profile)
     editor_config = EmbeddedDocumentField(EditorConfig,
                                           db_field='editorConfig',
                                           default=EditorConfig,
