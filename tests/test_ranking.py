@@ -1,6 +1,5 @@
 import pytest
 from tests.base_tester import BaseTester
-from tests.test_submission import problem_ids
 
 
 class TestRanking(BaseTester):

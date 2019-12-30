@@ -437,7 +437,7 @@ def update_submission(user, submission, token):
         )
 
     # if user not equal, reject
-    if submission.user != user:
+    if submission.user.username != user.username:
         return HTTPError(
             'user not equal!',
             403,

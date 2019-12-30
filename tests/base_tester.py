@@ -3,6 +3,23 @@ from mongo import *
 from mongo import engine
 from .conftest import *
 
+import random
+import string
+
+
+def random_string(k=32):
+    '''
+    return a random string contains only lower and upper letter wieh length k
+
+    Args:
+        k: the return string's length, default is 32
+
+    Returns:
+        a random-generated string with length k
+    '''
+    char_set = string.ascii_lowercase + string.ascii_uppercase
+    return ''.join(random.choices(char_set, k=k))
+
 
 class BaseTester:
     MONGO_HOST = 'mongomock://localhost'
