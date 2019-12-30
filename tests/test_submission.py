@@ -1,27 +1,54 @@
 import pytest
-import io
 import os
 import itertools
+import random
 
 from zipfile import ZipFile
 from datetime import datetime
 from pprint import pprint
 
 from mongo import *
-from tests.base_tester import BaseTester
+from mongo import engine
+from tests.base_tester import BaseTester, random_string
+from tests.test_homework import CourseData
 
 from model.submission import assign_token, verify_token, tokens
 
 
+def random_problem_data(username=None):
+    s = random_string()
+    return {
+        'courses':
+        [engine.Course.objects.filter(
+            teacher=username)[0].course_name] if username else [],
+        'status':
+        random.randint(0, 1),
+        'type':
+        0,
+        'description':
+        '',
+        'tags': ['test'],
+        'problemName':
+        f'prob {s}',
+        'testCase': {
+            'language':
+            2,
+            'fillInTemplate':
+            '',
+            'cases': [
+                {
+                    'input': s,
+                    'output': s,
+                    'caseScore': 100,
+                    'memoryLimit': 32768,
+                    'timeLimit': 1000,
+                },
+            ],
+        }
+    }
+
+
 class TestSubmissionUtils:
-    @classmethod
-    def setup_class(cls):
-        tokens = {}
-
-    @classmethod
-    def teardown_class(cls):
-        tokens = {}
-
     def test_token_assign(self):
         token = assign_token('8888')
         assert token is not None
@@ -29,8 +56,10 @@ class TestSubmissionUtils:
 
 
 class SubmissionTester(BaseTester):
-    init_submission_count = 5
+    init_submission_count = 32
     submissions = []
+    offline_submissions = []
+
     source = {
         'c11': {
             'lang': 0,
@@ -79,7 +108,7 @@ class SubmissionTester(BaseTester):
             return None
 
     @classmethod
-    def prepare_problem(cls):
+    def prepare_submission(cls):
         for src in cls.source.values():
             with open(cls.path / f'main{src["ext"]}', 'w') as f:
                 f.write(src['code'])
@@ -123,50 +152,103 @@ class SubmissionTester(BaseTester):
 
     @classmethod
     @pytest.fixture(autouse=True)
-    def setup_class(cls, tmp_path):
+    def setup_class(cls, tmp_path, problem_ids, make_course):
         super().setup_class()
 
         # prepare problem data
         SubmissionTester.path = tmp_path
-        cls.prepare_problem()
+        cls.prepare_submission()
 
-        # use tmp dir to save user source code
         from model import submission
+        # use tmp dir to save user source code
         submission.SOURCE_PATH = tmp_path / submission.SOURCE_PATH
         submission.SOURCE_PATH = submission.SOURCE_PATH.absolute()
-        os.makedirs(submission.SOURCE_PATH, exist_ok=True)
+        submission.SOURCE_PATH.mkdir(exist_ok=True)
+        # replace judge url with test route
+        submission.JUDGE_URL = 'https://www.csie.ntnu.edu.tw?magic='
 
         # insert some submission into db
         cls.submissions = []
-        names = itertools.cycle(
-            ['student', 'teacher', 'admin', 'teacher-2', 'student-2'])
-        pids = itertools.cycle(['6666', '8888', '55688'])
-        for _, name, pid in zip('x' * SubmissionTester.init_submission_count,
-                                names, pids):
-            lang = 0
-            now = datetime.now()
-            _id = Submission.add(problem_id=pid,
-                                 user=User(name).obj,
-                                 lang=lang,
-                                 timestamp=now)
-            cls.submissions.append({
-                'submissionId': _id,
-                'problemId': pid,
-                'username': name,
-                'lang': lang,
-                'timestamp': now
-            })
+        cls.offline_submissions = []
+
+        # funtionc for create submissions
+        def submit(count, names, pids):
+            for _, name, pid in zip('x' * count, names, pids):
+                lang = 0
+                now = datetime.now()
+                s = Submission.add(
+                    problem_id=pid,
+                    username=name,
+                    lang=lang,
+                    timestamp=now,
+                )
+                status = engine.Problem.objects.get(
+                    problem_id=pid).problem_status
+                submission = {
+                    'submissionId': s.id,
+                    'problemId': pid,
+                    'problemStatus': status,
+                    'username': name,
+                    'lang': lang,
+                    'timestamp': now
+                }
+
+                if status == 0:
+                    cls.submissions.append(submission)
+                else:
+                    cls.offline_submissions.append(submission)
+
+        a_names = [
+            'teacher',
+            'admin',
+            'teacher-2',
+        ]
+        s_names = {
+            'student': 'Chika.Fujiwara',
+            'student-2': 'Nico.Kurosawa',
+        }
+
+        for name in a_names:
+            make_course(
+                username=name,
+                students=s_names,
+            )
+
+        s_names = s_names.keys()
+
+        # name for teacher and admin
+        a_names = itertools.cycle(a_names)
+        # student names
+        s_names = itertools.cycle(s_names)
+        pids = [
+            *problem_ids('admin', 5, True),
+            *problem_ids('teacher', 5, True),
+            *problem_ids('teacher-2', 5, True),
+        ]
+        pids = itertools.cycle(pids)
+        submit(cls.init_submission_count, a_names, pids)
+
+        # fliter online problem ids
+        pids = [next(pids) for _ in range(15)]
+        pids = itertools.cycle([
+            pid for pid in pids
+            if engine.Problem.objects.get(problem_id=pid).problem_status == 0
+        ])
+        submit(cls.init_submission_count, s_names, pids)
 
     @classmethod
     def teardown_method(cls):
         cls.submissions = []
 
 
-class TestGetSubmission(SubmissionTester):
-    def test_normal_get_submission_list(self, client):
+class TestUserGetSubmission(SubmissionTester):
+    def test_normal_get_submission_list(self, forge_client):
+        client = forge_client('student')
         rv, rv_json, rv_data = self.request(
-            client, 'get',
-            f'/submission/?offset=0&count={self.init_submission_count}')
+            client,
+            'get',
+            f'/submission/?offset=0&count={self.init_submission_count}',
+        )
 
         pprint(rv_json)
 
@@ -174,70 +256,92 @@ class TestGetSubmission(SubmissionTester):
         assert 'unicorn' in rv_data
         assert len(rv_data['submissions']) == self.init_submission_count
 
-        excepted_field_names = sorted([
-            'submissionId', 'problemId', 'username', 'status', 'score',
-            'runTime', 'memoryUsage', 'languageType', 'timestamp'
-        ])
+        excepted_field_names = {
+            'submissionId',
+            'problemId',
+            'user',
+            'status',
+            'score',
+            'runTime',
+            'memoryUsage',
+            'languageType',
+            'timestamp',
+        }
 
         for s in rv_data['submissions']:
-            ...  # assert sorted(s.keys()) == excepted_field_names
+            assert len(excepted_field_names - set(s.keys())) == 0
 
     @pytest.mark.parametrize('offset, count',
                              [(0, 1),
                               (SubmissionTester.init_submission_count // 2, 1)]
                              )
-    def test_get_truncated_submission_list(self, client, offset, count):
+    def test_get_truncated_submission_list(self, forge_client, offset, count):
+        client = forge_client('student')
         rv, rv_json, rv_data = self.request(
-            client, 'get', f'/submission/?offset={offset}&count={count}')
+            client,
+            'get',
+            f'/submission/?offset={offset}&count={count}',
+        )
 
         pprint(rv_json)
 
         assert rv.status_code == 200
         assert len(rv_data['submissions']) == 1
 
-    def test_get_submission_list_with_maximun_offset(self, client):
+    def test_get_submission_list_with_maximun_offset(self, forge_client):
+        client = forge_client('student')
         rv, rv_json, rv_data = self.request(
-            client, 'get',
-            f'/submission/?offset={SubmissionTester.init_submission_count}&count=1'
+            client,
+            'get',
+            f'/submission/?offset={SubmissionTester.init_submission_count * 2}&count=1',
         )
 
         print(rv_json)
 
         assert rv.status_code == 400
 
-    def test_get_all_submission(self, client):
-        rv, rv_json, rv_data = self.request(client, 'get',
-                                            '/submission/?offset=0&count=-1')
-
-        pprint(rv_json)
-
-        assert rv.status_code == 200
-        assert len(rv_data['submissions']) == self.init_submission_count
-
-        offset = self.init_submission_count // 2
+    def test_get_all_submission(self, forge_client):
+        client = forge_client('student')
         rv, rv_json, rv_data = self.request(
-            client, 'get', f'/submission/?offset={offset}&count=-1')
-
-        pprint(rv_json)
-
-        assert rv.status_code == 200
-        assert len(rv_data['submissions']) == (self.init_submission_count -
-                                               offset)
-
-    def test_get_submission_list_over_db_size(self, client):
-        rv, rv_json, rv_data = self.request(
-            client, 'get',
-            f'/submission/?offset=0&count={SubmissionTester.init_submission_count ** 2}'
+            client,
+            'get',
+            '/submission/?offset=0&count=-1',
         )
 
         pprint(rv_json)
 
         assert rv.status_code == 200
-        assert len(
-            rv_data['submissions']) == SubmissionTester.init_submission_count
+        # only get online submissions
+        assert len(rv_data['submissions']) == len(self.submissions)
+
+        offset = self.init_submission_count // 2
+        rv, rv_json, rv_data = self.request(
+            client,
+            'get',
+            f'/submission/?offset={offset}&count=-1',
+        )
+
+        pprint(rv_json)
+
+        assert rv.status_code == 200
+        assert len(rv_data['submissions']) == (len(self.submissions) - offset)
+
+    def test_get_submission_list_over_db_size(self, forge_client):
+        client = forge_client('student')
+        rv, rv_json, rv_data = self.request(
+            client,
+            'get',
+            f'/submission/?offset=0&count={SubmissionTester.init_submission_count ** 2}',
+        )
+
+        pprint(rv_json)
+
+        assert rv.status_code == 200
+        assert len(rv_data['submissions']) == len(self.submissions)
 
     def test_get_submission_without_login(self, client):
         rv = client.get(f'/submission/{self.submissions[0]["submissionId"]}')
+        pprint(rv.get_json())
         assert rv.status_code == 403
 
     def test_normal_user_get_others_submission(self, client_student):
@@ -251,8 +355,11 @@ class TestGetSubmission(SubmissionTester):
         pprint(ids)
 
         for _id in ids:
-            rv, rv_json, rv_data = self.request(client_student, 'get',
-                                                f'/submission/{_id}')
+            rv, rv_json, rv_data = self.request(
+                client_student,
+                'get',
+                f'/submission/{_id}',
+            )
             assert rv.status_code == 200
             assert 'code' not in rv_data
 
@@ -264,36 +371,78 @@ class TestGetSubmission(SubmissionTester):
         pprint(ids)
 
         for _id in ids:
-            rv, rv_json, rv_data = self.request(client_student, 'get',
-                                                f'/submission/{_id}')
+            rv, rv_json, rv_data = self.request(
+                client_student,
+                'get',
+                f'/submission/{_id}',
+            )
             assert rv.status_code == 200
+            # user can view self code
             assert 'code' in rv_data
+
+        pprint(rv_data)
+
+        # check for fields
+        except_fields = {
+            'problemId',
+            'languageType',
+            'timestamp',
+            'status',
+            'cases',
+            'score',
+            'runTime',
+            'memoryUsage',
+            'code',
+        }
+        missing_field = except_fields - set(rv_data.keys())
+        print(missing_field)
+        assert len(missing_field) == 0
 
     @pytest.mark.parametrize('offset, count', [(None, 1), (0, None),
                                                (None, None)])
-    def test_get_submission_list_with_missing_args(self, client, offset,
+    def test_get_submission_list_with_missing_args(self, forge_client, offset,
                                                    count):
+        client = forge_client('student')
         rv, rv_json, rv_data = self.request(
-            client, 'get', f'/submission/?offset={offset}&count={count}')
+            client,
+            'get',
+            f'/submission/?offset={offset}&count={count}',
+        )
         assert rv.status_code == 400
 
     @pytest.mark.parametrize('offset, count', [(-1, 2), (2, -2)])
     def test_get_submission_list_with_out_ranged_negative_arg(
-        self, client, offset, count):
+        self,
+        forge_client,
+        offset,
+        count,
+    ):
+        client = forge_client('student')
         rv, rv_json, rv_data = self.request(
-            client, 'get', f'/submission/?offset={offset}&count={count}')
+            client,
+            'get',
+            f'/submission/?offset={offset}&count={count}',
+        )
         assert rv.status_code == 400
 
     @pytest.mark.parametrize(
         'key, except_val',
-        [('problemId', '8888'), ('status', -2), ('languageType', 0),
-         ('username', 'student')
-         #TODO: test for submission id filter
+        [('status', -2), ('languageType', 0), ('username', 'student')
+         # TODO: test for submission id filter
+         # TODO: test for problem id filter
          ])
-    def test_get_submission_list_by_filter(self, client, key, except_val):
+    def test_get_submission_list_by_filter(
+        self,
+        forge_client,
+        key,
+        except_val,
+    ):
+        client = forge_client('student')
         rv, rv_json, rv_data = self.request(
-            client, 'get',
-            f'/submission/?offset=0&count=-1&{key}={except_val}')
+            client,
+            'get',
+            f'/submission/?offset=0&count=-1&{key}={except_val}',
+        )
 
         pprint(rv_json)
 
@@ -303,16 +452,51 @@ class TestGetSubmission(SubmissionTester):
         #                rv_data['submissions'])) == True
 
 
+class TestTeacherGetSubmission(SubmissionTester):
+    def test_teacher_can_get_offline_submission(self, forge_client):
+        client = forge_client('teacher')
+        rv, rv_json, rv_data = self.request(
+            client,
+            'get',
+            '/submission?offset=0&count=-1',
+        )
+
+        pprint(rv_json)
+
+        user = User('teacher')
+        except_count = len([
+            *filter(
+                lambda s: can_view(
+                    user,
+                    s.problem,
+                ),
+                engine.Submission.objects,
+            )
+        ])
+
+        assert len(rv_data['submissions']) == except_count
+
+
 class TestCreateSubmission(SubmissionTester):
     @pytest.mark.parametrize('submission', SubmissionTester.source.values())
     def test_normal_submission(self, client_student, submission):
+        pids = [s['problemId'] for s in self.submissions]
+        a_pid = None
+        for pid in pids:
+            if can_view(User('student'), Problem(pid).obj):
+                a_pid = pid
+                break
+        assert pid is not None
+
         # first claim a new submission to backend server
-        post_json = {'problemId': '8888', 'languageType': submission['lang']}
+        post_json = {'problemId': a_pid, 'languageType': submission['lang']}
         # recieve response, which include the submission id and a token to validat next request
-        rv, rv_json, rv_data = self.request(client_student,
-                                            'post',
-                                            '/submission',
-                                            json=post_json)
+        rv, rv_json, rv_data = self.request(
+            client_student,
+            'post',
+            '/submission',
+            json=post_json,
+        )
 
         pprint(f'post: {rv_json}')
 
@@ -323,7 +507,8 @@ class TestCreateSubmission(SubmissionTester):
         files = {'code': (submission['zip'], 'code')}
         rv = client_student.put(
             f'/submission/{rv_data["submissionId"]}?token={rv_data["token"]}',
-            data=files)
+            data=files,
+        )
         rv_json = rv.get_json()
 
         pprint(f'put: {rv_json}')
@@ -332,18 +517,24 @@ class TestCreateSubmission(SubmissionTester):
 
     def test_wrong_language_type(self, client_student):
         submission = self.source['c11']
-        post_json = {'problemId': '8888', 'languageType': 2}  # 2 for py3
-        rv, rv_json, rv_data = self.request(client_student,
-                                            'post',
-                                            '/submission',
-                                            json=post_json)
+        post_json = {
+            'problemId': self.submissions[0]['problemId'],
+            'languageType': 2
+        }  # 2 for py3
+        rv, rv_json, rv_data = self.request(
+            client_student,
+            'post',
+            '/submission',
+            json=post_json,
+        )
 
         pprint(f'post: {rv_json}')
 
         files = {'code': (submission['zip'], 'code')}
         rv = client_student.put(
             f'/submission/{rv_data["submissionId"]}?token={rv_data["token"]}',
-            data=files)
+            data=files,
+        )
         rv_json = rv.get_json()
 
         pprint(f'put: {rv_json}')
@@ -352,18 +543,24 @@ class TestCreateSubmission(SubmissionTester):
 
     def test_empty_source(self, client_student):
         submission = self.source['c11']
-        post_json = {'problemId': '8888', 'languageType': submission['lang']}
-        rv, rv_json, rv_data = self.request(client_student,
-                                            'post',
-                                            '/submission',
-                                            json=post_json)
+        post_json = {
+            'problemId': self.submissions[0]['problemId'],
+            'languageType': submission['lang']
+        }
+        rv, rv_json, rv_data = self.request(
+            client_student,
+            'post',
+            '/submission',
+            json=post_json,
+        )
 
         pprint(f'post: {rv_json}')
 
         files = {'code': (None, 'code')}
         rv = client_student.put(
             f'/submission/{rv_data["submissionId"]}?token={rv_data["token"]}',
-            data=files)
+            data=files,
+        )
         rv_json = rv.get_json()
 
         pprint(f'put: {rv_json}')
@@ -372,31 +569,77 @@ class TestCreateSubmission(SubmissionTester):
 
     @pytest.mark.parametrize('submission', SubmissionTester.source.values())
     def test_no_source_upload(self, client_student, submission):
-        post_json = {'problemId': '8888', 'languageType': submission['lang']}
-        rv, rv_json, rv_data = self.request(client_student,
-                                            'post',
-                                            '/submission',
-                                            json=post_json)
+        post_json = {
+            'problemId': self.submissions[0]['problemId'],
+            'languageType': submission['lang']
+        }
+        rv, rv_json, rv_data = self.request(
+            client_student,
+            'post',
+            '/submission',
+            json=post_json,
+        )
 
         pprint(f'post: {rv_json}')
 
         files = {'c0d3': (submission['zip'], 'code')}
         rv = client_student.put(
             f'/submission/{rv_data["submissionId"]}?token={rv_data["token"]}',
-            data=files)
+            data=files,
+        )
         rv_json = rv.get_json()
 
         pprint(f'put: {rv_json}')
 
         assert rv.status_code == 400
 
+    def test_submit_to_others(self, forge_client):
+        client = forge_client('student')
+        rv, rv_json, rv_data = self.request(
+            client,
+            'post',
+            '/submission',
+            json={
+                'problemId': 1,
+                'languageType': 0
+            },
+        )
+
+        pprint(rv_json)
+        assert rv.status_code == 200
+
+        client = forge_client('student-2')
+        submission_id = rv_data['submissionId']
+        token = rv_data['token']
+        files = {'code': (self.source['c11']['zip'], 'd1w5q6dqw')}
+        rv, rv_json, rv_data = self.request(
+            client,
+            'put',
+            f'/submission/{submission_id}?token={token}',
+            data=files,
+        )
+
+        pprint(rv_json)
+        assert rv.status_code == 403
+
     def test_reach_rate_limit(self, client_student):
         submission = self.source['c11']
-        post_json = {'problemId': '8888', 'languageType': submission['lang']}
-        client_student.post('/submission', json=post_json)
-        rv = client_student.post('/submission', json=post_json)
+        post_json = {
+            'problemId': self.submissions[0]['problemId'],
+            'languageType': submission['lang']
+        }
+        client_student.post(
+            '/submission',
+            json=post_json,
+        )
 
-        assert rv.status_code == 429
+        for _ in range(10):
+            rv = client_student.post(
+                '/submission',
+                json=post_json,
+            )
+
+            assert rv.status_code == 429
 
     def test_submit_to_non_participate_contest(self, client_student):
         pass
