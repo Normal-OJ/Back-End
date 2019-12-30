@@ -59,6 +59,9 @@ class User(Document):
     courses = ListField(ReferenceField('Course'))
     # submission_ids = ListField(ReferenceField('Submission'), db_field='submissionIds')
     last_submit = DateTimeField(default=datetime.min)
+    AC_problem_ids = ListField(IntField(), default=list)
+    AC_submissoin = IntField(default=0)
+    submission = IntField(default=0)
 
 
 class Homework(Document):
