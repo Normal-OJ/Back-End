@@ -48,7 +48,7 @@ def course_data(request, client_admin, problem_ids):
         hw_name=cd.homework_name,
         start=int(datetime.now().timestamp()),
         end=int(datetime.now().timestamp()),
-        problem_ids=problem_ids('admin', 3),
+        problem_ids=problem_ids(cd.teacher, 3),
         scoreboard_status=0,
     )
     # append hw id

@@ -51,7 +51,9 @@ class Homework:
                     'submissonIds': []
                 }
                 # add course to each problem
-                Problem(problem_id=problem_id).obj.courses.append(course)
+                problem = Problem(problem_id=problem_id).obj
+                problem.courses.append(course)
+                problem.save()
 
         for key in students:
             user_ids[key] = user_problems
@@ -100,7 +102,9 @@ class Homework:
         for pid in new_ids:
             if pid not in homework.problem_ids:
                 homework.problem_ids.append(pid)
-                Problem(problem_id=pid).obj.courses.append(course)
+                problem = Problem(problem_id=pid).obj
+                problem.courses.append(course)
+                problem.save()
                 for key in students:
                     homework.student_status[key][str(pid)] = {
                         'score': 0,
@@ -110,7 +114,9 @@ class Homework:
         # delete
         for pid in drop_ids:
             homework.problem_ids.remove(pid)
-            Problem(problem_id=pid).obj.courses.remove(course)
+            problem = Problem(problem_id=pid).obj
+            problem.courses.remove(course)
+            problem.save()
             for status in homework.student_status.values():
                 del status[str(pid)]
         if markdown is not None:
