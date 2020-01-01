@@ -107,7 +107,17 @@ def edit_problem(user, problem_id, courses, status, type, problem_name,
     problem.tags = tags
     problem.test_case['language'] = test_case['language']
     problem.test_case['fill_in_template'] = test_case['fillInTemplate']
-    problem.test_case['cases'] = test_case['cases']
+    problem.test_case['cases'].clear()
+    for case in test_case['cases']:
+        case['case_score'] = case['caseScore']
+        del case['caseScore']
+        case['memory_limit'] = case['memoryLimit']
+        del case['memoryLimit']
+        case['time_limit'] = case['timeLimit']
+        del case['timeLimit']
+
+        case = engine.ProblemCase(**case)
+        problem.test_case['cases'].append(case)
 
     problem.save()
 

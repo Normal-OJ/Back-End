@@ -116,10 +116,19 @@ class Number(Document):
     number = IntField(default=1)
 
 
+class ProblemCase(EmbeddedDocument):
+    case_score = IntField(required=True, db_field='caseScore')
+    memory_limit = IntField(required=True, db_field='memoryLimit')
+    time_limit = IntField(required=True, db_field='timeLimit')
+    input = StringField(required=True)
+    output = StringField(required=True)
+
+
 class ProblemTestCase(EmbeddedDocument):
     language = IntField(choices=[0, 1, 2])
     fill_in_template = StringField(db_field='fillInTemplate', max_length=16000)
-    cases = ListField(DictField())
+    cases = ListField(EmbeddedDocumentField(ProblemCase, default=ProblemCase),
+                      default=list)
 
 
 class Problem(Document):
