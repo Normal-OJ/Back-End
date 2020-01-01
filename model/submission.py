@@ -11,6 +11,7 @@ from functools import wraps
 
 from mongo import *
 from mongo import engine
+from mongo import user
 from .utils import *
 from .auth import *
 
@@ -293,7 +294,7 @@ def update_submission(user, submission, token):
         '''
         send submission data to sandbox
         '''
-        ## prepare submission data
+        # prepare submission data
         # prepare problem testcase
         # get testcases
         cases = submission.problem.test_case.cases
@@ -419,9 +420,11 @@ def update_submission(user, submission, token):
                 f'invalid data!\n{e}',
                 400,
             )
+
+        user.add_submission(submission)
         return HTTPResponse(f'{submission} result recieved.')
 
-    ## put handler
+    # put handler
     # validate this reques
     if submission.status >= 0:
         return HTTPError(
