@@ -193,7 +193,7 @@ class TestProblem(BaseTester):
 
     # admin get problem list (GET /problem)
     def test_admin_get_problem_list(self, client_admin):
-        rv = client_admin.get('/problem', json={'offset': 1, 'count': 5})
+        rv = client_admin.get('/problem?offset=1&count=5')
         json = rv.get_json()
         assert rv.status_code == 200
         assert json['status'] == 'ok'
@@ -216,7 +216,7 @@ class TestProblem(BaseTester):
 
     # student get problem list (GET /problem)
     def test_student_get_problem_list(self, client_student):
-        rv = client_student.get('/problem', json={'offset': 1, 'count': 5})
+        rv = client_student.get('/problem?offset=1&count=5')
         json = rv.get_json()
         assert rv.status_code == 200
         assert json['status'] == 'ok'
