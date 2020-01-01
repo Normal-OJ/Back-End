@@ -60,7 +60,7 @@ class User(Document):
     submissions = ListField(ReferenceField('Submission'))
     last_submit = DateTimeField(default=datetime.min)
     AC_problem_ids = ListField(IntField(), default=list)
-    AC_submissoin = IntField(default=0)
+    AC_submission = IntField(default=0)
     submission = IntField(default=0)
 
 
