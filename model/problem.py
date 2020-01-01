@@ -13,8 +13,37 @@ problem_api = Blueprint('problem_api', __name__)
 
 @problem_api.route('/', methods=['GET'])
 @login_required
-@Request.json('offset', 'count')
+@Request.args('offset', 'count')
 def view_problem_list(user, offset, count):
+
+    if offset is None or count is None:
+        return HTTPError(
+            'offset and count are required!',
+            400,
+        )
+
+    # casting args
+    try:
+        offset = int(offset)
+        count = int(count)
+    except ValueError:
+        return HTTPError(
+            'offset and count must be integer!',
+            400,
+        )
+
+    # check range
+    if offset < 0:
+        return HTTPError(
+            'offset must >= 0!',
+            400,
+        )
+    if count < -1:
+        return HTTPError(
+            'count must >=-1!',
+            400,
+        )
+
     data = get_problem_list(user, offset, count)
     return HTTPResponse('Success.', data=data)
 
