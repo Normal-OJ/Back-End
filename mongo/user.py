@@ -30,6 +30,7 @@ class User(MongoBase, engine=engine.User):
         cls.engine(user_id=user_id,
                    username=user.username,
                    email=email,
+                   md5=hashlib.md5(email.strip().encode()).hexdigest(),
                    active=False).save(force_insert=True)
         return user.reload()
 
@@ -67,6 +68,14 @@ class User(MongoBase, engine=engine.User):
         keys = ['username', 'userId']
         return self.jwt(*keys, secret=True)
 
+    @property
+    def info(self):
+        return {
+            'username': self.username,
+            'displayedName': self.profile.displayed_name,
+            'md5': self.md5
+        }
+
     def jwt(self, *keys, secret=False, **kwargs):
         if not self:
             return ''
@@ -85,6 +94,13 @@ class User(MongoBase, engine=engine.User):
     def change_password(self, password):
         user_id = hash_id(self.username, password)
         self.update(user_id=user_id)
+
+    def add_submission(self, submission: engine.Submission):
+        if submission.score == 100:
+            if submission.problem_id not in self.AC_problem_ids:
+                self.AC_problem_ids.append(int(submission.problem_id))
+            self.AC_submission += 1
+        self.submission += 1
 
 
 def jwt_decode(token):

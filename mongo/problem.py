@@ -38,7 +38,7 @@ def can_view(user, problem):
     if user.role == 0:
         return True
     for course in problem.courses:
-        permission = 1 if problem.problem_name == "Public" else perm(
+        permission = 1 if course.course_name == "Public" else perm(
             course, user)
         if permission and (problem.problem_status == 0 or permission >= 2):
             return True
@@ -110,6 +110,8 @@ def edit_problem(user, problem_id, courses, status, type, problem_name,
     problem.test_case['cases'] = test_case['cases']
 
     problem.save()
+
+    return problem
 
 
 def delete_problem(problem_id):

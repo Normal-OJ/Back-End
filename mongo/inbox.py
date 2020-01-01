@@ -30,7 +30,7 @@ class Inbox(MongoBase, engine=engine.Inbox):
         return [{
             'messageId': str(m.id),
             'status': m.status,
-            'sender': m.message.sender,
+            'sender': User(m.message.sender).info,
             'title': m.message.title,
             'message': m.message.markdown,
             'timestamp': int(m.message.timestamp.timestamp())
@@ -42,7 +42,7 @@ class Inbox(MongoBase, engine=engine.Inbox):
                                        status=0).order_by('-timestamp')
         return [{
             'messageId': str(s.id),
-            'receivers': s.receivers,
+            'receivers': [User(r).info for r in s.receivers],
             'title': s.title,
             'message': s.markdown,
             'timestamp': int(s.timestamp.timestamp())

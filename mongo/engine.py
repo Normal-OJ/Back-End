@@ -12,7 +12,7 @@ connect('normal-oj', host=MONGO_HOST)
 
 class Profile(EmbeddedDocument):
     displayed_name = StringField(db_field='displayedName',
-                                 required=True,
+                                 default='',
                                  max_length=16)
     bio = StringField(max_length=64, required=True, default='')
 
@@ -47,17 +47,21 @@ class User(Document):
                           required=True,
                           unique=True)
     email = EmailField(required=True, unique=True)
+    md5 = StringField(required=True)
     active = BooleanField(default=False)
     role = IntField(default=2, choices=[0, 1, 2])
-    profile = EmbeddedDocumentField(Profile, default=Profile, null=True)
+    profile = EmbeddedDocumentField(Profile, default=Profile)
     editor_config = EmbeddedDocumentField(EditorConfig,
                                           db_field='editorConfig',
                                           default=EditorConfig,
                                           null=True)
-    # contest_id = ReferenceField('Contest', db_field='contestId')
+    contest = ReferenceField('Contest')
     courses = ListField(ReferenceField('Course'))
-    # submission_ids = ListField(ReferenceField('Submission'), db_field='submissionIds')
+    submissions = ListField(ReferenceField('Submission'))
     last_submit = DateTimeField(default=datetime.min)
+    AC_problem_ids = ListField(IntField(), default=list)
+    AC_submission = IntField(default=0)
+    submission = IntField(default=0)
 
 
 class Homework(Document):
@@ -70,7 +74,7 @@ class Homework(Document):
                                  db_field='scoreboardStatus')
     course_id = StringField(required=True, db_field='courseId')
     duration = EmbeddedDocumentField(Duration, default=Duration)
-    problem_ids = ListField(StringField(), db_field='problemIds')
+    problem_ids = ListField(IntField(), db_field='problemIds')
     student_status = DictField(db_field='studentStatus')
 
 
@@ -84,7 +88,7 @@ class Contest(Document):
                                      db_field='duration',
                                      default=Duration)
     contest_mode = IntField(default=0, choice=[0, 1], db_field='contestMode')
-    problem_ids = ListField(StringField(), db_field='problemIds')
+    problem_ids = ListField(IntField(), db_field='problemIds')
     participants = DictField(db_field='participants')
 
 
@@ -113,7 +117,7 @@ class Number(Document):
 
 
 class ProblemTestCase(EmbeddedDocument):
-    language = IntField(choices=[1, 2, 4])
+    language = IntField(choices=[0, 1, 2])
     fill_in_template = StringField(db_field='fillInTemplate', max_length=16000)
     cases = ListField(DictField())
 
@@ -141,22 +145,22 @@ class Problem(Document):
 
 class TestCaseResult(EmbeddedDocument):
     status = IntField(required=True)
-    exec_time = IntField(required=True)
-    memory_usage = IntField(required=True)
+    exec_time = IntField(required=True, db_field='execTime')
+    memory_usage = IntField(required=True, db_field='memoryUsage')
     stdout = StringField(required=True)
     stderr = StringField(required=True)
 
 
 class Submission(Document):
-    problem_id = StringField(required=True)
+    problem = ReferenceField(Problem, required=True)
     user = ReferenceField(User, required=True)
-    language = IntField(required=True)
+    language = IntField(required=True, db_field='languageType')
     timestamp = DateTimeField(required=True)
     status = IntField(default=-2)
     score = IntField(default=0)
     cases = ListField(EmbeddedDocumentField(TestCaseResult), default=list)
-    exec_time = IntField(default=-1)
-    memory_usage = IntField(default=-1)
+    exec_time = IntField(default=-1, db_field='runTime')
+    memory_usage = IntField(default=-1, db_field='memoryUsage')
     code = BooleanField(
         default=False)  # wheather the user has uploaded source code
 
