@@ -61,7 +61,7 @@ class Submission(MongoBase, engine=engine.Submission):
         Insert a new submission into db
 
         Returns:
-            The created submission's unique id in string type
+            The created submission
         '''
         user = User(username)
         if not user:
