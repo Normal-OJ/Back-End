@@ -73,7 +73,7 @@ def submission_required(func):
 
 @submission_api.route('/', methods=['POST'])
 @login_required
-@Request.json('language_type', 'problem_id')
+@Request.json('language_type: int', 'problem_id: int')
 def create_submission(user, language_type, problem_id):
     # the user reach the rate limit for submitting
     now = datetime.now()
@@ -85,9 +85,9 @@ def create_submission(user, language_type, problem_id):
             429)  # Too many request
 
     # check for fields
-    if language_type is None or problem_id is None:
+    if any([language_type is None, problem_id is None]):
         return HTTPError(
-            f'post data missing!',
+            'post data missing!',
             400,
             data={
                 'languageType': language_type,
@@ -146,7 +146,8 @@ def create_submission(user, language_type, problem_id):
         return HTTPError(str(e), 404)
 
     user.update(last_submit=now)
-    user.submissions.append(submission)
+    user.submissions.append(submission.obj)
+    user.save()
 
     # generate token for upload file
     token = assign_token(submission.id)
@@ -162,10 +163,25 @@ def create_submission(user, language_type, problem_id):
 
 @submission_api.route('/', methods=['GET'])
 @login_required
-@Request.args('offset', 'count', 'problem_id', 'submission_id', 'username',
-              'status', 'language_type')
-def get_submission_list(user, offset, count, problem_id, submission_id,
-                        username, status, language_type):
+@Request.args(
+    'offset',
+    'count',
+    'problem_id',
+    'submission_id',
+    'username',
+    'status',
+    'language_type',
+)
+def get_submission_list(
+    user,
+    offset,
+    count,
+    problem_id,
+    submission_id,
+    username,
+    status,
+    language_type,
+):
     '''
     get the list of submission data
     avaliable filter:
@@ -197,12 +213,12 @@ def get_submission_list(user, offset, count, problem_id, submission_id,
     # check range
     if offset < 0:
         return HTTPError(
-            'offset must >= 0!',
+            f'offset must >= 0! get {offset}',
             400,
         )
     if count < -1:
         return HTTPError(
-            'count must >=-1!',
+            f'count must >=-1! get {count}',
             400,
         )
 
@@ -415,10 +431,7 @@ def update_submission(user, submission, token):
                 memory_usage=m_case['memoryUsage'],
             )
         except ValidationError as e:
-            return HTTPError(
-                f'invalid data!\n{e}',
-                400,
-            )
+            return HTTPError(f'invalid data!\n{e}', 400)
         return HTTPResponse(f'{submission} result recieved.')
 
     ## put handler
@@ -430,17 +443,11 @@ def update_submission(user, submission, token):
         )
 
     if verify_token(submission.id, token) == False:
-        return HTTPError(
-            f'invalid token.',
-            403,
-        )
+        return HTTPError(f'invalid token.', 403)
 
     # if user not equal, reject
     if submission.user.username != user.username:
-        return HTTPError(
-            'user not equal!',
-            403,
-        )
+        return HTTPError('user not equal!', 403)
 
     if request.content_type == 'application/json':
         return recieve_submission_result()

@@ -427,7 +427,8 @@ class TestUserGetSubmission(SubmissionTester):
 
     @pytest.mark.parametrize(
         'key, except_val',
-        [('status', -2), ('languageType', 0), ('username', 'student')
+        [('status', -2), ('languageType', 0)
+         # TODO: need special test for username field
          # TODO: test for submission id filter
          # TODO: test for problem id filter
          ])
@@ -448,8 +449,8 @@ class TestUserGetSubmission(SubmissionTester):
 
         assert rv.status_code == 200
         assert len(rv_data['submissions']) != 0
-        # assert all(map(lambda x: x[key] == except_val,
-        #                rv_data['submissions'])) == True
+        assert all(map(lambda x: x[key] == except_val,
+                       rv_data['submissions'])) == True
 
 
 class TestTeacherGetSubmission(SubmissionTester):
@@ -514,6 +515,26 @@ class TestCreateSubmission(SubmissionTester):
         pprint(f'put: {rv_json}')
 
         assert rv.status_code == 200
+
+    def test_user_db_submission_field_content(self, forge_client):
+        # create a submission
+        client = forge_client('student')
+        rv, rv_json, rv_data = self.request(
+            client,
+            'post',
+            '/submission',
+            json={
+                'problemId': self.submissions[0]['problemId'],
+                'languageType': 0,
+            })
+
+        # get user's data
+        user = User('student')
+        pprint(user.to_mongo())
+
+        assert user
+        assert rv.status_code == 200
+        assert len(user.submissions) != 0
 
     def test_wrong_language_type(self, client_student):
         submission = self.source['c11']
