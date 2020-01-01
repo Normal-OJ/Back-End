@@ -4,17 +4,26 @@ from mongo import *
 
 
 class ProblemData:
-    def __init__(self,
-                 name,
-                 status=1,
-                 type=0,
-                 description='',
-                 tags=[],
-                 test_case={
-                     'language': 1,
-                     'fillInTemplate': '',
-                     'cases': []
-                 }):
+    def __init__(
+        self,
+        name,
+        status=1,
+        type=0,
+        description='',
+        tags=[],
+        test_case={
+            'language':
+            1,
+            'fillInTemplate':
+            '',
+            'cases': [{
+                'input': 'a',
+                'output': 'b',
+                'caseScore': 100,
+                'memoryLimit': 1000,
+                'timeLimit': 1000
+            }]
+        }):
         self.name = name
         self.status = status
         self.type = type
@@ -74,9 +83,17 @@ class TestProblem(BaseTester):
             'description': 'Test description.',
             'tags': [],
             'testCase': {
-                'language': 1,
-                'fillInTemplate': '',
-                'cases': []
+                'language':
+                1,
+                'fillInTemplate':
+                '',
+                'cases': [{
+                    'input': 'a',
+                    'output': 'b',
+                    'caseScore': 100,
+                    'memoryLimit': 1000,
+                    'timeLimit': 1000
+                }]
             }
         }
         rv = client_admin.post('/problem/manage',
@@ -95,10 +112,18 @@ class TestProblem(BaseTester):
             #  'problem_name': 'Test problem name',	# missing argument
             'description': 'Test description.',
             'tags': [],
-            'test_case': {
-                'language': 1,
-                'fillInTemplate': '',
-                'cases': []
+            'testCase': {
+                'language':
+                1,
+                'fillInTemplate':
+                '',
+                'cases': [{
+                    'input': 'a',
+                    'output': 'b',
+                    'caseScore': 100,
+                    'memoryLimit': 1000,
+                    'timeLimit': 1000
+                }]
             }
         }
         rv = client_admin.post('/problem/manage',
@@ -118,9 +143,17 @@ class TestProblem(BaseTester):
             'description': 'Test description.',
             'tags': [],
             'testCase': {
-                'language': 1,
-                'fillInTemplate': '',
-                'cases': []
+                'language':
+                1,
+                'fillInTemplate':
+                '',
+                'cases': [{
+                    'input': 'a',
+                    'output': 'b',
+                    'caseScore': 100,
+                    'memoryLimit': 1000,
+                    'timeLimit': 1000
+                }]
             }
         }
         rv = client_admin.post('/problem/manage', json=request_json)
@@ -139,9 +172,17 @@ class TestProblem(BaseTester):
             'description': 'Test description.',
             'tags': [],
             'testCase': {
-                'language': 1,
-                'fillInTemplate': '',
-                'cases': []
+                'language':
+                1,
+                'fillInTemplate':
+                '',
+                'cases': [{
+                    'input': 'a',
+                    'output': 'b',
+                    'caseScore': 100,
+                    'memoryLimit': 1000,
+                    'timeLimit': 1000
+                }]
             }
         }
         rv = client_admin.post('/problem/manage', json=request_json)
@@ -247,9 +288,17 @@ class TestProblem(BaseTester):
             'description': 'Test description.',
             'tags': [],
             'testCase': {
-                'language': 1,
-                'fillInTemplate': '',
-                'cases': []
+                'language':
+                1,
+                'fillInTemplate':
+                '',
+                'cases': [{
+                    'input': 'a',
+                    'output': 'b',
+                    'caseScore': 100,
+                    'memoryLimit': 1000,
+                    'timeLimit': 1000
+                }]
             }
         }
         rv = client_student.put('/problem/manage/1', json=request_json)
@@ -268,9 +317,17 @@ class TestProblem(BaseTester):
             'description': 'Test description.',
             'tags': [],
             'testCase': {
-                'language': 1,
-                'fillInTemplate': '',
-                'cases': []
+                'language':
+                1,
+                'fillInTemplate':
+                '',
+                'cases': [{
+                    'input': 'a',
+                    'output': 'b',
+                    'caseScore': 100,
+                    'memoryLimit': 1000,
+                    'timeLimit': 1000
+                }]
             }
         }
         rv = client_teacher.put('/problem/manage/1', json=request_json)
@@ -289,13 +346,22 @@ class TestProblem(BaseTester):
             'description': 'Test description.',
             'tags': [],
             'testCase': {
-                'language': 1,
-                'fillInTemplate': '',
-                'cases': []
+                'language':
+                1,
+                'fillInTemplate':
+                '',
+                'cases': [{
+                    'input': 'a',
+                    'output': 'b',
+                    'caseScore': 100,
+                    'memoryLimit': 1000,
+                    'timeLimit': 1000
+                }]
             }
         }
         rv = client_admin.put('/problem/manage/1', json=request_json)
         json = rv.get_json()
+        print(json['data'])
         assert rv.status_code == 200
         assert json['status'] == 'ok'
         assert json['message'] == 'Success.'
@@ -315,9 +381,17 @@ class TestProblem(BaseTester):
             'description': 'Test description.',
             'tags': [],
             'testCase': {
-                'language': 1,
-                'fillInTemplate': '',
-                'cases': []
+                'language':
+                1,
+                'fillInTemplate':
+                '',
+                'cases': [{
+                    'input': 'a',
+                    'output': 'b',
+                    'caseScore': 100,
+                    'memoryLimit': 1000,
+                    'timeLimit': 1000
+                }]
             },
             'ACUser': 0,
             'submitter': 0
