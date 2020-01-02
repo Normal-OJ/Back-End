@@ -150,6 +150,7 @@ class Problem(Document):
                                       null=True)
     ac_user = IntField(db_field='ACUser', default=0)
     submitter = IntField(default=0)
+    homeworks = ListField(ReferenceField('Homework'), default=list)
 
 
 class TestCaseResult(EmbeddedDocument):
