@@ -12,26 +12,11 @@ ranking_api = Blueprint('ranking_api', __name__)
 
 @ranking_api.route('/', methods=['GET'])
 def get_ranking():
-    users = {}
-    data = []
-    for submission in engine.Submission.objects():
-        username = submission.user.username
-        if username not in users:
-            users[username] = {
-                "ACProblem": set(),
-                "ACSubmission": 0,
-                "Submission": 0
-            }
-
-        if submission.score == 100:
-            users[username]["ACProblem"].add(submission.problem_id)
-            users[username]["ACSubmission"] += 1
-
-        users[username]["Submission"] += 1
-
-    for username, info in users.items():
-        info["username"] = username
-        info["ACProblem"] = len(info["ACProblem"])
-        data.append(info)
+    data = list({
+        "user": User(user.username).info,
+        "ACProblem": len(user.AC_problem_ids),
+        "ACSubmission": user.AC_submission,
+        "Submission": user.submission
+    } for user in engine.User.objects())
 
     return HTTPResponse('Success.', data=data)
