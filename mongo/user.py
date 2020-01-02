@@ -95,6 +95,13 @@ class User(MongoBase, engine=engine.User):
         user_id = hash_id(self.username, password)
         self.update(user_id=user_id)
 
+    def add_submission(self, submission: engine.Submission):
+        if submission.score == 100:
+            if submission.problem_id not in self.AC_problem_ids:
+                self.AC_problem_ids.append(int(submission.problem_id))
+            self.AC_submission += 1
+        self.submission += 1
+
 
 def jwt_decode(token):
     try:

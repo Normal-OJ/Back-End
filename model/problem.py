@@ -13,8 +13,37 @@ problem_api = Blueprint('problem_api', __name__)
 
 @problem_api.route('/', methods=['GET'])
 @login_required
-@Request.json('offset', 'count')
+@Request.args('offset', 'count')
 def view_problem_list(user, offset, count):
+
+    if offset is None or count is None:
+        return HTTPError(
+            'offset and count are required!',
+            400,
+        )
+
+    # casting args
+    try:
+        offset = int(offset)
+        count = int(count)
+    except ValueError:
+        return HTTPError(
+            'offset and count must be integer!',
+            400,
+        )
+
+    # check range
+    if offset < 0:
+        return HTTPError(
+            'offset must >= 0!',
+            400,
+        )
+    if count < -1:
+        return HTTPError(
+            'count must >=-1!',
+            400,
+        )
+
     data = get_problem_list(user, offset, count)
     return HTTPResponse('Success.', data=data)
 
@@ -47,17 +76,13 @@ def view_problem(user, problem_id):
 @problem_api.route('/manage/<problem_id>', methods=['GET', 'PUT', 'DELETE'])
 @identity_verify(0, 1)
 def manage_problem(user, problem_id=None):
-    @Request.json('courses',
-                  'status',
-                  'type',
-                  'description',
-                  'tags',
-                  vars_dict={
-                      'problem_name': 'problemName',
-                      'test_case': 'testCase'
-                  })
+    @Request.json('courses', 'status', 'type', 'description', 'tags',
+                  'problem_name', 'test_case')
     def modify_problem(courses, status, type, problem_name, description, tags,
                        test_case):
+        if sum(case['caseScore'] for case in test_case['cases']) != 100:
+            return HTTPError("Cases' scores should be 100 in total", 400)
+
         if request.method == 'POST':
             number = add_problem(user, courses, status, type, problem_name,
                                  description, tags, test_case)
@@ -83,9 +108,18 @@ def manage_problem(user, problem_id=None):
             'description': problem.description,
             'tags': problem.tags,
             'testCase': {
-                'language': problem.test_case['language'],
-                'fillInTemplate': problem.test_case['fill_in_template'],
-                'cases': problem.test_case['cases']
+                'language':
+                problem.test_case['language'],
+                'fillInTemplate':
+                problem.test_case['fill_in_template'],
+                'cases':
+                list({
+                    'input': case.input,
+                    'output': case.output,
+                    'caseScore': case.case_score,
+                    'memoryLimit': case.memory_limit,
+                    'timeLimit': case.time_limit
+                } for case in problem.test_case['cases'])
             },
             'ACUser': problem.ac_user,
             'submitter': problem.submitter

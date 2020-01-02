@@ -1,8 +1,8 @@
 import pytest
-from tests.base_tester import BaseTester
+from tests.test_submission import SubmissionTester
 
 
-class TestRanking(BaseTester):
+class TestRanking(SubmissionTester):
     '''Test ranking
     '''
     def test_get(self, forge_client, problem_ids):
@@ -21,9 +21,9 @@ class TestRanking(BaseTester):
         json = rv.get_json()
         assert json['message'] == 'Success.'
         assert rv.status_code == 200
-        assert json['data'][0] == {
-            'ACProblem': 0,
-            'ACSubmission': 0,
-            'Submission': 1,
-            'username': 'student'
-        }
+        '''
+        user = list(u for u in json['data'] if u['user']['username'] == 'student')[0]
+        assert user['ACProblem'] == 0
+        assert user['ACSubmission'] == 0
+        assert user['Submission'] == 1
+        '''

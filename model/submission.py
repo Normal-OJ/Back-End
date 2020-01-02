@@ -11,6 +11,7 @@ from functools import wraps
 
 from mongo import *
 from mongo import engine
+from mongo import user
 from .utils import *
 from .auth import *
 from .submission_config import SubmissionConfig
@@ -306,9 +307,9 @@ def update_submission(user, submission, token):
         with ZipFile(testcase_zip_path, 'w') as zf:
             for i, case in enumerate(cases):
                 meta['cases'].append({
-                    'caseScore': case['caseScore'],
-                    'memoryLimit': case['memoryLimit'],
-                    'timeLimit': case['timeLimit']
+                    'caseScore': case['case_score'],
+                    'memoryLimit': case['memory_limit'],
+                    'timeLimit': case['time_limit']
                 })
 
                 task_dir = testcase_dir / str(i)
