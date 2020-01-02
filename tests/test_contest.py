@@ -148,8 +148,8 @@ class TestContest(BaseTester):
         rv = client.get(f'/contest/join/{cd.contest[0]}')
         assert rv.status_code == 200
 
-    #def test_leave_contest(self, forge_client, course_data):
-    #    client = forge_client('Yin-Da-Chen')
-    #    cd = course_data
-    #    rv, rv_json, rv_data = self.request(client, 'get', f'/contest/leave')
-    #    assert rv.status_code == 200
+    def test_leave_contest(self, forge_client, course_data):
+        client = forge_client('Yin-Da-Chen')
+        cd = course_data
+        rv, rv_json, rv_data = self.request(client, 'get', f'/contest/leave')
+        assert rv.status_code == 200
