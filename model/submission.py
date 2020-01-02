@@ -111,17 +111,8 @@ def create_submission(user, language_type, problem_id):
     #         403,
     #     )
     # 3. if the user doesn't bolong to the course and the problem does
-    if len(problem.courses):
-        course_names = ''
-        course_permissions = []
-        for course in problem.courses:
-            course_permissions.append(perm(course, user))
-            course_names += course.course_name + '\n'
-        if not any(course_permissions):
-            return HTTPError(
-                f'You are not a student of these courses: {course_names}',
-                403,
-            )
+    if not can_view(user, problem):
+        return HTTPError('problem permission denied!', 403)
 
     # insert submission to DB
     try:
@@ -434,7 +425,7 @@ def update_submission(user, submission, token):
         )
 
     if verify_token(submission.id, token) == False:
-        return HTTPError(f'invalid token.', 403)
+        return HTTPError(f'invalid submission token.', 403)
 
     # if user not equal, reject
     if submission.user.username != user.username:

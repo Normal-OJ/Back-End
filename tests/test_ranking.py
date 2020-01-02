@@ -6,7 +6,7 @@ class TestRanking(BaseTester):
     '''Test ranking
     '''
     def test_get(self, forge_client, problem_ids):
-        pid = problem_ids('teacher', 1)[0]
+        pid = problem_ids('teacher', 1, True)[0]
 
         # send inbox with all invalide user
         client = forge_client('student')
