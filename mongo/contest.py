@@ -31,9 +31,9 @@ class ExistError(Exception):
 
 class Contest:
     @staticmethod
-    def add_contest(user, course_name, contest_name, start, end, problem_ids,
-                    scoreboard_status, contest_mode):
-        # check the contest name won't repeat
+    def add_contest(user, course_name, contest_name, problem_ids,
+                    scoreboard_status, contest_mode, start=None, end=None):
+        #check the contest name won't repeat
         course = engine.Course.objects.get(course_name=course_name)
         for x in course.contest:
             if x.name == contest_name:
@@ -46,9 +46,11 @@ class Contest:
         students = course.student_nicknames
         contest = engine.Contest(name=contest_name,
                                  course_id=str(course.id),
-                                 problem_ids=problem_ids)
-        contest.duration.start = datetime.now() if start is None else start
-        contest.duration.end = datetime.now() if end is None else end
+                                 problem_ids=problem_ids)       
+        if start:
+            contest.duration.start = datetime.fromtimestamp(start)
+        if end:
+            contest.duration.end = datetime.fromtimestamp(end)
         contest.contest_mode = 0 if contest_mode is None else contest_mode
         contest.scoreboard_status = 0 if scoreboard_status is None else scoreboard_status
         contest.save()
@@ -89,9 +91,9 @@ class Contest:
 
         # update fields
         if start is not None:
-            contest.duration.start = start
+            contest.duration.start = datetime.fromtimestamp(start)
         if end is not None:
-            contest.duration.end = end
+            contest.duration.end = datetime.fromtimestamp(end)
         if scoreboard_status is not None:
             contest.scoreboard_status = scoreboard_status
         if contest_mode is not None:
@@ -158,12 +160,13 @@ class Contest:
         return contests
 
     @staticmethod
-    def get_single_contest(id):
+    def get_single_contest(user, id):
         contest = engine.Contest.objects.get(id=id)
         if contest is None:
             raise DoesNotExist
         course = engine.Course.objects.get(id=contest.course_id)
         data = {
+            "name": contest.name,
             "start": contest.duration.start,
             "end": contest.duration.end,
             "contestMode": contest.contest_mode,

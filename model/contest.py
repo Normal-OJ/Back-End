@@ -20,9 +20,9 @@ def contest(user, course_name, name, new_name, start, end, problem_ids,
             scoreboard_status, contest_mode):
     if request.method == 'POST':
         try:
-            contest = Contest.add_contest(user, course_name, name, start, end,
+            contest = Contest.add_contest(user, course_name, name,
                                           problem_ids, scoreboard_status,
-                                          contest_mode)
+                                          contest_mode, start, end)
         except NotUniqueError:
             return HTTPError(
                 'the same contest name has already exist in course', 400)
@@ -56,8 +56,8 @@ def contest(user, course_name, name, new_name, start, end, problem_ids,
             for x in contests:
                 contest = {
                     "name": x.name,
-                    "start": x.duration.start,
-                    "end": x.duration.end,
+                    "start": int(x.duration.start.timestamp()),
+                    "end":  int(x.duration.end.timestamp()),
                     "id": str(x.id)
                 }
                 if (user.role <= 1):
@@ -72,7 +72,7 @@ def contest(user, course_name, name, new_name, start, end, problem_ids,
 @login_required
 def get_single_contest(user, id):
     try:
-        data = Contest.get_single_contest(id)
+        data = Contest.get_single_contest(user, id)
     except DoesNotExist:
         return HTTPError('unable to find contest', 404)
     return HTTPResponse('get contest success', data=data)
