@@ -3,6 +3,7 @@ from .auth import *
 from mongo.contest import *
 from mongoengine import DoesNotExist, NotUniqueError
 from .utils import HTTPResponse, HTTPRedirect, HTTPError, Request
+from .course import course_api
 import os
 
 __all__ = ['contest_api']
@@ -10,8 +11,8 @@ __all__ = ['contest_api']
 contest_api = Blueprint('contest_api', __name__)
 
 
-@contest_api.route('/<course_name>/content',
-                   methods=['POST', 'PUT', 'DELETE', 'GET'])
+@course_api.route('/<course_name>/content',
+                  methods=['POST', 'PUT', 'DELETE', 'GET'])
 @Request.json('name', 'new_name', 'start', 'end', 'problem_ids',
               'scoreboard_status', 'contest_mode')
 @login_required
@@ -19,8 +20,9 @@ def contest(user, course_name, name, new_name, start, end, problem_ids,
             scoreboard_status, contest_mode):
     if request.method == 'POST':
         try:
-            Contest.add_contest(user, course_name, name, start, end,
-                                problem_ids, scoreboard_status, contest_mode)
+            contest = Contest.add_contest(user, course_name, name, start, end,
+                                          problem_ids, scoreboard_status,
+                                          contest_mode)
         except NotUniqueError:
             return HTTPError(
                 'the same contest name has already exist in course', 400)
@@ -56,7 +58,7 @@ def contest(user, course_name, name, new_name, start, end, problem_ids,
                     "name": x.name,
                     "start": x.duration.start,
                     "end": x.duration.end,
-                    "id": x.id
+                    "id": str(x.id)
                 }
                 if (user.role <= 1):
                     contest["participants"] = x.participants
@@ -76,7 +78,7 @@ def get_single_contest(user, id):
     return HTTPResponse('get contest success', data=data)
 
 
-@contest_api.route('/contest', methods=['GET'])
+@contest_api.route('/', methods=['GET'])
 @login_required
 def check_user_is_in_contest(user):
     try:

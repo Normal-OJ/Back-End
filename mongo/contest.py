@@ -3,7 +3,10 @@ from mongo.course import perm
 from mongoengine import DoesNotExist, NotUniqueError
 from datetime import datetime
 from mongo.problem import Problem
-__all__ = ['Contest', 'AuthorityError', 'UserIsNotInCourse', 'ExistError']
+__all__ = [
+    'Contest', 'AuthorityError', 'UserIsNotInCourse', 'ExistError',
+    'UserIsNotInContest'
+]
 
 
 class AuthorityError(Exception):
@@ -12,6 +15,11 @@ class AuthorityError(Exception):
 
 
 class UserIsNotInCourse(Exception):
+    '''check whether the user is in this course when they want to join in the contest'''
+    pass
+
+
+class UserIsNotInContest(Exception):
     '''check whether the user is in this course when they want to join in the contest'''
     pass
 
@@ -144,7 +152,6 @@ class Contest:
         course = engine.Course.objects(course_name=course_name).first()
         if course is None:
             raise DoesNotExist
-        course_id = str(course.id)
         contests = course.contest
         if contests is None:
             contests = {}
@@ -185,13 +192,9 @@ class Contest:
         if contest is None:
             raise DoesNotExist
 
-        #check if user is in the contest's course
-        is_in_course = False
-        for course in user.courses:
-            if course.id == course_of_contest.id:
-                is_in_course = True
-                break
-        if is_in_course == False:
+        #check if user is student in the contest's course
+        role = perm(course_of_contest, user)
+        if role < 1:
             raise UserIsNotInCourse
 
         #check if user already is in this contest
@@ -220,14 +223,9 @@ class Contest:
         db_user = engine.User.objects.get(username=user.id)
         course_of_contest = engine.Course.objects.get(id=contest.course_id)
 
-        #check if user is in the contest's course
-        is_in_course = False
-        for course in user.courses:
-            if course.id == course_of_contest.id:
-                is_in_course = True
-                break
-        if is_in_course == False:
-            raise UserIsNotInCourse
+        #check if user is in the contest
+        if user.username not in contest.participants:
+            raise UserIsNotInContest
 
         #pop student from participants and remove contest
         contest.participants.pop(user.username)
