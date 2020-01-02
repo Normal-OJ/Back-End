@@ -193,7 +193,7 @@ class Inbox(Document):
 
 class Announcement(Document):
     status = IntField(default=0, choices=[0, 1])  # not delete / delete
-    title = StringField(max_length=32, required=True)
+    title = StringField(max_length=64, required=True)
     course = ReferenceField('Course', required=True)
     create_time = DateTimeField(db_field='createTime', default=datetime.utcnow)
     update_time = DateTimeField(db_field='updateTime', default=datetime.utcnow)
