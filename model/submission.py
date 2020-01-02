@@ -13,19 +13,10 @@ from mongo import *
 from mongo import engine
 from .utils import *
 from .auth import *
+from .submission_config import SubmissionConfig
 
 __all__ = ['submission_api']
 submission_api = Blueprint('submission_api', __name__)
-
-# submission api config
-RATE_LIMIT = int(os.environ.get('SUBMISSION_RATE_LIMIT', 5))
-SOURCE_PATH = pathlib.Path(
-    os.environ.get('SUBMISSION_SOURCE_PATH', 'submissions'))
-SOURCE_PATH.mkdir(exist_ok=True)
-TMP_DIR = pathlib.Path(
-    os.environ.get('SUBMISSION_TMP_DIR', '/tmp' / SOURCE_PATH))
-TMP_DIR.mkdir(exist_ok=True)
-JUDGE_URL = os.environ.get('JUDGE_URL', 'http://sandbox:1450/submit')
 
 # TODO: save tokens in db
 tokens = {}
@@ -73,15 +64,15 @@ def submission_required(func):
 
 @submission_api.route('/', methods=['POST'])
 @login_required
-@Request.json('language_type: int', 'problem_id: int')
+@Request.json('language_type: int', 'problem_id')
 def create_submission(user, language_type, problem_id):
     # the user reach the rate limit for submitting
     now = datetime.now()
     delta = timedelta.total_seconds(now - user.last_submit)
-    if delta <= RATE_LIMIT:
+    if delta <= SubmissionConfig.RATE_LIMIT:
         return HTTPError(
             'Submit too fast!\n'
-            f'Please wait for {RATE_LIMIT - delta:.2f} seconds to submit.',
+            f'Please wait for {SubmissionConfig.RATE_LIMIT - delta:.2f} seconds to submit.',
             429)  # Too many request
 
     # check for fields
@@ -252,15 +243,11 @@ def get_submission_list(
         right = len(submissions)
 
     submissions = submissions[offset:right]
-    usernames = [s.user.username for s in submissions]
-    submissions = [Submission(s.id).to_py_obj for s in submissions]
+    submissions = [Submission(s.id).to_dict() for s in submissions]
 
-    for s, n in zip(submissions, usernames):
+    for s in submissions:
         del s['code']
         del s['cases']
-
-        # replace user field with username
-        s['user'] = User(n).info
 
     unicorns = [
         'https://media.giphy.com/media/xTiTnLmaxrlBHxsMMg/giphy.gif',
@@ -284,7 +271,7 @@ def get_submission_list(
 @login_required
 @submission_required
 def get_submission(user, submission):
-    ret = submission.to_py_obj
+    ret = submission.to_dict()
 
     # can not view the problem, also the submission
     if not can_view(user, submission.problem):
@@ -296,6 +283,10 @@ def get_submission(user, submission):
             if perm(course, user) >= 2:
                 break
         del ret['code']
+
+    if 'code' in ret:
+        ext = ['.c', '.cpp', '.py']
+        ret['code'] = submission.get_code(f'main{ext[submission.language]}')
 
     return HTTPResponse(data=ret)
 
@@ -363,7 +354,7 @@ def update_submission(user, submission, token):
             ),
         }
 
-        judge_url = f'{JUDGE_URL}/{submission.id}'
+        judge_url = f'{SubmissionConfig.JUDGE_URL}/{submission.id}'
 
         # send submission to snadbox for judgement
         resp = rq.post(
@@ -389,14 +380,14 @@ def update_submission(user, submission, token):
                 )
             else:
                 # save submission source
-                submission_dir = SOURCE_PATH / submission.id
+                submission_dir = SubmissionConfig.SOURCE_PATH / submission.id
                 if submission_dir.is_dir():
                     raise FileExistsError(f'{submission} code found on server')
 
                 # create submission folder
                 submission_dir.mkdir()
                 # tmp file to store zipfile
-                zip_path = TMP_DIR / submission.id / 'source.zip'
+                zip_path = SubmissionConfig.TMP_DIR / submission.id / 'source.zip'
                 zip_path.parent.mkdir()
                 zip_path.write_bytes(code.read())
                 if not is_zipfile(zip_path):

@@ -1,7 +1,9 @@
 import json
-from mongoengine import NotUniqueError
+import os
+import pathlib
 from datetime import date
 from typing import List
+from model.submission_config import SubmissionConfig
 
 from . import engine
 from .base import MongoBase
@@ -13,39 +15,47 @@ __all__ = ['Submission']
 
 class Submission(MongoBase, engine=engine.Submission):
     def __init__(self, submission_id):
-        self.submission_id = submission_id
-
-    def __getattr__(self, name):
-        # convert mongo ObjectId to hex string for serialize
-        if name == 'id':
-            return str(self.obj.id)
-        return super().__getattr__(name)
+        self.submission_id = str(submission_id)
 
     def __str__(self):
         return f'submission [{self.submission_id}]'
 
     @property
-    def to_py_obj(self):
-        if not self:
-            return {}
+    def id(self):
+        '''
+        convert mongo ObjectId to hex string for serialize
+        '''
+        return str(self.obj.id)
 
-        old_keys = [
-            '_id',
-            # 'problem',
-        ]
-        new_keys = [
-            'submissionId',
-            # 'problemId',
-        ]
+    def to_dict(self):
+        _ret = {
+            'problemId': self.problem.problem_id,
+            'user': User(self.user.username).info,
+            'submissionId': self.id,
+            'timestamp': self.timestamp.timestamp() // 1000
+        }
         ret = json.loads(self.obj.to_json())
-        for old, new in zip(old_keys, new_keys):
-            ret[new] = ret[old]['$oid']
-            del ret[old]
 
-        ret['timestamp'] = ret['timestamp']['$date'] // 1000
-        ret['problemId'] = engine.Problem.objects.get(
-            id=ret['problem']['$oid']).problem_id
-        del ret['problem']
+        old = [
+            '_id',
+            'problem',
+        ]
+        for o in old:
+            del ret[o]
+
+        for n in _ret.keys():
+            ret[n] = _ret[n]
+
+        return ret
+
+    def get_code(self, path: str):
+        path = SubmissionConfig.SOURCE_PATH / self.id / path
+
+        if not path.exists():
+            raise FileNotFoundError
+
+        with open(path) as f:
+            ret = f.read()
 
         return ret
 
