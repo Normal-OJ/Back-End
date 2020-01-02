@@ -41,7 +41,6 @@ class User(MongoBase, engine=engine.User):
         except engine.DoesNotExist:
             user = cls.get_by_email(username)
         user_id = hash_id(user.username, password)
-        print(user.user_id, user_id)
         if compare_digest(user.user_id, user_id):
             return user
         raise engine.DoesNotExist
