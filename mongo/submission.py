@@ -32,7 +32,7 @@ class Submission(MongoBase, engine=engine.Submission):
             'problemId': self.problem.problem_id,
             'user': User(self.user.username).info,
             'submissionId': self.id,
-            'timestamp': self.timestamp.timestamp() // 1000
+            'timestamp': self.timestamp.timestamp()
         }
         ret = json.loads(self.obj.to_json())
 
@@ -52,7 +52,7 @@ class Submission(MongoBase, engine=engine.Submission):
         path = SubmissionConfig.SOURCE_PATH / self.id / path
 
         if not path.exists():
-            raise FileNotFoundError
+            raise FileNotFoundError(path)
 
         with open(path) as f:
             ret = f.read()
