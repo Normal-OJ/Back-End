@@ -68,7 +68,7 @@ def add_course(course, teacher):
         raise ValueError
     te = User(teacher)
     if not te:
-        raise engine.DoesNotExist('User')
+        raise engine.DoesNotExist(teacher)
 
     co = engine.Course(course_name=course, teacher=te.obj)
     co.save()

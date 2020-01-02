@@ -1,12 +1,18 @@
 import pytest
-from tests.test_submission import SubmissionTester
+from tests.base_tester import BaseTester
 
 
-class TestRanking(SubmissionTester):
+class TestRanking(BaseTester):
     '''Test ranking
     '''
-    def test_get(self, forge_client, problem_ids):
-        pid = problem_ids('teacher', 1, True)[0]
+    def test_get(
+        self,
+        forge_client,
+        problem_ids,
+        make_course,
+    ):
+        make_course('teacher', {'student': '1450'})
+        pid = problem_ids('teacher', 1, True, 0)[0]
 
         # send inbox with all invalide user
         client = forge_client('student')

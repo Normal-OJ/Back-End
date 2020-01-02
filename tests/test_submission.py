@@ -320,7 +320,8 @@ class TestUserGetSubmission(SubmissionTester):
         pprint(rv_json)
 
         assert rv.status_code == 200
-        assert len(rv_data['submissions']) == (len(self.submissions) - offset)
+        assert len(rv_data['submissions']) == (self.init_submission_count -
+                                               offset)
 
     def test_get_submission_list_over_db_size(self, forge_client):
         client = forge_client('student')
@@ -486,31 +487,6 @@ class TestTeacherGetSubmission(SubmissionTester):
         assert len(rv_data['submissions']) == except_count
 
 
-class TestTeacherGetSubmission(SubmissionTester):
-    def test_teacher_can_get_offline_submission(self, forge_client):
-        client = forge_client('teacher')
-        rv, rv_json, rv_data = self.request(
-            client,
-            'get',
-            '/submission?offset=0&count=-1',
-        )
-
-        pprint(rv_json)
-
-        user = User('teacher')
-        except_count = len([
-            *filter(
-                lambda s: can_view(
-                    user,
-                    s.problem,
-                ),
-                engine.Submission.objects,
-            )
-        ])
-
-        assert len(rv_data['submissions']) == except_count
-
-
 class TestCreateSubmission(SubmissionTester):
     pid = None
 
@@ -581,6 +557,8 @@ class TestCreateSubmission(SubmissionTester):
         self,
         forge_client,
     ):
+        # get submission length
+        before_len = len(User('student').submissions)
         # create a submission
         client = forge_client('student')
         rv, rv_json, rv_data = BaseTester.request(
@@ -600,7 +578,7 @@ class TestCreateSubmission(SubmissionTester):
 
         assert user
         assert rv.status_code == 200
-        assert len(user.submissions) != 0
+        assert len(user.submissions) == before_len + 1
 
     def test_wrong_language_type(
         self,
