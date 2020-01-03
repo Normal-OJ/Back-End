@@ -3,6 +3,7 @@ import requests as rq
 import random
 import json
 import pathlib
+import string
 from zipfile import ZipFile, is_zipfile
 from requests import status_codes
 from flask import Blueprint, request
@@ -14,28 +15,21 @@ from mongo import engine
 from mongo import user
 from .utils import *
 from .auth import *
+from .submission_config import SubmissionConfig
 
 __all__ = ['submission_api']
 submission_api = Blueprint('submission_api', __name__)
-
-# submission api config
-RATE_LIMIT = int(os.environ.get('SUBMISSION_RATE_LIMIT', 5))
-SOURCE_PATH = pathlib.Path(
-    os.environ.get('SUBMISSION_SOURCE_PATH', 'submissions'))
-SOURCE_PATH.mkdir(exist_ok=True)
-TMP_DIR = pathlib.Path(
-    os.environ.get('SUBMISSION_TMP_DIR', '/tmp' / SOURCE_PATH))
-TMP_DIR.mkdir(exist_ok=True)
-JUDGE_URL = os.environ.get('JUDGE_URL', 'http://sandbox:1450/submit')
 
 # TODO: save tokens in db
 tokens = {}
 
 
 def get_token():
-    ret = hex(int(str(random.random())[2:]))[2:]
-    ret += hex(int(str(random.random())[2:]))[2:]
-    return ret[:24]
+    ret = random.choices(
+        string.ascii_lowercase + string.ascii_uppercase + string.digits,
+        k=24,
+    )
+    return ''.join(ret)
 
 
 def assign_token(submission_id, token_pool=tokens):
@@ -74,21 +68,21 @@ def submission_required(func):
 
 @submission_api.route('/', methods=['POST'])
 @login_required
-@Request.json('language_type', 'problem_id')
+@Request.json('language_type: int', 'problem_id')
 def create_submission(user, language_type, problem_id):
     # the user reach the rate limit for submitting
     now = datetime.now()
     delta = timedelta.total_seconds(now - user.last_submit)
-    if delta <= RATE_LIMIT:
+    if delta <= SubmissionConfig.RATE_LIMIT:
         return HTTPError(
             'Submit too fast!\n'
-            f'Please wait for {RATE_LIMIT - delta:.2f} seconds to submit.',
+            f'Please wait for {SubmissionConfig.RATE_LIMIT - delta:.2f} seconds to submit.',
             429)  # Too many request
 
     # check for fields
-    if language_type is None or problem_id is None:
+    if any([language_type is None, problem_id is None]):
         return HTTPError(
-            f'post data missing!',
+            'post data missing!',
             400,
             data={
                 'languageType': language_type,
@@ -101,37 +95,8 @@ def create_submission(user, language_type, problem_id):
     if problem is None:
         return HTTPError('Unexisted problem id', 404)
 
-    # permission check
-    # 1. if the problem is in a contest and this user is not a participant
-    if user.contest:
-        if problem_id not in user.contest.problem_ids:
-            return HTTPError(
-                f'problem not belong to the contest {user.contest.name} and you are current in it.',
-                403,
-            )
-    # 2. user is not in a contest and the problem belong to a contest
-    # TODO: fix permission check about contests, this part still has problem 🦄
-    # elif len(problem.courses) != 0:
-    #     contest_names = [
-    #         engine.Contest(id=_id).name for _id in problem.contest
-    #     ]
-    #     contest_names = '\n'.join(contest_names)
-    #     return HTTPError(
-    #         f'you are not a particenpate of these contests:\n {contest_names}',
-    #         403,
-    #     )
-    # 3. if the user doesn't bolong to the course and the problem does
-    if len(problem.courses):
-        course_names = ''
-        course_permissions = []
-        for course in problem.courses:
-            course_permissions.append(perm(course, user))
-            course_names += course.course_name + '\n'
-        if not any(course_permissions):
-            return HTTPError(
-                f'You are not a student of these courses: {course_names}',
-                403,
-            )
+    if not can_view(user, problem):
+        return HTTPError('problem permission denied!', 403)
 
     # insert submission to DB
     try:
@@ -147,7 +112,8 @@ def create_submission(user, language_type, problem_id):
         return HTTPError(str(e), 404)
 
     user.update(last_submit=now)
-    user.submissions.append(submission)
+    user.submissions.append(submission.obj)
+    user.save()
 
     # generate token for upload file
     token = assign_token(submission.id)
@@ -163,10 +129,25 @@ def create_submission(user, language_type, problem_id):
 
 @submission_api.route('/', methods=['GET'])
 @login_required
-@Request.args('offset', 'count', 'problem_id', 'submission_id', 'username',
-              'status', 'language_type')
-def get_submission_list(user, offset, count, problem_id, submission_id,
-                        username, status, language_type):
+@Request.args(
+    'offset',
+    'count',
+    'problem_id',
+    'submission_id',
+    'username',
+    'status',
+    'language_type',
+)
+def get_submission_list(
+    user,
+    offset,
+    count,
+    problem_id,
+    submission_id,
+    username,
+    status,
+    language_type,
+):
     '''
     get the list of submission data
     avaliable filter:
@@ -198,12 +179,12 @@ def get_submission_list(user, offset, count, problem_id, submission_id,
     # check range
     if offset < 0:
         return HTTPError(
-            'offset must >= 0!',
+            f'offset must >= 0! get {offset}',
             400,
         )
     if count < -1:
         return HTTPError(
-            'count must >=-1!',
+            f'count must >=-1! get {count}',
             400,
         )
 
@@ -237,15 +218,11 @@ def get_submission_list(user, offset, count, problem_id, submission_id,
         right = len(submissions)
 
     submissions = submissions[offset:right]
-    usernames = [s.user.username for s in submissions]
-    submissions = [Submission(s.id).to_py_obj for s in submissions]
+    submissions = [Submission(s.id).to_dict() for s in submissions]
 
-    for s, n in zip(submissions, usernames):
+    for s in submissions:
         del s['code']
         del s['cases']
-
-        # replace user field with username
-        s['user'] = User(n).info
 
     unicorns = [
         'https://media.giphy.com/media/xTiTnLmaxrlBHxsMMg/giphy.gif',
@@ -269,7 +246,7 @@ def get_submission_list(user, offset, count, problem_id, submission_id,
 @login_required
 @submission_required
 def get_submission(user, submission):
-    ret = submission.to_py_obj
+    ret = submission.to_dict()
 
     # can not view the problem, also the submission
     if not can_view(user, submission.problem):
@@ -282,10 +259,16 @@ def get_submission(user, submission):
                 break
         del ret['code']
 
+    # check user's stdout/stderr
     if not submission.problem.can_view_stdout:
         for case in ret['cases']:
             del case['stdout']
             del case['stderr']
+
+    # give user source code
+    if 'code' in ret:
+        ext = ['.c', '.cpp', '.py']
+        ret['code'] = submission.get_code(f'main{ext[submission.language]}')
 
     return HTTPResponse(data=ret)
 
@@ -299,7 +282,7 @@ def update_submission(user, submission, token):
         '''
         send submission data to sandbox
         '''
-        # prepare submission data
+        ## prepare submission data
         # prepare problem testcase
         # get testcases
         cases = submission.problem.test_case.cases
@@ -353,7 +336,7 @@ def update_submission(user, submission, token):
             ),
         }
 
-        judge_url = f'{JUDGE_URL}/{submission.id}'
+        judge_url = f'{SubmissionConfig.JUDGE_URL}/{submission.id}'
 
         # send submission to snadbox for judgement
         resp = rq.post(
@@ -379,14 +362,14 @@ def update_submission(user, submission, token):
                 )
             else:
                 # save submission source
-                submission_dir = SOURCE_PATH / submission.id
+                submission_dir = SubmissionConfig.SOURCE_PATH / submission.id
                 if submission_dir.is_dir():
                     raise FileExistsError(f'{submission} code found on server')
 
                 # create submission folder
                 submission_dir.mkdir()
                 # tmp file to store zipfile
-                zip_path = TMP_DIR / submission.id / 'source.zip'
+                zip_path = SubmissionConfig.TMP_DIR / submission.id / 'source.zip'
                 zip_path.parent.mkdir()
                 zip_path.write_bytes(code.read())
                 if not is_zipfile(zip_path):
@@ -420,16 +403,12 @@ def update_submission(user, submission, token):
                 exec_time=m_case['execTime'],
                 memory_usage=m_case['memoryUsage'],
             )
+            user.add_submission(submission)
         except ValidationError as e:
-            return HTTPError(
-                f'invalid data!\n{e}',
-                400,
-            )
-
-        user.add_submission(submission)
+            return HTTPError(f'invalid data!\n{e}', 400)
         return HTTPResponse(f'{submission} result recieved.')
 
-    # put handler
+    ## put handler
     # validate this reques
     if submission.status >= 0:
         return HTTPError(
@@ -438,17 +417,11 @@ def update_submission(user, submission, token):
         )
 
     if verify_token(submission.id, token) == False:
-        return HTTPError(
-            f'invalid token.',
-            403,
-        )
+        return HTTPError(f'invalid submission token.', 403)
 
     # if user not equal, reject
     if submission.user.username != user.username:
-        return HTTPError(
-            'user not equal!',
-            403,
-        )
+        return HTTPError('user not equal!', 403)
 
     if request.content_type == 'application/json':
         return recieve_submission_result()

@@ -37,6 +37,12 @@ def can_view(user, problem):
     '''cheeck if a user can view the problem'''
     if user.role == 0:
         return True
+    if user.contest:
+        if user.contest in problem.contests:
+            return True
+        return False
+    if user.username == problem.owner:
+        return True
     for course in problem.courses:
         permission = 1 if course.course_name == "Public" else perm(
             course, user)
