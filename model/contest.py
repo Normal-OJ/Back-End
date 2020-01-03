@@ -20,9 +20,9 @@ def contest(user, course_name, name, new_name, start, end, problem_ids,
             scoreboard_status, contest_mode):
     if request.method == 'POST':
         try:
-            contest = Contest.add_contest(user, course_name, name,
-                                          problem_ids, scoreboard_status,
-                                          contest_mode, start, end)
+            contest = Contest.add_contest(user, course_name, name, problem_ids,
+                                          scoreboard_status, contest_mode,
+                                          start, end)
         except NotUniqueError:
             return HTTPError(
                 'the same contest name has already exist in course', 400)
@@ -57,7 +57,7 @@ def contest(user, course_name, name, new_name, start, end, problem_ids,
                 contest = {
                     "name": x.name,
                     "start": int(x.duration.start.timestamp()),
-                    "end":  int(x.duration.end.timestamp()),
+                    "end": int(x.duration.end.timestamp()),
                     "id": str(x.id)
                 }
                 if (user.role <= 1):

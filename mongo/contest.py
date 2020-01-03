@@ -31,8 +31,14 @@ class ExistError(Exception):
 
 class Contest:
     @staticmethod
-    def add_contest(user, course_name, contest_name, problem_ids,
-                    scoreboard_status, contest_mode, start=None, end=None):
+    def add_contest(user,
+                    course_name,
+                    contest_name,
+                    problem_ids,
+                    scoreboard_status,
+                    contest_mode,
+                    start=None,
+                    end=None):
         #check the contest name won't repeat
         course = engine.Course.objects.get(course_name=course_name)
         for x in course.contest:
@@ -46,7 +52,7 @@ class Contest:
         students = course.student_nicknames
         contest = engine.Contest(name=contest_name,
                                  course_id=str(course.id),
-                                 problem_ids=problem_ids)       
+                                 problem_ids=problem_ids)
         if start:
             contest.duration.start = datetime.fromtimestamp(start)
         if end:
