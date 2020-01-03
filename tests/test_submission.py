@@ -215,8 +215,6 @@ class TestUserGetSubmission(SubmissionTester):
     @classmethod
     @pytest.fixture(autouse=True)
     def on_create(cls, submit, problem_ids):
-        # super().setup_class()
-
         pids = [problem_ids(name, 2, True) for name in A_NAMES]
         pids = itertools.chain(*pids)
         pids = [pid for pid in pids if Problem(pid).obj.problem_status == 0]
@@ -236,7 +234,6 @@ class TestUserGetSubmission(SubmissionTester):
         yield
 
         cls.submissions = []
-        # super().teardown_class()
 
     def test_normal_get_submission_list(self, forge_client):
         client = forge_client('student')

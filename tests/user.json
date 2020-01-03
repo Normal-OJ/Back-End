@@ -3,6 +3,8 @@
     "admin": 0,
     "teacher": 1,
     "student": 2,
+    "teacher-2": 1,
+    "student-2": 2,
     "Po-Wen-Chi": 1,
     "Tsung-Che-Chiang": 1,
     "Bo-Chieh-Chuang": 2,

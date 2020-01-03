@@ -157,7 +157,6 @@ def get_submission_list(
         - status
         - runtime
         - score
-        - memory usage
         - language
     '''
     if offset is None or count is None:
