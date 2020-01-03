@@ -13,6 +13,7 @@ type_map = {
     'list': list,
     'str': str,
     'dict': dict,
+    'bool': bool,
     'None': type(None)
 }
 

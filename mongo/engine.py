@@ -42,10 +42,8 @@ class Duration(EmbeddedDocument):
 
 class User(Document):
     username = StringField(max_length=16, required=True, primary_key=True)
-    user_id = StringField(db_field='userId',
-                          max_length=24,
-                          required=True,
-                          unique=True)
+    user_id = StringField(db_field='userId', max_length=24, required=True)
+    user_id2 = StringField(db_field='userId2', max_length=24, default='')
     email = EmailField(required=True, unique=True)
     md5 = StringField(required=True)
     active = BooleanField(default=False)
