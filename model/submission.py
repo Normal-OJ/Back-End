@@ -397,7 +397,7 @@ def update_submission(user, submission, token):
                 memory_usage=m_case['memoryUsage'],
             )
             user.add_submission(submission)
-        except ValidationError as e:
+        except (ValidationError, KeyError) as e:
             return HTTPError(f'invalid data!\n{e}', 400)
         return HTTPResponse(f'{submission} result recieved.')
 
