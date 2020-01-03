@@ -71,21 +71,20 @@ def get_problem_list(user, offset, count):
 
 
 def add_problem(user, courses, status, type, problem_name, description, tags,
-                test_case):
+                test_case, can_view_stdout):
     serial_number = Number("serial_number").obj
 
     problem_id = serial_number.number
     engine.Problem(problem_id=problem_id,
-                   courses=list(
-                       engine.Course.objects.get(course_name=name)
-                       for name in courses),
+                   courses=list(Course(name).obj for name in courses),
                    problem_status=status,
                    problem_type=type,
                    problem_name=problem_name,
                    description=description,
                    owner=user.username,
                    tags=tags,
-                   test_case=test_case).save()
+                   test_case=test_case,
+                   can_view_stdout=can_view_stdout).save()
 
     serial_number.number += 1
     serial_number.save()
@@ -149,6 +148,6 @@ def copy_problem(user, problem_id):
 def release_problem(problem_id):
     course = Course("Public").obj
     problem = Problem(problem_id).obj
-    problem.courses.append(course)
-    problem.problem_name = "first_admin"
+    problem.courses = [course]
+    problem.owner = "first_admin"
     problem.save()

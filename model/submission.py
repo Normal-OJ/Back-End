@@ -282,6 +282,11 @@ def get_submission(user, submission):
                 break
         del ret['code']
 
+    if not submission.problem.can_view_stdout:
+        for case in ret['cases']:
+            del case['stdout']
+            del case['stderr']
+
     return HTTPResponse(data=ret)
 
 

@@ -114,8 +114,8 @@ def problem_ids(forge_client, make_course):
                 '/problem/manage',
                 json=random_problem_data(username if add_to_course else None),
             )
-            assert rv.status_code == 200
-            rets.append(rv.get_json()['data']['problemId'])
+            assert rv.status_code == 200, rv.get_json()
+            rets.append(rv.get_json()['data']['problemIds'][0])
         # don't leave cookies!
         client.cookie_jar.clear()
 

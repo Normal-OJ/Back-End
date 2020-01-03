@@ -76,17 +76,22 @@ def view_problem(user, problem_id):
 @problem_api.route('/manage/<problem_id>', methods=['GET', 'PUT', 'DELETE'])
 @identity_verify(0, 1)
 def manage_problem(user, problem_id=None):
-    @Request.json('courses', 'status', 'type', 'description', 'tags',
-                  'problem_name', 'test_case')
+    @Request.json('courses: list', 'status', 'type', 'description', 'tags',
+                  'problem_name', 'test_case', 'can_view_stdout')
     def modify_problem(courses, status, type, problem_name, description, tags,
-                       test_case):
+                       test_case, can_view_stdout):
         if sum(case['caseScore'] for case in test_case['cases']) != 100:
             return HTTPError("Cases' scores should be 100 in total", 400)
 
         if request.method == 'POST':
-            number = add_problem(user, courses, status, type, problem_name,
-                                 description, tags, test_case)
-            return HTTPResponse('Success.', data={'problemId': number})
+            pids = []
+            if len(courses) == 0:
+                pids.append(add_problem(user, [], status, type, problem_name,
+                                    description, tags, test_case, can_view_stdout))
+            for course in courses:
+                pids.append(add_problem(user, [course], status, type, problem_name,
+                                    description, tags, test_case, can_view_stdout))
+            return HTTPResponse('Success.', data={'problemIds': pids})
         elif request.method == 'PUT':
             edit_problem(user, problem_id, courses, status, type, problem_name,
                          description, tags, test_case)
