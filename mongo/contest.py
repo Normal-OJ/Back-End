@@ -180,7 +180,7 @@ class Contest:
             "courseName": course.course_name
         }
         role = perm(course, user)
-        if role < 2 or datetime.now() > contest.duration.start:
+        if role > 1 or datetime.now() > contest.duration.start:
             data["problemIds"] = contest.problem_ids
         if contest.scoreboard_status == 0:
             data["participants"] = contest.participants
