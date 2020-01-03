@@ -39,11 +39,11 @@ def course_data(request, client_teacher):
     contest = Contest.add_contest(user=User(cd.teacher).obj,
                                   course_name=cd.name,
                                   contest_name='contest1',
-                                  start=int(datetime.now().timestamp()),
-                                  end=int(datetime.now().timestamp()),
-                                  problem_ids=['test'],
+                                  problem_ids=None,
                                   scoreboard_status=0,
-                                  contest_mode=1)
+                                  contest_mode=1,
+                                  start=int(datetime.now().timestamp()),
+                                  end=int(datetime.now().timestamp()))
     # insert contest to course
     cd.contest.append(contest.id)
     yield cd
@@ -82,7 +82,7 @@ class TestContest(BaseTester):
                 'name': 'contest_test',
                 'start': int(datetime.now().timestamp()),
                 'end': int(datetime.now().timestamp()),
-                'problemIds': ['1', '2'],
+                'problemIds': None,
                 'contestMode': 1,
                 'scoreboardStatus': 1
             })
@@ -105,7 +105,7 @@ class TestContest(BaseTester):
                                       contest_name='contest4delete',
                                       start=int(datetime.now().timestamp()),
                                       end=int(datetime.now().timestamp()),
-                                      problem_ids=['test'],
+                                      problem_ids=None,
                                       scoreboard_status=0,
                                       contest_mode=1)
         rv, rv_json, rv_data = self.request(
@@ -124,7 +124,7 @@ class TestContest(BaseTester):
                                       contest_name='contest4update',
                                       start=int(datetime.now().timestamp()),
                                       end=int(datetime.now().timestamp()),
-                                      problem_ids=['test'],
+                                      problem_ids=None,
                                       scoreboard_status=0,
                                       contest_mode=1)
         rv, rv_json, rv_data = self.request(client,
@@ -134,7 +134,7 @@ class TestContest(BaseTester):
                                                 'name': 'contest1',
                                                 'newName': 'contest_newname',
                                                 'contestMode': 1,
-                                                'problemIds': ['1', '2', '3']
+                                                'problemIds': None
                                             })
         assert rv.status_code == 200
         client = forge_client(course_data.teacher)
