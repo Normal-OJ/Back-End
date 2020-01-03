@@ -51,29 +51,33 @@ def can_view(user, problem):
     return False
 
 
-def get_problem_list(user, offset, count):
-    serial_number = Number("serial_number").obj
-    problem_list = []
-    index = offset
-    amount = 0
-    while True:
-        if amount >= count:
-            break
-        if index >= serial_number.number:
-            break
-        problem = Problem(index).obj
-        if problem is not None and can_view(user, problem):
-            problem_list.append({
-                'problemId': problem.problem_id,
-                'type': problem.problem_type,
-                'problemName': problem.problem_name,
-                'tags': problem.tags,
-                'ACUser': problem.ac_user,
-                'submitter': problem.submitter
-            })
-            amount += 1
-        index += 1
-    return problem_list
+def get_problem_list(
+    user,
+    offset: int,
+    count: int,
+    problem_id,
+    name,
+    tags: list,
+):
+    '''
+    get a list of probblems
+    '''
+    ks = {'problemId': problem_id, 'problemName': name}
+    ks = {k: v for k, v in ks.items() if v is not None}
+    problems = engine.Problem.objects.filter(**ks).order_by('problemId')
+    problems = [p for p in problems if can_view(user, p)]
+    if tags:
+        tags = set(tags)
+        problems = [p for p in problems if len(set(p.tags) & tags)]
+
+    if offset >= len(problems) and len(problems):
+        raise IndexError
+
+    right = len(problems) if count == -1 else offset + count
+    right = min(len(problems), right)
+    problems = problems[offset:right]
+
+    return problems
 
 
 def add_problem(user, courses, status, type, problem_name, description, tags,
