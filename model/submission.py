@@ -3,6 +3,7 @@ import requests as rq
 import random
 import json
 import pathlib
+import string
 from zipfile import ZipFile, is_zipfile
 from requests import status_codes
 from flask import Blueprint, request
@@ -24,9 +25,11 @@ tokens = {}
 
 
 def get_token():
-    ret = hex(int(str(random.random())[2:]))[2:]
-    ret += hex(int(str(random.random())[2:]))[2:]
-    return ret[:24]
+    ret = random.choices(
+        string.ascii_lowercase + string.ascii_uppercase + string.digits,
+        k=24,
+    )
+    return ''.join(ret)
 
 
 def assign_token(submission_id, token_pool=tokens):
@@ -92,26 +95,6 @@ def create_submission(user, language_type, problem_id):
     if problem is None:
         return HTTPError('Unexisted problem id', 404)
 
-    # permission check
-    # 1. if the problem is in a contest and this user is not a participant
-    if user.contest:
-        if problem_id not in user.contest.problem_ids:
-            return HTTPError(
-                f'problem not belong to the contest {user.contest.name} and you are current in it.',
-                403,
-            )
-    # 2. user is not in a contest and the problem belong to a contest
-    # TODO: fix permission check about contests, this part still has problem 🦄
-    # elif len(problem.courses) != 0:
-    #     contest_names = [
-    #         engine.Contest(id=_id).name for _id in problem.contest
-    #     ]
-    #     contest_names = '\n'.join(contest_names)
-    #     return HTTPError(
-    #         f'you are not a particenpate of these contests:\n {contest_names}',
-    #         403,
-    #     )
-    # 3. if the user doesn't bolong to the course and the problem does
     if not can_view(user, problem):
         return HTTPError('problem permission denied!', 403)
 
@@ -413,6 +396,7 @@ def update_submission(user, submission, token):
                 exec_time=m_case['execTime'],
                 memory_usage=m_case['memoryUsage'],
             )
+            user.add_submission(submission)
         except ValidationError as e:
             return HTTPError(f'invalid data!\n{e}', 400)
         return HTTPResponse(f'{submission} result recieved.')
