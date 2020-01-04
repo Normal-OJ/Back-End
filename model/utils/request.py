@@ -60,6 +60,7 @@ class _Request(type):
 class Request(metaclass=_Request):
     pass
 
+
 def timing_request(func):
     '''
     inject the execution time into response
