@@ -167,20 +167,28 @@ def submission_testcase_setup(
 
     # modify submission config
     from model.submission_config import SubmissionConfig
+
     # use tmp dir to save user source code
-    SubmissionConfig.SOURCE_PATH = tmp_path / SubmissionConfig.SOURCE_PATH
-    SubmissionConfig.SOURCE_PATH = SubmissionConfig.SOURCE_PATH.absolute()
+    SubmissionConfig.SOURCE_PATH = (tmp_path /
+                                    SubmissionConfig.SOURCE_PATH).absolute()
     SubmissionConfig.SOURCE_PATH.mkdir(exist_ok=True)
+    SubmissionConfig.TMP_DIR = (tmp_path / SubmissionConfig.TMP_DIR).absolute()
+    SubmissionConfig.TMP_DIR.mkdir(exist_ok=True)
+
     # replace judge url with test route
-    SubmissionConfig.JUDGE_URL = 'https://www.csie.ntnu.edu.tw?magic='
+    SubmissionConfig.JUDGE_URL = 'http://csie.ntnu.edu.tw?magic='
     SubmissionConfig.RATE_LIMIT = -1
 
     # save base source
     src_dir = pathlib.Path('tests/src')
+    exts = {'.c', '.cpp', '.py'}
+
     for src in src_dir.iterdir():
+        if any([not src.suffix in exts, not src.is_file()]):
+            continue
         save_source(
             src.stem,
-            src.open().read(),
+            src.read_text(),
             [
                 '.c',
                 '.cpp',
@@ -319,6 +327,17 @@ class TestUserGetSubmission(SubmissionTester):
         assert rv.status_code == 200
         assert len(rv_data['submissions']) == (self.init_submission_count -
                                                offset)
+
+    def test_get_submission_count(self, forge_client):
+        client = forge_client('student')
+        rv, rv_json, rv_data = BaseTester.request(
+            client,
+            'get',
+            '/submission/count',
+        )
+
+        assert rv.status_code == 200
+        assert rv_data['count'] == self.init_submission_count
 
     def test_get_submission_list_over_db_size(self, forge_client):
         client = forge_client('student')
