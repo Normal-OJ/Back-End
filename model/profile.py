@@ -15,6 +15,9 @@ profile_api = Blueprint('profile_api', __name__)
 def view_profile(user, username=None):
     try:
         user = user if username is None else User(username)
+        if not user:
+            return HTTPError('Profile not exist.', 404)
+
         data = {
             'email': user.obj.email,
             'displayedName': user.obj.profile.displayed_name,

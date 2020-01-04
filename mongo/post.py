@@ -17,7 +17,7 @@ def found_thread(target_thread):
     thread = {
         "id": str(target_thread.id),
         "content": target_thread.markdown,
-        "author": target_thread.author.username,
+        "author": User(target_thread.author.username).info,
         "created": target_thread.created.timestamp(),
         "updated": target_thread.updated.timestamp(),
         "reply": reply_thread
@@ -59,8 +59,8 @@ def add_reply(target_thread, user, content):
     updated_time = created_time
     new_depth = target_thread.depth + 1
     ''' not open this feature ,reply to reply'''
-    if new_depth >= 2:
-        return "Forbidden,you can not reply to reply (not open)."
+    if new_depth > 2:
+        return "Forbidden,you can not reply too deap (not open)."
     origin_course = target_thread.course_id
     new_thread = engine.PostThread(markdown=content,
                                    course_id=origin_course,

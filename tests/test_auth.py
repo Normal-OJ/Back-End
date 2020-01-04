@@ -98,7 +98,7 @@ class TestActive:
         json = rv.get_json()
         assert rv.status_code == 400
         assert json['status'] == 'err'
-        assert json['message'] == 'Invalid Data'
+        assert json['message'] == 'Requested Value With Wrong Type'
 
     def test_update_without_agreement(self, client):
         # Update without agreement
@@ -108,9 +108,9 @@ class TestActive:
                              'agreement': 123
                          })
         json = rv.get_json()
-        assert rv.status_code == 403
+        assert rv.status_code == 400
         assert json['status'] == 'err'
-        assert json['message'] == 'Not Confirm the Agreement'
+        assert json['message'] == 'Requested Value With Wrong Type'
 
     def test_update(self, client, test_token):
         # Update
@@ -138,7 +138,7 @@ class TestLogin:
         json = rv.get_json()
         assert rv.status_code == 400
         assert json['status'] == 'err'
-        assert json['message'] == 'Incomplete Data'
+        assert json['message'] == 'Requested Value With Wrong Type'
 
     def test_wrong_password(self, client):
         # Login with wrong password

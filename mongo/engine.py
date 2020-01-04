@@ -42,10 +42,8 @@ class Duration(EmbeddedDocument):
 
 class User(Document):
     username = StringField(max_length=16, required=True, primary_key=True)
-    user_id = StringField(db_field='userId',
-                          max_length=24,
-                          required=True,
-                          unique=True)
+    user_id = StringField(db_field='userId', max_length=24, required=True)
+    user_id2 = StringField(db_field='userId2', max_length=24, default='')
     email = EmailField(required=True, unique=True)
     md5 = StringField(required=True)
     active = BooleanField(default=False)
@@ -55,10 +53,13 @@ class User(Document):
                                           db_field='editorConfig',
                                           default=EditorConfig,
                                           null=True)
-    # contest_id = ReferenceField('Contest', db_field='contestId')
+    contest = ReferenceField('Contest', db_field='contestId')
     courses = ListField(ReferenceField('Course'))
-    # submission_ids = ListField(ReferenceField('Submission'), db_field='submissionIds')
+    submissions = ListField(ReferenceField('Submission'))
     last_submit = DateTimeField(default=datetime.min)
+    AC_problem_ids = ListField(IntField(), default=list)
+    AC_submission = IntField(default=0)
+    submission = IntField(default=0)
 
 
 class Homework(Document):
@@ -71,7 +72,7 @@ class Homework(Document):
                                  db_field='scoreboardStatus')
     course_id = StringField(required=True, db_field='courseId')
     duration = EmbeddedDocumentField(Duration, default=Duration)
-    problem_ids = ListField(StringField(), db_field='problemIds')
+    problem_ids = ListField(IntField(), db_field='problemIds')
     student_status = DictField(db_field='studentStatus')
 
 
@@ -81,11 +82,9 @@ class Contest(Document):
                                  choice=[0, 1],
                                  db_field='scoreboardStatus')
     course_id = StringField(db_field='courseId')
-    duration = EmbeddedDocumentField(Duration,
-                                     db_field='duration',
-                                     default=Duration)
+    duration = EmbeddedDocumentField(Duration, default=Duration)
     contest_mode = IntField(default=0, choice=[0, 1], db_field='contestMode')
-    problem_ids = ListField(StringField(), db_field='problemIds')
+    problem_ids = ListField(IntField(), db_field='problemIds')
     participants = DictField(db_field='participants')
 
 
@@ -110,18 +109,27 @@ class Course(Document):
 
 class Number(Document):
     name = StringField()
-    number = IntField()
+    number = IntField(default=1)
+
+
+class ProblemCase(EmbeddedDocument):
+    case_score = IntField(required=True, db_field='caseScore')
+    memory_limit = IntField(required=True, db_field='memoryLimit')
+    time_limit = IntField(required=True, db_field='timeLimit')
+    input = StringField(required=True)
+    output = StringField(required=True)
 
 
 class ProblemTestCase(EmbeddedDocument):
-    language = IntField(choices=[1, 2, 4])
+    language = IntField(choices=[0, 1, 2])
     fill_in_template = StringField(db_field='fillInTemplate', max_length=16000)
-    cases = ListField(DictField())
+    cases = ListField(EmbeddedDocumentField(ProblemCase, default=ProblemCase),
+                      default=list)
 
 
 class Problem(Document):
     problem_id = IntField(db_field='problemId', required=True, unique=True)
-    course_ids = ListField(ReferenceField('Course'), db_field='courseIds')
+    courses = ListField(ReferenceField('Course'), default=list)
     problem_status = IntField(default=1, choices=[0, 1])
     problem_type = IntField(default=0, choices=[0, 1])
     problem_name = StringField(db_field='problemName',
@@ -133,30 +141,33 @@ class Problem(Document):
     tags = ListField(StringField(max_length=16))
     test_case = EmbeddedDocumentField(ProblemTestCase,
                                       db_field='testCase',
+                                      required=True,
                                       default=ProblemTestCase,
                                       null=True)
     ac_user = IntField(db_field='ACUser', default=0)
     submitter = IntField(default=0)
+    homeworks = ListField(ReferenceField('Homework'), default=list)
+    contests = ListField(ReferenceField('Contest'), default=list)
 
 
 class TestCaseResult(EmbeddedDocument):
     status = IntField(required=True)
-    exec_time = IntField(required=True)
-    memory_usage = IntField(required=True)
+    exec_time = IntField(required=True, db_field='execTime')
+    memory_usage = IntField(required=True, db_field='memoryUsage')
     stdout = StringField(required=True)
     stderr = StringField(required=True)
 
 
 class Submission(Document):
-    problem_id = StringField(required=True)
+    problem = ReferenceField(Problem, required=True)
     user = ReferenceField(User, required=True)
-    language = IntField(required=True)
+    language = IntField(required=True, db_field='languageType')
     timestamp = DateTimeField(required=True)
     status = IntField(default=-2)
     score = IntField(default=0)
     cases = ListField(EmbeddedDocumentField(TestCaseResult), default=list)
-    exec_time = IntField(default=-1)
-    memory_usage = IntField(default=-1)
+    exec_time = IntField(default=-1, db_field='runTime')
+    memory_usage = IntField(default=-1, db_field='memoryUsage')
     code = BooleanField(
         default=False)  # wheather the user has uploaded source code
 
@@ -178,7 +189,7 @@ class Inbox(Document):
 
 class Announcement(Document):
     status = IntField(default=0, choices=[0, 1])  # not delete / delete
-    title = StringField(max_length=32, required=True)
+    title = StringField(max_length=64, required=True)
     course = ReferenceField('Course', required=True)
     create_time = DateTimeField(db_field='createTime', default=datetime.utcnow)
     update_time = DateTimeField(db_field='updateTime', default=datetime.utcnow)
