@@ -4,6 +4,7 @@ import random
 import json
 import pathlib
 import string
+import secrets
 from zipfile import ZipFile, is_zipfile
 from flask import Blueprint, request
 from datetime import datetime, timedelta
@@ -27,11 +28,7 @@ p_hash = {}
 
 
 def get_token():
-    ret = random.choices(
-        string.ascii_lowercase + string.ascii_uppercase + string.digits,
-        k=24,
-    )
-    return ''.join(ret)
+    return secrets.token_urlsafe()
 
 
 def assign_token(submission_id, token_pool=tokens):
@@ -46,7 +43,7 @@ def assign_token(submission_id, token_pool=tokens):
 def verify_token(submission_id, token):
     if submission_id not in tokens:
         return False
-    return tokens[submission_id] == token
+    return secrets.compare_digest(tokens[submission_id], token)
 
 
 def submission_required(func):
