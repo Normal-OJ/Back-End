@@ -101,7 +101,8 @@ class Course(Document):
                          db_field='contests')
     homeworks = ListField(ReferenceField('Homework', reverse_delete_rule=PULL),
                           db_field='homeworks')
-    announcements = ListField(ReferenceField('Announcement'), db_field='announcements')
+    announcements = ListField(ReferenceField('Announcement'),
+                              db_field='announcements')
     posts = ListField(ReferenceField('Post'), db_field='posts', default=list)
 
 
