@@ -77,10 +77,10 @@ def get_course(user, course_name):
                     return HTTPResponse(f'User: {ta} not found.', 404)
                 tas.append(user)
 
-            for user in course.tas:
-                edit_user(user, course, False)
-            for user in tas:
-                edit_user(user, course, True)
+            for user in set(course.tas) - set(tas):
+                remove_user(user, course)
+            for user in set(tas) - set(course.tas):
+                add_user(user, course)
             course.tas = tas
 
         student_dict = {}
@@ -90,10 +90,10 @@ def get_course(user, course_name):
                 return HTTPResponse(f'User: {student} not found.', 404)
             student_dict[student] = nickname
 
-        for user in course.student_nicknames:
-            edit_user(User(user).obj, course, False)
-        for user in student_dict:
-            edit_user(User(user).obj, course, True)
+        for user in set(course.student_nicknames) - set(student_dict):
+            remove_user(User(user).obj, course)
+        for user in set(student_dict) - set(course.student_nicknames):
+            add_user(User(user).obj, course)
         course.student_nicknames = student_dict
 
         course.save()

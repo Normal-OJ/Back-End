@@ -41,7 +41,7 @@ class Contest:
                     end=None):
         #check the contest name won't repeat
         course = engine.Course.objects.get(course_name=course_name)
-        for x in course.contest:
+        for x in course.contests:
             if x.name == contest_name:
                 raise NotUniqueError
         # verify user's roles(teacher/admin)
@@ -68,7 +68,7 @@ class Contest:
                 problem.save()
 
         # get contestId then store in the correspond course
-        course.contest.append(contest.id)
+        course.contests.append(contest.id)
         course.save()
         return contest
 
@@ -160,7 +160,7 @@ class Contest:
         course = engine.Course.objects(course_name=course_name).first()
         if course is None:
             raise DoesNotExist
-        contests = course.contest
+        contests = course.contests
         if contests is None:
             contests = {}
         return contests
