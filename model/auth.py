@@ -1,11 +1,14 @@
 # Standard library
 from functools import wraps
+from random import SystemRandom
 # Related third party imports
 from flask import Blueprint, request
 # Local application
 from mongo import *
+from mongo.utils import hash_id
 from .utils import *
 
+import string
 import jwt
 import os
 
@@ -76,15 +79,13 @@ def session():
         cookies = {'jwt': None, 'piann': None}
         return HTTPResponse(f'Goodbye', cookies=cookies)
 
-    @Request.json('username', 'password')
+    @Request.json('username: str', 'password: str')
     def login(username, password):
         '''Login a user.
         Returns:
             - 400 Incomplete Data
             - 403 Login Failed
         '''
-        if not all([username, password]):
-            return HTTPError('Incomplete Data', 400)
         try:
             user = User.login(username, password)
         except DoesNotExist:
@@ -102,10 +103,6 @@ def session():
 @auth_api.route('/signup', methods=['POST'])
 @Request.json('username: str', 'password: str', 'email: str')
 def signup(username, password, email):
-    if password is None:
-        return HTTPError('Signup Failed',
-                         400,
-                         data={'password': 'Field is required'})
     try:
         user = User.signup(username, password, email)
     except ValidationError as ve:
@@ -119,13 +116,11 @@ def signup(username, password, email):
 
 @auth_api.route('/change-password', methods=['POST'])
 @login_required
-@Request.json('old_password', 'new_password')
+@Request.json('old_password: str', 'new_password: str')
 def change_password(user, old_password, new_password):
-    if new_password is None:
-        return HTTPError('Signup Failed',
-                         400,
-                         data={'newPassword': 'Field is required'})
-    if User.login(user.username, old_password) is None:
+    try:
+        User.login(user.username, old_password)
+    except DoesNotExist:
         return HTTPError('Wrong Password', 403)
     user.change_password(new_password)
     cookies = {'piann_httponly': user.secret}
@@ -136,7 +131,7 @@ def change_password(user, old_password, new_password):
 def check(item):
     '''Checking when the user is registing.
     '''
-    @Request.json('username')
+    @Request.json('username: str')
     def check_username(username):
         try:
             User.get_by_username(username)
@@ -144,7 +139,7 @@ def check(item):
             return HTTPResponse('Username Can Be Used', data={'valid': 1})
         return HTTPResponse('User Exists', data={'valid': 0})
 
-    @Request.json('email')
+    @Request.json('email: str')
     def check_email(email):
         try:
             User.get_by_email(email)
@@ -157,7 +152,7 @@ def check(item):
 
 
 @auth_api.route('/resend-email', methods=['POST'])
-@Request.json('email')
+@Request.json('email: str')
 def resend_email(email):
     try:
         user = User.get_by_email(email)
@@ -175,13 +170,11 @@ def resend_email(email):
 def active(token=None):
     '''Activate a user.
     '''
-    @Request.json('profile', 'agreement')
+    @Request.json('profile: dict', 'agreement: bool')
     @Request.cookies(vars_dict={'token': 'piann'})
     def update(profile, agreement, token):
         '''User: active: flase -> true
         '''
-        if not all([type(profile) == dict, agreement]):
-            return HTTPError('Invalid Data', 400)
         if agreement is not True:
             return HTTPError('Not Confirm the Agreement', 403)
         json = jwt_decode(token)
@@ -223,3 +216,22 @@ def active(token=None):
 
     methods = {'GET': redir, 'POST': update}
     return methods[request.method]()
+
+
+@auth_api.route('/password-recovery', methods=['POST'])
+@Request.json('email: str')
+def password_recovery(email):
+    try:
+        user = User.get_by_email(email)
+    except DoesNotExist:
+        return HTTPError('User Not Exists', 400)
+    new_password = (lambda r: ''.join(
+        r.choice(string.hexdigits)
+        for i in range(r.randint(12, 24))))(SystemRandom())
+    user_id2 = hash_id(user.username, new_password)
+    user.update(user_id2=user_id2)
+    send_noreply(
+        [email], '[N-OJ] Password Recovery',
+        f'Your alternative password is {new_password}.\nPlease login and change your password.'
+    )
+    return HTTPResponse('Recovery Email Has Been Sent')

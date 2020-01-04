@@ -28,6 +28,7 @@ class User(MongoBase, engine=engine.User):
         user = cls(username)
         user_id = hash_id(user.username, password)
         cls.engine(user_id=user_id,
+                   user_id2=user_id,
                    username=user.username,
                    email=email,
                    md5=hashlib.md5(email.strip().encode()).hexdigest(),
@@ -41,7 +42,8 @@ class User(MongoBase, engine=engine.User):
         except engine.DoesNotExist:
             user = cls.get_by_email(username)
         user_id = hash_id(user.username, password)
-        if compare_digest(user.user_id, user_id):
+        if compare_digest(user.user_id, user_id) or compare_digest(
+                user.user_id2, user_id):
             return user
         raise engine.DoesNotExist
 
@@ -58,7 +60,8 @@ class User(MongoBase, engine=engine.User):
     @property
     def cookie(self):
         keys = [
-            'username', 'email', 'active', 'role', 'profile', 'editorConfig'
+            'username', 'email', 'md5', 'active', 'role', 'profile',
+            'editorConfig'
         ]
         return self.jwt(*keys)
 
@@ -92,7 +95,15 @@ class User(MongoBase, engine=engine.User):
 
     def change_password(self, password):
         user_id = hash_id(self.username, password)
-        self.update(user_id=user_id)
+        self.update(user_id=user_id, user_id2=user_id)
+        self.reload()
+
+    def add_submission(self, submission: engine.Submission):
+        if submission.score == 100:
+            if submission.problem_id not in self.AC_problem_ids:
+                self.AC_problem_ids.append(int(submission.problem_id))
+            self.AC_submission += 1
+        self.submission += 1
 
     def add_submission(self, submission: engine.Submission):
         if submission.score == 100:

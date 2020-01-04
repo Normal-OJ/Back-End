@@ -42,10 +42,8 @@ class Duration(EmbeddedDocument):
 
 class User(Document):
     username = StringField(max_length=16, required=True, primary_key=True)
-    user_id = StringField(db_field='userId',
-                          max_length=24,
-                          required=True,
-                          unique=True)
+    user_id = StringField(db_field='userId', max_length=24, required=True)
+    user_id2 = StringField(db_field='userId2', max_length=24, default='')
     email = EmailField(required=True, unique=True)
     md5 = StringField(required=True)
     active = BooleanField(default=False)
@@ -55,7 +53,7 @@ class User(Document):
                                           db_field='editorConfig',
                                           default=EditorConfig,
                                           null=True)
-    contest = ReferenceField('Contest')
+    contest = ReferenceField('Contest', db_field='contestId')
     courses = ListField(ReferenceField('Course'))
     submissions = ListField(ReferenceField('Submission'))
     last_submit = DateTimeField(default=datetime.min)
@@ -84,9 +82,7 @@ class Contest(Document):
                                  choice=[0, 1],
                                  db_field='scoreboardStatus')
     course_id = StringField(db_field='courseId')
-    duration = EmbeddedDocumentField(Duration,
-                                     db_field='duration',
-                                     default=Duration)
+    duration = EmbeddedDocumentField(Duration, default=Duration)
     contest_mode = IntField(default=0, choice=[0, 1], db_field='contestMode')
     problem_ids = ListField(IntField(), db_field='problemIds')
     participants = DictField(db_field='participants')
@@ -193,7 +189,7 @@ class Inbox(Document):
 
 class Announcement(Document):
     status = IntField(default=0, choices=[0, 1])  # not delete / delete
-    title = StringField(max_length=32, required=True)
+    title = StringField(max_length=64, required=True)
     course = ReferenceField('Course', required=True)
     create_time = DateTimeField(db_field='createTime', default=datetime.utcnow)
     update_time = DateTimeField(db_field='updateTime', default=datetime.utcnow)
