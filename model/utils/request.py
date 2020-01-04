@@ -1,12 +1,14 @@
+import time
+import json
+
 from functools import wraps
 
 from flask import request
 
-from .response import HTTPError
 from model import *
 from .response import *
 
-__all__ = ['Request']
+__all__ = ['Request', 'timing_request']
 
 type_map = {
     'int': int,
@@ -57,3 +59,31 @@ class _Request(type):
 
 class Request(metaclass=_Request):
     pass
+
+def timing_request(func):
+    '''
+    inject the execution time into response
+    the func must return a response with json
+    '''
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        # calculate execution time
+        # and get the response
+        start = time.time()
+        resp, status_code = func(*args, **kwargs)
+        exec_time = f'{time.time() - start:.2f}s'
+
+        # load response data
+        data = resp.data
+        data = json.loads(data)
+
+        # inject execution time into response
+        if data['data'] is None:
+            data['data'] = {}
+        data['data'].update({'__execTime': exec_time})
+
+        resp.data = json.dumps(data)
+
+        return resp, status_code
+
+    return wrapper
