@@ -59,6 +59,10 @@ class Submission(MongoBase, engine=engine.Submission):
 
         return ret
 
+    @staticmethod
+    def count():
+        return engine.Submission.objects.count()
+
     @classmethod
     def add(
             cls,
