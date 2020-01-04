@@ -27,7 +27,7 @@ def found_thread(target_thread):
 
 def found_post(course_obj):
     data = []
-    for x in course_obj.post_ids:  #target_threads
+    for x in course_obj.posts:  #target_threads
         post = dict()
         x_thread = x.thread
         post["thread"] = found_thread(x_thread)
@@ -49,7 +49,7 @@ def add_post(course, user, content, title):
     new_thread.save()
     new_post = engine.Post(post_name=title, thread=new_thread)
     new_post.save()
-    course_obj.post_ids.append(new_post)
+    course_obj.posts.append(new_post)
     course_obj.save()
 
 

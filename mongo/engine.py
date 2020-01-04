@@ -97,14 +97,12 @@ class Course(Document):
                               db_field='courseName')
     teacher = ReferenceField('User', db_field='teacher')
     tas = ListField(ReferenceField('User'), db_field='tas')
-    contest = ListField(ReferenceField('Contest', reverse_delete_rule=PULL),
-                        db_field='contestIds')
-    homework = ListField(ReferenceField('Homework', reverse_delete_rule=PULL),
-                         db_field='homeworkIds')
+    contests = ListField(ReferenceField('Contest', reverse_delete_rule=PULL),
+                         db_field='contestIds')
+    homeworks = ListField(ReferenceField('Homework', reverse_delete_rule=PULL),
+                          db_field='homeworkIds')
     # announcement_ids = ListField(ReferenceField('Announcement'), db_field='announcementIds')
-    post_ids = ListField(ReferenceField('Post'),
-                         db_field='postIds',
-                         default=list)
+    posts = ListField(ReferenceField('Post'), db_field='postIds', default=list)
 
 
 class Number(Document):
