@@ -66,7 +66,7 @@ class Homework:
         # get homeworkId then store in the correspond course
         homeworkid = homework.id
         course = engine.Course.objects.get(id=course_id)
-        course.homework.append(homeworkid)
+        course.homeworks.append(homeworkid)
         course.save()
 
         return homework

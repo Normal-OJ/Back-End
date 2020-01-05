@@ -23,6 +23,9 @@ submission_api = Blueprint('submission_api', __name__)
 # TODO: save tokens in db
 tokens = {}
 
+# pid, hash()
+p_hash = {}
+
 
 def get_token():
     ret = random.choices(
@@ -157,7 +160,6 @@ def get_submission_list(
         - status
         - runtime
         - score
-        - memory usage
         - language
     '''
     if offset is None or count is None:
@@ -273,6 +275,12 @@ def get_submission(user, submission):
     return HTTPResponse(data=ret)
 
 
+@submission_api.route('/count', methods=['GET'])
+@login_required
+def get_submission_count(user):
+    return HTTPResponse('Padoru~', data={'count': Submission.count()})
+
+
 @submission_api.route('/<submission_id>', methods=['PUT'])
 @login_required
 @submission_required
@@ -290,32 +298,37 @@ def update_submission(user, submission, token):
         meta = {}
         meta['cases'] = []
         # problem path
-        testcase_dir = zip_path.parent / 'testcase'
-        testcase_dir.mkdir()
-        testcase_zip_path = zip_path.parent / 'testcase.zip'
+        testcase_dir = SubmissionConfig.TMP_DIR / str(
+            submission.problem.problem_id) / 'testcase'
+        testcase_dir.mkdir(parents=True, exist_ok=True)
+        testcase_zip_path = SubmissionConfig.TMP_DIR / str(
+            submission.problem.problem_id) / 'testcase.zip'
 
-        with ZipFile(testcase_zip_path, 'w') as zf:
-            for i, case in enumerate(cases):
-                meta['cases'].append({
-                    'caseScore': case['case_score'],
-                    'memoryLimit': case['memory_limit'],
-                    'timeLimit': case['time_limit']
-                })
+        h = hash(str(cases))
+        if p_hash.get(submission.problem.problem_id) != h:
+            p_hash[submission.problem.problem_id] = h
+            with ZipFile(testcase_zip_path, 'w') as zf:
+                for i, case in enumerate(cases):
+                    meta['cases'].append({
+                        'caseScore': case['case_score'],
+                        'memoryLimit': case['memory_limit'],
+                        'timeLimit': case['time_limit']
+                    })
 
-                task_dir = testcase_dir / str(i)
-                task_dir.mkdir()
+                    task_dir = testcase_dir / str(i)
+                    task_dir.mkdir(exist_ok=True)
 
-                with open(task_dir / 'in', 'w') as f:
-                    f.write(case['input'])
-                with open(task_dir / 'out', 'w') as f:
-                    f.write(case['output'])
+                    with open(task_dir / 'in', 'w') as f:
+                        f.write(case['input'])
+                    with open(task_dir / 'out', 'w') as f:
+                        f.write(case['output'])
 
-                zf.write(task_dir / 'in', f'{i}/in')
-                zf.write(task_dir / 'out', f'{i}/out')
+                    zf.write(task_dir / 'in', f'{i}/in')
+                    zf.write(task_dir / 'out', f'{i}/out')
 
-            with open(testcase_dir / 'meta.json', 'w') as f:
-                json.dump(meta, f)
-            zf.write(testcase_dir / 'meta.json', 'meta.json')
+                with open(testcase_dir / 'meta.json', 'w') as f:
+                    json.dump(meta, f)
+                zf.write(testcase_dir / 'meta.json', 'meta.json')
 
         # generate token for submission
         token = assign_token(submission.id)
@@ -404,7 +417,7 @@ def update_submission(user, submission, token):
                 memory_usage=m_case['memoryUsage'],
             )
             user.add_submission(submission)
-        except ValidationError as e:
+        except (ValidationError, KeyError) as e:
             return HTTPError(f'invalid data!\n{e}', 400)
         return HTTPResponse(f'{submission} result recieved.')
 
