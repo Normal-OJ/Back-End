@@ -75,20 +75,20 @@ def homework_entry(user, homework_id=None):
         try:
             homework = Homework.get_by_id(homework_id)
             ret = {
-                'name': homework.homework_name,
-                'start': int(homework.duration.start.timestamp()),
-                'end': int(homework.duration.end.timestamp()),
-                'problemIds': homework.problem_ids,
-                'markdown': homework.markdown,
+                'name':
+                homework.homework_name,
+                'start':
+                int(homework.duration.start.timestamp()),
+                'end':
+                int(homework.duration.end.timestamp()),
+                'problemIds':
+                homework.problem_ids,
+                'markdown':
+                homework.markdown,
+                'studentStatus':
+                homework.student_status if user.role < 2 else
+                homework.student_status.get(user.username),
             }
-            status = homework.student_status
-            if user.role < 2:
-                v = status.get(user.username)
-                if v is None:
-                    status = {}
-                else:
-                    status = {user.username: v}
-            ret['studentStatus'] = status
         except FileNotFoundError:
             return HTTPError('homework not exists', 404)
         return HTTPResponse('get homework', data=ret)
@@ -113,20 +113,22 @@ def get_homework_list(user, course_name):
         homeworks = Homework.get_homeworks(course_name)
         data = []
         for homework in homeworks:
-            # convert to dict
-            homework = homework.to_mongo()
-            # field convertion
-            homework.update({
-                'id': str(homework['_id']),
-                'start': homework['duration']['start'],
-                'end': homework['duration']['end']
-            })
-            del homework['_id']
-            del homework['duration']
+            new = {
+                'name': homework.homework_name,
+                'start': int(homework.duration.start.timestamp()),
+                'end': int(homework.duration.end.timestamp()),
+                'problemIds': homework.problem_ids,
+                'markdown': homework.markdown,
+            }
             # normal user can not view other's status
             if user.role < 2:
-                del homework["studentStatus"]
-            data.append(homework)
+                new.update({'studentStatus': homework.student_status})
+            else:
+                new.update({
+                    'studentStatus':
+                    homework.student_status.get(user.username)
+                })
+            data.append(new)
     except FileNotFoundError:
         return HTTPError('course not exists',
                          404,
