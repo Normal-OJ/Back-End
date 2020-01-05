@@ -5,7 +5,7 @@ from datetime import datetime
 from mongo.problem import Problem
 __all__ = [
     'Contest', 'AuthorityError', 'UserIsNotInCourse', 'ExistError',
-    'UserIsNotInContest'
+    'UserIsNotInContest', 'CourseNotExist', 'ProblemNotExist'
 ]
 
 
@@ -29,6 +29,16 @@ class ExistError(Exception):
     pass
 
 
+class CourseNotExist(Exception):
+    '''check whether the course exists'''
+    pass
+
+
+class ProblemNotExist(Exception):
+    '''check whether the problem exists'''
+    pass
+
+
 class Contest:
     @staticmethod
     def add_contest(user,
@@ -40,7 +50,9 @@ class Contest:
                     start=None,
                     end=None):
         #check the contest name won't repeat
-        course = engine.Course.objects.get(course_name=course_name)
+        course = engine.Course.objects(course_name=course_name).first()
+        if course is None:
+            raise CourseNotExist
         for x in course.contests:
             if x.name == contest_name:
                 raise NotUniqueError
@@ -59,15 +71,18 @@ class Contest:
             contest.duration.end = datetime.fromtimestamp(end)
         contest.contest_mode = 0 if contest_mode is None else contest_mode
         contest.scoreboard_status = 0 if scoreboard_status is None else scoreboard_status
-        contest.save()
 
         if problem_ids is not None:
             for problem_id in problem_ids:
                 problem = Problem(problem_id=problem_id).obj
+                if problem is None:
+                    raise ProblemNotExist
                 problem.contests.append(contest)
                 problem.save()
 
         # get contestId then store in the correspond course
+        contest.save()
+        print(contest.id)
         course.contests.append(contest.id)
         course.save()
         return contest
@@ -76,7 +91,8 @@ class Contest:
     def update(user, course_name, contest_name, new_contest_name, start, end,
                problem_ids, scoreboard_status, contest_mode):
         course = engine.Course.objects(course_name=course_name).first()
-
+        if course is None:
+            raise CourseNotExist
         # verify user's roles(teacher/admin)
         role = perm(course, user)
         if role < 2:
@@ -116,6 +132,8 @@ class Contest:
                         contest.participants[userId].pop(id)
 
                     problem = Problem(problem_id=id).obj
+                    if problem is None:
+                        raise ProblemNotExist
                     problem.contests.remove(contest)
                     problem.save()
                 else:
@@ -128,6 +146,8 @@ class Contest:
                         }
 
                     problem = Problem(problem_id=id).obj
+                    if problem is None:
+                        raise ProblemNotExist
                     problem.contests.append(contest)
                     problem.save()
         contest.save()
@@ -135,9 +155,13 @@ class Contest:
 
     @staticmethod
     def delete(user, course_name, contest_name):
-        course = engine.Course.objects.get(course_name=course_name)
-        contest = engine.Contest.objects.get(name=contest_name,
-                                             course_id=str(course.id))
+        course = engine.Course.objects(course_name=course_name).first()
+        if course is None:
+            raise CourseNotExist
+        contest = engine.Contest.objects(name=contest_name,
+                                         course_id=str(course.id)).first()
+        if contest is None:
+            raise DoesNotExist
         # verify user's roles(teacher/admin)
         role = perm(course, user)
         if role < 2:
@@ -148,8 +172,9 @@ class Contest:
 
         for problem_id in contest.problem_ids:
             problem = Problem(problem_id=problem_id).obj
-            problem.contests.remove(contest)
-            problem.save()
+            if problem is not None:
+                problem.contests.remove(contest)
+                problem.save()
 
         contest.delete()
         course.save()
@@ -167,10 +192,12 @@ class Contest:
 
     @staticmethod
     def get_single_contest(user, id):
-        contest = engine.Contest.objects.get(id=id)
+        contest = engine.Contest.objects(id=id).first()
         if contest is None:
             raise DoesNotExist
-        course = engine.Course.objects.get(id=contest.course_id)
+        course = engine.Course.objects(id=contest.course_id).first()
+        if course is None:
+            raise CourseNotExist
         data = {
             "name": contest.name,
             "start": contest.duration.start,
@@ -195,12 +222,13 @@ class Contest:
     @staticmethod
     def add_user_in_contest(user, contest_id):
         #get course of this contest
-        contest = engine.Contest.objects.get(id=contest_id)
+        contest = engine.Contest.objects(id=contest_id).first()
         db_user = engine.User.objects.get(username=user.username)
-        course_of_contest = engine.Course.objects.get(id=contest.course_id)
+        course_of_contest = engine.Course.objects(id=contest.course_id).first()
         if contest is None:
             raise DoesNotExist
-
+        if course_of_contest is None:
+            raise CourseNotExist
         #check if user is student in the contest's course
         role = perm(course_of_contest, user)
         if role < 1:
@@ -228,10 +256,11 @@ class Contest:
     @staticmethod
     def user_leave_contest(user):
         #get course of this contest
-        contest = engine.Contest.objects.get(id=user.contest.id)
+        contest = engine.Contest.objects(id=user.contest.id).first()
         db_user = engine.User.objects.get(username=user.id)
-        course_of_contest = engine.Course.objects.get(id=contest.course_id)
-
+        course_of_contest = engine.Course.objects(id=contest.course_id).first()
+        if contest is None:
+            raise DoesNotExist
         #check if user is in the contest
         if user.username not in contest.participants:
             raise UserIsNotInContest
