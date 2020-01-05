@@ -41,8 +41,14 @@ def view_problem_list(user, offset, count, problem_id, tags, name):
         return HTTPError('count must >=-1!', 400)
 
     try:
-        data = get_problem_list(user, offset, count, problem_id, name,
-                                tags and tags.split(','))
+        data = get_problem_list(
+            user,
+            offset,
+            count,
+            problem_id,
+            name,
+            tags and tags.split(','),
+        )
         data = [
             *map(
                 lambda p: {
