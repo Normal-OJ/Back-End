@@ -1,5 +1,6 @@
 from mongo import *
-from mongo.course import perm
+from mongo import engine
+from mongo.course import perm, Course
 from mongo.problem import Problem
 from datetime import datetime
 
@@ -8,65 +9,71 @@ __all__ = ['Homework']
 
 class Homework:
     @staticmethod
-    def add_hw(user,
-               course_name,
-               hw_name,
-               problem_ids,
-               markdown='',
-               scoreboard_status=0,
-               start=None,
-               end=None):
+    def add_hw(
+        user,
+        course_name,
+        hw_name,
+        problem_ids=[],
+        markdown='',
+        scoreboard_status=0,
+        start=None,
+        end=None,
+    ):
         # query db check the hw doesn't exist
-        course = engine.Course.objects(course_name=course_name).first()
+        course = Course(course_name).obj
+        if course is None:
+            raise engine.DoesNotExist('course not exist')
         course_id = course.id
         students = course.student_nicknames
-        homework = engine.Homework.objects(course_id=str(course_id),
-                                           homework_name=hw_name)
+        homework = engine.Homework.objects(
+            course_id=str(course_id),
+            homework_name=hw_name,
+        )
         # check user is teacher or ta
-        course_role = perm(course, user)
-
-        if course_role > 1 and course.teacher.username != user.username \
-            and user.role != 0:
-            raise NameError
+        if perm(course, user) <= 1:
+            raise PermissionError('user is not teacher or ta')
         if len(homework) != 0:
-            raise FileExistsError
+            raise engine.NotUniqueError('homework exist')
 
-        homework = engine.Homework(homework_name=hw_name,
-                                   course_id=str(course_id),
-                                   problem_ids=problem_ids,
-                                   scoreboard_status=scoreboard_status,
-                                   markdown=markdown)
+        homework = engine.Homework(
+            homework_name=hw_name,
+            course_id=str(course_id),
+            problem_ids=problem_ids,
+            scoreboard_status=scoreboard_status,
+            markdown=markdown,
+        )
         if start:
             homework.duration.start = datetime.fromtimestamp(start)
         if end:
             homework.duration.end = datetime.fromtimestamp(end)
+
+        problems = []
+        for problem_id in problem_ids:
+            problem = Problem(problem_id).obj
+            if problem is None:
+                raise engine.DoesNotExist(f'problem {problem_id} not found!')
+            problems.append(problem)
+        homework.save()
+
         # init student status
         user_ids = {}
         user_problems = {}
-        if problem_ids is not None:
-            for problem_id in problem_ids:
-                user_problems[str(problem_id)] = {
-                    'score': 0,
-                    'problemStatus': 1,
-                    'submissonIds': []
-                }
+        for problem in problems:
+            user_problems[str(problem.problem_id)] = {
+                'score': 0,
+                'problemStatus': 1,
+                'submissonIds': []
+            }
+            problem.homeworks.append(homework)
+            problem.save()
 
         for key in students:
             user_ids[key] = user_problems
         homework.student_status = user_ids
         homework.save()
 
-        if problem_ids is not None:
-            for problem_id in problem_ids:
-                # add homework to each problem
-                problem = Problem(problem_id=problem_id).obj
-                problem.homeworks.append(homework)
-                problem.save()
-
         # get homeworkId then store in the correspond course
-        homeworkid = homework.id
-        course = engine.Course.objects.get(id=course_id)
-        course.homeworks.append(homeworkid)
+        course.homeworks.append(homework.id)
         course.save()
 
         return homework
@@ -79,7 +86,7 @@ class Homework:
 
         # check user is teacher or ta
         if perm(course, user) <= 1:
-            raise NameError
+            raise PermissionError('user is not tacher or ta')
 
         course_id = course.id
         students = course.student_nicknames
@@ -88,7 +95,7 @@ class Homework:
             result = engine.Homework.objects(course_id=str(course_id),
                                              homework_name=new_hw_name)
             if len(result) != 0:
-                raise FileExistsError
+                raise engine.NotUniqueError('homework exist')
             else:
                 homework.homework_name = new_hw_name
                 homework.save()
@@ -105,8 +112,10 @@ class Homework:
         # add
         for pid in new_ids:
             if pid not in homework.problem_ids:
-                homework.problem_ids.append(pid)
                 problem = Problem(problem_id=pid).obj
+                if problem is None:
+                    continue
+                homework.problem_ids.append(pid)
                 problem.homeworks.append(homework)
                 problem.save()
                 for key in students:
@@ -117,8 +126,10 @@ class Homework:
                     }
         # delete
         for pid in drop_ids:
-            homework.problem_ids.remove(pid)
             problem = Problem(problem_id=pid).obj
+            if problem is None:
+                continue
+            homework.problem_ids.remove(pid)
             problem.homeworks.remove(homework)
             problem.save()
             for status in homework.student_status.values():
@@ -134,15 +145,17 @@ class Homework:
     def delete_problems(user, homework_id):
         homework = engine.Homework.objects.get(id=homework_id)
         if homework is None:
-            raise FileNotFoundError
+            raise engine.DoesNotExist('homework not exist')
 
         course = engine.Course.objects.get(id=homework.course_id)
         # check user is teacher or ta
         if perm(course, user) <= 1:
-            raise NameError
+            raise PermissionError('user is not teacher or ta')
 
         for pid in homework.problem_ids:
             problem = Problem(problem_id=pid).obj
+            if problem is None:
+                continue
             problem.homeworks.remove(homework)
             problem.save()
 
@@ -153,13 +166,11 @@ class Homework:
 
     @staticmethod
     def get_homeworks(course_name):
-        course = engine.Course.objects(course_name=course_name).first()
+        course = Course(course_name).obj
         if course is None:
-            raise FileNotFoundError
-        course_id = str(course.id)
-        homeworks = engine.Homework.objects(course_id=course_id)
-        if homeworks is None:
-            homeworks = []
+            raise engine.DoesNotExist('course not exist')
+        homeworks = course.homeworks or []
+        homeworks = sorted(homeworks, key=lambda h: h.duration.start)
         return homeworks
 
     @staticmethod
@@ -167,7 +178,7 @@ class Homework:
         try:
             homework = engine.Homework.objects.get(id=homework_id)
         except engine.DoesNotExist:
-            raise FileNotFoundError
+            raise engine.DoesNotExist('homework not exist')
         return homework
 
     @staticmethod
@@ -176,5 +187,5 @@ class Homework:
             homework = engine.Homework.objects.get(
                 course_id=Course(course_name).id, homework_name=homework_name)
         except engine.DoesNotExist:
-            raise FileNotFoundError
+            raise engine.DoesNotExist('homework not exist')
         return homework
