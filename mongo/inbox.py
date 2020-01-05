@@ -1,3 +1,5 @@
+import html
+
 from . import engine
 from .user import *
 from .base import *
@@ -11,11 +13,11 @@ class Inbox(MongoBase, engine=engine.Inbox):
 
     @staticmethod
     def send(sender, receivers, title, message):
-        receivers = [*filter(lambda n: User(n).user_id, receivers)]
+        receivers = [*filter(lambda n: User(n), receivers)]
         message = engine.Message(sender=sender,
                                  receivers=receivers,
                                  title=title,
-                                 markdown=message)
+                                 markdown=html.escape(message))
         message.save()
         for r in receivers:
             engine.Inbox(receiver=r, message=message).save()
