@@ -175,8 +175,7 @@ def submission_testcase_setup(
     SubmissionConfig.TMP_DIR = (tmp_path / SubmissionConfig.TMP_DIR).absolute()
     SubmissionConfig.TMP_DIR.mkdir(exist_ok=True)
 
-    # replace judge url with test route
-    SubmissionConfig.JUDGE_URL = 'http://csie.ntnu.edu.tw?magic='
+    # disable rate limit
     SubmissionConfig.RATE_LIMIT = -1
 
     # save base source
@@ -336,8 +335,8 @@ class TestUserGetSubmission(SubmissionTester):
             '/submission/count',
         )
 
-        assert rv.status_code == 200
-        assert rv_data['count'] == self.init_submission_count
+        assert rv.status_code == 200, rv_json
+        assert rv_data['count'] == self.init_submission_count, rv_data
 
     def test_get_submission_list_over_db_size(self, forge_client):
         client = forge_client('student')
