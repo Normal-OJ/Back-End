@@ -1,6 +1,6 @@
 import pytest
 
-from tests.base_tester import BaseTester
+from tests.base_tester import BaseTester, random_string
 from datetime import datetime, timedelta, time
 
 from mongo import *
@@ -16,11 +16,11 @@ class CourseData:
 
     @property
     def homework_name(self):
-        return f'Test HW 4 {self.name}'
+        return f'Test HW 4 {self.name} {id(self)}'
 
 
 @pytest.fixture(params=[{
-    'name': 'Programming-I',
+    'name': 'Programming_I',
     'teacher': 'Po-Wen-Chi',
     'students': {
         'Yin-Da-Chen': 'ala',
@@ -28,7 +28,7 @@ class CourseData:
     },
     'tas': ['Tzu-Wei-Yu']
 }])
-def course_data(request, client_admin):
+def course_data(request, client_admin, problem_ids):
     BaseTester.setup_class()
 
     cd = CourseData(**request.param)
@@ -41,14 +41,16 @@ def course_data(request, client_admin):
                          'studentNicknames': cd.students
                      })
     # add homework
-    hw = Homework.add_hw(user=User(cd.teacher).obj,
-                         course_name=cd.name,
-                         markdown=f'# {cd.homework_name}',
-                         hw_name=cd.homework_name,
-                         start=int(datetime.now().timestamp()),
-                         end=int(datetime.now().timestamp()),
-                         problem_ids=['8888'],
-                         scoreboard_status=0)
+    hw = Homework.add_hw(
+        user=User(cd.teacher).obj,
+        course_name=cd.name,
+        markdown=f'# {cd.homework_name}',
+        hw_name=cd.homework_name,
+        start=int(datetime.now().timestamp()),
+        end=int(datetime.now().timestamp()),
+        problem_ids=problem_ids(cd.teacher, 3),
+        scoreboard_status=0,
+    )
     # append hw id
     cd.homework_ids.append(str(hw.id))
 
@@ -59,7 +61,7 @@ def course_data(request, client_admin):
 
 @pytest.fixture(
     params={
-        'name': 'Advanced Programming',
+        'name': 'Advanced_Programming',
         'teacher': 'Tsung-Che-Chiang',
         'students': {
             'Tzu-Wei-Yu': 'Uier',
@@ -126,7 +128,8 @@ class TestHomework(BaseTester):
         assert rv.status_code == 200
         assert after_len == before_len + 1
 
-    def test_update_homework(self, forge_client, course_data):
+    def test_update_homework(self, forge_client, course_data, problem_ids):
+        pids = problem_ids(course_data.teacher, 2)
         client = forge_client(course_data.teacher)
         # update
         new_data = {
@@ -134,7 +137,7 @@ class TestHomework(BaseTester):
             'markdown': '# oneline is awesome',
             'start': int(datetime.now().timestamp()),
             'end': int(datetime.now().timestamp()) + 1440,
-            'problemIds': ['10086', '55688'],
+            'problemIds': pids,
             'scoreboardStatus': 1
         }
         rv, rv_json, rv_data = self.request(

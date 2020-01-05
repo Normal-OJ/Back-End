@@ -1,23 +1,32 @@
 {
-    "BaseTester": {
-        "admin": 0,
-        "teacher": 1,
-        "student": 2,
-        "Po-Wen-Chi": 1,
-        "Tsung-Che-Chiang": 1,
-        "Bo-Chieh-Chuang": 2,
-        "Yin-Da-Chen": 2,
-        "Tzu-Wei-Yu": 2
-    },
-    "SubmissionTester": {
-        "teacher-2": 1,
-        "student-2": 2
-    },
-    "TestHomework": {
-        "Po-Wen-Chi": 1,
-        "Tsung-Che-Chiang": 1,
-        "Bo-Chieh-Chuang": 2,
-        "Yin-Da-Chen": 2,
-        "Tzu-Wei-Yu": 2
-    }
+  "BaseTester": {
+    "admin": 0,
+    "teacher": 1,
+    "student": 2,
+    "teacher-2": 1,
+    "student-2": 2,
+    "Po-Wen-Chi": 1,
+    "Tsung-Che-Chiang": 1,
+    "Bo-Chieh-Chuang": 2,
+    "Yin-Da-Chen": 2,
+    "Tzu-Wei-Yu": 2
+  },
+  "SubmissionTester": {
+    "teacher-2": 1,
+    "student-2": 2
+  },
+  "TestHomework": {
+    "Po-Wen-Chi": 1,
+    "Tsung-Che-Chiang": 1,
+    "Bo-Chieh-Chuang": 2,
+    "Yin-Da-Chen": 2,
+    "Tzu-Wei-Yu": 2
+  },
+  "TestContest": {
+    "Po-Wen-Chi": 1,
+    "Tsung-Che-Chiang": 1,
+    "Bo-Chieh-Chuang": 2,
+    "Yin-Da-Chen": 2,
+    "Tzu-Wei-Yu": 2
+  }
 }

@@ -3,6 +3,7 @@ from hmac import compare_digest
 
 from . import engine
 from .utils import *
+from .base import *
 
 import base64
 import hashlib
@@ -18,67 +19,49 @@ JWT_ISS = os.environ.get('JWT_ISS', 'test.test')
 JWT_SECRET = os.environ.get('JWT_SECRET', 'SuperSecretString')
 
 
-class User:
+class User(MongoBase, engine=engine.User):
     def __init__(self, username):
-        self.username = html.escape(
-            username if isinstance(username, str) else '') or username
-
-    def __getattr__(self, name):
-        try:
-            obj = engine.User.objects.get(username=self.username)
-        except engine.DoesNotExist:
-            return None
-        return obj.__getattribute__(name)
-
-    def __eq__(self, other):
-        return self.user_id == other.user_id
-
-    @property
-    def obj(self):
-        try:
-            obj = engine.User.objects.get(username=self.username)
-        except:
-            return None
-        return obj
+        self.username = username
 
     @classmethod
     def signup(cls, username, password, email):
         user = cls(username)
         user_id = hash_id(user.username, password)
-        engine.User(user_id=user_id,
-                    username=user.username,
-                    email=email,
-                    active=False).save()
-        return user
+        cls.engine(user_id=user_id,
+                   user_id2=user_id,
+                   username=user.username,
+                   email=email,
+                   md5=hashlib.md5(email.strip().encode()).hexdigest(),
+                   active=False).save(force_insert=True)
+        return user.reload()
 
     @classmethod
     def login(cls, username, password):
-        # try to find a user by username
-        user = cls(username)
-        if user.user_id is None:
-            # try to find a user by email
-            username = cls.get_username_by_email(username)
-            if username is None:
-                return None
-            user = cls(username)
-        # checking password hash
-        user_id = hash_id(user.username, password)
-        if compare_digest(user.user_id, user_id):
-            return user
-        return None
-
-    @staticmethod
-    def get_username_by_email(email):
         try:
-            obj = engine.User.objects.get(email=email)
-        except:
-            return None
-        return obj.username
+            user = cls.get_by_username(username)
+        except engine.DoesNotExist:
+            user = cls.get_by_email(username)
+        user_id = hash_id(user.username, password)
+        if compare_digest(user.user_id, user_id) or compare_digest(
+                user.user_id2, user_id):
+            return user
+        raise engine.DoesNotExist
+
+    @classmethod
+    def get_by_username(cls, username):
+        obj = cls.engine.objects.get(username=username)
+        return cls(obj.username)
+
+    @classmethod
+    def get_by_email(cls, email):
+        obj = cls.engine.objects.get(email=email)
+        return cls(obj.username)
 
     @property
     def cookie(self):
         keys = [
-            'username', 'email', 'active', 'role', 'profile', 'editorConfig'
+            'username', 'email', 'md5', 'active', 'role', 'profile',
+            'editorConfig'
         ]
         return self.jwt(*keys)
 
@@ -87,10 +70,19 @@ class User:
         keys = ['username', 'userId']
         return self.jwt(*keys, secret=True)
 
+    @property
+    def info(self):
+        return {
+            'username': self.username,
+            'displayedName': self.profile.displayed_name,
+            'md5': self.md5
+        }
+
     def jwt(self, *keys, secret=False, **kwargs):
-        if self.user_id is None:
+        if not self:
             return ''
-        user = self.to_mongo()
+        user = self.reload().to_mongo()
+        user['username'] = user.get('_id')
         data = {k: user.get(k) for k in keys}
         data.update(kwargs)
         payload = {
@@ -103,7 +95,22 @@ class User:
 
     def change_password(self, password):
         user_id = hash_id(self.username, password)
-        self.update(user_id=user_id)
+        self.update(user_id=user_id, user_id2=user_id)
+        self.reload()
+
+    def add_submission(self, submission: engine.Submission):
+        if submission.score == 100:
+            if submission.problem_id not in self.AC_problem_ids:
+                self.AC_problem_ids.append(int(submission.problem_id))
+            self.AC_submission += 1
+        self.submission += 1
+
+    def add_submission(self, submission: engine.Submission):
+        if submission.score == 100:
+            if submission.problem_id not in self.AC_problem_ids:
+                self.AC_problem_ids.append(int(submission.problem_id))
+            self.AC_submission += 1
+        self.submission += 1
 
 
 def jwt_decode(token):

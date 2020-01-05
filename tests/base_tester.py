@@ -1,6 +1,24 @@
 from mongoengine import connect
-from mongo.user import User
+from mongo import *
+from mongo import engine
 from .conftest import *
+
+import random
+import string
+
+
+def random_string(k=32):
+    '''
+    return a random string contains only lower and upper letter wieh length k
+
+    Args:
+        k: the return string's length, default is 32
+
+    Returns:
+        a random-generated string with length k
+    '''
+    char_set = string.ascii_lowercase + string.ascii_uppercase
+    return ''.join(random.choices(char_set, k=k))
 
 
 class BaseTester:
@@ -31,6 +49,9 @@ class BaseTester:
             for name, role in users.items():
                 cls.new_user(name, role)
 
+        if Number("serial_number").obj is None:
+            engine.Number(name="serial_number").save()
+
     @classmethod
     def teardown_class(cls):
         cls.drop_db()
@@ -44,7 +65,12 @@ class BaseTester:
         }
 
         user = User.signup(**USER)
-        user.update(active=True, role=role)
+        user.update(active=True,
+                    role=role,
+                    profile={
+                        'displayedName': '',
+                        'bio': ''
+                    })
 
     @staticmethod
     def request(client, method, url, **ks):

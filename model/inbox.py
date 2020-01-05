@@ -29,6 +29,7 @@ def inbox(user):
                              400,
                              data=ve.to_dict())
         data = {
+            'messageId': str(message.id),
             'receivers': message.receivers,
             'timestamp': int(message.timestamp.timestamp())
         }
@@ -51,7 +52,7 @@ def inbox(user):
         if message.receiver != user.username:
             return HTTPError('Failed to Access the Message', 403)
         message.delete()
-        return HTTPResponse('Message is Deleted')
+        return HTTPResponse('Deleted')
 
     methods = {
         'GET': get_messages,

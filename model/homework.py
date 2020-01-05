@@ -74,17 +74,24 @@ def homework_entry(user, homework_id=None):
     def get_homework():
         try:
             homework = Homework.get_by_id(homework_id)
+            ret = {
+                'name': homework.homework_name,
+                'start': int(homework.duration.start.timestamp()),
+                'end': int(homework.duration.end.timestamp()),
+                'problemIds': homework.problem_ids,
+                'markdown': homework.markdown,
+            }
+            status = homework.student_status
+            if user.role < 2:
+                v = status.get(user.username)
+                if v is None:
+                    status = {}
+                else:
+                    status = {user.username: v}
+            ret['studentStatus'] = status
         except FileNotFoundError:
             return HTTPError('homework not exists', 404)
-        return HTTPResponse('get homework',
-                            data={
-                                'name': homework.homework_name,
-                                'start':
-                                int(homework.duration.start.timestamp()),
-                                'end': int(homework.duration.end.timestamp()),
-                                'problemIds': homework.problem_ids,
-                                'markdown': homework.markdown
-                            })
+        return HTTPResponse('get homework', data=ret)
 
     handler = {
         'GET': get_homework,
@@ -116,10 +123,9 @@ def get_homework_list(user, course_name):
             })
             del homework['_id']
             del homework['duration']
-            # normal user can not view student status
-            if user.role > 1:
+            # normal user can not view other's status
+            if user.role < 2:
                 del homework["studentStatus"]
-
             data.append(homework)
     except FileNotFoundError:
         return HTTPError('course not exists',
