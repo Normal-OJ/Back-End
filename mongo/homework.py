@@ -45,6 +45,8 @@ class Homework:
         user_problems = {}
         if problem_ids is not None:
             for problem_id in problem_ids:
+                if Problem(problem_id).obj is None:
+                    continue
                 user_problems[str(problem_id)] = {
                     'score': 0,
                     'problemStatus': 1,
@@ -60,6 +62,8 @@ class Homework:
             for problem_id in problem_ids:
                 # add homework to each problem
                 problem = Problem(problem_id=problem_id).obj
+                if problem is None:
+                    continue
                 problem.homeworks.append(homework)
                 problem.save()
 
@@ -105,8 +109,10 @@ class Homework:
         # add
         for pid in new_ids:
             if pid not in homework.problem_ids:
-                homework.problem_ids.append(pid)
                 problem = Problem(problem_id=pid).obj
+                if problem is None:
+                    continue
+                homework.problem_ids.append(pid)
                 problem.homeworks.append(homework)
                 problem.save()
                 for key in students:
@@ -117,8 +123,10 @@ class Homework:
                     }
         # delete
         for pid in drop_ids:
-            homework.problem_ids.remove(pid)
             problem = Problem(problem_id=pid).obj
+            if problem is None:
+                continue
+            homework.problem_ids.remove(pid)
             problem.homeworks.remove(homework)
             problem.save()
             for status in homework.student_status.values():
@@ -143,6 +151,8 @@ class Homework:
 
         for pid in homework.problem_ids:
             problem = Problem(problem_id=pid).obj
+            if problem is None:
+                continue
             problem.homeworks.remove(homework)
             problem.save()
 
