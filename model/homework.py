@@ -111,6 +111,7 @@ def get_homework_list(user, course_name):
                 'end': int(homework.duration.end.timestamp()),
                 'problemIds': homework.problem_ids,
                 'markdown': homework.markdown,
+                'id': str(homework.id)
             }
             # normal user can not view other's status
             if user.role < 2:
