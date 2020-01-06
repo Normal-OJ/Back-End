@@ -27,6 +27,10 @@ class Submission(MongoBase, engine=engine.Submission):
         '''
         return str(self.obj.id)
 
+    @property
+    def problem_id(self):
+        return self.problem.problem_id
+
     def to_dict(self):
         _ret = {
             'problemId': self.problem.problem_id,

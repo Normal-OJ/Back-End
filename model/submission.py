@@ -270,14 +270,14 @@ def update_submission(user, submission, token):
         meta = {'cases': []}
         # problem path
         testcase_dir = SubmissionConfig.TMP_DIR / str(
-            submission.problem.problem_id) / 'testcase'
+            submission.problem_id) / 'testcase'
         testcase_dir.mkdir(parents=True, exist_ok=True)
         testcase_zip_path = SubmissionConfig.TMP_DIR / str(
-            submission.problem.problem_id) / 'testcase.zip'
+            submission.problem_id) / 'testcase.zip'
 
         h = hash(str(cases))
-        if p_hash.get(submission.problem.problem_id) != h:
-            p_hash[submission.problem.problem_id] = h
+        if p_hash.get(submission.problem_id) != h:
+            p_hash[submission.problem_id] = h
             with ZipFile(testcase_zip_path, 'w') as zf:
                 for i, case in enumerate(cases):
                     meta['cases'].append({
@@ -389,7 +389,16 @@ def update_submission(user, submission, token):
                 exec_time=m_case['execTime'],
                 memory_usage=m_case['memoryUsage'],
             )
+            # update user's submission
             user.add_submission(submission)
+            # update homework data
+            for homework in submission.problem.homeworks:
+                stat = homework.student_status[user.username][str(
+                    submission.problem.problem_id)]
+                stat['submissionIds'].append(submission.id)
+                if submission.score >= stat['score']:
+                    stat['score'] = submission.score
+                    stat['problemStatus'] = submission.status
         except (ValidationError, KeyError) as e:
             return HTTPError(f'invalid data!\n{e}', 400)
         return HTTPResponse(f'{submission} result recieved.')
@@ -406,7 +415,7 @@ def update_submission(user, submission, token):
         return HTTPError(f'invalid submission token.', 403)
 
     # if user not equal, reject
-    if submission.user.username != user.username:
+    if not secrets.compare_digest(submission.user.username, user.username):
         return HTTPError('user not equal!', 403)
 
     if request.content_type == 'application/json':
