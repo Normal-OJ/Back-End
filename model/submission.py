@@ -113,6 +113,9 @@ def create_submission(user, language_type, problem_id):
     user.update(last_submit=now)
     user.submissions.append(submission.obj)
     user.save()
+    # update problem
+    submission.problem.submitter += 1
+    submission.problem.save()
 
     # generate token for upload file
     token = assign_token(submission.id)
@@ -399,6 +402,17 @@ def update_submission(user, submission, token):
                 if submission.score >= stat['score']:
                     stat['score'] = submission.score
                     stat['problemStatus'] = submission.status
+            # update problem
+            ac_submissions = Submission.filter(
+                offset=0,
+                count=-1,
+                problem=submission.problem,
+                status=0,
+            )
+            ac_users = {s.user.username for s in ac_submissions}
+            submission.problem.ac_user = len(ac_users)
+            submisison.problem.save()
+
         except (ValidationError, KeyError) as e:
             return HTTPError(f'invalid data!\n{e}', 400)
         return HTTPResponse(f'{submission} result recieved.')
