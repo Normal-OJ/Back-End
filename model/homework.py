@@ -2,6 +2,7 @@ import os
 from flask import Blueprint, request
 
 from mongo import *
+from mongo import engine
 from .utils import *
 from .auth import login_required
 from .course import course_api
@@ -23,14 +24,16 @@ def homework_entry(user, homework_id=None):
     def add_homework(course_name, name, markdown, start, end, problem_ids,
                      scoreboard_status):
         try:
-            homework = Homework.add_hw(user=user,
-                                       course_name=course_name,
-                                       markdown=markdown,
-                                       hw_name=name,
-                                       start=start,
-                                       end=end,
-                                       problem_ids=problem_ids,
-                                       scoreboard_status=scoreboard_status)
+            homework = Homework.add_hw(
+                user=user,
+                course_name=course_name,
+                markdown=markdown,
+                hw_name=name,
+                start=start,
+                end=end,
+                problem_ids=problem_ids or [],
+                scoreboard_status=scoreboard_status,
+            )
         except NameError:
             return HTTPError('user must be the teacher or ta of this course',
                              403)
@@ -42,55 +45,39 @@ def homework_entry(user, homework_id=None):
                   'scoreboard_status')
     def update_homework(name, markdown, start, end, problem_ids,
                         scoreboard_status):
-        try:
-            homework = Homework.update(user=user,
-                                       homework_id=homework_id,
-                                       markdown=markdown,
-                                       new_hw_name=name,
-                                       start=start,
-                                       end=end,
-                                       problem_ids=problem_ids,
-                                       scoreboard_status=scoreboard_status)
-        except NameError:
-            return HTTPError('user must be the teacher or ta of this course',
-                             403)
-        except FileNotFoundError:
-            return HTTPError('course not exist', 404)
-        except FileExistsError:
-            return HTTPError(
-                'the homework with the same name exists in this course', 400)
+        homework = Homework.update(
+            user=user,
+            homework_id=homework_id,
+            markdown=markdown,
+            new_hw_name=name,
+            start=start,
+            end=end,
+            problem_ids=problem_ids,
+            scoreboard_status=scoreboard_status,
+        )
         return HTTPResponse('Update homework Success')
 
     def delete_homework():
-        try:
-            homework = Homework.delete_problems(user, homework_id)
-        except NameError:
-            return HTTPError('user must be the teacher or ta of this course',
-                             403)
-        except FileNotFoundError:
-            return HTTPError('homework not exists, unable to delete', 404)
+        homework = Homework.delete_problems(user, homework_id)
         return HTTPResponse('Delete homework Success')
 
     def get_homework():
-        try:
-            homework = Homework.get_by_id(homework_id)
-            ret = {
-                'name':
-                homework.homework_name,
-                'start':
-                int(homework.duration.start.timestamp()),
-                'end':
-                int(homework.duration.end.timestamp()),
-                'problemIds':
-                homework.problem_ids,
-                'markdown':
-                homework.markdown,
-                'studentStatus':
-                homework.student_status if user.role < 2 else
-                homework.student_status.get(user.username),
-            }
-        except FileNotFoundError:
-            return HTTPError('homework not exists', 404)
+        homework = Homework.get_by_id(homework_id)
+        ret = {
+            'name':
+            homework.homework_name,
+            'start':
+            int(homework.duration.start.timestamp()),
+            'end':
+            int(homework.duration.end.timestamp()),
+            'problemIds':
+            homework.problem_ids,
+            'markdown':
+            homework.markdown,
+            'studentStatus':
+            homework.student_status
+            if user.role < 2 else homework.student_status.get(user.username),
+        }
         return HTTPResponse('get homework', data=ret)
 
     handler = {
@@ -100,7 +87,12 @@ def homework_entry(user, homework_id=None):
         'DELETE': delete_homework
     }
 
-    return handler[request.method]()
+    try:
+        return handler[request.method]()
+    except engine.DoesNotExist as e:
+        return HTTPError(str(e), 404)
+    except (PermissionError, engine.NotUniqueError) as e:
+        return HTTPError(str(e), 403)
 
 
 @course_api.route('/<course_name>/homework', methods=['GET'])
