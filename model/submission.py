@@ -400,7 +400,7 @@ def update_submission(user, submission, token):
                 memory_usage=m_case['memoryUsage'],
             )
             # update user's submission
-            user.add_submission(submission)
+            user.add_submission(submission.reload())
             # update homework data
             for homework in submission.problem.homeworks:
                 stat = homework.student_status[user.username][str(
