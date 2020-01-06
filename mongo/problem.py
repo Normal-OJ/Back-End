@@ -60,7 +60,7 @@ def get_problem_list(
     tags: list,
 ):
     '''
-    get a list of probblems
+    get a list of problems
     '''
     ks = {'problemId': problem_id, 'problemName': name}
     ks = {k: v for k, v in ks.items() if v is not None}
