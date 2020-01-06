@@ -216,6 +216,13 @@ def get_submission(user, submission):
                 break
         del ret['code']
 
+    # check user's stdout/stderr
+    if not submission.problem.can_view_stdout:
+        for case in ret['cases']:
+            del case['stdout']
+            del case['stderr']
+
+    # give user source code
     if 'code' in ret:
         ext = ['.c', '.cpp', '.py']
         ret['code'] = submission.get_code(f'main{ext[submission.language]}')
