@@ -43,8 +43,8 @@ def view_problem_list(user, offset, count, problem_id, tags, name):
         return HTTPError('count must >=-1!', 400)
 
     try:
-        user, offset, count, problem_id, name, tags = (parse.unquote(
-            p or '') for p in [user, offset, count, problem_id, name, tags])
+        offset, count, problem_id, name, tags = (parse.unquote(
+            p or '') for p in [offset, count, problem_id, name, tags])
 
         data = get_problem_list(
             user,
