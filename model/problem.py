@@ -1,4 +1,5 @@
 from flask import Blueprint, request
+from urllib import parse
 
 from mongo import *
 from mongo import engine
@@ -13,8 +14,8 @@ problem_api = Blueprint('problem_api', __name__)
 
 @problem_api.route('/', methods=['GET'])
 @login_required
-@Request.args('offset', 'count')
-def view_problem_list(user, offset, count):
+@Request.args('offset', 'count', 'problem_id', 'tags', 'name')
+def view_problem_list(user, offset, count, problem_id, tags, name):
 
     if offset is None or count is None:
         return HTTPError(
@@ -39,12 +40,33 @@ def view_problem_list(user, offset, count):
             400,
         )
     if count < -1:
-        return HTTPError(
-            'count must >=-1!',
-            400,
-        )
+        return HTTPError('count must >=-1!', 400)
 
-    data = get_problem_list(user, offset, count)
+    try:
+        problem_id, name, tags = (parse.unquote(p or '') or None
+                                  for p in [problem_id, name, tags])
+
+        data = get_problem_list(
+            user,
+            offset,
+            count,
+            problem_id,
+            name,
+            tags and tags.split(','),
+        )
+        data = [
+            *map(
+                lambda p: {
+                    'problemId': p.problem_id,
+                    'problemName': p.problem_name,
+                    'ACUser': p.ac_user,
+                    'submitter': p.submitter,
+                    'tags': p.tags,
+                    'type': p.problem_type,
+                }, data)
+        ]
+    except IndexError:
+        return HTTPError('offset out of range!', 403)
     return HTTPResponse('Success.', data=data)
 
 
@@ -76,17 +98,24 @@ def view_problem(user, problem_id):
 @problem_api.route('/manage/<problem_id>', methods=['GET', 'PUT', 'DELETE'])
 @identity_verify(0, 1)
 def manage_problem(user, problem_id=None):
-    @Request.json('courses', 'status', 'type', 'description', 'tags',
-                  'problem_name', 'test_case')
+    @Request.json('courses: list', 'status', 'type', 'description', 'tags',
+                  'problem_name', 'test_case', 'can_view_stdout')
     def modify_problem(courses, status, type, problem_name, description, tags,
-                       test_case):
+                       test_case, can_view_stdout):
         if sum(case['caseScore'] for case in test_case['cases']) != 100:
             return HTTPError("Cases' scores should be 100 in total", 400)
 
         if request.method == 'POST':
-            number = add_problem(user, courses, status, type, problem_name,
-                                 description, tags, test_case)
-            return HTTPResponse('Success.', data={'problemId': number})
+            pids = []
+            if len(courses) == 0:
+                pids.append(
+                    add_problem(user, [], status, type, problem_name,
+                                description, tags, test_case, can_view_stdout))
+            for course in courses:
+                pids.append(
+                    add_problem(user, [course], status, type, problem_name,
+                                description, tags, test_case, can_view_stdout))
+            return HTTPResponse('Success.', data={'problemIds': pids})
         elif request.method == 'PUT':
             edit_problem(user, problem_id, courses, status, type, problem_name,
                          description, tags, test_case)

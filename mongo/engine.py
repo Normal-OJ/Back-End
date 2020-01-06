@@ -147,6 +147,8 @@ class Problem(Document):
     submitter = IntField(default=0)
     homeworks = ListField(ReferenceField('Homework'), default=list)
     contests = ListField(ReferenceField('Contest'), default=list)
+    # user can view stdout/stderr
+    can_view_stdout = BooleanField(db_field='canViewStdout', default=True)
 
 
 class TestCaseResult(EmbeddedDocument):

@@ -11,6 +11,7 @@ from tests.test_homework import CourseData
 
 @pytest.fixture
 def app():
+    flask_app.config['TESTING'] = True
     return flask_app
 
 
@@ -163,8 +164,8 @@ def problem_ids(forge_client, make_course):
                     status=status,
                 ),
             )
-            assert rv.status_code == 200
-            rets.append(rv.get_json()['data']['problemId'])
+            assert rv.status_code == 200, rv.get_json()
+            rets.append(rv.get_json()['data']['problemIds'][0])
         # don't leave cookies!
         client.cookie_jar.clear()
 

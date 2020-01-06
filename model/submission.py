@@ -4,15 +4,15 @@ import random
 import json
 import pathlib
 import string
+import secrets
 from zipfile import ZipFile, is_zipfile
-from requests import status_codes
 from flask import Blueprint, request
 from datetime import datetime, timedelta
 from functools import wraps
+from flask import current_app
 
 from mongo import *
 from mongo import engine
-from mongo import user
 from .utils import *
 from .auth import *
 from .submission_config import SubmissionConfig
@@ -28,11 +28,7 @@ p_hash = {}
 
 
 def get_token():
-    ret = random.choices(
-        string.ascii_lowercase + string.ascii_uppercase + string.digits,
-        k=24,
-    )
-    return ''.join(ret)
+    return secrets.token_urlsafe()
 
 
 def assign_token(submission_id, token_pool=tokens):
@@ -47,7 +43,7 @@ def assign_token(submission_id, token_pool=tokens):
 def verify_token(submission_id, token):
     if submission_id not in tokens:
         return False
-    return tokens[submission_id] == token
+    return secrets.compare_digest(tokens[submission_id], token)
 
 
 def submission_required(func):
@@ -110,13 +106,16 @@ def create_submission(user, language_type, problem_id):
             timestamp=now,
         )
     except ValidationError:
-        return HTTPError(f'invalid data!', 400)
+        return HTTPError('invalid data!', 400)
     except engine.DoesNotExist as e:
         return HTTPError(str(e), 404)
 
     user.update(last_submit=now)
     user.submissions.append(submission.obj)
     user.save()
+    # update problem
+    submission.problem.submitter += 1
+    submission.problem.save()
 
     # generate token for upload file
     token = assign_token(submission.id)
@@ -162,64 +161,20 @@ def get_submission_list(
         - score
         - language
     '''
-    if offset is None or count is None:
-        return HTTPError(
-            'offset and count are required!',
-            400,
-        )
-
-    # casting args
     try:
-        offset = int(offset)
-        count = int(count)
-    except ValueError:
-        return HTTPError(
-            'offset and count must be integer!',
-            400,
+        submissions = Submission.filter(
+            user=user,
+            offset=offset,
+            count=count,
+            problem=problem_id,
+            submission=submission_id,
+            q_user=username,
+            status=status,
+            language_type=language_type,
         )
+    except ValueError as e:
+        return HTTPError(str(e), 400)
 
-    # check range
-    if offset < 0:
-        return HTTPError(
-            f'offset must >= 0! get {offset}',
-            400,
-        )
-    if count < -1:
-        return HTTPError(
-            f'count must >=-1! get {count}',
-            400,
-        )
-
-    # query all
-    submissions = engine.Submission.objects.order_by('-timestamp')
-
-    # filter by user args
-    q_user = User(username)
-    q = {
-        'problem': Problem(problem_id).obj,
-        'id': submission_id,
-        'status': status,
-        'language': language_type,
-        'user': q_user.obj if q_user else None
-    }
-    nk = [k for k, v in q.items() if v is None]
-    for k in nk:
-        del q[k]
-    submissions = [
-        *filter(lambda s: can_view(user, s.problem), submissions.filter(**q))
-    ]
-
-    if offset >= len(submissions) and len(submissions):
-        return HTTPError(
-            f'offset ({offset}) is out of range!',
-            400,
-        )
-
-    right = min(offset + count, len(submissions))
-    if count == -1:
-        right = len(submissions)
-
-    submissions = submissions[offset:right]
     submissions = [Submission(s.id).to_dict() for s in submissions]
 
     for s in submissions:
@@ -261,6 +216,13 @@ def get_submission(user, submission):
                 break
         del ret['code']
 
+    # check user's stdout/stderr
+    if not submission.problem.can_view_stdout:
+        for case in ret['cases']:
+            del case['stdout']
+            del case['stderr']
+
+    # give user source code
     if 'code' in ret:
         ext = ['.c', '.cpp', '.py']
         ret['code'] = submission.get_code(f'main{ext[submission.language]}')
@@ -270,8 +232,35 @@ def get_submission(user, submission):
 
 @submission_api.route('/count', methods=['GET'])
 @login_required
-def get_submission_count(user):
-    return HTTPResponse('Padoru~', data={'count': Submission.count()})
+@Request.args(
+    'problem_id',
+    'submission_id',
+    'username',
+    'status',
+    'language_type',
+)
+def get_submission_count(
+    user,
+    problem_id,
+    submission_id,
+    username,
+    status,
+    language_type,
+):
+    try:
+        submissions = Submission.filter(
+            user=user,
+            offset=0,
+            count=-1,
+            problem=problem_id,
+            submission=submission_id,
+            q_user=username,
+            status=status,
+            language_type=language_type,
+        )
+    except ValueError as e:
+        return HTTPError(str(e), 400)
+    return HTTPResponse('Padoru~', data={'count': len(submissions)})
 
 
 @submission_api.route('/<submission_id>', methods=['PUT'])
@@ -288,18 +277,17 @@ def update_submission(user, submission, token):
         # get testcases
         cases = submission.problem.test_case.cases
         # metadata
-        meta = {}
-        meta['cases'] = []
+        meta = {'cases': []}
         # problem path
         testcase_dir = SubmissionConfig.TMP_DIR / str(
-            submission.problem.problem_id) / 'testcase'
+            submission.problem_id) / 'testcase'
         testcase_dir.mkdir(parents=True, exist_ok=True)
         testcase_zip_path = SubmissionConfig.TMP_DIR / str(
-            submission.problem.problem_id) / 'testcase.zip'
+            submission.problem_id) / 'testcase.zip'
 
         h = hash(str(cases))
-        if p_hash.get(submission.problem.problem_id) != h:
-            p_hash[submission.problem.problem_id] = h
+        if p_hash.get(submission.problem_id) != h:
+            p_hash[submission.problem_id] = h
             with ZipFile(testcase_zip_path, 'w') as zf:
                 for i, case in enumerate(cases):
                     meta['cases'].append({
@@ -334,11 +322,11 @@ def update_submission(user, submission, token):
         files = {
             'code': (
                 f'{submission.id}-source.zip',
-                open(zip_path, 'rb'),
+                zip_path.open('rb'),
             ),
             'testcase': (
                 f'{submission.id}-testcase.zip',
-                open(testcase_zip_path, 'rb'),
+                testcase_zip_path.open('rb'),
             ),
         }
 
@@ -388,6 +376,8 @@ def update_submission(user, submission, token):
                     f.extractall(submission_dir)
                 submission.update(code=True, status=-1)
 
+                if current_app.config['TESTING']:
+                    return HTTPResponse(f'{submission} received')
                 return judgement(zip_path)
         else:
             return HTTPError(
@@ -409,7 +399,28 @@ def update_submission(user, submission, token):
                 exec_time=m_case['execTime'],
                 memory_usage=m_case['memoryUsage'],
             )
+            # update user's submission
             user.add_submission(submission)
+            # update homework data
+            for homework in submission.problem.homeworks:
+                stat = homework.student_status[user.username][str(
+                    submission.problem.problem_id)]
+                stat['submissionIds'].append(submission.id)
+                if submission.score >= stat['score']:
+                    stat['score'] = submission.score
+                    stat['problemStatus'] = submission.status
+            # update problem
+            ac_submissions = Submission.filter(
+                user=user,
+                offset=0,
+                count=-1,
+                problem=submission.problem,
+                status=0,
+            )
+            ac_users = {s.user.username for s in ac_submissions}
+            submission.problem.ac_user = len(ac_users)
+            submission.problem.save()
+
         except (ValidationError, KeyError) as e:
             return HTTPError(f'invalid data!\n{e}', 400)
         return HTTPResponse(f'{submission} result recieved.')
@@ -426,7 +437,7 @@ def update_submission(user, submission, token):
         return HTTPError(f'invalid submission token.', 403)
 
     # if user not equal, reject
-    if submission.user.username != user.username:
+    if not secrets.compare_digest(submission.user.username, user.username):
         return HTTPError('user not equal!', 403)
 
     if request.content_type == 'application/json':
