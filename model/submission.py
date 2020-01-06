@@ -411,6 +411,7 @@ def update_submission(user, submission, token):
                     stat['problemStatus'] = submission.status
             # update problem
             ac_submissions = Submission.filter(
+                user=user,
                 offset=0,
                 count=-1,
                 problem=submission.problem,
@@ -418,7 +419,7 @@ def update_submission(user, submission, token):
             )
             ac_users = {s.user.username for s in ac_submissions}
             submission.problem.ac_user = len(ac_users)
-            submisison.problem.save()
+            submission.problem.save()
 
         except (ValidationError, KeyError) as e:
             return HTTPError(f'invalid data!\n{e}', 400)
