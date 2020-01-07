@@ -5,6 +5,9 @@ import json
 import pathlib
 import string
 import secrets
+import subprocess
+import logging
+from bs_detect import *
 from zipfile import ZipFile, is_zipfile
 from flask import Blueprint, request
 from datetime import datetime, timedelta
@@ -268,6 +271,29 @@ def get_submission_count(
 @submission_required
 @Request.args('token')
 def update_submission(user, submission, token):
+    def finish_judge():
+        # update user's submission
+        user.add_submission(submission)
+        # update homework data
+        for homework in submission.problem.homeworks:
+            stat = homework.student_status[user.username][str(
+                submission.problem.problem_id)]
+            stat['submissionIds'].append(submission.id)
+            if submission.score >= stat['score']:
+                stat['score'] = submission.score
+                stat['problemStatus'] = submission.status
+        # update problem
+        ac_submissions = Submission.filter(
+            user=user,
+            offset=0,
+            count=-1,
+            problem=submission.problem,
+            status=0,
+        )
+        ac_users = {s.user.username for s in ac_submissions}
+        submission.problem.ac_user = len(ac_users)
+        submission.problem.save()
+
     def judgement(zip_path: pathlib.Path):
         '''
         send submission data to sandbox
@@ -378,7 +404,59 @@ def update_submission(user, submission, token):
 
                 if current_app.config['TESTING']:
                     return HTTPResponse(f'{submission} received')
-                return judgement(zip_path)
+
+                # bad smell detection
+                try:
+                    det = BSDetect()
+                    detector_type = [
+                        'cpp_checkers',
+                        'cpp_checkers',
+                        'pylint',
+                    ][submission.language]
+                    file_ext = [
+                        ".c",
+                        ".cpp",
+                        ".py",
+                    ][submission.language]
+                    main_filename = str(submission_dir / 'src' /
+                                        f'main{file_ext}')
+                    det.set_settings(detector_type, 'default')
+                    detected, err_msg = det.detect(
+                        main_filename,
+                        detector_type,
+                        10,
+                    )
+                except subprocess.TimeoutExpired:
+                    submission.update(status=6)
+                    resp = HTTPResponse('finish judge')
+                except FileNotFoundError:
+                    resp = HTTPInternalServerError(
+                        'USER_SOURCECODE_MISSING', {
+                            'submissionId': submission.id,
+                        })
+                except KeyError as e:
+                    logging.error(str(e))
+                    resp = HTTPInternalServerError(
+                        'WRONG_DETECTOR_TYPE', {
+                            'submissionId': submission.id,
+                        })
+                except MisconfigurationError as e:
+                    logging.error(str(e))
+                    resp = HTTPInternalServerError(
+                        'MISCONFIGURATION_ERROR', {
+                            'submissionId': submission.id,
+                        })
+                else:
+                    if detected:
+                        submission.update(
+                            bed_smell=True,
+                            linting_message=err_msg,
+                        )
+                    resp = judgement(zip_path)
+                finally:
+                    finish_judge()
+
+                return resp
         else:
             return HTTPError(
                 f'can not find the source file',
@@ -399,28 +477,7 @@ def update_submission(user, submission, token):
                 exec_time=m_case['execTime'],
                 memory_usage=m_case['memoryUsage'],
             )
-            # update user's submission
-            user.add_submission(submission)
-            # update homework data
-            for homework in submission.problem.homeworks:
-                stat = homework.student_status[user.username][str(
-                    submission.problem.problem_id)]
-                stat['submissionIds'].append(submission.id)
-                if submission.score >= stat['score']:
-                    stat['score'] = submission.score
-                    stat['problemStatus'] = submission.status
-            # update problem
-            ac_submissions = Submission.filter(
-                user=user,
-                offset=0,
-                count=-1,
-                problem=submission.problem,
-                status=0,
-            )
-            ac_users = {s.user.username for s in ac_submissions}
-            submission.problem.ac_user = len(ac_users)
-            submission.problem.save()
-
+            finish_judge()
         except (ValidationError, KeyError) as e:
             return HTTPError(f'invalid data!\n{e}', 400)
         return HTTPResponse(f'{submission} result recieved.')

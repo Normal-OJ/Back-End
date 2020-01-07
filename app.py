@@ -2,6 +2,9 @@ from flask import Flask
 from model import *
 from mongo import *
 from mongo import engine
+import logging
+
+logging.basicConfig(filename='backend.log')
 
 # Create a flask app
 app = Flask(__name__)

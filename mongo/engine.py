@@ -169,8 +169,10 @@ class Submission(Document):
     cases = ListField(EmbeddedDocumentField(TestCaseResult), default=list)
     exec_time = IntField(default=-1, db_field='runTime')
     memory_usage = IntField(default=-1, db_field='memoryUsage')
-    code = BooleanField(
-        default=False)  # wheather the user has uploaded source code
+    # wheather the user has uploaded source code
+    code = BooleanField(default=False)
+    bed_smell = BooleanField(default=False)
+    linting_message = StringField(default='')
 
 
 class Message(Document):

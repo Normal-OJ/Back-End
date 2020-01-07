@@ -3,7 +3,13 @@ import time
 import json
 import sys
 import os
-__all__ = ["BSDetect"]
+__all__ = ["BSDetect", "MisconfigurationError"]
+
+
+class MisconfigurationError(Exception):
+    '''
+    raise this exception when read a wrong configuration
+    '''
 
 
 class BSDetect:
@@ -40,21 +46,21 @@ class BSDetect:
                 "diff"]
 
         except json.JSONDecodeError:
-            print("json file format error, use null config by default",
-                  file=sys.stderr)
             self.__profile__ = {}
             self.__pylint_args__ = []
             self.__cppcheck_args__ = []
             self.__clang_format_args__ = []
             self.__diff_args__ = []
+            raise MisconfigurationError(
+                "json file format error, use null config by default")
         except KeyError:
-            print(
-                "missing default key in initialization, use null config by default",
-                file=sys.stderr)
             self.__pylint_args__ = []
             self.__cppcheck_args__ = []
             self.__clang_format_args__ = []
             self.__diff_args__ = []
+            raise MisconfigurationError(
+                "missing default key in initialization, use null config by default"
+            )
 
     def set_settings(self, detector_type, mode):
         """
@@ -81,8 +87,8 @@ class BSDetect:
                 self.__diff_args__ = self.__profile__[detector_type][mode][
                     "diff"]
         except KeyError:
-            print("can not found matched detector or mode configuration",
-                  file=sys.stderr)
+            raise MisconfigurationError(
+                "can not found matched detector or mode configuration")
 
     @staticmethod
     def __command_runner__(command, args, time_limit):
@@ -177,7 +183,7 @@ class BSDetect:
 
             detector_type: the type of detector
 
-            time_limit: the time limit of this function
+            time_limit: the time limit of this function (sec.)
         """
         if detector_type == "pylint":
             return self.__python_checker__(code_filename, time_limit)
@@ -185,5 +191,4 @@ class BSDetect:
         elif detector_type == "cpp_checkers":
             return self.__c_checker__(code_filename, time_limit)
         else:
-            raise KeyError(
-                "unexpected detector type:{0}".format(detector_type))
+            raise KeyError(f"unexpected detector type: {detector_type}")

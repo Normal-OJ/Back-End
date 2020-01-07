@@ -1,6 +1,12 @@
+from datetime import datetime
 from flask import jsonify, redirect
 
-__all__ = ['HTTPResponse', 'HTTPRedirect', 'HTTPError']
+__all__ = [
+    'HTTPResponse',
+    'HTTPRedirect',
+    'HTTPError',
+    'HTTPInternalServerError',
+]
 
 
 class HTTPBaseResponese(tuple):
@@ -40,3 +46,19 @@ class HTTPError(HTTPResponse):
         cookies = {'piann': None, 'jwt': None} if logout else {}
         return super().__new__(HTTPResponse, message, status_code, 'err', data,
                                cookies)
+
+
+class HTTPInternalServerError(HTTPError):
+    def __new__(cls, error_type, data: dict):
+        if not isinstance(data, dict):
+            raise TypeError('HTTPInternalServerError only accept dict data.')
+        data.update({
+            'time': str(datetime.now()),
+            'errorType': error_type,
+        })
+        return super().__new__(
+            'Some error occurred, please contact the system admin with given infomation.',
+            500,
+            data=data,
+            logout=False,
+        )
