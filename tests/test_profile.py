@@ -3,6 +3,21 @@ from tests.base_tester import BaseTester
 
 
 class TestProfile(BaseTester):
+    def test_edit_without_displayName(self, client_student):
+        rv = client_student.post('/profile', json={'bio': 'Hello World!'})
+        json = rv.get_json()
+        assert rv.status_code == 200
+        assert json['status'] == 'ok'
+        assert json['message'] == 'Uploaded.'
+
+    def test_edit_without_bio(self, client_student):
+        rv = client_student.post('/profile',
+                                 json={'displayedName': 'aisu_0911'})
+        json = rv.get_json()
+        assert rv.status_code == 200
+        assert json['status'] == 'ok'
+        assert json['message'] == 'Uploaded.'
+
     def test_edit(self, client_student):
         rv = client_student.post('/profile',
                                  json={

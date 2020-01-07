@@ -60,9 +60,9 @@ def get_problem_list(
     tags: list,
 ):
     '''
-    get a list of probblems
+    get a list of problems
     '''
-    ks = {'problemId': problem_id, 'problemName': name}
+    ks = {'problem_id': problem_id, 'problem_name': name}
     ks = {k: v for k, v in ks.items() if v is not None}
     problems = engine.Problem.objects.filter(**ks).order_by('problemId')
     problems = [p for p in problems if can_view(user, p)]
