@@ -29,9 +29,11 @@ tokens = {}
 # pid, hash()
 p_hash = {}
 
+TOKEN = os.getenv('TOKEN', '1739517263456312242')
+
 
 def get_token():
-    return secrets.token_urlsafe()
+    return TOKEN
 
 
 def assign_token(submission_id, token_pool=tokens):
@@ -266,34 +268,59 @@ def get_submission_count(
     return HTTPResponse('Padoru~', data={'count': len(submissions)})
 
 
+def finish_judge(user, submission):
+    # update user's submission
+    user.add_submission(submission)
+    # update homework data
+    for homework in submission.problem.homeworks:
+        stat = homework.student_status[user.username][str(
+            submission.problem.problem_id)]
+        stat['submissionIds'].append(submission.id)
+        if submission.score >= stat['score']:
+            stat['score'] = submission.score
+            stat['problemStatus'] = submission.status
+    # update problem
+    ac_submissions = Submission.filter(
+        user=user,
+        offset=0,
+        count=-1,
+        problem=submission.problem,
+        status=0,
+    )
+    ac_users = {s.user.username for s in ac_submissions}
+    submission.problem.ac_user = len(ac_users)
+    submission.problem.save()
+
+
+@submission_api.route('/<submission_id>/complete', methods=['PUT'])
+@submission_required
+@Request.json('score', 'status', 'cases', 'token')
+def recieve_submission_result(submission, score, status, cases, token):
+    if not verify_token(submission.id, TOKEN):
+        return HTTPError('invalid token', 403)
+    try:
+        for case in cases:
+            del case['exitCode']
+        # get the case which has the longest execution time
+        m_case = sorted(cases, key=lambda c: c['execTime'])[-1]
+        submission.update(
+            score=score,
+            status=status,
+            cases=cases,
+            exec_time=m_case['execTime'],
+            memory_usage=m_case['memoryUsage'],
+        )
+        finish_judge(User(submission.user.username), submission)
+    except (ValidationError, KeyError) as e:
+        return HTTPError(f'invalid data!\n{e}', 400)
+    return HTTPResponse(f'{submission} result recieved.')
+
+
 @submission_api.route('/<submission_id>', methods=['PUT'])
 @login_required
 @submission_required
 @Request.args('token')
 def update_submission(user, submission, token):
-    def finish_judge():
-        # update user's submission
-        user.add_submission(submission)
-        # update homework data
-        for homework in submission.problem.homeworks:
-            stat = homework.student_status[user.username][str(
-                submission.problem.problem_id)]
-            stat['submissionIds'].append(submission.id)
-            if submission.score >= stat['score']:
-                stat['score'] = submission.score
-                stat['problemStatus'] = submission.status
-        # update problem
-        ac_submissions = Submission.filter(
-            user=user,
-            offset=0,
-            count=-1,
-            problem=submission.problem,
-            status=0,
-        )
-        ac_users = {s.user.username for s in ac_submissions}
-        submission.problem.ac_user = len(ac_users)
-        submission.problem.save()
-
     def judgement(zip_path: pathlib.Path):
         '''
         send submission data to sandbox
@@ -418,8 +445,7 @@ def update_submission(user, submission, token):
                         ".cpp",
                         ".py",
                     ][submission.language]
-                    main_filename = str(submission_dir / 'src' /
-                                        f'main{file_ext}')
+                    main_filename = str(submission_dir / f'main{file_ext}')
                     det.set_settings(detector_type, 'default')
                     detected, err_msg = det.detect(
                         main_filename,
@@ -454,7 +480,7 @@ def update_submission(user, submission, token):
                         )
                     resp = judgement(zip_path)
                 finally:
-                    finish_judge()
+                    finish_judge(user, submission)
 
                 return resp
         else:
@@ -462,25 +488,6 @@ def update_submission(user, submission, token):
                 f'can not find the source file',
                 400,
             )
-
-    @Request.json('score', 'status', 'cases')
-    def recieve_submission_result(score, status, cases):
-        try:
-            for case in cases:
-                del case['exitCode']
-            # get the case which has the longest execution time
-            m_case = sorted(cases, key=lambda c: c['execTime'])[-1]
-            submission.update(
-                score=score,
-                status=status,
-                cases=cases,
-                exec_time=m_case['execTime'],
-                memory_usage=m_case['memoryUsage'],
-            )
-            finish_judge()
-        except (ValidationError, KeyError) as e:
-            return HTTPError(f'invalid data!\n{e}', 400)
-        return HTTPResponse(f'{submission} result recieved.')
 
     ## put handler
     # validate this reques
@@ -497,12 +504,4 @@ def update_submission(user, submission, token):
     if not secrets.compare_digest(submission.user.username, user.username):
         return HTTPError('user not equal!', 403)
 
-    if request.content_type == 'application/json':
-        return recieve_submission_result()
-    elif request.content_type.startswith('multipart/form-data'):
-        return recieve_source_file()
-    else:
-        return HTTPError(
-            f'Unaccepted Content-Type {request.content_type}',
-            415,
-        )
+    return recieve_source_file()
