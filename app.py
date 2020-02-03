@@ -28,9 +28,13 @@ if not User("first_admin"):
         'password': 'firstpasswordforadmin',
         'email': 'i.am.first.admin@noj.tw'
     }
+    PROFILE = {
+        'displayed_name': 'the first admin',
+        'bio': 'I am super good!!!!!'
+    }
 
     admin = User.signup(**ADMIN)
-    admin.update(active=True, role=0)
+    admin.update(active=True, role=0, profile=PROFILE)
 
 if Course("Public").obj is None:
     add_course("Public", "first_admin")
