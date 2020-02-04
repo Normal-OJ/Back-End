@@ -5,3 +5,5 @@ gunicorn
 mongoengine
 PyJWT
 requests
+
+mosspy
