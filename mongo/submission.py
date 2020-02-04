@@ -52,6 +52,17 @@ class Submission(MongoBase, engine=engine.Submission):
 
         return ret
 
+    @property
+    def main_code_path(self) -> str:
+        lang2ext = {
+            0: '.c',
+            1: '.cpp',
+            2: '.py'
+        }
+        if self.language not in lang2ext:
+            raise ValueError
+        return SubmissionConfig.SOURCE_PATH / self.id / f'main.{lang2ext[self.language]}'
+
     def get_code(self, path: str):
         path = SubmissionConfig.SOURCE_PATH / self.id / path
 
