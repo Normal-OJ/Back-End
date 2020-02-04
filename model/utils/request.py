@@ -36,8 +36,8 @@ class _Request(type):
                             k: (lambda v: v
                                 if t is None or type(v) is t else int(''))(
                                     data.get((lambda s, *t: s + ''.join(
-                                        map(str.capitalize, t))
-                                              )(*filter(bool, k.split('_')))))
+                                        map(str.capitalize, t)))(
+                                            *filter(bool, k.split('_')))))
                             for k, t in [(
                                 lambda x: (x[0], type_map.get(x[1].strip()) if
                                            x[1:] else None))(l.split(':', 1))
