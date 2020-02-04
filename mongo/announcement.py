@@ -24,16 +24,16 @@ class Announcement(MongoBase, engine=engine.Announcement):
         return anns
 
     @staticmethod
-    def new_ann(course_name, title, creater, markdown):
+    def new_ann(course_name, title, creator, markdown):
         course = Course(course_name).obj
         if course is None:
             return None
-        if creater.role != 0 and creater != course.teacher and creater not in course.tas:
+        if creator.role != 0 and creator != course.teacher and creator not in course.tas:
             return None
         ann = engine.Announcement(title=title,
                                   course=course,
-                                  creater=creater,
-                                  updater=creater,
+                                  creator=creator,
+                                  updater=creator,
                                   markdown=markdown)
         ann.save()
         return ann
