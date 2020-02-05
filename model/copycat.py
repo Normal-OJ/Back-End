@@ -1,5 +1,7 @@
 from flask import Blueprint, request
 from mongo import *
+from .utils import *
+from .auth import *
 
 import mosspy
 
@@ -8,10 +10,11 @@ __all__ = ['copycat_api']
 copycat_api = Blueprint('copycat_api', __name__)
 
 
-@course_api.route('/', methods=['POST'])
+@copycat_api.route('/', methods=['POST'])
 @login_required
 @Request.json('course', 'problem_id')
-def detect(user, course):
+def detect(user, course, problem_id):
+    course = Course(course).obj
     permission = perm(course, user)
 
     if permission < 2:
@@ -34,17 +37,17 @@ def detect(user, course):
             and s.user.username not in last_python_submission:
             last_python_submission[submission.user.username] = s.main_code_path
 
-    moss_user_id = 97089070
+    moss_userid = 97089070
 
     # check for c or cpp code
-    m1 = mosspy.Moss(userid, "cc")
+    m1 = mosspy.Moss(moss_userid, "cc")
 
     for user, code_path in last_cc_submission.items():
         m1.addFile(code_path)
     cc_report_url = m1.send()
 
     # check for python code
-    m2 = mosspy.Moss(userid, "python")
+    m2 = mosspy.Moss(moss_userid, "python")
 
     for user, code_path in last_python_submission.items():
         m2.addFile(code_path)
