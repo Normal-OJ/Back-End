@@ -8,3 +8,4 @@ repos:
   rev: v0.29.0
   hooks:
     - id: yapf
+      args: ['-ir', '.']
