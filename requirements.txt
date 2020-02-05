@@ -5,3 +5,6 @@ gunicorn
 mongoengine
 PyJWT
 requests
+
+clang-format
+pylint

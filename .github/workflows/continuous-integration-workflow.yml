@@ -18,8 +18,6 @@ jobs:
         python -m pip install --upgrade pip
     - name: Install bs detection requirements
       run: |
-        pip install clang-format
-        pip install pylint
         sudo apt install cppcheck
     - name: YAPF
       run: |
