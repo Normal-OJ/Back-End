@@ -44,7 +44,7 @@ def detect(user, course, problem_id):
 
     for user, code_path in last_cc_submission.items():
         m1.addFile(code_path)
-    cc_report_url = m1.send()
+    cpp_report_url = m1.send()
 
     # check for python code
     m2 = mosspy.Moss(moss_userid, "python")
@@ -56,6 +56,6 @@ def detect(user, course, problem_id):
     # return c & cpp or python report
     return HTTPResponse('Success.',
                         data={
-                            "ccReport": cc_report_url,
+                            "cppReport": cpp_report_url,
                             "pythonReport": python_report_url
                         })
