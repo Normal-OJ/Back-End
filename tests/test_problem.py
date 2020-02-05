@@ -17,7 +17,6 @@ class ProblemData:
         type=0,
         description='',
         tags=[],
-        test_case='test_case.zip',
         test_case_info={
             'language':
             1,
@@ -45,16 +44,18 @@ def problem_data(request, client_admin):
     BaseTester.setup_class()
     pd = ProblemData(**request.param)
     # add problem
-    client_admin.post('/problem/manage',
-                      json={
-                          'status': pd.status,
-                          'type': pd.type,
-                          'problemName': pd.name,
-                          'description': pd.description,
-                          'tags': pd.tags,
-                          'testCase': pd.test_case,
-                          'testCaseInfo': pd.test_case_info
-                      })
+    rv = client_admin.post('/problem/manage',
+                           json={
+                               'status': pd.status,
+                               'type': pd.type,
+                               'problemName': pd.name,
+                               'description': pd.description,
+                               'tags': pd.tags,
+                               'testCaseInfo': pd.test_case_info
+                           })
+    id = rv.get_json()['data']['problemId']
+    rv = client_admin.put(f'/problem/manage/{id}',
+                          data=get_file('test_case.zip'))
     yield pd
     BaseTester.teardown_class()
 

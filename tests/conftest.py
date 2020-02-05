@@ -7,6 +7,7 @@ import pytest
 import random
 from tests.base_tester import random_string
 from tests.test_homework import CourseData
+from tests.test_problem import get_file
 
 
 @pytest.fixture
@@ -78,15 +79,14 @@ def random_problem_data(username=None, status=-1):
         'tags': ['test'],
         'problemName':
         f'prob {s}',
-        'testCase': {
+        'testCaseInfo': {
             'language':
             2,
             'fillInTemplate':
             '',
             'cases': [
                 {
-                    'input': s,
-                    'output': s,
+                    'caseCount': 1,
                     'caseScore': 100,
                     'memoryLimit': 32768,
                     'timeLimit': 1000,
@@ -164,8 +164,11 @@ def problem_ids(forge_client, make_course):
                     status=status,
                 ),
             )
+            id = rv.get_json()['data']['problemId']
+            client.put(f'/problem/manage/{id}', data=get_file('test_case.zip'))
+
             assert rv.status_code == 200, rv.get_json()
-            rets.append(rv.get_json()['data']['problemIds'][0])
+            rets.append(id)
         # don't leave cookies!
         client.cookie_jar.clear()
 
