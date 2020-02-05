@@ -1,7 +1,7 @@
 Dockerfile.prod
 
-# Gunicorn
-gunicorn_error.log
+# log file
+*.log
 
 # Python
 __pycache__

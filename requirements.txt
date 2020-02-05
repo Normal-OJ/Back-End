@@ -5,3 +5,9 @@ gunicorn
 mongoengine
 PyJWT
 requests
+
+clang-format
+pylint
+
+pre-commit
+yapf
