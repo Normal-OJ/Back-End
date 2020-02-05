@@ -6,6 +6,8 @@ __all__ = [
     'delete_problem', 'copy_problem', 'release_problem', 'can_view'
 ]
 
+number = 1
+
 
 class Number:
     def __init__(self, name):
@@ -31,6 +33,15 @@ class Problem:
         except:
             return None
         return obj
+
+
+def increased_number():
+    global number
+    number += 1
+
+    serial_number = Number("serial_number").obj
+    serial_number.number = number
+    serial_number.save()
 
 
 def can_view(user, problem):
@@ -82,9 +93,7 @@ def get_problem_list(
 
 def add_problem(user, courses, status, type, problem_name, description, tags,
                 test_case, can_view_stdout):
-    serial_number = Number("serial_number").obj
-
-    problem_id = serial_number.number
+    problem_id = number
     engine.Problem(problem_id=problem_id,
                    courses=list(Course(name).obj for name in courses),
                    problem_status=status,
@@ -95,9 +104,7 @@ def add_problem(user, courses, status, type, problem_name, description, tags,
                    tags=tags,
                    test_case=test_case,
                    can_view_stdout=can_view_stdout).save()
-
-    serial_number.number += 1
-    serial_number.save()
+    increased_number()
 
     return problem_id
 
@@ -139,10 +146,8 @@ def delete_problem(problem_id):
 
 
 def copy_problem(user, problem_id):
-    serial_number = Number("serial_number").obj
     problem = Problem(problem_id).obj
-
-    engine.Problem(problem_id=serial_number.number,
+    engine.Problem(problem_id=number,
                    problem_status=problem.problem_status,
                    problem_type=problem.problem_type,
                    problem_name=problem.problem_name,
@@ -150,9 +155,7 @@ def copy_problem(user, problem_id):
                    owner=user.username,
                    tags=problem.tags,
                    test_case=problem.test_case).save()
-
-    serial_number.number += 1
-    serial_number.save()
+    increased_number()
 
 
 def release_problem(problem_id):

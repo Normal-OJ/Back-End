@@ -211,10 +211,11 @@ def get_submission(user, submission):
     # you can view self submission
     elif user.username != submission.user.username:
         # TA and teacher can view students' submissions
+        permissions = []
         for course in submission.problem.courses:
-            if perm(course, user) >= 2:
-                break
-        del ret['code']
+            permissions.append(perm(course, user) >= 2)
+        if not any(permissions):
+            del ret['code']
 
     # check user's stdout/stderr
     if not submission.problem.can_view_stdout:

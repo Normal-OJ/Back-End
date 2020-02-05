@@ -2,6 +2,7 @@ from flask import Flask
 from model import *
 from mongo import *
 from mongo import engine
+from mongo import problem
 
 # Create a flask app
 app = Flask(__name__)
@@ -42,3 +43,5 @@ if Course("Public").obj is None:
 
 if Number("serial_number").obj is None:
     engine.Number(name="serial_number").save()
+
+problem.number = Number("serial_number").obj.number

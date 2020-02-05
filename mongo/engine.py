@@ -194,7 +194,7 @@ class Announcement(Document):
     course = ReferenceField('Course', required=True)
     create_time = DateTimeField(db_field='createTime', default=datetime.utcnow)
     update_time = DateTimeField(db_field='updateTime', default=datetime.utcnow)
-    creater = ReferenceField('User', required=True)
+    creator = ReferenceField('User', required=True)
     updater = ReferenceField('User', required=True)
     markdown = StringField(max_length=100000, required=True)
 

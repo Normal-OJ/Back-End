@@ -465,20 +465,23 @@ class TestUserGetSubmission(SubmissionTester):
 
 
 class TestTeacherGetSubmission(SubmissionTester):
-    def test_teacher_can_get_offline_submission(
-        self,
-        forge_client,
-        problem_ids,
-        submit,
-    ):
-        # make submissions
-        pids = []
-        for name in A_NAMES:
-            pids.extend(problem_ids(name, 3, True, -1))
-        pids = itertools.cycle(pids)
-        names = itertools.cycle(['admin'])
-        submit(names, pids, self.init_submission_count)
+    pids = []
 
+    @classmethod
+    @pytest.fixture(autouse=True)
+    def on_create(cls, problem_ids, submit):
+        # make submissions
+        cls.pids = []
+        for name in A_NAMES:
+            cls.pids.extend(problem_ids(name, 3, True, -1))
+        names = itertools.cycle(['admin'])
+        submit(
+            names,
+            itertools.cycle(cls.pids),
+            cls.init_submission_count,
+        )
+
+    def test_teacher_can_get_offline_submission(self, forge_client):
         client = forge_client('teacher')
         rv, rv_json, rv_data = BaseTester.request(
             client,
@@ -500,6 +503,30 @@ class TestTeacherGetSubmission(SubmissionTester):
         ])
 
         assert len(rv_data['submissions']) == except_count
+
+    def test_teacher_can_view_students_source(self, forge_client):
+        teacher_name = 'teacher'
+        client = forge_client(teacher_name)
+        rv, rv_json, rv_data = BaseTester.request(
+            client,
+            'get',
+            '/submission?offset=0&count=-1',
+        )
+
+        problems = [Problem(pid).obj for pid in self.pids]
+        problems = {p.problem_id for p in problems if p.owner == teacher_name}
+        submission_ids = [
+            s['submissionId'] for s in rv_data['submissions']
+            if s['problemId'] in problems
+        ]
+
+        for _id in submission_ids:
+            rv, rv_json, rv_data = BaseTester.request(
+                client,
+                'get',
+                f'/submission/{_id}',
+            )
+            assert 'code' in rv_data, rv_data
 
 
 class TestCreateSubmission(SubmissionTester):

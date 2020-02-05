@@ -6,10 +6,12 @@ from mongo import engine
 from .auth import *
 from .utils import *
 from mongo.problem import *
+import threading
 
 __all__ = ['problem_api']
 
 problem_api = Blueprint('problem_api', __name__)
+lock = threading.Lock()
 
 
 @problem_api.route('/', methods=['GET'])
@@ -106,6 +108,7 @@ def manage_problem(user, problem_id=None):
             return HTTPError("Cases' scores should be 100 in total", 400)
 
         if request.method == 'POST':
+            lock.acquire()
             pids = []
             if len(courses) == 0:
                 pids.append(
@@ -115,6 +118,7 @@ def manage_problem(user, problem_id=None):
                 pids.append(
                     add_problem(user, [course], status, type, problem_name,
                                 description, tags, test_case, can_view_stdout))
+            lock.release()
             return HTTPResponse('Success.', data={'problemIds': pids})
         elif request.method == 'PUT':
             edit_problem(user, problem_id, courses, status, type, problem_name,
@@ -161,6 +165,8 @@ def manage_problem(user, problem_id=None):
         try:
             return modify_problem()
         except ValidationError as ve:
+            if lock.locked:
+                lock.release()
             return HTTPError('Invalid or missing arguments.',
                              400,
                              data=ve.to_dict())
@@ -178,7 +184,9 @@ def clone_problem(user, problem_id):
     if not can_view(user, problem):
         return HTTPError('Problem can not view.', 403)
 
+    lock.acquire()
     copy_problem(user, problem_id)
+    lock.release()
     return HTTPResponse('Success.')
 
 
