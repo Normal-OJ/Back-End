@@ -2,11 +2,7 @@ import pytest
 import os
 import itertools
 import pathlib
-from zipfile import ZipFile
-from datetime import datetime
 from pprint import pprint
-from copy import copy
-from collections import defaultdict
 
 from mongo import *
 from mongo import engine

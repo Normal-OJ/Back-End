@@ -7,6 +7,7 @@ import pytest
 import random
 from datetime import datetime
 from zipfile import ZipFile
+from collections import defaultdict
 from tests.base_tester import random_string
 from tests.test_homework import CourseData
 from tests.test_problem import get_file
