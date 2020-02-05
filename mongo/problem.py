@@ -1,9 +1,14 @@
 from . import engine
 from .course import *
+from zipfile import ZipFile, is_zipfile
+from pathlib import Path
+from random import randint
+import os
 
 __all__ = [
     'Number', 'Problem', 'get_problem_list', 'add_problem', 'edit_problem',
-    'delete_problem', 'copy_problem', 'release_problem', 'can_view'
+    'edit_problem_test_case', 'delete_problem', 'copy_problem',
+    'release_problem', 'can_view'
 ]
 
 number = 1
@@ -92,7 +97,7 @@ def get_problem_list(
 
 
 def add_problem(user, courses, status, type, problem_name, description, tags,
-                test_case, can_view_stdout):
+                test_case_info, can_view_stdout):
     problem_id = number
     engine.Problem(problem_id=problem_id,
                    courses=list(Course(name).obj for name in courses),
@@ -102,7 +107,7 @@ def add_problem(user, courses, status, type, problem_name, description, tags,
                    description=description,
                    owner=user.username,
                    tags=tags,
-                   test_case=test_case,
+                   test_case=test_case_info,
                    can_view_stdout=can_view_stdout).save()
     increased_number()
 
@@ -110,8 +115,10 @@ def add_problem(user, courses, status, type, problem_name, description, tags,
 
 
 def edit_problem(user, problem_id, courses, status, type, problem_name,
-                 description, tags, test_case):
+                 description, tags, test_case_info):
     problem = Problem(problem_id).obj
+    old_case = problem.test_case['cases'][:]
+    test_case = test_case_info
 
     problem.courses = list(
         engine.Course.objects.get(course_name=name) for name in courses)
@@ -123,21 +130,56 @@ def edit_problem(user, problem_id, courses, status, type, problem_name,
     problem.tags = tags
     problem.test_case['language'] = test_case['language']
     problem.test_case['fill_in_template'] = test_case['fillInTemplate']
+
+    i = 0
     problem.test_case['cases'].clear()
     for case in test_case['cases']:
-        case['case_score'] = case['caseScore']
-        del case['caseScore']
-        case['memory_limit'] = case['memoryLimit']
-        del case['memoryLimit']
-        case['time_limit'] = case['timeLimit']
-        del case['timeLimit']
+        case = {
+            'case_score': case['caseScore'],
+            'case_count': case['caseCount'],
+            'memory_limit': case['memoryLimit'],
+            'time_limit': case['timeLimit'],
+        }
+
+        if i < len(old_case):
+            case['input'] = old_case[i]['input']
+            case['output'] = old_case[i]['output']
+        i += 1
 
         case = engine.ProblemCase(**case)
         problem.test_case['cases'].append(case)
 
     problem.save()
 
-    return problem
+    return old_case[0]['input']
+
+
+def edit_problem_test_case(problem_id, test_case):
+    problem = Problem(problem_id).obj
+
+    file = f'/tmp/{randint(100000,999999)}'
+    test_case.save(file + '.zip')
+
+    for case in problem.test_case['cases']:
+        case['input'] = [0] * case['case_count']
+        case['output'] = [0] * case['case_count']
+
+    with ZipFile(file + '.zip', 'r') as f:
+        f.extractall(file)
+
+    for p in Path(file).iterdir():
+        subtest_index = int(p.name[:2])
+        subtest_case_index = int(p.name[2:4])
+        io = p.name[5:] + "put"
+
+        problem.test_case['cases'][subtest_index][io][
+            subtest_case_index] = p.read_text()
+        os.remove(file + '/' + p.name)
+
+    problem.save()
+    os.remove(file + '.zip')
+    os.rmdir(file)
+    return problem.test_case['cases'][0]['input']
 
 
 def delete_problem(problem_id):
