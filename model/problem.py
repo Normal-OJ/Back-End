@@ -101,29 +101,29 @@ def view_problem(user, problem_id):
 @identity_verify(0, 1)
 def manage_problem(user, problem_id=None):
     @Request.json('courses: list', 'status', 'type', 'description', 'tags',
-                  'problem_name', 'test_case', 'can_view_stdout')
+                  'problem_name', 'test_case_info', 'can_view_stdout')
     def modify_problem(courses, status, type, problem_name, description, tags,
-                       test_case, can_view_stdout):
-        if sum(case['caseScore'] for case in test_case['cases']) != 100:
+                       test_case_info, can_view_stdout):
+        if sum(case['caseScore'] for case in test_case_info['cases']) != 100:
             return HTTPError("Cases' scores should be 100 in total", 400)
 
         if request.method == 'POST':
             lock.acquire()
-            pids = []
-            if len(courses) == 0:
-                pids.append(
-                    add_problem(user, [], status, type, problem_name,
-                                description, tags, test_case, can_view_stdout))
-            for course in courses:
-                pids.append(
-                    add_problem(user, [course], status, type, problem_name,
-                                description, tags, test_case, can_view_stdout))
+            pid = add_problem(user, courses, status, type, problem_name,
+                              description, tags, test_case_info,
+                              can_view_stdout)
             lock.release()
-            return HTTPResponse('Success.', data={'problemIds': pids})
+            return HTTPResponse('Success.', data={'problemId': pid})
         elif request.method == 'PUT':
-            edit_problem(user, problem_id, courses, status, type, problem_name,
-                         description, tags, test_case)
-            return HTTPResponse('Success.')
+            result = edit_problem(user, problem_id, courses, status, type,
+                                  problem_name, description, tags,
+                                  test_case_info)
+            return HTTPResponse('Success.', data=result)
+
+    @Request.files('case')
+    def modify_problem_test_case(case):
+        result = edit_problem_test_case(problem_id, case)
+        return HTTPResponse('Success.', data=result)
 
     if request.method != 'POST':
         problem = Problem(problem_id).obj
@@ -163,7 +163,10 @@ def manage_problem(user, problem_id=None):
         return HTTPResponse('Success.')
     else:
         try:
-            return modify_problem()
+            if request.content_type == 'application/json':
+                return modify_problem()
+            elif request.content_type.startswith('multipart/form-data'):
+                return modify_problem_test_case()
         except ValidationError as ve:
             if lock.locked:
                 lock.release()

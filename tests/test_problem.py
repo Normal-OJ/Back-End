@@ -1,6 +1,12 @@
 import pytest
 from tests.base_tester import BaseTester
 from mongo import *
+import io
+
+
+def get_file(file):
+    with open("./tests/problem_test_case/" + file, 'rb') as f:
+        return {'case': (io.BytesIO(f.read()), "test_case.zip")}
 
 
 class ProblemData:
@@ -11,14 +17,14 @@ class ProblemData:
         type=0,
         description='',
         tags=[],
-        test_case={
+        test_case='test_case.zip',
+        test_case_info={
             'language':
             1,
             'fillInTemplate':
             '',
             'cases': [{
-                'input': 'a',
-                'output': 'b',
+                'caseCount': 1,
                 'caseScore': 100,
                 'memoryLimit': 1000,
                 'timeLimit': 1000
@@ -29,7 +35,8 @@ class ProblemData:
         self.type = type
         self.description = description
         self.tags = tags
-        self.test_case = test_case
+        self.test_case = get_file(test_case)
+        self.test_case_info = test_case_info
 
 
 # First problem (offline)
@@ -45,7 +52,8 @@ def problem_data(request, client_admin):
                           'problemName': pd.name,
                           'description': pd.description,
                           'tags': pd.tags,
-                          'testCase': pd.test_case
+                          'testCase': pd.test_case,
+                          'testCaseInfo': pd.test_case_info
                       })
     yield pd
     BaseTester.teardown_class()
@@ -82,14 +90,13 @@ class TestProblem(BaseTester):
             'problemName': 'Test problem name',
             'description': 'Test description.',
             'tags': [],
-            'testCase': {
+            'testCaseInfo': {
                 'language':
                 1,
                 'fillInTemplate':
                 '',
                 'cases': [{
-                    'input': 'a',
-                    'output': 'b',
+                    'caseCount': 1,
                     'caseScore': 100,
                     'memoryLimit': 1000,
                     'timeLimit': 1000
@@ -112,14 +119,13 @@ class TestProblem(BaseTester):
             #  'problem_name': 'Test problem name',	# missing argument
             'description': 'Test description.',
             'tags': [],
-            'testCase': {
+            'testCaseInfo': {
                 'language':
                 1,
                 'fillInTemplate':
                 '',
                 'cases': [{
-                    'input': 'a',
-                    'output': 'b',
+                    'caseCount': 1,
                     'caseScore': 100,
                     'memoryLimit': 1000,
                     'timeLimit': 1000
@@ -142,14 +148,13 @@ class TestProblem(BaseTester):
             'problemName': 'Offline problem',
             'description': 'Test description.',
             'tags': [],
-            'testCase': {
+            'testCaseInfo': {
                 'language':
                 1,
                 'fillInTemplate':
                 '',
                 'cases': [{
-                    'input': 'a',
-                    'output': 'b',
+                    'caseCount': 1,
                     'caseScore': 100,
                     'memoryLimit': 1000,
                     'timeLimit': 1000
@@ -158,6 +163,12 @@ class TestProblem(BaseTester):
         }
         rv = client_admin.post('/problem/manage', json=request_json)
         json = rv.get_json()
+        id = json['data']['problemId']
+
+        rv = client_admin.put(f'/problem/manage/{id}',
+                              data=get_file('test_case.zip'))
+        json = rv.get_json()
+
         assert rv.status_code == 200
         assert json['status'] == 'ok'
         assert json['message'] == 'Success.'
@@ -171,14 +182,13 @@ class TestProblem(BaseTester):
             'problemName': 'Online problem',
             'description': 'Test description.',
             'tags': [],
-            'testCase': {
+            'testCaseInfo': {
                 'language':
                 1,
                 'fillInTemplate':
                 '',
                 'cases': [{
-                    'input': 'a',
-                    'output': 'b',
+                    'caseCount': 1,
                     'caseScore': 100,
                     'memoryLimit': 1000,
                     'timeLimit': 1000
@@ -186,6 +196,11 @@ class TestProblem(BaseTester):
             }
         }
         rv = client_admin.post('/problem/manage', json=request_json)
+        json = rv.get_json()
+        id = json['data']['problemId']
+
+        rv = client_admin.put(f'/problem/manage/{id}',
+                              data=get_file('test_case.zip'))
         json = rv.get_json()
         assert rv.status_code == 200
         assert json['status'] == 'ok'
@@ -287,14 +302,13 @@ class TestProblem(BaseTester):
             'problemName': 'Offline problem (edit)',
             'description': 'Test description.',
             'tags': [],
-            'testCase': {
+            'testCaseInfo': {
                 'language':
                 1,
                 'fillInTemplate':
                 '',
                 'cases': [{
-                    'input': 'a',
-                    'output': 'b',
+                    'caseCount': 1,
                     'caseScore': 100,
                     'memoryLimit': 1000,
                     'timeLimit': 1000
@@ -316,14 +330,13 @@ class TestProblem(BaseTester):
             'problemName': 'Offline problem (edit)',
             'description': 'Test description.',
             'tags': [],
-            'testCase': {
+            'testCaseInfo': {
                 'language':
                 1,
                 'fillInTemplate':
                 '',
                 'cases': [{
-                    'input': 'a',
-                    'output': 'b',
+                    'caseCount': 1,
                     'caseScore': 100,
                     'memoryLimit': 1000,
                     'timeLimit': 1000
@@ -345,14 +358,13 @@ class TestProblem(BaseTester):
             'problemName': 'Offline problem (edit)',
             'description': 'Test description.',
             'tags': [],
-            'testCase': {
+            'testCaseInfo': {
                 'language':
                 1,
                 'fillInTemplate':
                 '',
                 'cases': [{
-                    'input': 'a',
-                    'output': 'b',
+                    'caseCount': 1,
                     'caseScore': 100,
                     'memoryLimit': 1000,
                     'timeLimit': 1000
@@ -386,8 +398,8 @@ class TestProblem(BaseTester):
                 'fillInTemplate':
                 '',
                 'cases': [{
-                    'input': 'a',
-                    'output': 'b',
+                    'input': ['aaaa\n'],
+                    'output': ['bbbb\n'],
                     'caseScore': 100,
                     'memoryLimit': 1000,
                     'timeLimit': 1000

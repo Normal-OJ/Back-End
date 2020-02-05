@@ -113,10 +113,11 @@ class Number(Document):
 
 class ProblemCase(EmbeddedDocument):
     case_score = IntField(required=True, db_field='caseScore')
+    case_count = IntField(required=True, db_field='caseCount')
     memory_limit = IntField(required=True, db_field='memoryLimit')
     time_limit = IntField(required=True, db_field='timeLimit')
-    input = StringField(required=True)
-    output = StringField(required=True)
+    input = ListField(StringField(), default=list)
+    output = ListField(StringField(), default=list)
 
 
 class ProblemTestCase(EmbeddedDocument):
