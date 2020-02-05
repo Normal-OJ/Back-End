@@ -10,7 +10,22 @@ __all__ = ['ann_api']
 ann_api = Blueprint('ann_api', __name__)
 
 
-@ann_api.route('/', methods=['GET', 'POST', 'PUT', 'DELETE'])
+@ann_api.route('/', methods=['GET'])
+def get_sys_ann():
+    anns = Announcement.ann_list(None, 'Public')
+    data = [{
+        'annId': str(an.id),
+        'title': an.title,
+        'createTime': int(an.create_time.timestamp()),
+        'updateTime': int(an.update_time.timestamp()),
+        'creater': User(an.creater.username).info,
+        'updater': User(an.updater.username).info,
+        'markdown': an.markdown
+    } for an in anns]
+    return HTTPResponse('Sys Ann bro', data=data)
+
+
+@ann_api.route('/', methods=['POST', 'PUT', 'DELETE'])
 @ann_api.route('/<course_name>', methods=['GET'])
 @login_required
 def anncmnt(user, course_name=None):
