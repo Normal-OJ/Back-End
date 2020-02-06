@@ -22,6 +22,7 @@ app.register_blueprint(ann_api, url_prefix='/ann')
 app.register_blueprint(ranking_api, url_prefix='/ranking')
 app.register_blueprint(contest_api, url_prefix='/contest')
 app.register_blueprint(post_api, url_prefix='/post')
+app.register_blueprint(copycat_api, url_prefix='/copycat')
 
 if not User("first_admin"):
     ADMIN = {
