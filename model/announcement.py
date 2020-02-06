@@ -18,7 +18,7 @@ def get_sys_ann():
         'title': an.title,
         'createTime': int(an.create_time.timestamp()),
         'updateTime': int(an.update_time.timestamp()),
-        'creater': User(an.creater.username).info,
+        'creator': User(an.creator.username).info,
         'updater': User(an.updater.username).info,
         'markdown': an.markdown
     } for an in anns]
