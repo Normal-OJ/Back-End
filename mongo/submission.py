@@ -1,8 +1,12 @@
 import json
 import os
 import pathlib
+import secrets
+import requests as rq
+from flask import current_app
 from datetime import date
 from typing import List
+from zipfile import ZipFile, is_zipfile
 from model.submission_config import SubmissionConfig
 
 from . import engine
@@ -10,7 +14,45 @@ from .base import MongoBase
 from .user import User
 from .problem import Problem, can_view
 
-__all__ = ['Submission']
+__all__ = [
+    'Submission',
+    'get_token',
+    'assign_token',
+    'verify_token',
+    'JudgeQueueFullError',
+]
+
+# pid, hash()
+p_hash = {}
+
+# TODO: save tokens in db
+tokens = {}
+
+
+def get_token():
+    return secrets.token_urlsafe()
+
+
+def assign_token(submission_id, token_pool=tokens):
+    '''
+    generate a token for the submission
+    '''
+    token = get_token()
+    token_pool[submission_id] = token
+    return token
+
+
+def verify_token(submission_id, token):
+    if submission_id not in tokens:
+        return False
+    return secrets.compare_digest(tokens[submission_id], token)
+
+
+# Errors
+class JudgeQueueFullError(Exception):
+    '''
+    when sandbox task queue is full
+    '''
 
 
 class Submission(MongoBase, engine=engine.Submission):
@@ -53,20 +95,132 @@ class Submission(MongoBase, engine=engine.Submission):
         return ret
 
     @property
+    def code_dir(self) -> pathlib.Path:
+        return SubmissionConfig.SOURCE_PATH / self.id
+
+    @property
+    def tmp_dir(self) -> pathlib.Path:
+        return SubmissionConfig.TMP_DIR / self.id
+
+    @property
     def main_code_path(self) -> str:
         lang2ext = {0: '.c', 1: '.cpp', 2: '.py'}
         if self.language not in lang2ext:
             raise ValueError
-        return str((SubmissionConfig.SOURCE_PATH / self.id /
-                    f'main{lang2ext[self.language]}').absolute())
+        return str(
+            (self.code_dir / f'main{lang2ext[self.language]}').absolute())
 
-    def get_code(self, path: str):
-        path = SubmissionConfig.SOURCE_PATH / self.id / path
+    def get_code(self, path: str) -> str:
+        path = self.code_dir / path
 
         if not path.exists():
             raise FileNotFoundError(path)
 
         return path.read_text()
+
+    def submit(self, code_file) -> bool:
+        '''
+        prepara data for submit code to sandbox and then send it
+
+        Args:
+            code_file: a zip file contains user's code
+        '''
+        # unexisted id
+        if not self:
+            raise engine.DoesNotExist(f'{self}')
+        if self.code_dir.is_dir():
+            raise FileExistsError(f'{submission} code found on server')
+
+        # create submission folder
+        self.code_dir.mkdir()
+        # tmp path to store zipfile
+        zip_path = self.tmp_dir / 'source.zip'
+        zip_path.parent.mkdir()
+        zip_path.write_bytes(code_file.read())
+        if not is_zipfile(zip_path):
+            # delete source file
+            zip_path.unlink()
+            raise ValueError('only accept zip file.')
+        with ZipFile(zip_path, 'r') as f:
+            f.extractall(self.code_dir)
+        self.update(code=True, status=-1)
+
+        # we no need to actually send code to sandbox during testing
+        if current_app.config['TESTING']:
+            return False
+        return self.send(zip_path)
+
+    def send(self, code_path) -> bool:
+        '''
+        send code to sandbox
+
+        Args:
+            code_path: code path for the user's code zip file
+        '''
+        # prepare problem testcase
+        # get testcases
+        cases = self.problem.test_case.cases
+        # metadata
+        meta = {'language': self.language, 'tasks': []}
+        # problem path
+        testcase_zip_path = SubmissionConfig.TMP_DIR / str(
+            self.problem_id) / 'testcase.zip'
+
+        h = hash(str(cases))
+        if p_hash.get(self.problem_id) != h:
+            p_hash[self.problem_id] = h
+            with ZipFile(testcase_zip_path, 'w') as zf:
+                for i, case in enumerate(cases):
+                    meta['tasks'].append({
+                        'caseCount': case['case_count'],
+                        'taskScore': case['case_score'],
+                        'memoryLimit': case['memory_limit'],
+                        'timeLimit': case['time_limit']
+                    })
+
+                    for j in range(len(case['input'])):
+                        filename = f'{i:02d}{j:02d}'
+                        zf.writestr(f'{filename}.in', case['input'][j])
+                        zf.writestr(f'{filename}.out', case['output'][j])
+
+        # generate token for submission
+        token = assign_token(self.id)
+        # setup post body
+        post_data = {
+            'token': token,
+            'checker': 'print("not implement yet. qaq")',
+        }
+        files = {
+            'src': (
+                f'{self.id}-source.zip',
+                zip_path.open('rb'),
+            ),
+            'testcase': (
+                f'{self.id}-testcase.zip',
+                testcase_zip_path.open('rb'),
+            ),
+            'meta.json': (f'{self.id}-meta.json', io.BytesIO(str(meta)))
+        }
+
+        judge_url = f'{SubmissionConfig.JUDGE_URL}/{self.id}'
+
+        # send submission to snadbox for judgement
+        resp = rq.post(
+            judge_url,
+            data=post_data,
+            files=files,
+            cookies=request.cookies,
+        )  # cookie: for debug, need better solution
+
+        # Queue is full now
+        if resp.status_code == 500:
+            raise JudgeQueueFullError
+        # Invlid data
+        elif resp.status_code == 400:
+            raise ValueError(resp.text)
+        elif resp.status_code != 200:
+            exit(10086)
+        return True
 
     @staticmethod
     def count():
