@@ -8,7 +8,6 @@ from mongo import *
 from mongo import engine
 from tests.base_tester import BaseTester, random_string
 from tests.test_homework import CourseData
-from model.submission import assign_token, verify_token, tokens
 
 A_NAMES = [
     'teacher',

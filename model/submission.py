@@ -5,7 +5,6 @@ import json
 import pathlib
 import string
 import secrets
-from zipfile import ZipFile, is_zipfile
 from flask import Blueprint, request
 from datetime import datetime, timedelta
 from functools import wraps
@@ -19,31 +18,6 @@ from .submission_config import SubmissionConfig
 
 __all__ = ['submission_api']
 submission_api = Blueprint('submission_api', __name__)
-
-# TODO: save tokens in db
-tokens = {}
-
-# pid, hash()
-p_hash = {}
-
-
-def get_token():
-    return secrets.token_urlsafe()
-
-
-def assign_token(submission_id, token_pool=tokens):
-    '''
-    generate a token for the submission
-    '''
-    token = get_token()
-    token_pool[submission_id] = token
-    return token
-
-
-def verify_token(submission_id, token):
-    if submission_id not in tokens:
-        return False
-    return secrets.compare_digest(tokens[submission_id], token)
 
 
 def submission_required(func):
@@ -269,70 +243,6 @@ def get_submission_count(
 @submission_required
 @Request.args('token')
 def update_submission(user, submission, token):
-    def judgement(zip_path: pathlib.Path):
-        '''
-        send submission data to sandbox
-        '''
-        # prepare submission data
-        # prepare problem testcase
-        # get testcases
-        cases = submission.problem.test_case.cases
-        # metadata
-        meta = {'language': submission.language, 'tasks': []}
-        # problem path
-        testcase_zip_path = SubmissionConfig.TMP_DIR / str(
-            submission.problem_id) / 'testcase.zip'
-
-        h = hash(str(cases))
-        if p_hash.get(submission.problem_id) != h:
-            p_hash[submission.problem_id] = h
-            with ZipFile(testcase_zip_path, 'w') as zf:
-                for i, case in enumerate(cases):
-                    meta['tasks'].append({
-                        'taskCount': case['case_count'],
-                        'taskScore': case['case_score'],
-                        'memoryLimit': case['memory_limit'],
-                        'timeLimit': case['time_limit']
-                    })
-
-                    for j in range(len(case['input'])):
-                        zf.writestr('%02d%02d.in' % (i, j), case['input'][j])
-                        zf.writestr('%02d%02d.out' % (i, j), case['output'][j])
-
-        # generate token for submission
-        token = assign_token(submission.id)
-        # setup post body
-        post_data = {
-            'token': token,
-            'checker': 'print("not implement yet. qaq")',
-        }
-        files = {
-            'src': (
-                f'{submission.id}-source.zip',
-                zip_path.open('rb'),
-            ),
-            'testcase': (
-                f'{submission.id}-testcase.zip',
-                testcase_zip_path.open('rb'),
-            ),
-            'meta.json': (f'{submission.id}-meta.json', io.BytesIO(str(meta)))
-        }
-
-        judge_url = f'{SubmissionConfig.JUDGE_URL}/{submission.id}'
-
-        # send submission to snadbox for judgement
-        resp = rq.post(
-            judge_url,
-            data=post_data,
-            files=files,
-            cookies=request.cookies,
-        )  # cookie: for debug, need better solution
-
-        if resp.status_code != 200:
-            # unhandled error
-            return HTTPError(resp.text, 500)
-        return HTTPResponse(f'{submission} recieved.')
-
     @Request.files('code')
     def recieve_source_file(code):
         # if source code found
@@ -343,30 +253,15 @@ def update_submission(user, submission, token):
                     403,
                 )
             else:
-                # save submission source
-                submission_dir = SubmissionConfig.SOURCE_PATH / submission.id
-                if submission_dir.is_dir():
-                    raise FileExistsError(f'{submission} code found on server')
-
-                # create submission folder
-                submission_dir.mkdir()
-                # tmp file to store zipfile
-                zip_path = SubmissionConfig.TMP_DIR / submission.id / 'source.zip'
-                zip_path.parent.mkdir()
-                zip_path.write_bytes(code.read())
-                if not is_zipfile(zip_path):
-                    zip_path.unlink()
-                    return HTTPError(
-                        'only accept zip file',
-                        400,
-                    )
-                with ZipFile(zip_path, 'r') as f:
-                    f.extractall(submission_dir)
-                submission.update(code=True, status=-1)
-
-                if current_app.config['TESTING']:
-                    return HTTPResponse(f'{submission} received')
-                return judgement(zip_path)
+                try:
+                    success = submission.submit(code)
+                except FileExistsError:
+                    exit(10086)
+                except ValueError as e:
+                    return HTTPError(str(e), 400)
+                except JudgeQueueFullError as e:
+                    return HTTPError(str(e), 202)
+                return HTTPResponse(f'{submission} send to judgement.')
         else:
             return HTTPError(
                 f'can not find the source file',
