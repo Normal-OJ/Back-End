@@ -32,17 +32,19 @@ class _Request(type):
                             f'Unaccepted Content-Type {content_type}', 415)
                     try:
                         # Magic
+                        # yapf: disable
                         kwargs.update({
                             k: (lambda v: v
                                 if t is None or type(v) is t else int(''))(
                                     data.get((lambda s, *t: s + ''.join(
-                                        map(str.capitalize, t)))(
-                                            *filter(bool, k.split('_')))))
-                            for k, t in [(
-                                lambda x: (x[0], type_map.get(x[1].strip()) if
-                                           x[1:] else None))(l.split(':', 1))
-                                         for l in keys]
+                                        map(str.capitalize, t))
+                                              )(*filter(bool, k.split('_')))))
+                            for k, t in map(
+                                lambda x:
+                                (x[0], (x[1:] or None) and type_map.get(x[1].strip())),
+                                map(lambda q: q.split(':', 1), keys))
                         })
+                        # yapf: enable
                     except ValueError as ve:
                         return HTTPError('Requested Value With Wrong Type',
                                          400)

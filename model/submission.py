@@ -273,16 +273,13 @@ def update_submission(user, submission, token):
         '''
         send submission data to sandbox
         '''
-        ## prepare submission data
+        # prepare submission data
         # prepare problem testcase
         # get testcases
         cases = submission.problem.test_case.cases
         # metadata
-        meta = {'cases': []}
+        meta = {'language': submission.language, 'tasks': []}
         # problem path
-        testcase_dir = SubmissionConfig.TMP_DIR / str(
-            submission.problem_id) / 'testcase'
-        testcase_dir.mkdir(parents=True, exist_ok=True)
         testcase_zip_path = SubmissionConfig.TMP_DIR / str(
             submission.problem_id) / 'testcase.zip'
 
@@ -291,37 +288,26 @@ def update_submission(user, submission, token):
             p_hash[submission.problem_id] = h
             with ZipFile(testcase_zip_path, 'w') as zf:
                 for i, case in enumerate(cases):
-                    meta['cases'].append({
-                        'caseScore': case['case_score'],
+                    meta['tasks'].append({
+                        'taskCount': case['case_count'],
+                        'taskScore': case['case_score'],
                         'memoryLimit': case['memory_limit'],
                         'timeLimit': case['time_limit']
                     })
 
-                    task_dir = testcase_dir / str(i)
-                    task_dir.mkdir(exist_ok=True)
-
-                    with open(task_dir / 'in', 'w') as f:
-                        f.write(case['input'])
-                    with open(task_dir / 'out', 'w') as f:
-                        f.write(case['output'])
-
-                    zf.write(task_dir / 'in', f'{i}/in')
-                    zf.write(task_dir / 'out', f'{i}/out')
-
-                with open(testcase_dir / 'meta.json', 'w') as f:
-                    json.dump(meta, f)
-                zf.write(testcase_dir / 'meta.json', 'meta.json')
+                    for j in range(len(case['input'])):
+                        zf.writestr('%02d%02d.in' % (i, j), case['input'][j])
+                        zf.writestr('%02d%02d.out' % (i, j), case['output'][j])
 
         # generate token for submission
         token = assign_token(submission.id)
         # setup post body
         post_data = {
-            'languageId': submission.language,
             'token': token,
             'checker': 'print("not implement yet. qaq")',
         }
         files = {
-            'code': (
+            'src': (
                 f'{submission.id}-source.zip',
                 zip_path.open('rb'),
             ),
@@ -329,6 +315,7 @@ def update_submission(user, submission, token):
                 f'{submission.id}-testcase.zip',
                 testcase_zip_path.open('rb'),
             ),
+            'meta.json': (f'{submission.id}-meta.json', io.BytesIO(str(meta)))
         }
 
         judge_url = f'{SubmissionConfig.JUDGE_URL}/{submission.id}'
@@ -426,7 +413,7 @@ def update_submission(user, submission, token):
             return HTTPError(f'invalid data!\n{e}', 400)
         return HTTPResponse(f'{submission} result recieved.')
 
-    ## put handler
+    # put handler
     # validate this reques
     if submission.status >= 0:
         return HTTPError(

@@ -1,0 +1,6 @@
+# virtual env
+.venv
+venv
+.env
+
+submissions/
