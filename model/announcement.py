@@ -4,6 +4,7 @@ from flask import Blueprint, request
 from mongo import *
 from .auth import *
 from .utils import *
+from .course import *
 
 __all__ = ['ann_api']
 
@@ -11,7 +12,8 @@ ann_api = Blueprint('ann_api', __name__)
 
 
 @ann_api.route('/', methods=['GET'])
-def get_sys_ann():
+@ann_api.route('/<ann_id>', methods=['GET'])
+def get_sys_ann(ann_id=None):
     anns = Announcement.ann_list(None, 'Public')
     data = [{
         'annId': str(an.id),
@@ -21,14 +23,15 @@ def get_sys_ann():
         'creator': User(an.creator.username).info,
         'updater': User(an.updater.username).info,
         'markdown': an.markdown
-    } for an in anns]
+    } for an in anns if ann_id == None or str(an.id) == ann_id]
     return HTTPResponse('Sys Ann bro', data=data)
 
 
 @ann_api.route('/', methods=['POST', 'PUT', 'DELETE'])
-@ann_api.route('/<course_name>', methods=['GET'])
+@course_api.route('/<course_name>/ann', methods=['GET'])
+@ann_api.route('/<course_name>/<ann_id>', methods=['GET'])
 @login_required
-def anncmnt(user, course_name=None):
+def anncmnt(user, course_name=None, ann_id=None):
     def get_anns():
         # Get an announcement list
         try:
@@ -45,7 +48,7 @@ def anncmnt(user, course_name=None):
             'creator': User(an.creator.username).info,
             'updater': User(an.updater.username).info,
             'markdown': an.markdown
-        } for an in anns]
+        } for an in anns if ann_id == None or str(an.id) == ann_id]
         return HTTPResponse('Announcement List', data=data)
 
     @Request.json('title', 'markdown', 'course_name')
