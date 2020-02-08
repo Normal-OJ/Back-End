@@ -153,7 +153,7 @@ def get_submission_list(
 
     for s in submissions:
         del s['code']
-        del s['cases']
+        del s['tasks']
 
     unicorns = [
         'https://media.giphy.com/media/xTiTnLmaxrlBHxsMMg/giphy.gif',
@@ -193,7 +193,7 @@ def get_submission(user, submission):
 
     # check user's stdout/stderr
     if not submission.problem.can_view_stdout:
-        for case in ret['cases']:
+        for task in ret['tasks']:
             del case['stdout']
             del case['stderr']
 
@@ -260,7 +260,7 @@ def update_submission(user, submission, token):
                 except ValueError as e:
                     return HTTPError(str(e), 400)
                 except JudgeQueueFullError as e:
-                    return HTTPError(str(e), 202)
+                    return HTTPResponse(str(e), 202)
                 return HTTPResponse(f'{submission} send to judgement.')
         else:
             return HTTPError(
@@ -268,42 +268,10 @@ def update_submission(user, submission, token):
                 400,
             )
 
-    @Request.json('score', 'status', 'cases')
-    def recieve_submission_result(score, status, cases):
+    @Request.json('tasks')
+    def recieve_submission_result(tasks):
         try:
-            for case in cases:
-                del case['exitCode']
-            # get the case which has the longest execution time
-            m_case = sorted(cases, key=lambda c: c['execTime'])[-1]
-            submission.update(
-                score=score,
-                status=status,
-                cases=cases,
-                exec_time=m_case['execTime'],
-                memory_usage=m_case['memoryUsage'],
-            )
-            # update user's submission
-            user.add_submission(submission.reload())
-            # update homework data
-            for homework in submission.problem.homeworks:
-                stat = homework.student_status[user.username][str(
-                    submission.problem.problem_id)]
-                stat['submissionIds'].append(submission.id)
-                if submission.score >= stat['score']:
-                    stat['score'] = submission.score
-                    stat['problemStatus'] = submission.status
-            # update problem
-            ac_submissions = Submission.filter(
-                user=user,
-                offset=0,
-                count=-1,
-                problem=submission.problem,
-                status=0,
-            )
-            ac_users = {s.user.username for s in ac_submissions}
-            submission.problem.ac_user = len(ac_users)
-            submission.problem.save()
-
+            submission.process_result(tasks)
         except (ValidationError, KeyError) as e:
             return HTTPError(f'invalid data!\n{e}', 400)
         return HTTPResponse(f'{submission} result recieved.')

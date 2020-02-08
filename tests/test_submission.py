@@ -260,7 +260,7 @@ class TestUserGetSubmission(SubmissionTester):
             'languageType',
             'timestamp',
             'status',
-            'cases',
+            'tasks',
             'score',
             'runTime',
             'memoryUsage',
