@@ -201,7 +201,7 @@ class Submission(MongoBase, engine=engine.Submission):
             ),
             'meta.json': (
                 f'{self.id}-meta.json',
-                io.BytesIO(str(meta), ),
+                io.BytesIO(str(meta)),
             ),
         }
 

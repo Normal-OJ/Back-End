@@ -91,14 +91,11 @@ def create_submission(user, language_type, problem_id):
     submission.problem.submitter += 1
     submission.problem.save()
 
-    # generate token for upload file
-    token = assign_token(submission.id)
     return HTTPResponse(
         'submission recieved.\n'
-        'please send source code with the given token and submission id.',
+        'please send source code with given submission id later.',
         data={
             'submissionId': submission.id,
-            'token': token
         },
     )
 
@@ -238,43 +235,47 @@ def get_submission_count(
     return HTTPResponse('Padoru~', data={'count': len(submissions)})
 
 
+@submission_api.route('/<submission_id>/complete', methods=['PUT'])
+@Request.json('tasks: dict', 'token: str')
+@submission_required
+def on_submission_complete(submission, tasks, token):
+    if not secrets.compare_digest(token, SubmissionConfig.SANDBOX_TOKEN):
+        return HTTPError('you are not sandbox :(', 403)
+    try:
+        submission.process_result(tasks)
+    except (ValidationError, KeyError) as e:
+        return HTTPError(f'invalid data!\n{e}', 400)
+    return HTTPResponse(f'{submission} result recieved.')
+
+
 @submission_api.route('/<submission_id>', methods=['PUT'])
 @login_required
 @submission_required
-@Request.args('token')
-def update_submission(user, submission, token):
+def update_submission(user, submission):
     @Request.files('code')
     def recieve_source_file(code):
-        # if source code found
-        if code is not None:
-            if submission.code:
-                return HTTPError(
-                    f'{submission} has been uploaded source file!',
-                    403,
-                )
-            else:
-                try:
-                    success = submission.submit(code)
-                except FileExistsError:
-                    exit(10086)
-                except ValueError as e:
-                    return HTTPError(str(e), 400)
-                except JudgeQueueFullError as e:
-                    return HTTPResponse(str(e), 202)
-                return HTTPResponse(f'{submission} send to judgement.')
-        else:
+        # if source code not found
+        if code is None:
             return HTTPError(
                 f'can not find the source file',
                 400,
             )
 
-    @Request.json('tasks')
-    def recieve_submission_result(tasks):
+        if submission.code:
+            return HTTPError(
+                f'{submission} has been uploaded source file!',
+                403,
+            )
+
         try:
-            submission.process_result(tasks)
-        except (ValidationError, KeyError) as e:
-            return HTTPError(f'invalid data!\n{e}', 400)
-        return HTTPResponse(f'{submission} result recieved.')
+            success = submission.submit(code)
+        except FileExistsError:
+            exit(10086)
+        except ValueError as e:
+            return HTTPError(str(e), 400)
+        except JudgeQueueFullError as e:
+            return HTTPResponse(str(e), 202)
+        return HTTPResponse(f'{submission} send to judgement.')
 
     # put handler
     # validate this reques
@@ -284,19 +285,8 @@ def update_submission(user, submission, token):
             403,
         )
 
-    if verify_token(submission.id, token) == False:
-        return HTTPError(f'invalid submission token.', 403)
-
     # if user not equal, reject
     if not secrets.compare_digest(submission.user.username, user.username):
         return HTTPError('user not equal!', 403)
 
-    if request.content_type == 'application/json':
-        return recieve_submission_result()
-    elif request.content_type.startswith('multipart/form-data'):
-        return recieve_source_file()
-    else:
-        return HTTPError(
-            f'Unaccepted Content-Type {request.content_type}',
-            415,
-        )
+    return recieve_source_file()
