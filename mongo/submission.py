@@ -118,7 +118,7 @@ class Submission(MongoBase, engine=engine.Submission):
 
         return path.read_text()
 
-    def submit(self, code_file) -> bool:
+    def submit(self, code_file, rejudge=False) -> bool:
         '''
         prepara data for submit code to sandbox and then send it
 
@@ -199,7 +199,10 @@ class Submission(MongoBase, engine=engine.Submission):
                 f'{self.id}-testcase.zip',
                 testcase_zip_path.open('rb'),
             ),
-            'meta.json': (f'{self.id}-meta.json', io.BytesIO(str(meta)))
+            'meta.json': (
+                f'{self.id}-meta.json',
+                io.BytesIO(str(meta)),
+            ),
         }
 
         judge_url = f'{SubmissionConfig.JUDGE_URL}/{self.id}'
@@ -220,6 +223,73 @@ class Submission(MongoBase, engine=engine.Submission):
             raise ValueError(resp.text)
         elif resp.status_code != 200:
             exit(10086)
+        return True
+
+    def process_result(self, tasks: list):
+        for task in tasks:
+            for case in task:
+                del case['exitCode']
+
+        # process task
+        for i, cases in enumerate(tasks):
+            # find significant case
+            _cases = cases[:]
+            score = 0
+            if not all(c['status'] == 0 for c in _cases):
+                _cases = [*filter(lambda c: c['status'] != 0, _cases)]
+            else:
+                score = self.problem.cases[i].case_score
+            case = sorted(
+                _cases[:],
+                lambda c: (c['memoryUsage'], c['execTime']),
+            )[-1]
+            tasks[i] = engine.TaskResult(
+                status=case['status'],
+                exec_time=case['exec_time'],
+                memory_usage=case['memoryUsage'],
+                score=score,
+                cases=cases,
+            )
+
+        # get the task which has the longest memory usage, execution time
+        _tasks = tasks[:]
+        if not all(t['status'] == 0 for t in _tasks):
+            _tasks = [*filter(lambda t: t['status'] != 0, _tasks)]
+        m_task = sorted(
+            tasks,
+            key=lambda t: (t['memoryUsage'], t['execTime']),
+        )[-1]
+
+        submission.update(
+            score=sum(task.score for task in tasks),
+            status=m_task['status'],
+            tasks=tasks,
+            exec_time=m_task['execTime'],
+            memory_usage=m_task['memoryUsage'],
+        )
+
+        # update user's submission
+        user.add_submission(submission.reload())
+        # update homework data
+        for homework in submission.problem.homeworks:
+            stat = homework.student_status[user.username][str(
+                submission.problem_id)]
+            stat['submissionIds'].append(submission.id)
+            if submission.score >= stat['score']:
+                stat['score'] = submission.score
+                stat['problemStatus'] = submission.status
+        # update problem
+        ac_submissions = Submission.filter(
+            user=user,
+            offset=0,
+            count=-1,
+            problem=submission.problem,
+            status=0,
+        )
+        ac_users = {s.user.username for s in ac_submissions}
+        submission.problem.ac_user = len(ac_users)
+        submission.problem.save()
+
         return True
 
     @staticmethod
