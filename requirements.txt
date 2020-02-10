@@ -6,9 +6,9 @@ mongoengine
 PyJWT
 requests
 
-mosspy
-clang-format
-pylint
+# mosspy
+# clang-format
+# pylint
 
 pre-commit
 yapf

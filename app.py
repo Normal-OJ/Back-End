@@ -1,8 +1,14 @@
+import logging
 from flask import Flask
 from model import *
 from mongo import *
 from mongo import engine
 from mongo import problem
+
+logging.basicConfig(
+    filename='backend.log',
+    level=logging.DEBUG,
+)
 
 # Create a flask app
 app = Flask(__name__)

@@ -18,7 +18,6 @@ lock = threading.Lock()
 @login_required
 @Request.args('offset', 'count', 'problem_id', 'tags', 'name')
 def view_problem_list(user, offset, count, problem_id, tags, name):
-
     if offset is None or count is None:
         return HTTPError(
             'offset and count are required!',
@@ -101,9 +100,10 @@ def view_problem(user, problem_id):
 @identity_verify(0, 1)
 def manage_problem(user, problem_id=None):
     @Request.json('courses: list', 'status', 'type', 'description', 'tags',
-                  'problem_name', 'test_case_info', 'can_view_stdout')
+                  'problem_name', 'test_case_info', 'can_view_stdout',
+                  'allowed_language')
     def modify_problem(courses, status, type, problem_name, description, tags,
-                       test_case_info, can_view_stdout):
+                       test_case_info, can_view_stdout, allowed_language):
         if sum(case['caseScore'] for case in test_case_info['cases']) != 100:
             return HTTPError("Cases' scores should be 100 in total", 400)
 
@@ -111,14 +111,13 @@ def manage_problem(user, problem_id=None):
             lock.acquire()
             pid = add_problem(user, courses, status, type, problem_name,
                               description, tags, test_case_info,
-                              can_view_stdout)
+                              can_view_stdout, allowed_language)
             lock.release()
             return HTTPResponse('Success.', data={'problemId': pid})
         elif request.method == 'PUT':
-            result = edit_problem(user, problem_id, courses, status, type,
-                                  problem_name, description, tags,
-                                  test_case_info)
-            return HTTPResponse('Success.', data=result)
+            edit_problem(user, problem_id, courses, status, type, problem_name,
+                         description, tags, test_case_info, allowed_language)
+            return HTTPResponse('Success.')
 
     @Request.files('case')
     def modify_problem_test_case(case):
