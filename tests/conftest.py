@@ -255,7 +255,6 @@ def submit_once(forge_client, get_source):
         assert rv.status_code == 200, rv_json
 
         submission_id = rv_data['submissionId']
-        token = rv_data['token']
 
         submission = {
             'submissionId': submission_id,
@@ -274,7 +273,7 @@ def submit_once(forge_client, get_source):
         rv, rv_json, rv_data = BaseTester.request(
             _client,
             'put',
-            f'/submission/{submission_id}?token={token}',
+            f'/submission/{submission_id}',
             data=files,
         )
         assert rv.status_code == 200, rv_json

@@ -27,3 +27,8 @@ class SubmissionConfig:
         'JUDGE_URL',
         'http://sandbox:1450/submit',
     )
+
+    SANDBOX_TOKEN = os.getenv(
+        'SANDBOX_TOKEN',
+        'KoNoSandboxDa',
+    )
