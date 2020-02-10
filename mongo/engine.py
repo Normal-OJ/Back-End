@@ -150,6 +150,8 @@ class Problem(Document):
     contests = ListField(ReferenceField('Contest'), default=list)
     # user can view stdout/stderr
     can_view_stdout = BooleanField(db_field='canViewStdout', default=True)
+    # bitmask of allowed languages (c: 1, cpp: 2, py3: 4)
+    allowed_language = IntField(db_field='allowedLanguage', default=7)
 
 
 class TestCaseResult(EmbeddedDocument):

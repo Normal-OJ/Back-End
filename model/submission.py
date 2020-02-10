@@ -64,12 +64,22 @@ def create_submission(user, language_type, problem_id):
         )
 
     # search for problem
-    problem = Problem(problem_id).obj
-    if problem is None:
+    problem = Problem(problem_id)
+    if problem.obj is None:
         return HTTPError('Unexisted problem id', 404)
-
-    if not can_view(user, problem):
+    # problem permissoion
+    if not can_view(user, problem.obj):
         return HTTPError('problem permission denied!', 403)
+    # not allowed language
+    if language_type < 3 and not problem.allowed(language_type):
+        return HTTPError(
+            'not allowed language',
+            403,
+            data={
+                'allowed': problem.obj.allowed_language,
+                'got': language_type
+            },
+        )
 
     # insert submission to DB
     try:

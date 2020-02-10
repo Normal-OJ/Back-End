@@ -39,6 +39,11 @@ class Problem:
             return None
         return obj
 
+    def allowed(self, language):
+        if language >= 3 or language < 0:
+            return False
+        return bool((1 << language) & self.obj.allowed_language)
+
 
 def increased_number():
     global number
