@@ -191,8 +191,9 @@ def get_submission(user, submission):
     # check user's stdout/stderr
     if not submission.problem.can_view_stdout:
         for task in ret['tasks']:
-            del case['stdout']
-            del case['stderr']
+            for case in task['cases']:
+                del case['stdout']
+                del case['stderr']
 
     # give user source code
     if 'code' in ret:
