@@ -6,7 +6,7 @@ mongoengine
 PyJWT
 requests
 
-# mosspy
+mosspy
 # clang-format
 # pylint
 
