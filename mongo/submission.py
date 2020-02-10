@@ -226,8 +226,9 @@ class Submission(MongoBase, engine=engine.Submission):
         return True
 
     def process_result(self, tasks: list):
-        for case in tasks:
-            del case['exitCode']
+        for task in tasks:
+            for case in task:
+                del case['exitCode']
 
         # process task
         for i, cases in enumerate(tasks):
