@@ -39,6 +39,11 @@ class Problem:
             return None
         return obj
 
+    def allowed(self, language):
+        if language >= 3 or language < 0:
+            return False
+        return bool((1 << language) & self.obj.allowed_language)
+
 
 def increased_number():
     global number
@@ -97,25 +102,28 @@ def get_problem_list(
 
 
 def add_problem(user, courses, status, type, problem_name, description, tags,
-                test_case_info, can_view_stdout):
+                test_case_info, can_view_stdout, allowed_language):
     problem_id = number
-    engine.Problem(problem_id=problem_id,
-                   courses=list(Course(name).obj for name in courses),
-                   problem_status=status,
-                   problem_type=type,
-                   problem_name=problem_name,
-                   description=description,
-                   owner=user.username,
-                   tags=tags,
-                   test_case=test_case_info,
-                   can_view_stdout=can_view_stdout).save()
+    engine.Problem(
+        problem_id=problem_id,
+        courses=list(Course(name).obj for name in courses),
+        problem_status=status,
+        problem_type=type,
+        problem_name=problem_name,
+        description=description,
+        owner=user.username,
+        tags=tags,
+        test_case=test_case_info,
+        can_view_stdout=can_view_stdout,
+        allowed_language=allowed_language or 7,
+    ).save()
     increased_number()
 
     return problem_id
 
 
 def edit_problem(user, problem_id, courses, status, type, problem_name,
-                 description, tags, test_case_info):
+                 description, tags, test_case_info, allowed_language):
     problem = Problem(problem_id).obj
     old_case = problem.test_case['cases'][:]
     test_case = test_case_info
@@ -128,6 +136,7 @@ def edit_problem(user, problem_id, courses, status, type, problem_name,
     problem.description = description
     problem.owner = user.username
     problem.tags = tags
+    problem.allowed_language = allowed_language
     problem.test_case['language'] = test_case['language']
     problem.test_case['fill_in_template'] = test_case['fillInTemplate']
 
@@ -150,8 +159,6 @@ def edit_problem(user, problem_id, courses, status, type, problem_name,
         problem.test_case['cases'].append(case)
 
     problem.save()
-
-    return old_case[0]['input']
 
 
 def edit_problem_test_case(problem_id, test_case):

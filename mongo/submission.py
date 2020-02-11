@@ -1,7 +1,9 @@
 import json
 import os
+import io
 import pathlib
 import secrets
+import logging
 import requests as rq
 from flask import current_app
 from datetime import date
@@ -143,19 +145,21 @@ class Submission(MongoBase, engine=engine.Submission):
             raise ValueError('only accept zip file.')
         with ZipFile(zip_path, 'r') as f:
             f.extractall(self.code_dir)
+        current_app.logger.debug(f'{self} code updated.')
         self.update(code=True, status=-1)
 
         # we no need to actually send code to sandbox during testing
         if current_app.config['TESTING']:
             return False
+        current_app.logger.info(f'send to judgement')
         return self.send(zip_path)
 
-    def send(self, code_path) -> bool:
+    def send(self, code_zip_path) -> bool:
         '''
         send code to sandbox
 
         Args:
-            code_path: code path for the user's code zip file
+            code_zip_path: code path for the user's code zip file
         '''
         # prepare problem testcase
         # get testcases
@@ -165,10 +169,12 @@ class Submission(MongoBase, engine=engine.Submission):
         # problem path
         testcase_zip_path = SubmissionConfig.TMP_DIR / str(
             self.problem_id) / 'testcase.zip'
+        current_app.logger.debug(f'testcase path: {testcase_zip_path}')
 
-        h = hash(str(cases))
+        h = hash(str(self.problem.test_case.to_mongo()))
         if p_hash.get(self.problem_id) != h:
             p_hash[self.problem_id] = h
+            testcase_zip_path.parent.mkdir(exist_ok=True)
             with ZipFile(testcase_zip_path, 'w') as zf:
                 for i, case in enumerate(cases):
                     meta['tasks'].append({
@@ -193,7 +199,7 @@ class Submission(MongoBase, engine=engine.Submission):
         files = {
             'src': (
                 f'{self.id}-source.zip',
-                zip_path.open('rb'),
+                code_zip_path.open('rb'),
             ),
             'testcase': (
                 f'{self.id}-testcase.zip',
@@ -201,7 +207,7 @@ class Submission(MongoBase, engine=engine.Submission):
             ),
             'meta.json': (
                 f'{self.id}-meta.json',
-                io.BytesIO(str(meta)),
+                io.StringIO(str(meta)),
             ),
         }
 
@@ -212,7 +218,6 @@ class Submission(MongoBase, engine=engine.Submission):
             judge_url,
             data=post_data,
             files=files,
-            cookies=request.cookies,
         )  # cookie: for debug, need better solution
 
         # Queue is full now

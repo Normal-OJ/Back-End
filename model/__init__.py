@@ -29,8 +29,17 @@ from .post import *
 from .copycat import *
 
 __all__ = [
-    *auth.__all__, *profile.__all__, *problem.__all__, *submission.__all__,
-    *inbox.__all__, *course.__all__, *homework.__all__, *test.__all__,
-    *announcement.__all__, *ranking.__all__, *contest.__all__, *post.__all__,
-    *copycat.__all__
+    *auth.__all__,
+    *profile.__all__,
+    *problem.__all__,
+    *submission.__all__,
+    *inbox.__all__,
+    *course.__all__,
+    *homework.__all__,
+    *test.__all__,
+    *announcement.__all__,
+    *ranking.__all__,
+    *contest.__all__,
+    *post.__all__,
+    *copycat.__all__,
 ]
