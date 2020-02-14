@@ -126,11 +126,12 @@ class ProblemTestCase(EmbeddedDocument):
     cases = ListField(EmbeddedDocumentField(ProblemCase, default=ProblemCase),
                       default=list)
 
+
 class ProblemDescription(EmbeddedDocument):
-    description = StringField(max_length=100000, required=True)
-    input = StringField(max_length=100000, required=True)
-    output = StringField(max_length=100000, required=True)
-    hint = StringField(max_length=100000, required=True)
+    description = StringField(max_length=100000)
+    input = StringField(max_length=100000)
+    output = StringField(max_length=100000)
+    hint = StringField(max_length=100000)
     sample_input = ListField(StringField(), default=list)
     sample_output = ListField(StringField(), default=list)
 
@@ -144,8 +145,8 @@ class Problem(Document):
                                max_length=64,
                                required=True)
     description = EmbeddedDocumentField(ProblemDescription,
-                                      required=True,
-                                      default=ProblemDescription)
+                                        required=True,
+                                        default=ProblemDescription)
     owner = StringField(max_length=16, required=True)
     # pdf =
     tags = ListField(StringField(max_length=16))

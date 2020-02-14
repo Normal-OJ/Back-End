@@ -103,7 +103,8 @@ def random_problem_data(username=None, status=-1):
                 },
             ],
         },
-        'handwritten': False
+        'handwritten':
+        False
     }
 
 

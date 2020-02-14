@@ -100,19 +100,19 @@ def get_problem_list(
 
     return problems
 
-def add_written_problem(user, courses, status, problem_name, description, tags):
+
+def add_written_problem(user, courses, status, problem_name, description,
+                        tags):
     problem_id = number
-    engine.Problem(
-        problem_id=problem_id,
-        courses=list(Course(name).obj for name in courses),
-        problem_status=status,
-        problem_type=type,
-        problem_name=problem_name,
-        description=description,
-        owner=user.username,
-        tags=tags,
-        handwritten=True
-    ).save()
+    engine.Problem(problem_id=problem_id,
+                   courses=list(Course(name).obj for name in courses),
+                   problem_status=status,
+                   problem_type=type,
+                   problem_name=problem_name,
+                   description=description,
+                   owner=user.username,
+                   tags=tags,
+                   handwritten=True).save()
     increased_number()
 
     return problem_id
@@ -141,7 +141,7 @@ def add_problem(user, courses, status, type, problem_name, description, tags,
 
 
 def edit_written_problem(user, problem_id, courses, status, problem_name,
-                 description, tags):
+                         description, tags):
     problem = Problem(problem_id).obj
 
     problem.courses = list(
@@ -168,18 +168,17 @@ def edit_problem(user, problem_id, courses, status, type, problem_name,
     problem.problem_status = status
     problem.problem_type = type
     problem.problem_name = problem_name
-    problem.description = description
-    problem.owner = user.username
-    problem.tags = tags
-    problem.allowed_language = allowed_language
-    problem.test_case['language'] = test_case['language']
-    problem.test_case['fill_in_template'] = test_case['fillInTemplate']
     problem.description['description'] = description['description']
     problem.description['hint'] = description['hint']
     problem.description['input'] = description['input']
     problem.description['output'] = description['output']
     problem.description['sample_input'] = description['sample_input']
     problem.description['sample_output'] = description['sample_output']
+    problem.owner = user.username
+    problem.tags = tags
+    problem.allowed_language = allowed_language
+    problem.test_case['language'] = test_case['language']
+    problem.test_case['fill_in_template'] = test_case['fillInTemplate']
     problem.handwritten = False
 
     i = 0
