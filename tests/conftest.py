@@ -78,8 +78,14 @@ def random_problem_data(username=None, status=-1):
         random.randint(0, 1) if status == -1 else status,
         'type':
         0,
-        'description':
-        '',
+        'description': {
+            'description': '',
+            'input': '',
+            'output': '',
+            'hint': '',
+            'sample_input': [],
+            'sample_output': []
+        },
         'tags': ['test'],
         'problemName':
         f'prob {s}',
@@ -96,7 +102,8 @@ def random_problem_data(username=None, status=-1):
                     'timeLimit': 1000,
                 },
             ],
-        }
+        },
+        'handwritten': False
     }
 
 
@@ -112,7 +119,7 @@ def make_course(forge_client):
                 course students, key is student's username and value is student's nickname
             tas -> list[str]:
                 a list contains tas' username
-        
+
         Return:
             generated course data
         '''
@@ -224,7 +231,7 @@ def get_source(tmp_path):
 
         Args:
             filename: a string denote the source code's filename include extension
-        
+
         Returns:
             the zip file
         '''

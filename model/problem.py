@@ -99,11 +99,19 @@ def view_problem(user, problem_id):
 @problem_api.route('/manage/<problem_id>', methods=['GET', 'PUT', 'DELETE'])
 @identity_verify(0, 1)
 def manage_problem(user, problem_id=None):
+
+    @Request.json('handwritten')
+    def modify_problem(handwritten):
+        if handwritten:
+            modify_written_problem()
+        else:
+            modify_coding_problem()
+
     @Request.json('courses: list', 'status', 'type', 'description', 'tags',
                   'problem_name', 'test_case_info', 'can_view_stdout',
                   'allowed_language')
-    def modify_problem(courses, status, type, problem_name, description, tags,
-                       test_case_info, can_view_stdout, allowed_language):
+    def modify_coding_problem(courses, status, type, problem_name, description, tags,
+                              test_case_info, can_view_stdout, allowed_language):
         if sum(case['caseScore'] for case in test_case_info['cases']) != 100:
             return HTTPError("Cases' scores should be 100 in total", 400)
 
@@ -117,6 +125,20 @@ def manage_problem(user, problem_id=None):
         elif request.method == 'PUT':
             edit_problem(user, problem_id, courses, status, type, problem_name,
                          description, tags, test_case_info, allowed_language)
+            return HTTPResponse('Success.')
+
+    @Request.json('courses: list', 'status', 'description', 'tags',
+                  'problem_name')
+    def modify_written_problem(courses, status, problem_name, description, tags):
+        if request.method == 'POST':
+            lock.acquire()
+            pid = add_written_problem(user, courses, status, problem_name,
+                                      description, tags)
+            lock.release()
+            return HTTPResponse('Success.', data={'problemId': pid})
+        elif request.method == 'PUT':
+            edit_written_problem(user, problem_id, courses, status, problem_name,
+                                 description, tags)
             return HTTPResponse('Success.')
 
     @Request.files('case')
@@ -137,7 +159,14 @@ def manage_problem(user, problem_id=None):
             'status': problem.problem_status,
             'type': problem.problem_type,
             'problemName': problem.problem_name,
-            'description': problem.description,
+            'description': {
+                'description':problem.description['description'],
+                'input':problem.description['input'],
+                'out':problem.description['out'],
+                'hint':problem.description['hint'],
+                'sample_input':problem.description['sample_input'],
+                'sample_output':problem.description['sample_output'],
+            },
             'tags': problem.tags,
             'testCase': {
                 'language':
@@ -173,7 +202,13 @@ def manage_problem(user, problem_id=None):
                              400,
                              data=ve.to_dict())
         except engine.DoesNotExist:
+            if lock.locked:
+                lock.release()
             return HTTPError('Course not found.', 404)
+        except Exception as e:
+            if lock.locked:
+                lock.release()
+            return HTTPError('Error:' + str(e), 404)
 
 
 @problem_api.route('/clone', methods=['POST'])

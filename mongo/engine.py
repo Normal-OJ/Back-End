@@ -126,6 +126,14 @@ class ProblemTestCase(EmbeddedDocument):
     cases = ListField(EmbeddedDocumentField(ProblemCase, default=ProblemCase),
                       default=list)
 
+class ProblemDescription(EmbeddedDocument):
+    description = StringField(max_length=100000, required=True)
+    input = StringField(max_length=100000, required=True)
+    output = StringField(max_length=100000, required=True)
+    hint = StringField(max_length=100000, required=True)
+    sample_input = ListField(StringField(), default=list)
+    sample_output = ListField(StringField(), default=list)
+
 
 class Problem(Document):
     problem_id = IntField(db_field='problemId', required=True, unique=True)
@@ -135,7 +143,9 @@ class Problem(Document):
     problem_name = StringField(db_field='problemName',
                                max_length=64,
                                required=True)
-    description = StringField(max_length=100000, required=True)
+    description = EmbeddedDocumentField(ProblemDescription,
+                                      required=True,
+                                      default=ProblemDescription)
     owner = StringField(max_length=16, required=True)
     # pdf =
     tags = ListField(StringField(max_length=16))
@@ -152,6 +162,7 @@ class Problem(Document):
     can_view_stdout = BooleanField(db_field='canViewStdout', default=True)
     # bitmask of allowed languages (c: 1, cpp: 2, py3: 4)
     allowed_language = IntField(db_field='allowedLanguage', default=7)
+    handwritten = BooleanField(default=False)
 
 
 class CaseResult(EmbeddedDocument):
@@ -182,6 +193,8 @@ class Submission(Document):
     memory_usage = IntField(default=-1, db_field='memoryUsage')
     code = BooleanField(
         default=False)  # wheather the user has uploaded source code
+    handwritten = BooleanField(default=False)
+    # review = pdf
 
 
 class Message(Document):
