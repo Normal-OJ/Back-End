@@ -7,7 +7,7 @@ PyJWT
 requests
 
 mosspy
-clang-format
+# clang-format
 pylint
 
 pre-commit

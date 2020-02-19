@@ -150,6 +150,8 @@ class Problem(Document):
     contests = ListField(ReferenceField('Contest'), default=list)
     # user can view stdout/stderr
     can_view_stdout = BooleanField(db_field='canViewStdout', default=True)
+    cpp_report_url = StringField(db_field='cppReportUrl', default='')
+    python_report_url = StringField(db_field='pythonReportUrl', default='')
 
 
 class TestCaseResult(EmbeddedDocument):

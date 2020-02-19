@@ -3,6 +3,7 @@ from mongo import *
 from .utils import *
 from .auth import *
 
+import threading
 import mosspy
 
 __all__ = ['copycat_api']
@@ -10,16 +11,9 @@ __all__ = ['copycat_api']
 copycat_api = Blueprint('copycat_api', __name__)
 
 
-@copycat_api.route('/', methods=['POST'])
-@login_required
-@Request.json('course', 'problem_id')
-def detect(user, course, problem_id):
-    course = Course(course).obj
-    permission = perm(course, user)
-
-    if permission < 2:
-        return HTTPError('Forbidden.', 403)
-
+def get_report_task(course, problem_id):
+    problem = Problem(problem_id=problem_id)
+    problem.update(cpp_report_url='aa', python_report_url='bb').save()
     # select all ac code
     submissions = Submission.filter(user=user,
                                     offset=0,
@@ -53,9 +47,42 @@ def detect(user, course, problem_id):
         m2.addFile(code_path)
     python_report_url = m2.send()
 
-    # return c & cpp or python report
+    # insert report url into DB
+    problem = Problem(problem_id=problem_id)
+    problem.update(cpp_report_url=cpp_report_url,
+                   python_report_url=python_report_url)
+
+
+@copycat_api.route('/', methods=['GET'])
+@login_required
+@Request.args('course', 'problem_id')
+def get_report(user, course, problem_id):
+    try:
+        problem = Problem(problem_id=int(problem_id))
+    except ValueError:
+        return HTTPError('problemId must be integer', 400)
+
+    cpp_report_url = problem.obj.cpp_report_url
+    python_report_url = problem.obj.python_report_url
+
     return HTTPResponse('Success.',
                         data={
                             "cppReport": cpp_report_url,
                             "pythonReport": python_report_url
                         })
+
+
+@copycat_api.route('/', methods=['POST'])
+@login_required
+@Request.json('course', 'problem_id')
+def detect(user, course, problem_id):
+    course = Course(course).obj
+    permission = perm(course, user)
+
+    if permission < 2:
+        return HTTPError('Forbidden.', 403)
+
+    threading.Thread(target=get_report_task, args=(course, problem_id)).start()
+
+    # return Success
+    return HTTPResponse('Success.')
