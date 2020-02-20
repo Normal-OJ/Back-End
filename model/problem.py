@@ -90,8 +90,8 @@ def view_problem(user, problem_id):
             'input': problem.description['input'],
             'output': problem.description['output'],
             'hint': problem.description['hint'],
-            'sample_input': problem.description['sample_input'],
-            'sample_output': problem.description['sample_output'],
+            'sampleInput': problem.description['sample_input'],
+            'sampleOutput': problem.description['sample_output'],
         },
         'owner': problem.owner,
         'tags': problem.tags
@@ -173,8 +173,8 @@ def manage_problem(user, problem_id=None):
                 'input': problem.description['input'],
                 'output': problem.description['output'],
                 'hint': problem.description['hint'],
-                'sample_input': problem.description['sample_input'],
-                'sample_output': problem.description['sample_output'],
+                'sampleInput': problem.description['sample_input'],
+                'sampleOutput': problem.description['sample_output'],
             },
             'tags': problem.tags,
             'testCase': {
