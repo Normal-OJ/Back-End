@@ -60,6 +60,7 @@ def view_problem_list(user, offset, count, problem_id, tags, name):
                 lambda p: {
                     'problemId': p.problem_id,
                     'problemName': p.problem_name,
+                    'status': p.problem_status,
                     'ACUser': p.ac_user,
                     'submitter': p.submitter,
                     'tags': p.tags,
