@@ -4,28 +4,23 @@ from .utils import *
 from .auth import *
 
 import mosspy
+import threading
+import logging
 
 __all__ = ['copycat_api']
 
 copycat_api = Blueprint('copycat_api', __name__)
 
 
-@copycat_api.route('/', methods=['POST'])
-@login_required
-@Request.json('course', 'problem_id')
-def detect(user, course, problem_id):
-    course = Course(course).obj
-    permission = perm(course, user)
-
-    if permission < 2:
-        return HTTPError('Forbidden.', 403)
-
+def get_report_task(user, problem_id):
     # select all ac code
-    submissions = Submission.filter(user=user,
-                                    offset=0,
-                                    count=-1,
-                                    status=0,
-                                    problem=problem_id)
+    submissions = Submission.filter(
+        user=user,
+        offset=0,
+        count=-1,
+        status=0,
+        problem=problem_id,
+    )
 
     last_cc_submission = {}
     last_python_submission = {}
@@ -43,6 +38,7 @@ def detect(user, course, problem_id):
     m1 = mosspy.Moss(moss_userid, "cc")
 
     for user, code_path in last_cc_submission.items():
+        logging.info(f'send {user} {code_path}')
         m1.addFile(code_path)
     cpp_report_url = m1.send()
 
@@ -50,12 +46,56 @@ def detect(user, course, problem_id):
     m2 = mosspy.Moss(moss_userid, "python")
 
     for user, code_path in last_python_submission.items():
+        logging.info(f'send {user} {code_path}')
         m2.addFile(code_path)
     python_report_url = m2.send()
 
-    # return c & cpp or python report
-    return HTTPResponse('Success.',
-                        data={
-                            "cppReport": cpp_report_url,
-                            "pythonReport": python_report_url
-                        })
+    # insert report url into DB
+    problem = Problem(problem_id=problem_id)
+    problem.obj.update(
+        cpp_report_url=cpp_report_url,
+        python_report_url=python_report_url,
+    )
+
+
+@copycat_api.route('/', methods=['GET'])
+@login_required
+@Request.args('course', 'problem_id')
+def get_report(user, course, problem_id):
+    try:
+        problem = Problem(problem_id=int(problem_id))
+    except ValueError:
+        return HTTPError('problemId must be integer', 400)
+
+    cpp_report_url = problem.obj.cpp_report_url
+    python_report_url = problem.obj.python_report_url
+
+    return HTTPResponse(
+        'Success.',
+        data={
+            "cppReport": cpp_report_url,
+            "pythonReport": python_report_url
+        },
+    )
+
+
+@copycat_api.route('/', methods=['POST'])
+@login_required
+@Request.json('course', 'problem_id')
+def detect(user, course, problem_id):
+    course = Course(course).obj
+    permission = perm(course, user)
+
+    if permission < 2:
+        return HTTPError('Forbidden.', 403)
+
+    threading.Thread(
+        target=get_report_task,
+        args=(
+            user,
+            problem_id,
+        ),
+    ).start()
+
+    # return Success
+    return HTTPResponse('Success.')
