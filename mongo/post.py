@@ -33,7 +33,7 @@ def found_post(course_obj, target_id=None):
         x_thread = x.thread
         post["thread"] = found_thread(x_thread)
         post["title"] = x.post_name
-        if ( target_id == None or post["thread"]["id"] == target_id ) :
+        if (target_id == None or post["thread"]["id"] == target_id):
             data.append(post)
     return data
 
@@ -104,6 +104,6 @@ def edit_post(target_thread, user, content, title, permission, delete=0):
 
 
 def delete_post(target_thread, user, permission):
-    content = "*Content was deleted*"
-    title = "*The Post was deleted.*"
+    content = "*Content was deleted.*"
+    title = "*The Post was deleted*"
     return edit_post(target_thread, user, content, title, permission, 1)
