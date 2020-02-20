@@ -8,7 +8,7 @@ requests
 
 mosspy
 # clang-format
-pylint
+# pylint
 
 pre-commit
 yapf

@@ -152,14 +152,24 @@ class Problem(Document):
     can_view_stdout = BooleanField(db_field='canViewStdout', default=True)
     cpp_report_url = StringField(db_field='cppReportUrl', default='')
     python_report_url = StringField(db_field='pythonReportUrl', default='')
+    # bitmask of allowed languages (c: 1, cpp: 2, py3: 4)
+    allowed_language = IntField(db_field='allowedLanguage', default=7)
 
 
-class TestCaseResult(EmbeddedDocument):
+class CaseResult(EmbeddedDocument):
     status = IntField(required=True)
     exec_time = IntField(required=True, db_field='execTime')
     memory_usage = IntField(required=True, db_field='memoryUsage')
     stdout = StringField(required=True)
     stderr = StringField(required=True)
+
+
+class TaskResult(EmbeddedDocument):
+    status = IntField(default=-1)
+    exec_time = IntField(default=-1, db_field='execTime')
+    memory_usage = IntField(default=-1, db_field='memoryUsage')
+    score = IntField(default=0)
+    cases = EmbeddedDocumentListField(CaseResult, default=list)
 
 
 class Submission(Document):
@@ -169,7 +179,7 @@ class Submission(Document):
     timestamp = DateTimeField(required=True)
     status = IntField(default=-2)
     score = IntField(default=0)
-    cases = ListField(EmbeddedDocumentField(TestCaseResult), default=list)
+    tasks = EmbeddedDocumentListField(TaskResult, default=list)
     exec_time = IntField(default=-1, db_field='runTime')
     memory_usage = IntField(default=-1, db_field='memoryUsage')
     code = BooleanField(

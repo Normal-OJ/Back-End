@@ -8,7 +8,6 @@ from mongo import *
 from mongo import engine
 from tests.base_tester import BaseTester, random_string
 from tests.test_homework import CourseData
-from model.submission import assign_token, verify_token, tokens
 
 A_NAMES = [
     'teacher',
@@ -261,7 +260,7 @@ class TestUserGetSubmission(SubmissionTester):
             'languageType',
             'timestamp',
             'status',
-            'cases',
+            'tasks',
             'score',
             'runTime',
             'memoryUsage',
@@ -439,7 +438,7 @@ class TestCreateSubmission(SubmissionTester):
             User('stucent'),
             Problem(pid).obj,
         )
-        assert sorted(rv_data.keys()) == sorted(['token', 'submissionId'])
+        assert sorted(rv_data.keys()) == sorted(['submissionId'])
 
         # second, post my source code to server. after that,
         # my submission will send to sandbox to be judged
@@ -450,7 +449,7 @@ class TestCreateSubmission(SubmissionTester):
             )
         }
         rv = client.put(
-            f'/submission/{rv_data["submissionId"]}?token={rv_data["token"]}',
+            f'/submission/{rv_data["submissionId"]}',
             data=files,
         )
         rv_json = rv.get_json()
@@ -513,7 +512,7 @@ class TestCreateSubmission(SubmissionTester):
             )
         }
         rv = client.put(
-            f'/submission/{rv_data["submissionId"]}?token={rv_data["token"]}',
+            f'/submission/{rv_data["submissionId"]}',
             data=files,
         )
         rv_json = rv.get_json()
@@ -543,7 +542,7 @@ class TestCreateSubmission(SubmissionTester):
 
         files = {'code': (None, 'code')}
         rv = client.put(
-            f'/submission/{rv_data["submissionId"]}?token={rv_data["token"]}',
+            f'/submission/{rv_data["submissionId"]}',
             data=files,
         )
         rv_json = rv.get_json()
@@ -582,7 +581,7 @@ class TestCreateSubmission(SubmissionTester):
 
         files = {'c0d3': (get_source(f'base{ext}'), 'code')}
         rv = client.put(
-            f'/submission/{rv_data["submissionId"]}?token={rv_data["token"]}',
+            f'/submission/{rv_data["submissionId"]}',
             data=files,
         )
         rv_json = rv.get_json()
@@ -612,7 +611,6 @@ class TestCreateSubmission(SubmissionTester):
 
         client = forge_client('student-2')
         submission_id = rv_data['submissionId']
-        token = rv_data['token']
         files = {
             'code': (
                 get_source('base.cpp'),
@@ -622,7 +620,7 @@ class TestCreateSubmission(SubmissionTester):
         rv, rv_json, rv_data = BaseTester.request(
             client,
             'put',
-            f'/submission/{submission_id}?token={token}',
+            f'/submission/{submission_id}',
             data=files,
         )
 

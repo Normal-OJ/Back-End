@@ -14,6 +14,9 @@ class Announcement(MongoBase, engine=engine.Announcement):
 
     @staticmethod
     def ann_list(user, course_name):
+        if course_name == 'Public':
+            return engine.Announcement.objects(
+                course=Course('Public').obj, status=0).order_by('-createTime')
         course = Course(course_name).obj
         if course is None:
             return None
