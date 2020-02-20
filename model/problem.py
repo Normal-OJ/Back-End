@@ -199,10 +199,16 @@ def manage_problem(user, problem_id=None):
         return HTTPResponse('Success.')
     else:
         try:
-            if request.content_type == 'application/json':
+            if request.content_type.startswith('application/json'):
                 return modify_problem()
             elif request.content_type.startswith('multipart/form-data'):
                 return modify_problem_test_case()
+            else:
+                return HTTPError(
+                    'Unknown content type',
+                    400,
+                    data={'contentType': request.content_type},
+                )
         except ValidationError as ve:
             if lock.locked:
                 lock.release()
@@ -216,7 +222,7 @@ def manage_problem(user, problem_id=None):
         except Exception as e:
             if lock.locked:
                 lock.release()
-            return HTTPError('Error:' + str(e), 404)
+            return HTTPError('Error:' + str(e), 500)
 
 
 @problem_api.route('/clone', methods=['POST'])
