@@ -25,6 +25,22 @@ def get_post(user, course):
     return HTTPResponse('Success.', data=data)
 
 
+@post_api.route('/view/<course>/<target_thread_id>', methods=['GET'])
+@login_required
+def get_single_post(user, course, target_thread_id):
+    try:
+        target_course = Course(course).obj
+    except engine.DoesNotExist:
+        return HTTPError("Course not found.", 404)
+    permission = perm(target_course, user)
+    if not permission:
+        return HTTPError('You are not in this course.', 403)
+    if not target_thread_id :
+        return HTTPError('Must contain target_thread_id', 400)
+    data = found_post(target_course, target_thread_id)
+    return HTTPResponse('Success.', data=data)
+
+
 @post_api.route('/', methods=['POST', 'PUT', 'DELETE'])
 @Request.json('course', 'title', 'content', 'target_thread_id')
 @login_required

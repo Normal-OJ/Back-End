@@ -18,6 +18,7 @@ def found_thread(target_thread):
         "id": str(target_thread.id),
         "content": target_thread.markdown,
         "author": User(target_thread.author.username).info,
+        "status": target_thread.status,
         "created": target_thread.created.timestamp(),
         "updated": target_thread.updated.timestamp(),
         "reply": reply_thread
@@ -25,14 +26,15 @@ def found_thread(target_thread):
     return thread
 
 
-def found_post(course_obj):
+def found_post(course_obj, target_id=None):
     data = []
     for x in course_obj.posts:  #target_threads
         post = dict()
         x_thread = x.thread
         post["thread"] = found_thread(x_thread)
         post["title"] = x.post_name
-        data.append(post)
+        if ( target_id == None or post["thread"]["id"] == target_id ) :
+            data.append(post)
     return data
 
 
@@ -102,6 +104,6 @@ def edit_post(target_thread, user, content, title, permission, delete=0):
 
 
 def delete_post(target_thread, user, permission):
-    content = "Content is deleted."
-    title = "The Post is deleted."
+    content = "*Content was deleted*"
+    title = "*The Post was deleted.*"
     return edit_post(target_thread, user, content, title, permission, 1)
