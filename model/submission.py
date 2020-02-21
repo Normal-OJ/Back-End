@@ -41,7 +41,7 @@ def submission_required(func):
 
 @submission_api.route('/', methods=['POST'])
 @login_required
-@Request.json('language_type: int', 'problem_id')
+@Request.json('language_type: int', 'problem_id: int')
 def create_submission(user, language_type, problem_id):
     # the user reach the rate limit for submitting
     now = datetime.now()
@@ -64,6 +64,7 @@ def create_submission(user, language_type, problem_id):
         )
 
     # search for problem
+    current_app.logger.warn(f'got problem id {problem_id}')
     problem = Problem(problem_id)
     if problem.obj is None:
         return HTTPError('Unexisted problem id.', 404)
