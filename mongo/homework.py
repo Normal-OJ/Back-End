@@ -62,7 +62,7 @@ class Homework:
             user_problems[str(problem.problem_id)] = {
                 'score': 0,
                 'problemStatus': None,
-                'submissonIds': []
+                'submissionIds': []
             }
             problem.homeworks.append(homework)
             problem.save()
