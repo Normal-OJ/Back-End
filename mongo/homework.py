@@ -122,7 +122,7 @@ class Homework:
                     homework.student_status[key][str(pid)] = {
                         'score': 0,
                         'problemStatus': 1,
-                        'submissonIds': []
+                        'submissionIds': []
                     }
         # delete
         for pid in drop_ids:
