@@ -189,11 +189,9 @@ class Submission(MongoBase, engine=engine.Submission):
                         zf.writestr(f'{filename}.in', case['input'][j])
                         zf.writestr(f'{filename}.out', case['output'][j])
 
-        # generate token for submission
-        token = assign_token(self.id)
         # setup post body
         post_data = {
-            'token': token,
+            'token': SubmissionConfig.SANDBOX_TOKEN,
             'checker': 'print("not implement yet. qaq")',
         }
         files = {
@@ -207,7 +205,7 @@ class Submission(MongoBase, engine=engine.Submission):
             ),
             'meta.json': (
                 f'{self.id}-meta.json',
-                io.StringIO(str(meta)),
+                io.StringIO(json.dumps(meta)),
             ),
         }
 
