@@ -207,11 +207,42 @@ def get_submission(user, submission):
 
     # give user source code
     if 'code' in ret:
-        ext = '.pdf' if submission.handwritten else ['.c', '.cpp', '.py'
-                                                     ][submission.language]
+        ext = ['.c', '.cpp', '.py'][submission.language]
         ret['code'] = submission.get_code(f'main{ext}')
 
     return HTTPResponse(data=ret)
+
+
+@submission_api.route('/<submission_id>/pdf', methods=['GET'])
+@login_required
+@submission_required
+def get_submission_pdf(user, submission):
+    ret = submission.to_dict()
+
+    # can not view the problem, also the submission
+    if not can_view(user, submission.problem):
+        return HTTPError('forbidden.', 403)
+    # you can view self submission
+    elif user.username != submission.user.username:
+        # TA and teacher can view students' submissions
+        permissions = []
+        for course in submission.problem.courses:
+            permissions.append(perm(course, user) >= 2)
+        if not any(permissions):
+            return HTTPError('forbidden.', 403)
+
+    if not submission.handwritten:
+        return HTTPError('it is not a handwritten submission.', 400)
+
+    try:
+        data = submission.get_comment()
+    except FileNotFoundError as e:
+        return HTTPError('comment not found.', 404)
+
+    response = make_response(data)
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = 'inline; filename=comment.pdf'
+    return response
 
 
 @submission_api.route('/count', methods=['GET'])
@@ -319,17 +350,17 @@ def grade_submission(submission, score):
 
 
 @submission_api.route('/<submission_id>/comment', methods=['PUT'])
-@Request.files('ccomment')
+@Request.files('comment')
 @submission_required
 def comment_submission(submission, comment):
-    if not secrets.compare_digest(token, SubmissionConfig.SANDBOX_TOKEN):
-        return HTTPError('you are not sandbox :(', 403)
-    try:
-        submission.process_result(tasks)
-    except (ValidationError, KeyError) as e:
+    if comment is None:
         return HTTPError(
-            'invalid data!\n'
-            f'{type(e).__name__}: {e}',
+            f'can not find the source file',
             400,
         )
-    return HTTPResponse(f'{submission} result recieved.')
+
+    try:
+        submission.comment(comment)
+    except ValueError as e:
+        return HTTPError(str(e), 400)
+    return HTTPResponse(f'{submission} comment recieved.')

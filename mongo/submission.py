@@ -114,6 +114,10 @@ class Submission(MongoBase, engine=engine.Submission):
         return SubmissionConfig.SOURCE_PATH / self.id
 
     @property
+    def comment_dir(self) -> pathlib.Path:
+        return SubmissionConfig.COMMENT_PATH / self.id
+
+    @property
     def tmp_dir(self) -> pathlib.Path:
         return SubmissionConfig.TMP_DIR / self.id
 
@@ -132,6 +136,14 @@ class Submission(MongoBase, engine=engine.Submission):
             raise FileNotFoundError(path)
 
         return path.read_text()
+
+    def get_comment(self) -> str:
+        path = self.comment_dir
+
+        if not path.exists():
+            raise FileNotFoundError(path)
+
+        return path.read_bytes()
 
     def submit(self, code_file, rejudge=False) -> bool:
         '''
@@ -326,6 +338,20 @@ class Submission(MongoBase, engine=engine.Submission):
         self.problem.save()
 
         return True
+
+    def comment(self, file):
+        '''
+        comment a submission with PDF
+
+        Args:
+            file: a PDF file
+        '''
+        data = file.read()
+        if data[1:4] != b'PDF':
+            raise ValueError('only accept PDF file.')
+
+        self.comment_dir.write_bytes(data)
+        current_app.logger.debug(f'{self} comment updated.')
 
     @staticmethod
     def count():
