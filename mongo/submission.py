@@ -273,7 +273,7 @@ class Submission(MongoBase, engine=engine.Submission):
             if not all(c['status'] == 0 for c in _cases):
                 _cases = [*filter(lambda c: c['status'] != 0, _cases)]
             else:
-                score = self.problem.cases[i].case_score
+                score = self.problem.test_case.cases[i].case_score
             case = sorted(
                 _cases[:],
                 key=lambda c: (c['memoryUsage'], c['execTime']),
