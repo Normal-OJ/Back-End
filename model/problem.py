@@ -60,6 +60,7 @@ def view_problem_list(user, offset, count, problem_id, tags, name):
                 lambda p: {
                     'problemId': p.problem_id,
                     'problemName': p.problem_name,
+                    'status': p.problem_status,
                     'ACUser': p.ac_user,
                     'submitter': p.submitter,
                     'tags': p.tags,
@@ -89,8 +90,8 @@ def view_problem(user, problem_id):
             'input': problem.description['input'],
             'output': problem.description['output'],
             'hint': problem.description['hint'],
-            'sample_input': problem.description['sample_input'],
-            'sample_output': problem.description['sample_output'],
+            'sampleInput': problem.description['sample_input'],
+            'sampleOutput': problem.description['sample_output'],
         },
         'owner': problem.owner,
         'tags': problem.tags
@@ -172,8 +173,8 @@ def manage_problem(user, problem_id=None):
                 'input': problem.description['input'],
                 'output': problem.description['output'],
                 'hint': problem.description['hint'],
-                'sample_input': problem.description['sample_input'],
-                'sample_output': problem.description['sample_output'],
+                'sampleInput': problem.description['sample_input'],
+                'sampleOutput': problem.description['sample_output'],
             },
             'tags': problem.tags,
             'testCase': {
@@ -199,10 +200,16 @@ def manage_problem(user, problem_id=None):
         return HTTPResponse('Success.')
     else:
         try:
-            if request.content_type == 'application/json':
+            if request.content_type.startswith('application/json'):
                 return modify_problem()
             elif request.content_type.startswith('multipart/form-data'):
                 return modify_problem_test_case()
+            else:
+                return HTTPError(
+                    'Unknown content type',
+                    400,
+                    data={'contentType': request.content_type},
+                )
         except ValidationError as ve:
             if lock.locked:
                 lock.release()
@@ -216,7 +223,7 @@ def manage_problem(user, problem_id=None):
         except Exception as e:
             if lock.locked:
                 lock.release()
-            return HTTPError('Error:' + str(e), 404)
+            return HTTPError('Error:' + str(e), 500)
 
 
 @problem_api.route('/clone', methods=['POST'])

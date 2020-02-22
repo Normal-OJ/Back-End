@@ -132,8 +132,16 @@ class ProblemDescription(EmbeddedDocument):
     input = StringField(max_length=100000)
     output = StringField(max_length=100000)
     hint = StringField(max_length=100000)
-    sample_input = ListField(StringField(), default=list)
-    sample_output = ListField(StringField(), default=list)
+    sample_input = ListField(
+        StringField(),
+        default=list,
+        db_field='sampleInput',
+    )
+    sample_output = ListField(
+        StringField(),
+        default=list,
+        db_field='sampleOutput',
+    )
 
 
 class Problem(Document):

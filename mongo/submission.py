@@ -97,6 +97,19 @@ class Submission(MongoBase, engine=engine.Submission):
         return ret
 
     @property
+    def status2code(self):
+        return {
+            'AC': 0,
+            'WA': 1,
+            'CE': 2,
+            'TLE': 3,
+            'MLE': 4,
+            'RE': 5,
+            'JE': 6,
+            'OLE': 7,
+        }
+
+    @property
     def code_dir(self) -> pathlib.Path:
         return SubmissionConfig.SOURCE_PATH / self.id
 
@@ -178,35 +191,36 @@ class Submission(MongoBase, engine=engine.Submission):
         # get testcases
         cases = self.problem.test_case.cases
         # metadata
-        meta = {'language': self.language, 'tasks': []}
+        meta = {
+            'language':
+            self.language,
+            'tasks': [{
+                'caseCount': case['case_count'],
+                'taskScore': case['case_score'],
+                'memoryLimit': case['memory_limit'],
+                'timeLimit': case['time_limit'],
+            } for case in cases],
+        }
         # problem path
         testcase_zip_path = SubmissionConfig.TMP_DIR / str(
             self.problem_id) / 'testcase.zip'
         current_app.logger.debug(f'testcase path: {testcase_zip_path}')
 
+        # check cache
         h = hash(str(self.problem.test_case.to_mongo()))
         if p_hash.get(self.problem_id) != h:
             p_hash[self.problem_id] = h
             testcase_zip_path.parent.mkdir(exist_ok=True)
             with ZipFile(testcase_zip_path, 'w') as zf:
                 for i, case in enumerate(cases):
-                    meta['tasks'].append({
-                        'caseCount': case['case_count'],
-                        'taskScore': case['case_score'],
-                        'memoryLimit': case['memory_limit'],
-                        'timeLimit': case['time_limit']
-                    })
-
                     for j in range(len(case['input'])):
                         filename = f'{i:02d}{j:02d}'
                         zf.writestr(f'{filename}.in', case['input'][j])
                         zf.writestr(f'{filename}.out', case['output'][j])
 
-        # generate token for submission
-        token = assign_token(self.id)
         # setup post body
         post_data = {
-            'token': token,
+            'token': SubmissionConfig.SANDBOX_TOKEN,
             'checker': 'print("not implement yet. qaq")',
         }
         files = {
@@ -220,7 +234,7 @@ class Submission(MongoBase, engine=engine.Submission):
             ),
             'meta.json': (
                 f'{self.id}-meta.json',
-                io.StringIO(str(meta)),
+                io.StringIO(json.dumps(meta)),
             ),
         }
 
@@ -246,7 +260,10 @@ class Submission(MongoBase, engine=engine.Submission):
     def process_result(self, tasks: list):
         for task in tasks:
             for case in task:
+                # we don't need exit code
                 del case['exitCode']
+                # convert status into integer
+                case['status'] = self.status2code.get(case['status'], -3)
 
         # process task
         for i, cases in enumerate(tasks):
@@ -259,11 +276,11 @@ class Submission(MongoBase, engine=engine.Submission):
                 score = self.problem.cases[i].case_score
             case = sorted(
                 _cases[:],
-                lambda c: (c['memoryUsage'], c['execTime']),
+                key=lambda c: (c['memoryUsage'], c['execTime']),
             )[-1]
             tasks[i] = engine.TaskResult(
                 status=case['status'],
-                exec_time=case['exec_time'],
+                exec_time=case['execTime'],
                 memory_usage=case['memoryUsage'],
                 score=score,
                 cases=cases,
@@ -271,42 +288,42 @@ class Submission(MongoBase, engine=engine.Submission):
 
         # get the task which has the longest memory usage, execution time
         _tasks = tasks[:]
-        if not all(t['status'] == 0 for t in _tasks):
-            _tasks = [*filter(lambda t: t['status'] != 0, _tasks)]
+        if not all(t.status == 0 for t in _tasks):
+            _tasks = [*filter(lambda t: t.status != 0, _tasks)]
         m_task = sorted(
-            tasks,
-            key=lambda t: (t['memoryUsage'], t['execTime']),
+            _tasks,
+            key=lambda t: (t.memory_usage, t.exec_time),
         )[-1]
 
-        submission.update(
+        self.update(
             score=sum(task.score for task in tasks),
-            status=m_task['status'],
+            status=m_task.status,
             tasks=tasks,
-            exec_time=m_task['execTime'],
-            memory_usage=m_task['memoryUsage'],
+            exec_time=m_task.exec_time,
+            memory_usage=m_task.memory_usage,
         )
 
         # update user's submission
-        user.add_submission(submission.reload())
+        User(self.user.username).add_submission(self.reload())
         # update homework data
-        for homework in submission.problem.homeworks:
-            stat = homework.student_status[user.username][str(
-                submission.problem_id)]
-            stat['submissionIds'].append(submission.id)
-            if submission.score >= stat['score']:
-                stat['score'] = submission.score
-                stat['problemStatus'] = submission.status
+        for homework in self.problem.homeworks:
+            stat = homework.student_status[self.user.username][str(
+                self.problem_id)]
+            stat['submissionIds'].append(self.id)
+            if self.score >= stat['score']:
+                stat['score'] = self.score
+                stat['problemStatus'] = self.status
         # update problem
         ac_submissions = Submission.filter(
-            user=user,
+            user=self.user,
             offset=0,
             count=-1,
-            problem=submission.problem,
+            problem=self.problem,
             status=0,
         )
         ac_users = {s.user.username for s in ac_submissions}
-        submission.problem.ac_user = len(ac_users)
-        submission.problem.save()
+        self.problem.ac_user = len(ac_users)
+        self.problem.save()
 
         return True
 
