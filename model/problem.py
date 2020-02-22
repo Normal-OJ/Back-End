@@ -107,9 +107,9 @@ def view_problem(user, problem_id):
 @problem_api.route('/manage/<problem_id>', methods=['GET', 'PUT', 'DELETE'])
 @identity_verify(0, 1)
 def manage_problem(user, problem_id=None):
-    @Request.json('handwritten')
-    def modify_problem(handwritten):
-        if handwritten:
+    @Request.json('type')
+    def modify_problem(type):
+        if type == 2:
             return modify_written_problem()
         else:
             return modify_coding_problem()
@@ -211,17 +211,17 @@ def manage_problem(user, problem_id=None):
                     data={'contentType': request.content_type},
                 )
         except ValidationError as ve:
-            if lock.locked:
+            if lock.locked():
                 lock.release()
             return HTTPError('Invalid or missing arguments.',
                              400,
                              data=ve.to_dict())
         except engine.DoesNotExist:
-            if lock.locked:
+            if lock.locked():
                 lock.release()
             return HTTPError('Course not found.', 404)
         except Exception as e:
-            if lock.locked:
+            if lock.locked():
                 lock.release()
             return HTTPError('Error:' + str(e), 500)
 

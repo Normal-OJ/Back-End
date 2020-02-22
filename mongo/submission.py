@@ -332,17 +332,15 @@ class Submission(MongoBase, engine=engine.Submission):
         return len(engine.Submission.objects)
 
     @staticmethod
-    def filter(
-        user,
-        offset,
-        count,
-        problem=None,
-        submission=None,
-        q_user=None,
-        status=None,
-        language_type=None,
-        handwritten=None
-    ):
+    def filter(user,
+               offset,
+               count,
+               problem=None,
+               submission=None,
+               q_user=None,
+               status=None,
+               language_type=None,
+               handwritten=None):
         if offset is None or count is None:
             raise ValueError('offset and count are required!')
         try:
@@ -418,8 +416,7 @@ class Submission(MongoBase, engine=engine.Submission):
             user=user.obj,
             language=lang,
             timestamp=timestamp,
-            handwritten=problem.obj.handwritten
-        )
+            handwritten=(problem.obj.problem_type == 2))
         submission.save()
 
         return cls(submission.id)

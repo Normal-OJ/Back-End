@@ -104,15 +104,16 @@ def get_problem_list(
 def add_written_problem(user, courses, status, problem_name, description,
                         tags):
     problem_id = number
-    engine.Problem(problem_id=problem_id,
-                   courses=list(Course(name).obj for name in courses),
-                   problem_status=status,
-                   problem_type=type,
-                   problem_name=problem_name,
-                   description=description,
-                   owner=user.username,
-                   tags=tags,
-                   handwritten=True).save()
+    engine.Problem(
+        problem_id=problem_id,
+        courses=list(Course(name).obj for name in courses),
+        problem_status=status,
+        problem_type=2,
+        problem_name=problem_name,
+        description=description,
+        owner=user.username,
+        tags=tags,
+    ).save()
     increased_number()
 
     return problem_id
@@ -121,20 +122,17 @@ def add_written_problem(user, courses, status, problem_name, description,
 def add_problem(user, courses, status, type, problem_name, description, tags,
                 test_case_info, can_view_stdout, allowed_language):
     problem_id = number
-    engine.Problem(
-        problem_id=problem_id,
-        courses=list(Course(name).obj for name in courses),
-        problem_status=status,
-        problem_type=type,
-        problem_name=problem_name,
-        description=description,
-        owner=user.username,
-        tags=tags,
-        test_case=test_case_info,
-        can_view_stdout=can_view_stdout,
-        allowed_language=allowed_language or 7,
-        handwritten=False,
-    ).save()
+    engine.Problem(problem_id=problem_id,
+                   courses=list(Course(name).obj for name in courses),
+                   problem_status=status,
+                   problem_type=type,
+                   problem_name=problem_name,
+                   description=description,
+                   owner=user.username,
+                   tags=tags,
+                   test_case=test_case_info,
+                   can_view_stdout=can_view_stdout,
+                   allowed_language=allowed_language or 7).save()
     increased_number()
 
     return problem_id
@@ -147,12 +145,11 @@ def edit_written_problem(user, problem_id, courses, status, problem_name,
     problem.courses = list(
         engine.Course.objects.get(course_name=name) for name in courses)
     problem.problem_status = status
-    problem.problem_type = type
+    problem.problem_type = 2
     problem.problem_name = problem_name
     problem.description = description
     problem.owner = user.username
     problem.tags = tags
-    problem.handwritten = True
 
     problem.save()
 
@@ -172,14 +169,13 @@ def edit_problem(user, problem_id, courses, status, type, problem_name,
     problem.description['hint'] = description['hint']
     problem.description['input'] = description['input']
     problem.description['output'] = description['output']
-    problem.description['sample_input'] = description['sample_input']
-    problem.description['sample_output'] = description['sample_output']
+    problem.description['sample_input'] = description['sampleInput']
+    problem.description['sample_output'] = description['sampleOutput']
     problem.owner = user.username
     problem.tags = tags
     problem.allowed_language = allowed_language
     problem.test_case['language'] = test_case['language']
     problem.test_case['fill_in_template'] = test_case['fillInTemplate']
-    problem.handwritten = False
 
     i = 0
     problem.test_case['cases'].clear()

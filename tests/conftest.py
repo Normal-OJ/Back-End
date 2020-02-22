@@ -102,9 +102,7 @@ def random_problem_data(username=None, status=-1):
                     'timeLimit': 1000,
                 },
             ],
-        },
-        'handwritten':
-        False
+        }
     }
 
 
@@ -176,6 +174,7 @@ def problem_ids(forge_client, make_course):
                     status=status,
                 ),
             )
+            print(rv.get_json())
             id = rv.get_json()['data']['problemId']
             client.put(f'/problem/manage/{id}', data=get_file('test_case.zip'))
 

@@ -148,7 +148,7 @@ class Problem(Document):
     problem_id = IntField(db_field='problemId', required=True, unique=True)
     courses = ListField(ReferenceField('Course'), default=list)
     problem_status = IntField(default=1, choices=[0, 1])
-    problem_type = IntField(default=0, choices=[0, 1])
+    problem_type = IntField(default=0, choices=[0, 1, 2])
     problem_name = StringField(db_field='problemName',
                                max_length=64,
                                required=True)
@@ -171,7 +171,6 @@ class Problem(Document):
     can_view_stdout = BooleanField(db_field='canViewStdout', default=True)
     # bitmask of allowed languages (c: 1, cpp: 2, py3: 4)
     allowed_language = IntField(db_field='allowedLanguage', default=7)
-    handwritten = BooleanField(default=False)
 
 
 class CaseResult(EmbeddedDocument):

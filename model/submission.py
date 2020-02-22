@@ -207,7 +207,8 @@ def get_submission(user, submission):
 
     # give user source code
     if 'code' in ret:
-        ext = '.pdf' if submission.handwritten else ['.c', '.cpp', '.py'][submission.language]
+        ext = '.pdf' if submission.handwritten else ['.c', '.cpp', '.py'
+                                                     ][submission.language]
         ret['code'] = submission.get_code(f'main{ext}')
 
     return HTTPResponse(data=ret)
@@ -290,7 +291,9 @@ def update_submission(user, submission):
             return HTTPError(str(e), 400)
         except JudgeQueueFullError as e:
             return HTTPResponse(str(e), 202)
-        return HTTPResponse(f'{submission} {"is finished." if submission.handwritten else "send to judgement."}')
+        return HTTPResponse(
+            f'{submission} {"is finished." if submission.handwritten else "send to judgement."}'
+        )
 
     # put handler
     # validate this reques

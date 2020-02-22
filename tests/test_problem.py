@@ -15,8 +15,8 @@ def description_dict():
         'input': '',
         'output': '',
         'hint': '',
-        'sample_input': [],
-        'sample_output': []
+        'sampleInput': [],
+        'sampleOutput': []
     }
 
 
@@ -229,6 +229,7 @@ class TestProblem(BaseTester):
             'problemId': 1,
             'type': 0,
             'problemName': 'Offline problem',
+            'status': 1,
             'tags': [],
             'ACUser': 0,
             'submitter': 0
@@ -236,6 +237,7 @@ class TestProblem(BaseTester):
             'problemId': 2,
             'type': 0,
             'problemName': 'Online problem',
+            'status': 0,
             'tags': [],
             'ACUser': 0,
             'submitter': 0
@@ -252,6 +254,7 @@ class TestProblem(BaseTester):
             'problemId': 2,
             'type': 0,
             'problemName': 'Online problem',
+            'status': 0,
             'tags': [],
             'ACUser': 0,
             'submitter': 0
@@ -385,7 +388,7 @@ class TestProblem(BaseTester):
         }
         rv = client_admin.put('/problem/manage/1', json=request_json)
         json = rv.get_json()
-        print(json['data'])
+        print(json)
         assert rv.status_code == 200
         assert json['status'] == 'ok'
         assert json['message'] == 'Success.'
