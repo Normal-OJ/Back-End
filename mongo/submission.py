@@ -148,8 +148,21 @@ class Submission(MongoBase, engine=engine.Submission):
         current_app.logger.debug(f'{self} code updated.')
         self.update(code=True, status=-1)
 
+        # delete old handwritten submission
+        if self.handwritten:
+            q = {
+                'problem': self.problem,
+                'score': -1,
+                'user': self.user,
+                'handwritten': True
+            }
+
+            for submission in engine.Submission.objects(**q):
+                if submission != self:
+                    submission.delete()
+
         # we no need to actually send code to sandbox during testing
-        if current_app.config['TESTING']:
+        if current_app.config['TESTING'] or self.handwritten:
             return False
         current_app.logger.info(f'send to judgement')
         return self.send(zip_path)
@@ -311,6 +324,7 @@ class Submission(MongoBase, engine=engine.Submission):
         q_user=None,
         status=None,
         language_type=None,
+        handwritten=None
     ):
         if offset is None or count is None:
             raise ValueError('offset and count are required!')
@@ -337,7 +351,8 @@ class Submission(MongoBase, engine=engine.Submission):
             'id': submission,
             'status': status,
             'language': language_type,
-            'user': q_user
+            'user': q_user,
+            'handwritten': handwritten
         }
         q = {k: v for k, v in q.items() if v is not None}
 
@@ -386,6 +401,7 @@ class Submission(MongoBase, engine=engine.Submission):
             user=user.obj,
             language=lang,
             timestamp=timestamp,
+            handwritten=problem.obj.handwritten
         )
         submission.save()
 

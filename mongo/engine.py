@@ -188,7 +188,7 @@ class Submission(Document):
     language = IntField(required=True, db_field='languageType')
     timestamp = DateTimeField(required=True)
     status = IntField(default=-2)
-    score = IntField(default=0)
+    score = IntField(default=-1)
     tasks = EmbeddedDocumentListField(TaskResult, default=list)
     exec_time = IntField(default=-1, db_field='runTime')
     memory_usage = IntField(default=-1, db_field='memoryUsage')
