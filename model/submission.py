@@ -247,7 +247,7 @@ def get_submission_count(
 
 
 @submission_api.route('/<submission_id>/complete', methods=['PUT'])
-@Request.json('tasks: dict', 'token: str')
+@Request.json('tasks: list', 'token: str')
 @submission_required
 def on_submission_complete(submission, tasks, token):
     if not secrets.compare_digest(token, SubmissionConfig.SANDBOX_TOKEN):
@@ -255,7 +255,11 @@ def on_submission_complete(submission, tasks, token):
     try:
         submission.process_result(tasks)
     except (ValidationError, KeyError) as e:
-        return HTTPError(f'invalid data!\n{e}', 400)
+        return HTTPError(
+            'invalid data!\n'
+            f'{type(e).__name__}: {e}',
+            400,
+        )
     return HTTPResponse(f'{submission} result recieved.')
 
 
