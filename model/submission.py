@@ -308,3 +308,28 @@ def update_submission(user, submission):
         return HTTPError('user not equal!', 403)
 
     return recieve_source_file()
+
+
+@submission_api.route('/<submission_id>/grade', methods=['PUT'])
+@Request.json('score')
+@submission_required
+def grade_submission(submission, score):
+    submission.score = score
+    return HTTPResponse(f'{submission} score recieved.')
+
+
+@submission_api.route('/<submission_id>/comment', methods=['PUT'])
+@Request.files('ccomment')
+@submission_required
+def comment_submission(submission, comment):
+    if not secrets.compare_digest(token, SubmissionConfig.SANDBOX_TOKEN):
+        return HTTPError('you are not sandbox :(', 403)
+    try:
+        submission.process_result(tasks)
+    except (ValidationError, KeyError) as e:
+        return HTTPError(
+            'invalid data!\n'
+            f'{type(e).__name__}: {e}',
+            400,
+        )
+    return HTTPResponse(f'{submission} result recieved.')
