@@ -9,13 +9,24 @@ def get_file(file):
         return {'case': (io.BytesIO(f.read()), "test_case.zip")}
 
 
+def description_dict():
+    return {
+        'description': 'Test description.',
+        'input': '',
+        'output': '',
+        'hint': '',
+        'sampleInput': [],
+        'sampleOutput': []
+    }
+
+
 class ProblemData:
     def __init__(
         self,
         name,
         status=1,
         type=0,
-        description='',
+        description=description_dict(),
         tags=[],
         test_case_info={
             'language':
@@ -89,7 +100,7 @@ class TestProblem(BaseTester):
             'status': 2,  # Invalid value
             'type': 0,
             'problemName': 'Test problem name',
-            'description': 'Test description.',
+            'description': description_dict(),
             'tags': [],
             'testCaseInfo': {
                 'language':
@@ -118,7 +129,7 @@ class TestProblem(BaseTester):
             'status': 1,
             'type': 0,
             #  'problem_name': 'Test problem name',	# missing argument
-            'description': 'Test description.',
+            'description': description_dict(),
             'tags': [],
             'testCaseInfo': {
                 'language':
@@ -136,9 +147,9 @@ class TestProblem(BaseTester):
         rv = client_admin.post('/problem/manage',
                                json=request_json_with_missing_argument)
         json = rv.get_json()
+        assert json['message'] == 'Invalid or missing arguments.'
         assert rv.status_code == 400
         assert json['status'] == 'err'
-        assert json['message'] == 'Invalid or missing arguments.'
 
     # add a offline problem which problem_id = 1 (POST /problem/manage)
     def test_add_offline_problem(self, client_admin):
@@ -147,7 +158,7 @@ class TestProblem(BaseTester):
             'status': 1,
             'type': 0,
             'problemName': 'Offline problem',
-            'description': 'Test description.',
+            'description': description_dict(),
             'tags': [],
             'testCaseInfo': {
                 'language':
@@ -181,7 +192,7 @@ class TestProblem(BaseTester):
             'status': 0,
             'type': 0,
             'problemName': 'Online problem',
-            'description': 'Test description.',
+            'description': description_dict(),
             'tags': [],
             'testCaseInfo': {
                 'language':
@@ -218,6 +229,7 @@ class TestProblem(BaseTester):
             'problemId': 1,
             'type': 0,
             'problemName': 'Offline problem',
+            'status': 1,
             'tags': [],
             'ACUser': 0,
             'submitter': 0
@@ -225,6 +237,7 @@ class TestProblem(BaseTester):
             'problemId': 2,
             'type': 0,
             'problemName': 'Online problem',
+            'status': 0,
             'tags': [],
             'ACUser': 0,
             'submitter': 0
@@ -241,6 +254,7 @@ class TestProblem(BaseTester):
             'problemId': 2,
             'type': 0,
             'problemName': 'Online problem',
+            'status': 0,
             'tags': [],
             'ACUser': 0,
             'submitter': 0
@@ -257,7 +271,7 @@ class TestProblem(BaseTester):
             'status': 1,
             'type': 0,
             'problemName': 'Offline problem',
-            'description': 'Test description.',
+            'description': description_dict(),
             'owner': 'admin',
             'tags': []
         }
@@ -281,7 +295,7 @@ class TestProblem(BaseTester):
             'status': 0,
             'type': 0,
             'problemName': 'Online problem',
-            'description': 'Test description.',
+            'description': description_dict(),
             'owner': 'admin',
             'tags': []
         }
@@ -301,7 +315,7 @@ class TestProblem(BaseTester):
             'status': 1,
             'type': 0,
             'problemName': 'Offline problem (edit)',
-            'description': 'Test description.',
+            'description': description_dict(),
             'tags': [],
             'testCaseInfo': {
                 'language':
@@ -329,7 +343,7 @@ class TestProblem(BaseTester):
             'status': 1,
             'type': 0,
             'problemName': 'Offline problem (edit)',
-            'description': 'Test description.',
+            'description': description_dict(),
             'tags': [],
             'testCaseInfo': {
                 'language':
@@ -357,7 +371,7 @@ class TestProblem(BaseTester):
             'status': 1,
             'type': 0,
             'problemName': 'Offline problem (edit)',
-            'description': 'Test description.',
+            'description': description_dict(),
             'tags': [],
             'testCaseInfo': {
                 'language':
@@ -374,7 +388,7 @@ class TestProblem(BaseTester):
         }
         rv = client_admin.put('/problem/manage/1', json=request_json)
         json = rv.get_json()
-        print(json['data'])
+        print(json)
         assert rv.status_code == 200
         assert json['status'] == 'ok'
         assert json['message'] == 'Success.'
@@ -391,7 +405,7 @@ class TestProblem(BaseTester):
             'status': 1,
             'type': 0,
             'problemName': 'Offline problem (edit)',
-            'description': 'Test description.',
+            'description': description_dict(),
             'tags': [],
             'testCase': {
                 'language':
