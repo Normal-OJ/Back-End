@@ -191,9 +191,12 @@ class Submission(MongoBase, engine=engine.Submission):
         problem = Problem(self.problem_id).obj
         # metadata
         meta = {
-            'language': self.language,
-            'tasks': [task.to_mongo() for task in problem.test_case.tasks],
+            'language':
+            self.language,
+            'tasks':
+            [json.loads(task.to_json()) for task in problem.test_case.tasks],
         }
+        current_app.logger.debug(f'meta: {meta}')
         # setup post body
         post_data = {
             'token': SubmissionConfig.SANDBOX_TOKEN,
@@ -322,15 +325,17 @@ class Submission(MongoBase, engine=engine.Submission):
         return len(engine.Submission.objects)
 
     @staticmethod
-    def filter(user,
-               offset,
-               count,
-               problem=None,
-               submission=None,
-               q_user=None,
-               status=None,
-               language_type=None,
-               handwritten=None):
+    def filter(
+        user,
+        offset,
+        count,
+        problem=None,
+        submission=None,
+        q_user=None,
+        status=None,
+        language_type=None,
+        handwritten=None,
+    ):
         if offset is None or count is None:
             raise ValueError('offset and count are required!')
         try:

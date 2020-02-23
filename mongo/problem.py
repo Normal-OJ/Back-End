@@ -259,10 +259,13 @@ def edit_problem_test_case(problem_id, test_case):
     if len(excepted_names - in_out) != 0:
         return False
     # save zip file
-    problem.test_case.case_zip.put(test_case)
+    test_case.seek(0)
+    problem.test_case.case_zip.put(
+        test_case,
+        content_type='application/zip',
+    )
     # update problem obj
     problem.save()
-
     return True
 
 
