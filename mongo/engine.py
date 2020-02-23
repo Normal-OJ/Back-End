@@ -116,15 +116,17 @@ class ProblemCase(EmbeddedDocument):
     case_count = IntField(required=True, db_field='caseCount')
     memory_limit = IntField(required=True, db_field='memoryLimit')
     time_limit = IntField(required=True, db_field='timeLimit')
-    input = ListField(StringField(), default=list)
-    output = ListField(StringField(), default=list)
 
 
 class ProblemTestCase(EmbeddedDocument):
     language = IntField(choices=[0, 1, 2])
     fill_in_template = StringField(db_field='fillInTemplate', max_length=16000)
-    cases = ListField(EmbeddedDocumentField(ProblemCase, default=ProblemCase),
-                      default=list)
+    tasks = EmbeddedDocumentListField(
+        ProblemCase,
+        default=list,
+    )
+    # zip file contains testcase input/output
+    case_zip = FileField()
 
 
 class ProblemDescription(EmbeddedDocument):
@@ -158,11 +160,13 @@ class Problem(Document):
     owner = StringField(max_length=16, required=True)
     # pdf =
     tags = ListField(StringField(max_length=16))
-    test_case = EmbeddedDocumentField(ProblemTestCase,
-                                      db_field='testCase',
-                                      required=True,
-                                      default=ProblemTestCase,
-                                      null=True)
+    test_case = EmbeddedDocumentField(
+        ProblemTestCase,
+        db_field='testCase',
+        required=True,
+        default=ProblemTestCase,
+        null=True,
+    )
     ac_user = IntField(db_field='ACUser', default=0)
     submitter = IntField(default=0)
     homeworks = ListField(ReferenceField('Homework'), default=list)

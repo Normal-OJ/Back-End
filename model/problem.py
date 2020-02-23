@@ -114,25 +114,29 @@ def manage_problem(user, problem_id=None):
         else:
             return modify_coding_problem()
 
-    @Request.json('courses: list', 'status', 'type', 'description', 'tags',
-                  'problem_name', 'test_case_info', 'can_view_stdout',
-                  'allowed_language')
-    def modify_coding_problem(courses, status, type, problem_name, description,
-                              tags, test_case_info, can_view_stdout,
-                              allowed_language):
-        if sum(case['caseScore'] for case in test_case_info['cases']) != 100:
+    @Request.json(
+        'courses: list',
+        'status',
+        'type',
+        'description',
+        'tags',
+        'problem_name',
+        'test_case_info',
+        'can_view_stdout',
+        'allowed_language',
+    )
+    def modify_coding_problem(**p_ks):
+        if sum(case['caseScore']
+               for case in p_ks['test_case_info']['tasks']) != 100:
             return HTTPError("Cases' scores should be 100 in total", 400)
 
         if request.method == 'POST':
             lock.acquire()
-            pid = add_problem(user, courses, status, type, problem_name,
-                              description, tags, test_case_info,
-                              can_view_stdout, allowed_language)
+            pid = add_problem(user=user, **p_ks)
             lock.release()
             return HTTPResponse('Success.', data={'problemId': pid})
         elif request.method == 'PUT':
-            edit_problem(user, problem_id, courses, status, type, problem_name,
-                         description, tags, test_case_info, allowed_language)
+            edit_problem(user=user, **p_ks)
             return HTTPResponse('Success.')
 
     @Request.json('courses: list', 'status', 'description', 'tags',
@@ -155,53 +159,27 @@ def manage_problem(user, problem_id=None):
         result = edit_problem_test_case(problem_id, case)
         return HTTPResponse('Success.', data=result)
 
+    # get problem object from DB
     if request.method != 'POST':
         problem = Problem(problem_id).obj
         if problem is None:
             return HTTPError('Problem not exist.', 404)
         if user.role == 1 and problem.owner != user.username:
             return HTTPError('Not the owner.', 403)
-
+    # return detailed problem info
     if request.method == 'GET':
-        data = {
-            'courses': list(course.course_name for course in problem.courses),
-            'status': problem.problem_status,
-            'type': problem.problem_type,
-            'problemName': problem.problem_name,
-            'description': {
-                'description': problem.description['description'],
-                'input': problem.description['input'],
-                'output': problem.description['output'],
-                'hint': problem.description['hint'],
-                'sampleInput': problem.description['sample_input'],
-                'sampleOutput': problem.description['sample_output'],
-            },
-            'tags': problem.tags,
-            'testCase': {
-                'language':
-                problem.test_case['language'],
-                'fillInTemplate':
-                problem.test_case['fill_in_template'],
-                'cases':
-                list({
-                    'input': case.input,
-                    'output': case.output,
-                    'caseScore': case.case_score,
-                    'memoryLimit': case.memory_limit,
-                    'timeLimit': case.time_limit
-                } for case in problem.test_case['cases'])
-            },
-            'ACUser': problem.ac_user,
-            'submitter': problem.submitter
-        }
-        return HTTPResponse('Success.', data=data)
+        return HTTPResponse('Success.', data=Problem(problem_id).detailed_info)
+    # delete problem
     elif request.method == 'DELETE':
         delete_problem(problem_id)
         return HTTPResponse('Success.')
+    # edit problem
     else:
         try:
+            # modify problem meta
             if request.content_type.startswith('application/json'):
                 return modify_problem()
+            # upload testcase file
             elif request.content_type.startswith('multipart/form-data'):
                 return modify_problem_test_case()
             else:
@@ -213,17 +191,15 @@ def manage_problem(user, problem_id=None):
         except ValidationError as ve:
             if lock.locked():
                 lock.release()
-            return HTTPError('Invalid or missing arguments.',
-                             400,
-                             data=ve.to_dict())
+            return HTTPError(
+                'Invalid or missing arguments.',
+                400,
+                data=ve.to_dict(),
+            )
         except engine.DoesNotExist:
             if lock.locked():
                 lock.release()
             return HTTPError('Course not found.', 404)
-        except Exception as e:
-            if lock.locked():
-                lock.release()
-            return HTTPError('Error:' + str(e), 500)
 
 
 @problem_api.route('/clone', methods=['POST'])

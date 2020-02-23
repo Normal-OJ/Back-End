@@ -33,7 +33,7 @@ class ProblemData:
             1,
             'fillInTemplate':
             '',
-            'cases': [{
+            'tasks': [{
                 'caseCount': 1,
                 'caseScore': 100,
                 'memoryLimit': 1000,
@@ -107,7 +107,7 @@ class TestProblem(BaseTester):
                 1,
                 'fillInTemplate':
                 '',
-                'cases': [{
+                'tasks': [{
                     'caseCount': 1,
                     'caseScore': 100,
                     'memoryLimit': 1000,
@@ -136,7 +136,7 @@ class TestProblem(BaseTester):
                 1,
                 'fillInTemplate':
                 '',
-                'cases': [{
+                'tasks': [{
                     'caseCount': 1,
                     'caseScore': 100,
                     'memoryLimit': 1000,
@@ -165,7 +165,7 @@ class TestProblem(BaseTester):
                 1,
                 'fillInTemplate':
                 '',
-                'cases': [{
+                'tasks': [{
                     'caseCount': 1,
                     'caseScore': 100,
                     'memoryLimit': 1000,
@@ -181,7 +181,7 @@ class TestProblem(BaseTester):
                               data=get_file('test_case.zip'))
         json = rv.get_json()
 
-        assert rv.status_code == 200
+        assert rv.status_code == 200, json
         assert json['status'] == 'ok'
         assert json['message'] == 'Success.'
 
@@ -199,7 +199,7 @@ class TestProblem(BaseTester):
                 1,
                 'fillInTemplate':
                 '',
-                'cases': [{
+                'tasks': [{
                     'caseCount': 1,
                     'caseScore': 100,
                     'memoryLimit': 1000,
@@ -322,7 +322,7 @@ class TestProblem(BaseTester):
                 1,
                 'fillInTemplate':
                 '',
-                'cases': [{
+                'tasks': [{
                     'caseCount': 1,
                     'caseScore': 100,
                     'memoryLimit': 1000,
@@ -350,7 +350,7 @@ class TestProblem(BaseTester):
                 1,
                 'fillInTemplate':
                 '',
-                'cases': [{
+                'tasks': [{
                     'caseCount': 1,
                     'caseScore': 100,
                     'memoryLimit': 1000,
@@ -378,7 +378,7 @@ class TestProblem(BaseTester):
                 1,
                 'fillInTemplate':
                 '',
-                'cases': [{
+                'tasks': [{
                     'caseCount': 1,
                     'caseScore': 100,
                     'memoryLimit': 1000,
@@ -412,7 +412,7 @@ class TestProblem(BaseTester):
                 1,
                 'fillInTemplate':
                 '',
-                'cases': [{
+                'tasks': [{
                     'input': ['aaaa\n'],
                     'output': ['bbbb\n'],
                     'caseScore': 100,

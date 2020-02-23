@@ -24,9 +24,6 @@ __all__ = [
     'JudgeQueueFullError',
 ]
 
-# pid, hash()
-p_hash = {}
-
 # TODO: save tokens in db
 tokens = {}
 
@@ -126,23 +123,15 @@ class Submission(MongoBase, engine=engine.Submission):
         lang2ext = {0: '.c', 1: '.cpp', 2: '.py'}
         if self.language not in lang2ext:
             raise ValueError
-        return str(
-            (self.code_dir / f'main{lang2ext[self.language]}').absolute())
+        ext = lang2ext[self.language]
+        return str((self.code_dir / f'main{ext}').absolute())
 
     def get_code(self, path: str) -> str:
-        path = self.code_dir / path
-
-        if not path.exists():
-            raise FileNotFoundError(path)
-
-        return path.read_text()
+        code = self.code_dir / path
+        return code.read_text()
 
     def get_comment(self) -> str:
         path = self.comment_dir
-
-        if not path.exists():
-            raise FileNotFoundError(path)
-
         return path.read_bytes()
 
     def submit(self, code_file, rejudge=False) -> bool:
@@ -199,37 +188,12 @@ class Submission(MongoBase, engine=engine.Submission):
         Args:
             code_zip_path: code path for the user's code zip file
         '''
-        # prepare problem testcase
-        # get testcases
-        cases = self.problem.test_case.cases
+        problem = Problem(self.problem_id).obj
         # metadata
         meta = {
-            'language':
-            self.language,
-            'tasks': [{
-                'caseCount': case['case_count'],
-                'taskScore': case['case_score'],
-                'memoryLimit': case['memory_limit'],
-                'timeLimit': case['time_limit'],
-            } for case in cases],
+            'language': self.language,
+            'tasks': [task.to_mongo() for task in problem.test_case.tasks],
         }
-        # problem path
-        testcase_zip_path = SubmissionConfig.TMP_DIR / str(
-            self.problem_id) / 'testcase.zip'
-        current_app.logger.debug(f'testcase path: {testcase_zip_path}')
-
-        # check cache
-        h = hash(str(self.problem.test_case.to_mongo()))
-        if p_hash.get(self.problem_id) != h:
-            p_hash[self.problem_id] = h
-            testcase_zip_path.parent.mkdir(exist_ok=True)
-            with ZipFile(testcase_zip_path, 'w') as zf:
-                for i, case in enumerate(cases):
-                    for j in range(len(case['input'])):
-                        filename = f'{i:02d}{j:02d}'
-                        zf.writestr(f'{filename}.in', case['input'][j])
-                        zf.writestr(f'{filename}.out', case['output'][j])
-
         # setup post body
         post_data = {
             'token': SubmissionConfig.SANDBOX_TOKEN,
@@ -242,7 +206,7 @@ class Submission(MongoBase, engine=engine.Submission):
             ),
             'testcase': (
                 f'{self.id}-testcase.zip',
-                testcase_zip_path.open('rb'),
+                problem.test_case.case_zip,
             ),
             'meta.json': (
                 f'{self.id}-meta.json',

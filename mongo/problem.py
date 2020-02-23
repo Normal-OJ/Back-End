@@ -39,6 +39,54 @@ class Problem:
             return None
         return obj
 
+    @property
+    def detailed_info(self):
+        p_obj = self.obj
+        if p_obj is None:
+            return None
+        # get tasks info
+        tasks = []
+        with ZipFile(p_obj.test_case.case_zip) as zf:
+            for i, task in enumerate(p_obj.test_case.tasks):
+                tasks.append({
+                    'input': [
+                        zf.open(f'{i:02d}{j:02d}.in').read()
+                        for j in range(task.case_count)
+                    ],
+                    'output': [
+                        zf.open(f'{i:02d}{j:02d}.out').read()
+                        for j in range(task.case_count)
+                    ],
+                    'caseScore':
+                    task.case_score,
+                    'memoryLimit':
+                    task.memory_limit,
+                    'timeLimit':
+                    task.time_limit
+                })
+        return {
+            'courses': list(course.course_name for course in p_obj.courses),
+            'status': p_obj.problem_status,
+            'type': p_obj.problem_type,
+            'problemName': p_obj.problem_name,
+            'description': {
+                'description': p_obj.description['description'],
+                'input': p_obj.description['input'],
+                'output': p_obj.description['output'],
+                'hint': p_obj.description['hint'],
+                'sampleInput': p_obj.description['sample_input'],
+                'sampleOutput': p_obj.description['sample_output'],
+            },
+            'tags': p_obj.tags,
+            'testCase': {
+                'language': p_obj.test_case.language,
+                'fillInTemplate': p_obj.test_case.fill_in_template,
+                'tasks': tasks,
+            },
+            'ACUser': p_obj.ac_user,
+            'submitter': p_obj.submitter
+        }
+
     def allowed(self, language):
         if language >= 3 or language < 0:
             return False
@@ -122,17 +170,19 @@ def add_written_problem(user, courses, status, problem_name, description,
 def add_problem(user, courses, status, type, problem_name, description, tags,
                 test_case_info, can_view_stdout, allowed_language):
     problem_id = number
-    engine.Problem(problem_id=problem_id,
-                   courses=list(Course(name).obj for name in courses),
-                   problem_status=status,
-                   problem_type=type,
-                   problem_name=problem_name,
-                   description=description,
-                   owner=user.username,
-                   tags=tags,
-                   test_case=test_case_info,
-                   can_view_stdout=can_view_stdout,
-                   allowed_language=allowed_language or 7).save()
+    engine.Problem(
+        problem_id=problem_id,
+        courses=[Course(name).obj for name in courses],
+        problem_status=status,
+        problem_type=type,
+        problem_name=problem_name,
+        description=description,
+        owner=user.username,
+        tags=tags,
+        test_case=test_case_info,
+        can_view_stdout=can_view_stdout,
+        allowed_language=allowed_language or 7,
+    ).save()
     increased_number()
 
     return problem_id
@@ -154,76 +204,66 @@ def edit_written_problem(user, problem_id, courses, status, problem_name,
     problem.save()
 
 
-def edit_problem(user, problem_id, courses, status, type, problem_name,
-                 description, tags, test_case_info, allowed_language):
+def edit_problem(
+    user,
+    problem_id,
+    courses,
+    status,
+    type,
+    problem_name,
+    description,
+    tags,
+    test_case_info,
+    allowed_language,
+    can_view_stdout,
+):
     problem = Problem(problem_id).obj
-    old_case = problem.test_case['cases'][:]
-    test_case = test_case_info
-
-    problem.courses = list(
-        engine.Course.objects.get(course_name=name) for name in courses)
-    problem.problem_status = status
-    problem.problem_type = type
-    problem.problem_name = problem_name
-    problem.description['description'] = description['description']
-    problem.description['hint'] = description['hint']
-    problem.description['input'] = description['input']
-    problem.description['output'] = description['output']
-    problem.description['sample_input'] = description['sampleInput']
-    problem.description['sample_output'] = description['sampleOutput']
-    problem.owner = user.username
-    problem.tags = tags
-    problem.allowed_language = allowed_language
-    problem.test_case['language'] = test_case['language']
-    problem.test_case['fill_in_template'] = test_case['fillInTemplate']
-
-    i = 0
-    problem.test_case['cases'].clear()
-    for case in test_case['cases']:
-        case = {
-            'case_score': case['caseScore'],
-            'case_count': case['caseCount'],
-            'memory_limit': case['memoryLimit'],
-            'time_limit': case['timeLimit'],
-        }
-
-        if i < len(old_case):
-            case['input'] = old_case[i]['input']
-            case['output'] = old_case[i]['output']
-        i += 1
-
-        case = engine.ProblemCase(**case)
-        problem.test_case['cases'].append(case)
-
-    problem.save()
+    problem.update(
+        courses=[Course(name).obj for name in courses],
+        problem_status=status,
+        problem_type=type,
+        problem_name=problem_name,
+        description=description,
+        owner=user.username,
+        tags=tags,
+        allowed_language=allowed_language,
+        test_case=test_case_info,
+        can_view_stdout=can_view_stdout,
+    ).save()
 
 
 def edit_problem_test_case(problem_id, test_case):
+    '''
+    edit problem's testcase
+
+    Args:
+        problem_id: target problem's id
+        test_case: testcase zip file
+    Exceptions:
+        zipfile.BadZipFile: if `test_case` is not a zip file
+    Return:
+        a bool denote whether the update is successful
+    '''
     problem = Problem(problem_id).obj
 
-    file = f'/tmp/{randint(100000,999999)}'
-    test_case.save(file + '.zip')
-
-    for case in problem.test_case['cases']:
-        case['input'] = [0] * case['case_count']
-        case['output'] = [0] * case['case_count']
-
-    with ZipFile(file + '.zip', 'r') as f:
-        f.extractall(file)
-
-    for p in Path(file).iterdir():
-        subtest_index = int(p.name[:2])
-        subtest_case_index = int(p.name[2:4])
-        io = p.name[5:] + "put"
-
-        problem.test_case['cases'][subtest_index][io][
-            subtest_case_index] = p.read_text()
-        os.remove(file + '/' + p.name)
-
+    # check file structure
+    # create set of excepted filenames
+    excepted_names = set()
+    for i, task in enumerate(problem.test_case.tasks):
+        for j in range(task.case_count):
+            excepted_names.add(f'{i:02d}{j:02d}.in')
+            excepted_names.add(f'{i:02d}{j:02d}.out')
+    # input/output filenames
+    in_out = {*ZipFile(test_case).namelist()}
+    # check diff
+    if len(excepted_names - in_out) != 0:
+        return False
+    # save zip file
+    problem.test_case.case_zip.put(test_case)
+    # update problem obj
     problem.save()
-    os.remove(file + '.zip')
-    os.rmdir(file)
-    return problem.test_case['cases'][0]['input']
+
+    return True
 
 
 def delete_problem(problem_id):
