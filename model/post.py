@@ -35,7 +35,7 @@ def get_single_post(user, course, target_thread_id):
     permission = perm(target_course, user)
     if not permission:
         return HTTPError('You are not in this course.', 403)
-    if not target_thread_id :
+    if not target_thread_id:
         return HTTPError('Must contain target_thread_id', 400)
     data = found_post(target_course, target_thread_id)
     return HTTPResponse('Success.', data=data)
