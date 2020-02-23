@@ -3,7 +3,7 @@ from .course import *
 from zipfile import ZipFile, is_zipfile
 from pathlib import Path
 from random import randint
-import os
+import json
 
 __all__ = [
     'Number', 'Problem', 'get_problem_list', 'add_problem', 'edit_problem',
@@ -64,28 +64,10 @@ class Problem:
                     'timeLimit':
                     task.time_limit
                 })
-        return {
-            'courses': list(course.course_name for course in p_obj.courses),
-            'status': p_obj.problem_status,
-            'type': p_obj.problem_type,
-            'problemName': p_obj.problem_name,
-            'description': {
-                'description': p_obj.description['description'],
-                'input': p_obj.description['input'],
-                'output': p_obj.description['output'],
-                'hint': p_obj.description['hint'],
-                'sampleInput': p_obj.description['sample_input'],
-                'sampleOutput': p_obj.description['sample_output'],
-            },
-            'tags': p_obj.tags,
-            'testCase': {
-                'language': p_obj.test_case.language,
-                'fillInTemplate': p_obj.test_case.fill_in_template,
-                'tasks': tasks,
-            },
-            'ACUser': p_obj.ac_user,
-            'submitter': p_obj.submitter
-        }
+        ret = json.loads(p_obj.to_json())
+        ret['course'] = [course.course_name for course in p_obj.courses]
+        ret['testCase']['tasks'] = tasks
+        return ret
 
     def allowed(self, language):
         if language >= 3 or language < 0:
