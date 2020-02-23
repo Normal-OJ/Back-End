@@ -127,8 +127,8 @@ class TestPost(BaseTester):
         rv = client_student.get('/post/math')
         json = rv.get_json()
         assert rv.status_code == 200
-        assert json['data'][0]['title'] == 'The Post is deleted.'
-        assert json['data'][0]['thread']['content'] == 'Content is deleted.'
+        assert json['data'][0]['title'] == '*The Post was deleted*'
+        assert json['data'][0]['thread']['content'] == '*Content was deleted.*'
         assert json['data'][0]['thread']['author']['username'] == 'student'
         assert json['data'][0]['thread']['reply'][0][
             'content'] == 'The reply is edited.'
