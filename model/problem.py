@@ -104,7 +104,8 @@ def view_problem(user, problem_id):
 
 
 @problem_api.route('/manage', methods=['POST'])
-@problem_api.route('/manage/<problem_id>', methods=['GET', 'PUT', 'DELETE'])
+@problem_api.route('/manage/<int:problem_id>',
+                   methods=['GET', 'PUT', 'DELETE'])
 @identity_verify(0, 1)
 def manage_problem(user, problem_id=None):
     @Request.json('type')
@@ -135,7 +136,11 @@ def manage_problem(user, problem_id=None):
             lock.release()
             return HTTPResponse('Success.', data={'problemId': pid})
         elif request.method == 'PUT':
-            edit_problem(user=user, **p_ks)
+            edit_problem(
+                user=user,
+                problem_id=problem_id,
+                **p_ks,
+            )
             return HTTPResponse('Success.')
 
     @Request.json('courses: list', 'status', 'description', 'tags',
@@ -182,7 +187,23 @@ def manage_problem(user, problem_id=None):
             return HTTPError('Not the owner.', 403)
     # return detailed problem info
     if request.method == 'GET':
-        return HTTPResponse('Success.', data=Problem(problem_id).detailed_info)
+        info = Problem(problem_id).detailed_info(
+            'courses',
+            'problemName',
+            'description',
+            'tags',
+            'testCase',
+            'ACUser',
+            'submitter',
+            status='problemStatus',
+            type='problemType',
+        )
+        for task in info['testCase']['tasks']:
+            del task['caseCount']
+        return HTTPResponse(
+            'Success.',
+            data=info,
+        )
     # delete problem
     elif request.method == 'DELETE':
         delete_problem(problem_id)

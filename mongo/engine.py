@@ -126,24 +126,7 @@ class ProblemTestCase(EmbeddedDocument):
         default=list,
     )
     # zip file contains testcase input/output
-    case_zip = FileField()
-
-
-class ProblemDescription(EmbeddedDocument):
-    description = StringField(max_length=100000)
-    input = StringField(max_length=100000)
-    output = StringField(max_length=100000)
-    hint = StringField(max_length=100000)
-    sample_input = ListField(
-        StringField(),
-        default=list,
-        db_field='sampleInput',
-    )
-    sample_output = ListField(
-        StringField(),
-        default=list,
-        db_field='sampleOutput',
-    )
+    case_zip = FileField(db_field='caseZip')
 
 
 class ProblemDescription(EmbeddedDocument):
@@ -166,8 +149,16 @@ class ProblemDescription(EmbeddedDocument):
 class Problem(Document):
     problem_id = IntField(db_field='problemId', required=True, unique=True)
     courses = ListField(ReferenceField('Course'), default=list)
-    problem_status = IntField(default=1, choices=[0, 1])
-    problem_type = IntField(default=0, choices=[0, 1, 2])
+    problem_status = IntField(
+        default=1,
+        choices=[0, 1],
+        db_field='problemStatus',
+    )
+    problem_type = IntField(
+        default=0,
+        choices=[0, 1, 2],
+        db_field='problemType',
+    )
     problem_name = StringField(db_field='problemName',
                                max_length=64,
                                required=True)
@@ -180,7 +171,6 @@ class Problem(Document):
     test_case = EmbeddedDocumentField(
         ProblemTestCase,
         db_field='testCase',
-        required=True,
         default=ProblemTestCase,
         null=True,
     )

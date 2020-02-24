@@ -40,34 +40,49 @@ class Problem:
             return None
         return obj
 
-    @property
-    def detailed_info(self):
+    def detailed_info(self, *ks, **kns):
         p_obj = self.obj
         if p_obj is None:
             return None
         # get tasks info
-        tasks = []
-        with ZipFile(p_obj.test_case.case_zip) as zf:
-            for i, task in enumerate(p_obj.test_case.tasks):
-                tasks.append({
-                    'input': [
-                        zf.open(f'{i:02d}{j:02d}.in').read()
-                        for j in range(task.case_count)
-                    ],
-                    'output': [
-                        zf.open(f'{i:02d}{j:02d}.out').read()
-                        for j in range(task.case_count)
-                    ],
-                    'taskScore':
-                    task.task_score,
-                    'memoryLimit':
-                    task.memory_limit,
-                    'timeLimit':
-                    task.time_limit
-                })
-        ret = json.loads(p_obj.to_json())
-        ret['course'] = [course.course_name for course in p_obj.courses]
-        ret['testCase']['tasks'] = tasks
+        tasks = [task.to_mongo() for task in p_obj.test_case.tasks]
+        for t in tasks:
+            t.update({
+                'input': [],
+                'output': [],
+            })
+        if p_obj.test_case.case_zip:
+            with ZipFile(p_obj.test_case.case_zip) as zf:
+                for i, task in enumerate(tasks):
+                    task.update({
+                        'input': [
+                            zf.read(f'{i:02d}{j:02d}.in').decode('utf-8')
+                            for j in range(task['caseCount'])
+                        ],
+                        'output': [
+                            zf.read(f'{i:02d}{j:02d}.out').decode('utf-8')
+                            for j in range(task['caseCount'])
+                        ],
+                    })
+        _ret = p_obj.to_mongo()
+        _ret['courses'] = [course.course_name for course in p_obj.courses]
+        _ret['testCase']['tasks'] = tasks
+        del _ret['testCase']['caseZip']
+        ret = {}
+        for k in ks:
+            kns[k] = k
+        for k, n in kns.items():
+            s_ns = n.split('__')
+            # extract wanted value
+            v = _ret[s_ns[0]]
+            for s_n in s_ns[1:]:
+                v = v[s_n]
+            # extract wanted keys
+            e = ret
+            s_ks = k.split('__')
+            for s_k in s_ks[:-1]:
+                e = e.get(s_k, {s_k: {}})
+            e[s_ks[-1]] = v
         return ret
 
     def allowed(self, language):
@@ -219,6 +234,8 @@ def edit_problem(
     can_view_stdout,
 ):
     problem = Problem(problem_id).obj
+    test_case = engine.ProblemTestCase.from_json(json.dumps(test_case_info))
+    test_case.case_zip = problem.test_case.case_zip
     problem.update(
         courses=[Course(name).obj for name in courses],
         problem_status=status,
@@ -228,9 +245,10 @@ def edit_problem(
         owner=user.username,
         tags=tags,
         allowed_language=allowed_language,
-        test_case=test_case_info,
         can_view_stdout=can_view_stdout,
-    ).save()
+        test_case=test_case,
+    )
+    problem.save()
 
 
 def edit_problem_test_case(problem_id, test_case):
