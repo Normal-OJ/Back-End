@@ -627,3 +627,112 @@ class TestCreateSubmission(SubmissionTester):
 
     def test_submit_to_not_enrolled_course(self, client_student):
         pass
+
+
+class TestHandwrittenSubmission(SubmissionTester):
+    pid = None
+
+    @classmethod
+    @pytest.fixture(autouse=True)
+    def on_create(cls, problem_ids):
+        cls.pid = problem_ids('teacher', 1, True, 0, 2)[0]
+        yield
+        cls.pid = None
+
+    def test_handwritten_submission(self, client_student, client_teacher):
+        # first claim a new submission to backend server
+        post_json = {'problemId': self.pid, 'languageType': 0}
+        # recieve response, which include the submission id
+        # and a token to validate next request
+        rv, rv_json, rv_data = BaseTester.request(
+            client_student,
+            'post',
+            '/submission',
+            json=post_json,
+        )
+
+        pprint(f'post: {rv_json}')
+
+        assert rv.status_code == 200, can_view(
+            User('stucent'),
+            Problem(pid).obj,
+        )
+        assert sorted(rv_data.keys()) == sorted(['submissionId'])
+
+        self.submission_id = rv_data["submissionId"]
+
+        # second, post my homework to server. after that,
+        # my submission will be judged by my requests later
+        pdf_dir = pathlib.Path('tests/handwritten/main.pdf.zip')
+        files = {
+            'code': (
+                open(pdf_dir, 'rb'),
+                'code',
+            )
+        }
+        rv = client_student.put(
+            f'/submission/{self.submission_id}',
+            data=files,
+        )
+        rv_json = rv.get_json()
+
+        pprint(f'put: {rv_json}')
+
+        assert rv.status_code == 200
+
+        # Third, grade the submission
+
+        rv = client_teacher.put(
+            f'/submission/{self.submission_id}/grade',
+            json={'score': 87},
+        )
+
+        json = rv.get_json()
+        pprint(f'grade: {json}')
+        assert rv.status_code == 200
+
+        # fourth, sned a wrong file to the submission
+
+        pdf_dir = pathlib.Path('tests/src/base.c')
+        files = {
+            'comment': (
+                open(pdf_dir, 'rb'),
+                'comment',
+            )
+        }
+        rv = client_teacher.put(
+            f'/submission/{self.submission_id}/comment',
+            data=files,
+        )
+
+        assert rv.status_code == 400
+
+        # fifth, sned the comment.pdf to the submission
+
+        pdf_dir = pathlib.Path('tests/handwritten/comment.pdf')
+        files = {
+            'comment': (
+                open(pdf_dir, 'rb'),
+                'comment',
+            )
+        }
+        rv = client_teacher.put(
+            f'/submission/{self.submission_id}/comment',
+            data=files,
+        )
+
+        assert rv.status_code == 200
+
+        # sixth, get the submission info
+
+        rv = client_student.get(f'/submission/{self.submission_id}', )
+
+        json = rv.get_json()
+        assert rv.status_code == 200
+        assert json['data']['score'] == 87
+
+        # seventh, get the submission comment
+
+        rv = client_student.get(f'/submission/{self.submission_id}/pdf', )
+
+        assert rv.status_code == 200

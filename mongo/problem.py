@@ -6,7 +6,8 @@ from random import randint
 import os
 
 __all__ = [
-    'Number', 'Problem', 'get_problem_list', 'add_problem', 'edit_problem',
+    'Number', 'Problem', 'get_problem_list', 'add_problem',
+    'add_written_problem', 'edit_problem', 'edit_written_problem',
     'edit_problem_test_case', 'delete_problem', 'copy_problem',
     'release_problem', 'can_view'
 ]
@@ -40,6 +41,8 @@ class Problem:
         return obj
 
     def allowed(self, language):
+        if self.obj.problem_type == 2:
+            return True
         if language >= 3 or language < 0:
             return False
         return bool((1 << language) & self.obj.allowed_language)
@@ -101,25 +104,57 @@ def get_problem_list(
     return problems
 
 
-def add_problem(user, courses, status, type, problem_name, description, tags,
-                test_case_info, can_view_stdout, allowed_language):
+def add_written_problem(user, courses, status, problem_name, description,
+                        tags):
     problem_id = number
     engine.Problem(
         problem_id=problem_id,
         courses=list(Course(name).obj for name in courses),
         problem_status=status,
-        problem_type=type,
+        problem_type=2,
         problem_name=problem_name,
         description=description,
         owner=user.username,
         tags=tags,
-        test_case=test_case_info,
-        can_view_stdout=can_view_stdout,
-        allowed_language=allowed_language or 7,
     ).save()
     increased_number()
 
     return problem_id
+
+
+def add_problem(user, courses, status, type, problem_name, description, tags,
+                test_case_info, can_view_stdout, allowed_language):
+    problem_id = number
+    engine.Problem(problem_id=problem_id,
+                   courses=list(Course(name).obj for name in courses),
+                   problem_status=status,
+                   problem_type=type,
+                   problem_name=problem_name,
+                   description=description,
+                   owner=user.username,
+                   tags=tags,
+                   test_case=test_case_info,
+                   can_view_stdout=can_view_stdout,
+                   allowed_language=allowed_language or 7).save()
+    increased_number()
+
+    return problem_id
+
+
+def edit_written_problem(user, problem_id, courses, status, problem_name,
+                         description, tags):
+    problem = Problem(problem_id).obj
+
+    problem.courses = list(
+        engine.Course.objects.get(course_name=name) for name in courses)
+    problem.problem_status = status
+    problem.problem_type = 2
+    problem.problem_name = problem_name
+    problem.description = description
+    problem.owner = user.username
+    problem.tags = tags
+
+    problem.save()
 
 
 def edit_problem(user, problem_id, courses, status, type, problem_name,
@@ -133,7 +168,12 @@ def edit_problem(user, problem_id, courses, status, type, problem_name,
     problem.problem_status = status
     problem.problem_type = type
     problem.problem_name = problem_name
-    problem.description = description
+    problem.description['description'] = description['description']
+    problem.description['hint'] = description['hint']
+    problem.description['input'] = description['input']
+    problem.description['output'] = description['output']
+    problem.description['sample_input'] = description['sampleInput']
+    problem.description['sample_output'] = description['sampleOutput']
     problem.owner = user.username
     problem.tags = tags
     problem.allowed_language = allowed_language

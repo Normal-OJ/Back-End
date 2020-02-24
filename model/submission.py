@@ -9,6 +9,7 @@ from flask import Blueprint, request
 from datetime import datetime, timedelta
 from functools import wraps
 from flask import current_app
+from flask import make_response
 
 from mongo import *
 from mongo import engine
@@ -53,7 +54,7 @@ def create_submission(user, language_type, problem_id):
             429)  # Too many request
 
     # check for fields
-    if any([language_type is None, problem_id is None]):
+    if problem_id is None:
         return HTTPError(
             'post data missing!',
             400,
@@ -71,6 +72,20 @@ def create_submission(user, language_type, problem_id):
     # problem permissoion
     if not can_view(user, problem.obj):
         return HTTPError('problem permission denied!', 403)
+
+    if language_type is None:
+        if problem.type != 2:
+            return HTTPError(
+                'post data missing!',
+                400,
+                data={
+                    'languageType': language_type,
+                    'problemId': problem_id
+                },
+            )
+
+        language_type = 0
+
     # not allowed language
     if language_type < 3 and not problem.allowed(language_type):
         return HTTPError(
@@ -188,7 +203,7 @@ def get_submission(user, submission):
     ret = submission.to_dict()
 
     # can not view the problem, also the submission
-    if not can_view(user, submission.problem):
+    if not can_view(user, submission.problem) or submission.handwritten:
         del ret['code']
     # you can view self submission
     elif user.username != submission.user.username:
@@ -208,10 +223,42 @@ def get_submission(user, submission):
 
     # give user source code
     if 'code' in ret:
-        ext = ['.c', '.cpp', '.py']
-        ret['code'] = submission.get_code(f'main{ext[submission.language]}')
+        ext = ['.c', '.cpp', '.py'][submission.language]
+        ret['code'] = submission.get_code(f'main{ext}')
 
     return HTTPResponse(data=ret)
+
+
+@submission_api.route('/<submission_id>/pdf', methods=['GET'])
+@login_required
+@submission_required
+def get_submission_pdf(user, submission):
+    ret = submission.to_dict()
+
+    # can not view the problem, also the submission
+    if not can_view(user, submission.problem):
+        return HTTPError('forbidden.', 403)
+    # you can view self submission
+    elif user.username != submission.user.username:
+        # TA and teacher can view students' submissions
+        permissions = []
+        for course in submission.problem.courses:
+            permissions.append(perm(course, user) >= 2)
+        if not any(permissions):
+            return HTTPError('forbidden.', 403)
+
+    if not submission.handwritten:
+        return HTTPError('it is not a handwritten submission.', 400)
+
+    try:
+        data = submission.get_comment()
+    except FileNotFoundError as e:
+        return HTTPError('comment not found.', 404)
+
+    response = make_response(data)
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = 'inline; filename=comment.pdf'
+    return response
 
 
 @submission_api.route('/count', methods=['GET'])
@@ -248,7 +295,7 @@ def get_submission_count(
 
 
 @submission_api.route('/<submission_id>/complete', methods=['PUT'])
-@Request.json('tasks: dict', 'token: str')
+@Request.json('tasks: list', 'token: str')
 @submission_required
 def on_submission_complete(submission, tasks, token):
     if not secrets.compare_digest(token, SubmissionConfig.SANDBOX_TOKEN):
@@ -256,7 +303,11 @@ def on_submission_complete(submission, tasks, token):
     try:
         submission.process_result(tasks)
     except (ValidationError, KeyError) as e:
-        return HTTPError(f'invalid data!\n{e}', 400)
+        return HTTPError(
+            'invalid data!\n'
+            f'{type(e).__name__}: {e}',
+            400,
+        )
     return HTTPResponse(f'{submission} result recieved.')
 
 
@@ -287,7 +338,9 @@ def update_submission(user, submission):
             return HTTPError(str(e), 400)
         except JudgeQueueFullError as e:
             return HTTPResponse(str(e), 202)
-        return HTTPResponse(f'{submission} send to judgement.')
+        return HTTPResponse(
+            f'{submission} {"is finished." if submission.handwritten else "send to judgement."}'
+        )
 
     # put handler
     # validate this reques
@@ -302,6 +355,31 @@ def update_submission(user, submission):
         return HTTPError('user not equal!', 403)
 
     return recieve_source_file()
+
+
+@submission_api.route('/<submission_id>/grade', methods=['PUT'])
+@Request.json('score')
+@submission_required
+def grade_submission(submission, score):
+    submission.update(score=score)
+    return HTTPResponse(f'{submission} score recieved.')
+
+
+@submission_api.route('/<submission_id>/comment', methods=['PUT'])
+@Request.files('comment')
+@submission_required
+def comment_submission(submission, comment):
+    if comment is None:
+        return HTTPError(
+            f'can not find the source file',
+            400,
+        )
+
+    try:
+        submission.comment(comment)
+    except ValueError as e:
+        return HTTPError(str(e), 400)
+    return HTTPResponse(f'{submission} comment recieved.')
 
 
 @submission_api.route('/<submission_id>/rejudge', methods=['GET'])
