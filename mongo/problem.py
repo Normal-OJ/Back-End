@@ -23,7 +23,7 @@ class Number:
     def obj(self):
         try:
             obj = engine.Number.objects.get(name=self.name)
-        except:
+        except engine.DoesNotExist:
             return None
         return obj
 
@@ -36,7 +36,7 @@ class Problem:
     def obj(self):
         try:
             obj = engine.Problem.objects.get(problem_id=self.problem_id)
-        except:
+        except engine.DoesNotExist:
             return None
         return obj
 
