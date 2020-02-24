@@ -104,6 +104,6 @@ def edit_post(target_thread, user, content, title, permission, delete=0):
 
 
 def delete_post(target_thread, user, permission):
-    content = "*Content was deleted*"
-    title = "*The Post was deleted.*"
+    content = "*Content was deleted.*"
+    title = "*The Post was deleted*"
     return edit_post(target_thread, user, content, title, permission, 1)

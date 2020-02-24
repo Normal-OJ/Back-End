@@ -22,6 +22,8 @@ __all__ = [
     'assign_token',
     'verify_token',
     'JudgeQueueFullError',
+    'SourceNotFoundError',
+    'NoSourceError',
 ]
 
 # TODO: save tokens in db
@@ -51,6 +53,18 @@ def verify_token(submission_id, token):
 class JudgeQueueFullError(Exception):
     '''
     when sandbox task queue is full
+    '''
+
+
+class SourceNotFoundError(Exception):
+    '''
+    when source code not found but it shoud be
+    '''
+
+
+class NoSourceError(Exception):
+    '''
+    when source code haven't been uploaded but try to access them
     '''
 
 
@@ -134,6 +148,43 @@ class Submission(MongoBase, engine=engine.Submission):
         path = self.comment_dir
         return path.read_bytes()
 
+    def get_comment(self) -> str:
+        path = self.comment_dir
+
+        if not path.exists():
+            raise FileNotFoundError(path)
+
+        return path.read_bytes()
+
+    def make_source_zip(self):
+        '''
+        zip source file
+        '''
+        # check source code
+        if not self.code:
+            raise NoSourceError
+        if not self.code_dir.exists():
+            raise SourceNotFoundError
+        # if source zip has been created, directly return
+        zip_path = self.tmp_dir / 'source.zip'
+        if zip_path.exists():
+            return zip_path
+        zip_path.parent.mkdir(exist_ok=True)
+        with ZipFile(zip_path, 'w') as f:
+            for code in self.code_dir.iterdir():
+                f.write(code, arcname=code.name)
+        return zip_path
+
+    def rejudge(self) -> bool:
+        '''
+        rejudge this submission
+        '''
+        zip_path = self.make_source_zip()
+        self.update(status=-1)
+        if current_app.config['TESTING']:
+            return False
+        return self.send(zip_path)
+
     def submit(self, code_file, rejudge=False) -> bool:
         '''
         prepara data for submit code to sandbox and then send it
@@ -144,23 +195,34 @@ class Submission(MongoBase, engine=engine.Submission):
         # unexisted id
         if not self:
             raise engine.DoesNotExist(f'{self}')
+        # init submission data
+
         if self.code_dir.is_dir():
             raise FileExistsError(f'{submission} code found on server')
-
-        # create submission folder
-        self.code_dir.mkdir()
-        # tmp path to store zipfile
-        zip_path = self.tmp_dir / 'source.zip'
-        zip_path.parent.mkdir()
-        zip_path.write_bytes(code_file.read())
-        if not is_zipfile(zip_path):
-            # delete source file
-            zip_path.unlink()
+        # check zip
+        if not is_zipfile(code_file):
             raise ValueError('only accept zip file.')
-        with ZipFile(zip_path, 'r') as f:
+        # save source
+        self.code_dir.mkdir()
+        with ZipFile(code_file) as f:
             f.extractall(self.code_dir)
         current_app.logger.debug(f'{self} code updated.')
         self.update(code=True, status=-1)
+        self.reload()
+        zip_path = self.make_source_zip()
+
+        # delete old handwritten submission
+        if self.handwritten:
+            q = {
+                'problem': self.problem,
+                'score': -1,
+                'user': self.user,
+                'handwritten': True
+            }
+
+            for submission in engine.Submission.objects(**q):
+                if submission != self.obj:
+                    submission.delete()
 
         # delete old handwritten submission
         if self.handwritten:
@@ -178,7 +240,6 @@ class Submission(MongoBase, engine=engine.Submission):
         # we no need to actually send code to sandbox during testing
         if current_app.config['TESTING'] or self.handwritten:
             return False
-        current_app.logger.info(f'send to judgement')
         return self.send(zip_path)
 
     def send(self, code_zip_path) -> bool:
@@ -224,7 +285,7 @@ class Submission(MongoBase, engine=engine.Submission):
             judge_url,
             data=post_data,
             files=files,
-        )  # cookie: for debug, need better solution
+        )
 
         # Queue is full now
         if resp.status_code == 500:

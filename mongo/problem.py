@@ -6,7 +6,8 @@ from random import randint
 import json
 
 __all__ = [
-    'Number', 'Problem', 'get_problem_list', 'add_problem', 'edit_problem',
+    'Number', 'Problem', 'get_problem_list', 'add_problem',
+    'add_written_problem', 'edit_problem', 'edit_written_problem',
     'edit_problem_test_case', 'delete_problem', 'copy_problem',
     'release_problem', 'can_view'
 ]
@@ -22,7 +23,7 @@ class Number:
     def obj(self):
         try:
             obj = engine.Number.objects.get(name=self.name)
-        except:
+        except engine.DoesNotExist:
             return None
         return obj
 
@@ -35,7 +36,7 @@ class Problem:
     def obj(self):
         try:
             obj = engine.Problem.objects.get(problem_id=self.problem_id)
-        except:
+        except engine.DoesNotExist:
             return None
         return obj
 
@@ -70,6 +71,8 @@ class Problem:
         return ret
 
     def allowed(self, language):
+        if self.obj.problem_type == 2:
+            return True
         if language >= 3 or language < 0:
             return False
         return bool((1 << language) & self.obj.allowed_language)
@@ -156,15 +159,31 @@ def add_problem(user, courses, status, type, problem_name, description, tags,
         problem_id=problem_id,
         courses=[Course(name).obj for name in courses],
         problem_status=status,
-        problem_type=type,
+        problem_type=2,
         problem_name=problem_name,
         description=description,
         owner=user.username,
         tags=tags,
-        test_case=test_case_info,
-        can_view_stdout=can_view_stdout,
-        allowed_language=allowed_language or 7,
     ).save()
+    increased_number()
+
+    return problem_id
+
+
+def add_problem(user, courses, status, type, problem_name, description, tags,
+                test_case_info, can_view_stdout, allowed_language):
+    problem_id = number
+    engine.Problem(problem_id=problem_id,
+                   courses=list(Course(name).obj for name in courses),
+                   problem_status=status,
+                   problem_type=type,
+                   problem_name=problem_name,
+                   description=description,
+                   owner=user.username,
+                   tags=tags,
+                   test_case=test_case_info,
+                   can_view_stdout=can_view_stdout,
+                   allowed_language=allowed_language or 7).save()
     increased_number()
 
     return problem_id
