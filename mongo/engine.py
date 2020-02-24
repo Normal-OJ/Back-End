@@ -112,7 +112,7 @@ class Number(Document):
 
 
 class ProblemCase(EmbeddedDocument):
-    case_score = IntField(required=True, db_field='caseScore')
+    task_score = IntField(required=True, db_field='taskScore')
     case_count = IntField(required=True, db_field='caseCount')
     memory_limit = IntField(required=True, db_field='memoryLimit')
     time_limit = IntField(required=True, db_field='timeLimit')

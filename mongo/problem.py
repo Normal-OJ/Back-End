@@ -57,8 +57,8 @@ class Problem:
                         zf.open(f'{i:02d}{j:02d}.out').read()
                         for j in range(task.case_count)
                     ],
-                    'caseScore':
-                    task.case_score,
+                    'taskScore':
+                    task.task_score,
                     'memoryLimit':
                     task.memory_limit,
                     'timeLimit':

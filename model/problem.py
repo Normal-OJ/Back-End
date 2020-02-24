@@ -126,7 +126,7 @@ def manage_problem(user, problem_id=None):
         'allowed_language',
     )
     def modify_coding_problem(**p_ks):
-        if sum(case['caseScore']
+        if sum(case['taskScore']
                for case in p_ks['test_case_info']['tasks']) != 100:
             return HTTPError("Cases' scores should be 100 in total", 400)
 
