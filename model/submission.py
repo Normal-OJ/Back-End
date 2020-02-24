@@ -9,6 +9,7 @@ from flask import Blueprint, request
 from datetime import datetime, timedelta
 from functools import wraps
 from flask import current_app
+from flask import make_response
 
 from mongo import *
 from mongo import engine
@@ -42,7 +43,7 @@ def submission_required(func):
 @submission_api.route('/', methods=['POST'])
 @login_required
 @Request.json('language_type: int', 'problem_id')
-def create_submission(user, language_type, problem_id):
+def create_submission(user, problem_id, language_type):
     # the user reach the rate limit for submitting
     now = datetime.now()
     delta = timedelta.total_seconds(now - user.last_submit)
@@ -53,7 +54,7 @@ def create_submission(user, language_type, problem_id):
             429)  # Too many request
 
     # check for fields
-    if any([language_type is None, problem_id is None]):
+    if problem_id is None:
         return HTTPError(
             'post data missing!',
             400,
@@ -70,6 +71,20 @@ def create_submission(user, language_type, problem_id):
     # problem permissoion
     if not can_view(user, problem.obj):
         return HTTPError('problem permission denied!', 403)
+
+    if language_type is None:
+        if problem.type != 2:
+            return HTTPError(
+                'post data missing!',
+                400,
+                data={
+                    'languageType': language_type,
+                    'problemId': problem_id
+                },
+            )
+
+        language_type = 0
+
     # not allowed language
     if language_type < 3 and not problem.allowed(language_type):
         return HTTPError(
@@ -187,7 +202,7 @@ def get_submission(user, submission):
     ret = submission.to_dict()
 
     # can not view the problem, also the submission
-    if not can_view(user, submission.problem):
+    if not can_view(user, submission.problem) or submission.handwritten:
         del ret['code']
     # you can view self submission
     elif user.username != submission.user.username:
@@ -345,7 +360,7 @@ def update_submission(user, submission):
 @Request.json('score')
 @submission_required
 def grade_submission(submission, score):
-    submission.score = score
+    submission.update(score=score)
     return HTTPResponse(f'{submission} score recieved.')
 
 

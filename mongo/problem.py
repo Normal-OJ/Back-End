@@ -6,7 +6,8 @@ from random import randint
 import os
 
 __all__ = [
-    'Number', 'Problem', 'get_problem_list', 'add_problem', 'edit_problem',
+    'Number', 'Problem', 'get_problem_list', 'add_problem',
+    'add_written_problem', 'edit_problem', 'edit_written_problem',
     'edit_problem_test_case', 'delete_problem', 'copy_problem',
     'release_problem', 'can_view'
 ]
@@ -40,6 +41,8 @@ class Problem:
         return obj
 
     def allowed(self, language):
+        if self.obj.problem_type == 2:
+            return True
         if language >= 3 or language < 0:
             return False
         return bool((1 << language) & self.obj.allowed_language)

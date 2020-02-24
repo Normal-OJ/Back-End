@@ -160,7 +160,6 @@ class Problem(Document):
     tags = ListField(StringField(max_length=16))
     test_case = EmbeddedDocumentField(ProblemTestCase,
                                       db_field='testCase',
-                                      required=True,
                                       default=ProblemTestCase,
                                       null=True)
     ac_user = IntField(db_field='ACUser', default=0)

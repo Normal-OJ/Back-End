@@ -183,7 +183,7 @@ class Submission(MongoBase, engine=engine.Submission):
             }
 
             for submission in engine.Submission.objects(**q):
-                if submission != self:
+                if submission != self.obj:
                     submission.delete()
 
         # we no need to actually send code to sandbox during testing
