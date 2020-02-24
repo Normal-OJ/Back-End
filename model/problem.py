@@ -214,10 +214,6 @@ def manage_problem(user, problem_id=None):
             if lock.locked():
                 lock.release()
             return HTTPError('Course not found.', 404)
-        except Exception as e:
-            if lock.locked():
-                lock.release()
-            return HTTPError('Error:' + str(e), 500)
 
 
 @problem_api.route('/clone', methods=['POST'])

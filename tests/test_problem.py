@@ -35,7 +35,7 @@ class ProblemData:
             '',
             'tasks': [{
                 'caseCount': 1,
-                'caseScore': 100,
+                'taskScore': 100,
                 'memoryLimit': 1000,
                 'timeLimit': 1000
             }]
@@ -109,7 +109,7 @@ class TestProblem(BaseTester):
                 '',
                 'tasks': [{
                     'caseCount': 1,
-                    'caseScore': 100,
+                    'taskScore': 100,
                     'memoryLimit': 1000,
                     'timeLimit': 1000
                 }]
@@ -138,7 +138,7 @@ class TestProblem(BaseTester):
                 '',
                 'tasks': [{
                     'caseCount': 1,
-                    'caseScore': 100,
+                    'taskScore': 100,
                     'memoryLimit': 1000,
                     'timeLimit': 1000
                 }]
@@ -167,7 +167,7 @@ class TestProblem(BaseTester):
                 '',
                 'tasks': [{
                     'caseCount': 1,
-                    'caseScore': 100,
+                    'taskScore': 100,
                     'memoryLimit': 1000,
                     'timeLimit': 1000
                 }]
@@ -201,7 +201,7 @@ class TestProblem(BaseTester):
                 '',
                 'tasks': [{
                     'caseCount': 1,
-                    'caseScore': 100,
+                    'taskScore': 100,
                     'memoryLimit': 1000,
                     'timeLimit': 1000
                 }]
@@ -324,7 +324,7 @@ class TestProblem(BaseTester):
                 '',
                 'tasks': [{
                     'caseCount': 1,
-                    'caseScore': 100,
+                    'taskScore': 100,
                     'memoryLimit': 1000,
                     'timeLimit': 1000
                 }]
@@ -352,7 +352,7 @@ class TestProblem(BaseTester):
                 '',
                 'tasks': [{
                     'caseCount': 1,
-                    'caseScore': 100,
+                    'taskScore': 100,
                     'memoryLimit': 1000,
                     'timeLimit': 1000
                 }]
@@ -380,7 +380,7 @@ class TestProblem(BaseTester):
                 '',
                 'tasks': [{
                     'caseCount': 1,
-                    'caseScore': 100,
+                    'taskScore': 100,
                     'memoryLimit': 1000,
                     'timeLimit': 1000
                 }]
@@ -415,7 +415,7 @@ class TestProblem(BaseTester):
                 'tasks': [{
                     'input': ['aaaa\n'],
                     'output': ['bbbb\n'],
-                    'caseScore': 100,
+                    'taskScore': 100,
                     'memoryLimit': 1000,
                     'timeLimit': 1000
                 }]

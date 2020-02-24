@@ -1,6 +1,7 @@
 from app import app as flask_app
 from mongo import *
 from mongo import engine
+import mongomock.gridfs
 
 import os
 import pytest
@@ -17,6 +18,7 @@ from tests.base_tester import BaseTester
 @pytest.fixture
 def app():
     flask_app.config['TESTING'] = True
+    mongomock.gridfs.enable_gridfs_integration()
     return flask_app
 
 
@@ -94,10 +96,10 @@ def random_problem_data(username=None, status=-1, type=0):
             2,
             'fillInTemplate':
             '',
-            'cases': [
+            'tasks': [
                 {
                     'caseCount': 1,
-                    'caseScore': 100,
+                    'taskScore': 100,
                     'memoryLimit': 32768,
                     'timeLimit': 1000,
                 },
