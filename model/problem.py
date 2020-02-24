@@ -129,7 +129,6 @@ def manage_problem(user, problem_id=None):
         if sum(case['taskScore']
                for case in p_ks['test_case_info']['tasks']) != 100:
             return HTTPError("Cases' scores should be 100 in total", 400)
-
         if request.method == 'POST':
             lock.acquire()
             pid = add_problem(user=user, **p_ks)
@@ -137,6 +136,21 @@ def manage_problem(user, problem_id=None):
             return HTTPResponse('Success.', data={'problemId': pid})
         elif request.method == 'PUT':
             edit_problem(user=user, **p_ks)
+            return HTTPResponse('Success.')
+
+    @Request.json('courses: list', 'status', 'description', 'tags',
+                  'problem_name')
+    def modify_written_problem(courses, status, problem_name, description,
+                               tags):
+        if request.method == 'POST':
+            lock.acquire()
+            pid = add_written_problem(user, courses, status, problem_name,
+                                      description, tags)
+            lock.release()
+            return HTTPResponse('Success.', data={'problemId': pid})
+        elif request.method == 'PUT':
+            edit_written_problem(user, problem_id, courses, status,
+                                 problem_name, description, tags)
             return HTTPResponse('Success.')
 
     @Request.json('courses: list', 'status', 'description', 'tags',
@@ -200,6 +214,10 @@ def manage_problem(user, problem_id=None):
             if lock.locked():
                 lock.release()
             return HTTPError('Course not found.', 404)
+        except Exception as e:
+            if lock.locked():
+                lock.release()
+            return HTTPError('Error:' + str(e), 500)
 
 
 @problem_api.route('/clone', methods=['POST'])
