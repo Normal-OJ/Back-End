@@ -169,19 +169,24 @@ def problem_ids(forge_client, make_course):
         client = forge_client(username)
         rets = []  # created problem ids
         for _ in range(length):
+            # create problem
             rv = client.post(
                 '/problem/manage',
                 json=random_problem_data(
                     username=username if add_to_course else None,
                     status=status,
-                    type=type),
+                    type=type,
+                ),
             )
-            print(rv.get_json())
-            id = rv.get_json()['data']['problemId']
-            client.put(f'/problem/manage/{id}', data=get_file('test_case.zip'))
-
             assert rv.status_code == 200, rv.get_json()
-            rets.append(id)
+            _id = rv.get_json()['data']['problemId']
+            # upload testcase
+            client.put(
+                f'/problem/manage/{_id}',
+                data=get_file('test_case.zip'),
+            )
+            assert rv.status_code == 200, rv.get_json()
+            rets.append(_id)
         # don't leave cookies!
         client.cookie_jar.clear()
 

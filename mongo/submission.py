@@ -224,19 +224,6 @@ class Submission(MongoBase, engine=engine.Submission):
                 if submission != self.obj:
                     submission.delete()
 
-        # delete old handwritten submission
-        if self.handwritten:
-            q = {
-                'problem': self.problem,
-                'score': -1,
-                'user': self.user,
-                'handwritten': True
-            }
-
-            for submission in engine.Submission.objects(**q):
-                if submission != self:
-                    submission.delete()
-
         # we no need to actually send code to sandbox during testing
         if current_app.config['TESTING'] or self.handwritten:
             return False

@@ -159,12 +159,15 @@ class Problem(Document):
         choices=[0, 1, 2],
         db_field='problemType',
     )
-    problem_name = StringField(db_field='problemName',
-                               max_length=64,
-                               required=True)
-    description = EmbeddedDocumentField(ProblemDescription,
-                                        required=True,
-                                        default=ProblemDescription)
+    problem_name = StringField(
+        db_field='problemName',
+        max_length=64,
+        required=True,
+    )
+    description = EmbeddedDocumentField(
+        ProblemDescription,
+        default=ProblemDescription,
+    )
     owner = StringField(max_length=16, required=True)
     # pdf =
     tags = ListField(StringField(max_length=16))
@@ -172,7 +175,6 @@ class Problem(Document):
         ProblemTestCase,
         db_field='testCase',
         default=ProblemTestCase,
-        null=True,
     )
     ac_user = IntField(db_field='ACUser', default=0)
     submitter = IntField(default=0)
