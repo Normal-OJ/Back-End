@@ -8,7 +8,8 @@ RUN apk add --update --no-cache g++ gcc libxslt-dev
 
 RUN pip install -r requirements.txt
 
-RUN addgroup -S normal-oj && adduser -S normal-oj normal-oj
+RUN addgroup -S --gid 1000 normal-oj && \
+    adduser -S --uid 1000 normal-oj normal-oj
 
 USER normal-oj
 
