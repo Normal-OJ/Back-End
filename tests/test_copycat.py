@@ -67,8 +67,7 @@ class TestCopyCat(BaseTester):
                 )
         # change all submissions to status 0 (Accepted)
         engine.Submission.objects.update(status=0)
-
-        # /copycat course:coursename problemId: problem_id
+        # 'post' to send report request /copycat course:course_name problemId: problem_id
         client = forge_client('teacher')
         rv, rv_json, rv_data = self.request(client,
                                             'post',
@@ -77,10 +76,14 @@ class TestCopyCat(BaseTester):
                                                 'course': course_name,
                                                 'problemId': pid
                                             })
-
+        assert rv.status_code == 200, rv_json
+        # 'get' to get the report url /copycat course:course_name problemId: problem_id
+        client = forge_client('teacher')
+        rv, rv_json, rv_data = self.request(
+            client, 'get', f'/copycat?course={course_name}&problemId={pid}')
         assert rv.status_code == 200, rv_json
         assert type(rv_data) == type({}), rv_data
 
         excepted_keys = {'cppReport', 'pythonReport'}
         for k in excepted_keys:
-            assert rv_data.get(k), f'{k} not found!'
+            assert k in rv_data, f'{k} not found!'
