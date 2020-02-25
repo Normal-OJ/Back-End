@@ -386,8 +386,11 @@ class Submission(MongoBase, engine=engine.Submission):
             raise ValueError(f'offset must >= 0! get {offset}')
         if count < -1:
             raise ValueError(f'count must >=-1! get {count}')
-        if isinstance(problem, int):
-            problem = Problem(problem).obj
+        if not isinstance(problem, engine.Problem):
+            try:
+                problem = Problem(int(problem)).obj
+            except ValueError:
+                raise ValueError(f'can not convert {type(problem)} into int')
         if isinstance(submission, (Submission, engine.Submission)):
             submission = submission.id
         if isinstance(q_user, str):

@@ -67,7 +67,8 @@ class Problem:
         _ret = p_obj.to_mongo()
         _ret['courses'] = [course.course_name for course in p_obj.courses]
         _ret['testCase']['tasks'] = tasks
-        del _ret['testCase']['caseZip']
+        if 'caseZip' in _ret['testCase']:
+            del _ret['testCase']['caseZip']
         ret = {}
         for k in ks:
             kns[k] = k
