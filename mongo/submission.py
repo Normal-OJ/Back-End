@@ -26,9 +26,6 @@ __all__ = [
     'NoSourceError',
 ]
 
-# pid, hash()
-p_hash = {}
-
 # TODO: save tokens in db
 tokens = {}
 
@@ -140,24 +137,15 @@ class Submission(MongoBase, engine=engine.Submission):
         lang2ext = {0: '.c', 1: '.cpp', 2: '.py'}
         if self.language not in lang2ext:
             raise ValueError
-        return str(
-            (self.code_dir / f'main{lang2ext[self.language]}').absolute())
+        ext = lang2ext[self.language]
+        return str((self.code_dir / f'main{ext}').absolute())
 
     def get_code(self, path: str) -> str:
-        path = self.code_dir / path
+        code = self.code_dir / path
+        return code.read_text()
 
-        if not path.exists():
-            raise FileNotFoundError(path)
-
-        return path.read_text()
-
-    def get_comment(self) -> str:
-        path = self.comment_dir
-
-        if not path.exists():
-            raise FileNotFoundError(path)
-
-        return path.read_bytes()
+    def get_comment(self) -> bytes:
+        return self.comment_dir.read_bytes()
 
     def make_source_zip(self):
         '''
@@ -239,45 +227,15 @@ class Submission(MongoBase, engine=engine.Submission):
         Args:
             code_zip_path: code path for the user's code zip file
         '''
-        # prepare problem testcase
-        # get testcases
-        cases = self.problem.test_case.cases
+        problem = Problem(self.problem_id).obj
         # metadata
         meta = {
             'language':
             self.language,
-            'tasks': [{
-                'caseCount': case['case_count'],
-                'taskScore': case['case_score'],
-                'memoryLimit': case['memory_limit'],
-                'timeLimit': case['time_limit'],
-            } for case in cases],
+            'tasks':
+            [json.loads(task.to_json()) for task in problem.test_case.tasks],
         }
-        # problem path
-        testcase_zip_path = SubmissionConfig.TMP_DIR / str(
-            self.problem_id) / 'testcase.zip'
-        current_app.logger.debug(f'testcase path: {testcase_zip_path}')
-
-        # check cache
-        h = hash(str(self.problem.test_case.to_mongo()))
-        if p_hash.get(self.problem_id) != h:
-            p_hash[self.problem_id] = h
-            testcase_zip_path.parent.mkdir(exist_ok=True)
-            with ZipFile(testcase_zip_path, 'w') as zf:
-                for i, case in enumerate(cases):
-                    meta['tasks'].append({
-                        'caseCount': case['case_count'],
-                        'taskScore': case['case_score'],
-                        'memoryLimit': case['memory_limit'],
-                        'timeLimit': case['time_limit']
-                    })
-
-                    case_io = zip(case['input'], case['output'])
-                    for j, (ip, op) in enumerate(case_io):
-                        filename = f'{i:02d}{j:02d}'
-                        zf.writestr(f'{filename}.in', ip)  # input
-                        zf.writestr(f'{filename}.out', op)  # output
-
+        current_app.logger.debug(f'meta: {meta}')
         # setup post body
         post_data = {
             'token': SubmissionConfig.SANDBOX_TOKEN,
@@ -290,7 +248,7 @@ class Submission(MongoBase, engine=engine.Submission):
             ),
             'testcase': (
                 f'{self.id}-testcase.zip',
-                testcase_zip_path.open('rb'),
+                problem.test_case.case_zip,
             ),
             'meta.json': (
                 f'{self.id}-meta.json',
@@ -333,7 +291,7 @@ class Submission(MongoBase, engine=engine.Submission):
             if not all(c['status'] == 0 for c in _cases):
                 _cases = [*filter(lambda c: c['status'] != 0, _cases)]
             else:
-                score = self.problem.test_case.cases[i].case_score
+                score = self.problem.test_case.tasks[i].task_score
             case = sorted(
                 _cases[:],
                 key=lambda c: (c['memoryUsage'], c['execTime']),
@@ -406,15 +364,17 @@ class Submission(MongoBase, engine=engine.Submission):
         return len(engine.Submission.objects)
 
     @staticmethod
-    def filter(user,
-               offset,
-               count,
-               problem=None,
-               submission=None,
-               q_user=None,
-               status=None,
-               language_type=None,
-               handwritten=None):
+    def filter(
+        user,
+        offset,
+        count,
+        problem=None,
+        submission=None,
+        q_user=None,
+        status=None,
+        language_type=None,
+        handwritten=None,
+    ):
         if offset is None or count is None:
             raise ValueError('offset and count are required!')
         try:
