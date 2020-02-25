@@ -71,7 +71,7 @@ class TestCopyCat(BaseTester):
         # 'post' to send report request /copycat course:coursename problemId: problem_id
         client = forge_client('teacher')
         rv, rv_json, rv_data = self.request(client,
-                                            'get'',
+                                            'get',
                                             '/copycat',
                                             json={
                                                 'course': course_name,
