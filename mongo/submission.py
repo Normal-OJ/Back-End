@@ -144,17 +144,8 @@ class Submission(MongoBase, engine=engine.Submission):
         code = self.code_dir / path
         return code.read_text()
 
-    def get_comment(self) -> str:
-        path = self.comment_dir
-        return path.read_bytes()
-
-    def get_comment(self) -> str:
-        path = self.comment_dir
-
-        if not path.exists():
-            raise FileNotFoundError(path)
-
-        return path.read_bytes()
+    def get_comment(self) -> bytes:
+        return self.comment_dir.read_bytes()
 
     def make_source_zip(self):
         '''
