@@ -21,7 +21,7 @@ class TestCopyCat(BaseTester):
         ).name
 
         # problem
-        pid = problem_ids("teacher", 1, True)[0]
+        pid = int(problem_ids("teacher", 1, True)[0])
 
         # modify submission config
         from model.submission_config import SubmissionConfig
