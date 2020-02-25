@@ -21,7 +21,7 @@ class TestCopyCat(BaseTester):
         ).name
 
         # problem
-        pid = int(problem_ids("teacher", 1, True)[0])
+        pid = problem_ids("teacher", 1, True)[0]
 
         # modify submission config
         from model.submission_config import SubmissionConfig
@@ -71,7 +71,7 @@ class TestCopyCat(BaseTester):
         # 'post' to send report request /copycat course:coursename problemId: problem_id
         client = forge_client('teacher')
         rv, rv_json, rv_data = self.request(client,
-                                            'get',
+                                            'post',
                                             '/copycat',
                                             json={
                                                 'course': course_name,
@@ -83,7 +83,7 @@ class TestCopyCat(BaseTester):
         # 'get' to get the report url /copycat course:coursename problemId: problem_id
         client = forge_client('teacher')
         rv, rv_json, rv_data = self.request(client,
-                                            'post',
+                                            'get',
                                             '/copycat',
                                             json={
                                                 'course': course_name,
