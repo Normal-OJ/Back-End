@@ -67,6 +67,18 @@ def get_report(user, course, problem_id):
     except ValueError:
         return HTTPError('problemId must be integer', 400)
 
+    # some privilege or exist check
+    course = Course(course).obj
+    problem = Problem(problem_id).obj
+    permission = perm(course, user)
+
+    if permission < 2:
+        return HTTPError('Forbidden.', 403)
+    if problem is None:
+        return HTTPError('Problem not exist.', 404)
+    if course is None:
+        return HTTPError('Course not found.', 404)
+
     cpp_report_url = problem.obj.cpp_report_url
     python_report_url = problem.obj.python_report_url
 
@@ -84,10 +96,16 @@ def get_report(user, course, problem_id):
 @Request.json('course', 'problem_id')
 def detect(user, course, problem_id):
     course = Course(course).obj
+    problem = Problem(problem_id).obj
     permission = perm(course, user)
 
+    # some privilege or exist check
     if permission < 2:
         return HTTPError('Forbidden.', 403)
+    if problem is None:
+        return HTTPError('Problem not exist.', 404)
+    if course is None:
+        return HTTPError('Course not found.', 404)
 
     threading.Thread(
         target=get_report_task,
