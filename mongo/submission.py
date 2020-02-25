@@ -386,7 +386,7 @@ class Submission(MongoBase, engine=engine.Submission):
             raise ValueError(f'offset must >= 0! get {offset}')
         if count < -1:
             raise ValueError(f'count must >=-1! get {count}')
-        if not isinstance(problem, engine.Problem):
+        if not isinstance(problem, engine.Problem) and problem is not None:
             try:
                 problem = Problem(int(problem)).obj
             except ValueError:
