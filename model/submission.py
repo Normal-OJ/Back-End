@@ -65,7 +65,7 @@ def create_submission(user, language_type, problem_id):
         )
 
     # search for problem
-    current_app.logger.warn(f'got problem id {problem_id}')
+    current_app.logger.debug(f'got problem id {problem_id}')
     problem = Problem(problem_id)
     if problem.obj is None:
         return HTTPError('Unexisted problem id.', 404)
