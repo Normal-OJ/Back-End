@@ -1,4 +1,4 @@
-from flask import Blueprint, request
+from flask import Blueprint, request, current_app
 from mongo import *
 from .utils import *
 from .auth import *
@@ -51,7 +51,7 @@ def get_report_task(user, problem_id):
     python_report_url = m2.send()
 
     # insert report url into DB
-    problem = Problem(problem_id=problem_id)
+    problem = Problem(problem_id)
     problem.obj.update(
         cpp_report_url=cpp_report_url,
         python_report_url=python_report_url,
@@ -62,14 +62,20 @@ def get_report_task(user, problem_id):
 @login_required
 @Request.args('course', 'problem_id')
 def get_report(user, course, problem_id):
+    if not (problem_id and course):
+        return HTTPError(
+            'missing arguments!',
+            400,
+            data={
+                'need': ['course', 'problemId'],
+            },
+        )
+    # some privilege or exist check
     try:
-        problem = Problem(problem_id=int(problem_id))
+        problem = Problem(int(problem_id)).obj
     except ValueError:
         return HTTPError('problemId must be integer', 400)
-
-    # some privilege or exist check
     course = Course(course).obj
-    problem = Problem(problem_id).obj
     permission = perm(course, user)
 
     if permission < 2:
@@ -79,8 +85,8 @@ def get_report(user, course, problem_id):
     if course is None:
         return HTTPError('Course not found.', 404)
 
-    cpp_report_url = problem.obj.cpp_report_url
-    python_report_url = problem.obj.python_report_url
+    cpp_report_url = problem.cpp_report_url
+    python_report_url = problem.python_report_url
 
     return HTTPResponse(
         'Success.',
@@ -107,13 +113,14 @@ def detect(user, course, problem_id):
     if course is None:
         return HTTPError('Course not found.', 404)
 
-    threading.Thread(
-        target=get_report_task,
-        args=(
-            user,
-            problem_id,
-        ),
-    ).start()
+    if not current_app.config['TESTING']:
+        threading.Thread(
+            target=get_report_task,
+            args=(
+                user,
+                problem_id,
+            ),
+        ).start()
 
     # return Success
     return HTTPResponse('Success.')
