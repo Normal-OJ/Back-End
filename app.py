@@ -5,11 +5,6 @@ from mongo import *
 from mongo import engine
 from mongo import problem
 
-logging.basicConfig(
-    filename='backend.log',
-    level=logging.DEBUG,
-)
-
 # Create a flask app
 app = Flask(__name__)
 app.url_map.strict_slashes = False
@@ -54,3 +49,8 @@ if Number("serial_number").obj is None:
     engine.Number(name="serial_number").save()
 
 problem.number = Number("serial_number").obj.number
+
+if __name__ != "__main__":
+    logger = logging.getLogger('gunicorn.error')
+    app.logger.handlers = logger.handlers
+    app.logger.setLevel(logger.level)

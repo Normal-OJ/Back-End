@@ -112,38 +112,70 @@ class Number(Document):
 
 
 class ProblemCase(EmbeddedDocument):
-    case_score = IntField(required=True, db_field='caseScore')
+    task_score = IntField(required=True, db_field='taskScore')
     case_count = IntField(required=True, db_field='caseCount')
     memory_limit = IntField(required=True, db_field='memoryLimit')
     time_limit = IntField(required=True, db_field='timeLimit')
-    input = ListField(StringField(), default=list)
-    output = ListField(StringField(), default=list)
 
 
 class ProblemTestCase(EmbeddedDocument):
     language = IntField(choices=[0, 1, 2])
     fill_in_template = StringField(db_field='fillInTemplate', max_length=16000)
-    cases = ListField(EmbeddedDocumentField(ProblemCase, default=ProblemCase),
-                      default=list)
+    tasks = EmbeddedDocumentListField(
+        ProblemCase,
+        default=list,
+    )
+    # zip file contains testcase input/output
+    case_zip = FileField(db_field='caseZip')
+
+
+class ProblemDescription(EmbeddedDocument):
+    description = StringField(max_length=100000)
+    input = StringField(max_length=100000)
+    output = StringField(max_length=100000)
+    hint = StringField(max_length=100000)
+    sample_input = ListField(
+        StringField(),
+        default=list,
+        db_field='sampleInput',
+    )
+    sample_output = ListField(
+        StringField(),
+        default=list,
+        db_field='sampleOutput',
+    )
 
 
 class Problem(Document):
     problem_id = IntField(db_field='problemId', required=True, unique=True)
     courses = ListField(ReferenceField('Course'), default=list)
-    problem_status = IntField(default=1, choices=[0, 1])
-    problem_type = IntField(default=0, choices=[0, 1])
-    problem_name = StringField(db_field='problemName',
-                               max_length=64,
-                               required=True)
-    description = StringField(max_length=100000, required=True)
+    problem_status = IntField(
+        default=1,
+        choices=[0, 1],
+        db_field='problemStatus',
+    )
+    problem_type = IntField(
+        default=0,
+        choices=[0, 1, 2],
+        db_field='problemType',
+    )
+    problem_name = StringField(
+        db_field='problemName',
+        max_length=64,
+        required=True,
+    )
+    description = EmbeddedDocumentField(
+        ProblemDescription,
+        default=ProblemDescription,
+    )
     owner = StringField(max_length=16, required=True)
     # pdf =
     tags = ListField(StringField(max_length=16))
-    test_case = EmbeddedDocumentField(ProblemTestCase,
-                                      db_field='testCase',
-                                      required=True,
-                                      default=ProblemTestCase,
-                                      null=True)
+    test_case = EmbeddedDocumentField(
+        ProblemTestCase,
+        db_field='testCase',
+        default=ProblemTestCase,
+    )
     ac_user = IntField(db_field='ACUser', default=0)
     submitter = IntField(default=0)
     homeworks = ListField(ReferenceField('Homework'), default=list)
@@ -178,12 +210,14 @@ class Submission(Document):
     language = IntField(required=True, db_field='languageType')
     timestamp = DateTimeField(required=True)
     status = IntField(default=-2)
-    score = IntField(default=0)
+    score = IntField(default=-1)
     tasks = EmbeddedDocumentListField(TaskResult, default=list)
     exec_time = IntField(default=-1, db_field='runTime')
     memory_usage = IntField(default=-1, db_field='memoryUsage')
     code = BooleanField(
         default=False)  # wheather the user has uploaded source code
+    handwritten = BooleanField(default=False)
+    # review = pdf
 
 
 class Message(Document):

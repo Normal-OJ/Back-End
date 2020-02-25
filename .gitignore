@@ -17,3 +17,5 @@ venv
 # vs & vs code cache
 .vs
 .vscode
+
+/submissions/

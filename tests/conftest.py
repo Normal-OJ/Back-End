@@ -1,6 +1,7 @@
 from app import app as flask_app
 from mongo import *
 from mongo import engine
+import mongomock.gridfs
 
 import os
 import pytest
@@ -17,6 +18,7 @@ from tests.base_tester import BaseTester
 @pytest.fixture
 def app():
     flask_app.config['TESTING'] = True
+    mongomock.gridfs.enable_gridfs_integration()
     return flask_app
 
 
@@ -61,7 +63,7 @@ def test2_token():
     return 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJ0ZXN0LnRlc3QiLCJleHAiOjE1ODMyODEzNzksInNlY3JldCI6dHJ1ZSwiZGF0YSI6eyJ1c2VybmFtZSI6InRlc3QyIiwidXNlcklkIjoiNWY5YjdjZGZhYTEwYjRiNTY3MDBkZmNiIn19.MQA7Sk7enQeiB0St8vmAB_DM4ZCmwT2ZzNylHsUDqzs'
 
 
-def random_problem_data(username=None, status=-1):
+def random_problem_data(username=None, status=-1, type=0):
     '''
     generate dummy problem data
 
@@ -77,9 +79,15 @@ def random_problem_data(username=None, status=-1):
         'status':
         random.randint(0, 1) if status == -1 else status,
         'type':
-        0,
-        'description':
-        '',
+        type,
+        'description': {
+            'description': '',
+            'input': '',
+            'output': '',
+            'hint': '',
+            'sample_input': [],
+            'sample_output': []
+        },
         'tags': ['test'],
         'problemName':
         f'prob {s}',
@@ -88,10 +96,10 @@ def random_problem_data(username=None, status=-1):
             2,
             'fillInTemplate':
             '',
-            'cases': [
+            'tasks': [
                 {
                     'caseCount': 1,
-                    'caseScore': 100,
+                    'taskScore': 100,
                     'memoryLimit': 32768,
                     'timeLimit': 1000,
                 },
@@ -112,7 +120,7 @@ def make_course(forge_client):
                 course students, key is student's username and value is student's nickname
             tas -> list[str]:
                 a list contains tas' username
-        
+
         Return:
             generated course data
         '''
@@ -148,7 +156,7 @@ def make_course(forge_client):
 
 @pytest.fixture()
 def problem_ids(forge_client, make_course):
-    def problem_ids(username, length, add_to_course=False, status=0):
+    def problem_ids(username, length, add_to_course=False, status=0, type=0):
         '''
         insert dummy problems into db
 
@@ -161,18 +169,24 @@ def problem_ids(forge_client, make_course):
         client = forge_client(username)
         rets = []  # created problem ids
         for _ in range(length):
+            # create problem
             rv = client.post(
                 '/problem/manage',
                 json=random_problem_data(
                     username=username if add_to_course else None,
                     status=status,
+                    type=type,
                 ),
             )
-            id = rv.get_json()['data']['problemId']
-            client.put(f'/problem/manage/{id}', data=get_file('test_case.zip'))
-
             assert rv.status_code == 200, rv.get_json()
-            rets.append(id)
+            _id = rv.get_json()['data']['problemId']
+            # upload testcase
+            client.put(
+                f'/problem/manage/{_id}',
+                data=get_file('test_case.zip'),
+            )
+            assert rv.status_code == 200, rv.get_json()
+            rets.append(_id)
         # don't leave cookies!
         client.cookie_jar.clear()
 
@@ -224,7 +238,7 @@ def get_source(tmp_path):
 
         Args:
             filename: a string denote the source code's filename include extension
-        
+
         Returns:
             the zip file
         '''

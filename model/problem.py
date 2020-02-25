@@ -60,6 +60,7 @@ def view_problem_list(user, offset, count, problem_id, tags, name):
                 lambda p: {
                     'problemId': p.problem_id,
                     'problemName': p.problem_name,
+                    'status': p.problem_status,
                     'ACUser': p.ac_user,
                     'submitter': p.submitter,
                     'tags': p.tags,
@@ -84,7 +85,14 @@ def view_problem(user, problem_id):
         'status': problem.problem_status,
         'type': problem.problem_type,
         'problemName': problem.problem_name,
-        'description': problem.description,
+        'description': {
+            'description': problem.description['description'],
+            'input': problem.description['input'],
+            'output': problem.description['output'],
+            'hint': problem.description['hint'],
+            'sampleInput': problem.description['sample_input'],
+            'sampleOutput': problem.description['sample_output'],
+        },
         'owner': problem.owner,
         'tags': problem.tags
         # 'pdf':
@@ -96,27 +104,73 @@ def view_problem(user, problem_id):
 
 
 @problem_api.route('/manage', methods=['POST'])
-@problem_api.route('/manage/<problem_id>', methods=['GET', 'PUT', 'DELETE'])
+@problem_api.route('/manage/<int:problem_id>',
+                   methods=['GET', 'PUT', 'DELETE'])
 @identity_verify(0, 1)
 def manage_problem(user, problem_id=None):
-    @Request.json('courses: list', 'status', 'type', 'description', 'tags',
-                  'problem_name', 'test_case_info', 'can_view_stdout',
-                  'allowed_language')
-    def modify_problem(courses, status, type, problem_name, description, tags,
-                       test_case_info, can_view_stdout, allowed_language):
-        if sum(case['caseScore'] for case in test_case_info['cases']) != 100:
-            return HTTPError("Cases' scores should be 100 in total", 400)
+    @Request.json('type')
+    def modify_problem(type):
+        if type == 2:
+            return modify_written_problem()
+        else:
+            return modify_coding_problem()
 
+    @Request.json(
+        'courses: list',
+        'status',
+        'type',
+        'description',
+        'tags',
+        'problem_name',
+        'test_case_info',
+        'can_view_stdout',
+        'allowed_language',
+    )
+    def modify_coding_problem(**p_ks):
+        if sum(case['taskScore']
+               for case in p_ks['test_case_info']['tasks']) != 100:
+            return HTTPError("Cases' scores should be 100 in total", 400)
         if request.method == 'POST':
             lock.acquire()
-            pid = add_problem(user, courses, status, type, problem_name,
-                              description, tags, test_case_info,
-                              can_view_stdout, allowed_language)
+            pid = add_problem(user=user, **p_ks)
             lock.release()
             return HTTPResponse('Success.', data={'problemId': pid})
         elif request.method == 'PUT':
-            edit_problem(user, problem_id, courses, status, type, problem_name,
-                         description, tags, test_case_info, allowed_language)
+            edit_problem(
+                user=user,
+                problem_id=problem_id,
+                **p_ks,
+            )
+            return HTTPResponse('Success.')
+
+    @Request.json('courses: list', 'status', 'description', 'tags',
+                  'problem_name')
+    def modify_written_problem(courses, status, problem_name, description,
+                               tags):
+        if request.method == 'POST':
+            lock.acquire()
+            pid = add_written_problem(user, courses, status, problem_name,
+                                      description, tags)
+            lock.release()
+            return HTTPResponse('Success.', data={'problemId': pid})
+        elif request.method == 'PUT':
+            edit_written_problem(user, problem_id, courses, status,
+                                 problem_name, description, tags)
+            return HTTPResponse('Success.')
+
+    @Request.json('courses: list', 'status', 'description', 'tags',
+                  'problem_name')
+    def modify_written_problem(courses, status, problem_name, description,
+                               tags):
+        if request.method == 'POST':
+            lock.acquire()
+            pid = add_written_problem(user, courses, status, problem_name,
+                                      description, tags)
+            lock.release()
+            return HTTPResponse('Success.', data={'problemId': pid})
+        elif request.method == 'PUT':
+            edit_written_problem(user, problem_id, courses, status,
+                                 problem_name, description, tags)
             return HTTPResponse('Success.')
 
     @Request.files('case')
@@ -124,55 +178,62 @@ def manage_problem(user, problem_id=None):
         result = edit_problem_test_case(problem_id, case)
         return HTTPResponse('Success.', data=result)
 
+    # get problem object from DB
     if request.method != 'POST':
         problem = Problem(problem_id).obj
         if problem is None:
             return HTTPError('Problem not exist.', 404)
         if user.role == 1 and problem.owner != user.username:
             return HTTPError('Not the owner.', 403)
-
+    # return detailed problem info
     if request.method == 'GET':
-        data = {
-            'courses': list(course.course_name for course in problem.courses),
-            'status': problem.problem_status,
-            'type': problem.problem_type,
-            'problemName': problem.problem_name,
-            'description': problem.description,
-            'tags': problem.tags,
-            'testCase': {
-                'language':
-                problem.test_case['language'],
-                'fillInTemplate':
-                problem.test_case['fill_in_template'],
-                'cases':
-                list({
-                    'input': case.input,
-                    'output': case.output,
-                    'caseScore': case.case_score,
-                    'memoryLimit': case.memory_limit,
-                    'timeLimit': case.time_limit
-                } for case in problem.test_case['cases'])
-            },
-            'ACUser': problem.ac_user,
-            'submitter': problem.submitter
-        }
-        return HTTPResponse('Success.', data=data)
+        info = Problem(problem_id).detailed_info(
+            'courses',
+            'problemName',
+            'description',
+            'tags',
+            'testCase',
+            'ACUser',
+            'submitter',
+            status='problemStatus',
+            type='problemType',
+        )
+        for task in info['testCase']['tasks']:
+            del task['caseCount']
+        return HTTPResponse(
+            'Success.',
+            data=info,
+        )
+    # delete problem
     elif request.method == 'DELETE':
         delete_problem(problem_id)
         return HTTPResponse('Success.')
+    # edit problem
     else:
         try:
-            if request.content_type == 'application/json':
+            # modify problem meta
+            if request.content_type.startswith('application/json'):
                 return modify_problem()
+            # upload testcase file
             elif request.content_type.startswith('multipart/form-data'):
                 return modify_problem_test_case()
+            else:
+                return HTTPError(
+                    'Unknown content type',
+                    400,
+                    data={'contentType': request.content_type},
+                )
         except ValidationError as ve:
-            if lock.locked:
+            if lock.locked():
                 lock.release()
-            return HTTPError('Invalid or missing arguments.',
-                             400,
-                             data=ve.to_dict())
+            return HTTPError(
+                'Invalid or missing arguments.',
+                400,
+                data=ve.to_dict(),
+            )
         except engine.DoesNotExist:
+            if lock.locked():
+                lock.release()
             return HTTPError('Course not found.', 404)
 
 

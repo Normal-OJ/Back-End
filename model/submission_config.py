@@ -16,6 +16,13 @@ class SubmissionConfig:
         ), )
     SOURCE_PATH.mkdir(exist_ok=True)
 
+    COMMENT_PATH = pathlib.Path(
+        os.environ.get(
+            'SUBMISSION_COMMENT_PATH',
+            'comments',
+        ), )
+    COMMENT_PATH.mkdir(exist_ok=True)
+
     TMP_DIR = pathlib.Path(
         os.environ.get(
             'SUBMISSION_TMP_DIR',
