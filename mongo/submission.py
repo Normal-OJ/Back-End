@@ -227,13 +227,17 @@ class Submission(MongoBase, engine=engine.Submission):
         Args:
             code_zip_path: code path for the user's code zip file
         '''
-        problem = Problem(self.problem_id).obj
+        if self.handwritten:
+            logging.warning(f'try to send a handwritten {submission}')
+            return False
         # metadata
         meta = {
             'language':
             self.language,
-            'tasks':
-            [json.loads(task.to_json()) for task in problem.test_case.tasks],
+            'tasks': [
+                json.loads(task.to_json())
+                for task in self.problem.test_case.tasks
+            ],
         }
         current_app.logger.debug(f'meta: {meta}')
         # setup post body
@@ -248,7 +252,7 @@ class Submission(MongoBase, engine=engine.Submission):
             ),
             'testcase': (
                 f'{self.id}-testcase.zip',
-                problem.test_case.case_zip,
+                self.problem.test_case.case_zip,
             ),
             'meta.json': (
                 f'{self.id}-meta.json',
@@ -386,11 +390,14 @@ class Submission(MongoBase, engine=engine.Submission):
             raise ValueError(f'offset must >= 0! get {offset}')
         if count < -1:
             raise ValueError(f'count must >=-1! get {count}')
-        if not isinstance(problem, Problem):
-            problem = Problem(problem).obj
-        if isinstance(submission, Submission):
+        if not isinstance(problem, engine.Problem) and problem is not None:
+            try:
+                problem = Problem(int(problem)).obj
+            except ValueError:
+                raise ValueError(f'can not convert {type(problem)} into int')
+        if isinstance(submission, (Submission, engine.Submission)):
             submission = submission.id
-        if not isinstance(q_user, User):
+        if isinstance(q_user, str):
             q_user = User(q_user)
             q_user = q_user.obj if q_user else None
 

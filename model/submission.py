@@ -48,11 +48,15 @@ def create_submission(user, language_type, problem_id):
     now = datetime.now()
     delta = timedelta.total_seconds(now - user.last_submit)
     if delta <= SubmissionConfig.RATE_LIMIT:
+        wait_for = SubmissionConfig.RATE_LIMIT - delta
         return HTTPError(
             'Submit too fast!\n'
-            f'Please wait for {SubmissionConfig.RATE_LIMIT - delta:.2f} seconds to submit.',
-            429)  # Too many request
-
+            f'Please wait for {wait_for:.2f} seconds to submit.',
+            429,
+            data={
+                'waitFor': wait_for,
+            },
+        )  # Too many request
     # check for fields
     if problem_id is None:
         return HTTPError(
@@ -63,18 +67,17 @@ def create_submission(user, language_type, problem_id):
                 'problemId': problem_id
             },
         )
-
     # search for problem
-    current_app.logger.warn(f'got problem id {problem_id}')
+    current_app.logger.debug(f'got problem id {problem_id}')
     problem = Problem(problem_id)
     if problem.obj is None:
         return HTTPError('Unexisted problem id.', 404)
     # problem permissoion
     if not can_view(user, problem.obj):
         return HTTPError('problem permission denied!', 403)
-
+    # handwritten problem doesn't need language type
     if language_type is None:
-        if problem.type != 2:
+        if problem.problem_type != 2:
             return HTTPError(
                 'post data missing!',
                 400,
@@ -83,9 +86,7 @@ def create_submission(user, language_type, problem_id):
                     'problemId': problem_id
                 },
             )
-
         language_type = 0
-
     # not allowed language
     if not problem.allowed(language_type):
         return HTTPError(
@@ -96,7 +97,6 @@ def create_submission(user, language_type, problem_id):
                 'got': language_type
             },
         )
-
     # insert submission to DB
     try:
         submission = Submission.add(
@@ -109,14 +109,13 @@ def create_submission(user, language_type, problem_id):
         return HTTPError('invalid data!', 400)
     except engine.DoesNotExist as e:
         return HTTPError(str(e), 404)
-
+    # update user
     user.update(last_submit=now)
     user.submissions.append(submission.obj)
     user.save()
     # update problem
     submission.problem.submitter += 1
     submission.problem.save()
-
     return HTTPResponse(
         'submission recieved.\n'
         'please send source code with given submission id later.',

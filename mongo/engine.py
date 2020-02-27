@@ -126,7 +126,11 @@ class ProblemTestCase(EmbeddedDocument):
         default=list,
     )
     # zip file contains testcase input/output
-    case_zip = FileField(db_field='caseZip')
+    case_zip = FileField(
+        db_field='caseZip',
+        defautl=None,
+        null=True,
+    )
 
 
 class ProblemDescription(EmbeddedDocument):

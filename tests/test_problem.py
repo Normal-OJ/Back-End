@@ -273,7 +273,8 @@ class TestProblem(BaseTester):
             'problemName': 'Offline problem',
             'description': description_dict(),
             'owner': 'admin',
-            'tags': []
+            'tags': [],
+            'allowedLanguage': 7,
         }
 
     # student view offline problem (GET /problem/view/<problem_id>)
@@ -297,7 +298,8 @@ class TestProblem(BaseTester):
             'problemName': 'Online problem',
             'description': description_dict(),
             'owner': 'admin',
-            'tags': []
+            'tags': [],
+            'allowedLanguage': 7,
         }
 
     # student view problem not exist (GET /problem/view/<problem_id>)
@@ -421,7 +423,9 @@ class TestProblem(BaseTester):
                 }]
             },
             'ACUser': 0,
-            'submitter': 0
+            'submitter': 0,
+            'allowedLanguage': 7,
+            'canViewStdout': True,
         }
 
     # non-owner teacher get information of a problem (GET /problem/manage/<problem_id>)
