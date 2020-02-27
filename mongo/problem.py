@@ -44,31 +44,36 @@ class Problem:
         p_obj = self.obj
         if p_obj is None:
             return None
-        # get tasks info
-        tasks = [task.to_mongo() for task in p_obj.test_case.tasks]
-        for t in tasks:
-            t.update({
-                'input': [],
-                'output': [],
-            })
-        if p_obj.test_case.case_zip:
-            with ZipFile(p_obj.test_case.case_zip) as zf:
-                for i, task in enumerate(tasks):
-                    task.update({
-                        'input': [
-                            zf.read(f'{i:02d}{j:02d}.in').decode('utf-8')
-                            for j in range(task['caseCount'])
-                        ],
-                        'output': [
-                            zf.read(f'{i:02d}{j:02d}.out').decode('utf-8')
-                            for j in range(task['caseCount'])
-                        ],
-                    })
+        # problem -> dict
         _ret = p_obj.to_mongo()
+        # if this problem has testcase
+        if p_obj.test_case:
+            # get tasks info
+            tasks = [task.to_mongo() for task in p_obj.test_case.tasks]
+            for t in tasks:
+                t.update({
+                    'input': [],
+                    'output': [],
+                })
+            # has uploaded testdata
+            if p_obj.test_case.case_zip:
+                with ZipFile(p_obj.test_case.case_zip) as zf:
+                    for i, task in enumerate(tasks):
+                        task.update({
+                            'input': [
+                                zf.read(f'{i:02d}{j:02d}.in').decode('utf-8')
+                                for j in range(task['caseCount'])
+                            ],
+                            'output': [
+                                zf.read(f'{i:02d}{j:02d}.out').decode('utf-8')
+                                for j in range(task['caseCount'])
+                            ],
+                        })
+            _ret['testCase']['tasks'] = tasks
+            # case zip can not be serialized
+            if 'caseZip' in _ret['testCase']:
+                del _ret['testCase']['caseZip']
         _ret['courses'] = [course.course_name for course in p_obj.courses]
-        _ret['testCase']['tasks'] = tasks
-        if 'caseZip' in _ret['testCase']:
-            del _ret['testCase']['caseZip']
         ret = {}
         for k in ks:
             kns[k] = k
@@ -168,38 +173,32 @@ def add_written_problem(user, courses, status, problem_name, description,
     return problem_id
 
 
-def add_problem(user, courses, status, type, problem_name, description, tags,
-                test_case_info, can_view_stdout, allowed_language):
+def add_problem(
+    user,
+    courses,
+    status,
+    type,
+    problem_name,
+    description,
+    tags,
+    test_case_info,
+    can_view_stdout=False,
+    allowed_language=7,
+):
     problem_id = number
     engine.Problem(
         problem_id=problem_id,
-        courses=[Course(name).obj for name in courses],
+        courses=list(Course(name).obj for name in courses),
         problem_status=status,
-        problem_type=2,
+        problem_type=type,
         problem_name=problem_name,
         description=description,
         owner=user.username,
         tags=tags,
+        test_case=test_case_info,
+        can_view_stdout=can_view_stdout,
+        allowed_language=allowed_language,
     ).save()
-    increased_number()
-
-    return problem_id
-
-
-def add_problem(user, courses, status, type, problem_name, description, tags,
-                test_case_info, can_view_stdout, allowed_language):
-    problem_id = number
-    engine.Problem(problem_id=problem_id,
-                   courses=list(Course(name).obj for name in courses),
-                   problem_status=status,
-                   problem_type=type,
-                   problem_name=problem_name,
-                   description=description,
-                   owner=user.username,
-                   tags=tags,
-                   test_case=test_case_info,
-                   can_view_stdout=can_view_stdout,
-                   allowed_language=allowed_language or 7).save()
     increased_number()
 
     return problem_id
@@ -235,13 +234,17 @@ def edit_problem(
     problem_name,
     description,
     tags,
-    test_case_info,
-    allowed_language,
-    can_view_stdout,
+    test_case_info=None,
+    allowed_language=7,
+    can_view_stdout=False,
 ):
     problem = Problem(problem_id).obj
-    test_case = engine.ProblemTestCase.from_json(json.dumps(test_case_info))
-    test_case.case_zip = problem.test_case.case_zip
+    # preprocess test case
+    test_case = problem.test_case
+    if test_case_info:
+        test_case = engine.ProblemTestCase.from_json(
+            json.dumps(test_case_info))
+        test_case.case_zip = problem.test_case.case_zip
     problem.update(
         courses=[Course(name).obj for name in courses],
         problem_status=status,
@@ -273,7 +276,7 @@ def edit_problem_test_case(problem_id, test_case):
     '''
     problem = Problem(problem_id).obj
     if problem is None:
-        raise engine.DoesNotExists(f'problem [{problem_id}] not exists.')
+        raise engine.DoesNotExist(f'problem [{problem_id}] not exists.')
     # test case must not be None
     if test_case is None:
         raise ValueError('test case is None')

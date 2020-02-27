@@ -162,7 +162,7 @@ def manage_problem(user, problem_id=None):
     def modify_problem_test_case(case):
         try:
             result = edit_problem_test_case(problem_id, case)
-        except engine.DoesNotExists as e:
+        except engine.DoesNotExist as e:
             return HTTPError(str(e), 404)
         except (ValueError, BadZipFile) as e:
             return HTTPError(str(e), 400)
