@@ -185,6 +185,8 @@ def manage_problem(user, problem_id=None):
             'testCase',
             'ACUser',
             'submitter',
+            'allowedLanguage',
+            'canViewStdout',
             status='problemStatus',
             type='problemType',
         )

@@ -421,7 +421,9 @@ class TestProblem(BaseTester):
                 }]
             },
             'ACUser': 0,
-            'submitter': 0
+            'submitter': 0,
+            'allowedLanguage': 7,
+            'canViewStdout': True,
         }
 
     # non-owner teacher get information of a problem (GET /problem/manage/<problem_id>)
