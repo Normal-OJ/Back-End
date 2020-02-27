@@ -1,6 +1,6 @@
 from flask import Blueprint, request
 from urllib import parse
-
+from zipfile import BadZipFile
 from mongo import *
 from mongo import engine
 from .auth import *
@@ -158,24 +158,14 @@ def manage_problem(user, problem_id=None):
                                  problem_name, description, tags)
             return HTTPResponse('Success.')
 
-    @Request.json('courses: list', 'status', 'description', 'tags',
-                  'problem_name')
-    def modify_written_problem(courses, status, problem_name, description,
-                               tags):
-        if request.method == 'POST':
-            lock.acquire()
-            pid = add_written_problem(user, courses, status, problem_name,
-                                      description, tags)
-            lock.release()
-            return HTTPResponse('Success.', data={'problemId': pid})
-        elif request.method == 'PUT':
-            edit_written_problem(user, problem_id, courses, status,
-                                 problem_name, description, tags)
-            return HTTPResponse('Success.')
-
     @Request.files('case')
     def modify_problem_test_case(case):
-        result = edit_problem_test_case(problem_id, case)
+        try:
+            result = edit_problem_test_case(problem_id, case)
+        except engine.DoesNotExists as e:
+            return HTTPError(str(e), 404)
+        except (ValueError, BadZipFile) as e:
+            return HTTPError(str(e), 400)
         return HTTPResponse('Success.', data=result)
 
     # get problem object from DB

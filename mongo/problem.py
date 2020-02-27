@@ -205,19 +205,24 @@ def add_problem(user, courses, status, type, problem_name, description, tags,
     return problem_id
 
 
-def edit_written_problem(user, problem_id, courses, status, problem_name,
-                         description, tags):
+def edit_written_problem(
+    user,
+    problem_id,
+    courses,
+    status,
+    problem_name,
+    description,
+    tags,
+):
     problem = Problem(problem_id).obj
-
-    problem.courses = list(
-        engine.Course.objects.get(course_name=name) for name in courses)
-    problem.problem_status = status
-    problem.problem_type = 2
-    problem.problem_name = problem_name
-    problem.description = description
-    problem.owner = user.username
-    problem.tags = tags
-
+    problem.update(
+        courses=[Course(name).obj for name in courses],
+        problem_status=status,
+        problem_name=problem_name,
+        description=description,
+        owner=user.username,
+        tags=tags,
+    )
     problem.save()
 
 
@@ -261,11 +266,17 @@ def edit_problem_test_case(problem_id, test_case):
         test_case: testcase zip file
     Exceptions:
         zipfile.BadZipFile: if `test_case` is not a zip file
+        ValueError: if test case is None or problem_id is invalid
+        engine.DoesNotExists
     Return:
         a bool denote whether the update is successful
     '''
     problem = Problem(problem_id).obj
-
+    if problem is None:
+        raise engine.DoesNotExists(f'problem [{problem_id}] not exists.')
+    # test case must not be None
+    if test_case is None:
+        raise ValueError('test case is None')
     # check file structure
     # create set of excepted filenames
     excepted_names = set()
