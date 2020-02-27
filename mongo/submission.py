@@ -227,13 +227,17 @@ class Submission(MongoBase, engine=engine.Submission):
         Args:
             code_zip_path: code path for the user's code zip file
         '''
-        problem = Problem(self.problem_id).obj
+        if self.handwritten:
+            logging.warning(f'try to send a handwritten {submission}')
+            return False
         # metadata
         meta = {
             'language':
             self.language,
-            'tasks':
-            [json.loads(task.to_json()) for task in problem.test_case.tasks],
+            'tasks': [
+                json.loads(task.to_json())
+                for task in self.problem.test_case.tasks
+            ],
         }
         current_app.logger.debug(f'meta: {meta}')
         # setup post body
