@@ -252,7 +252,7 @@ class Submission(MongoBase, engine=engine.Submission):
             ),
             'testcase': (
                 f'{self.id}-testcase.zip',
-                problem.test_case.case_zip,
+                self.problem.test_case.case_zip,
             ),
             'meta.json': (
                 f'{self.id}-meta.json',
