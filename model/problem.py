@@ -75,30 +75,23 @@ def view_problem_list(user, offset, count, problem_id, tags, name):
 @problem_api.route('/view/<problem_id>', methods=['GET'])
 @login_required
 def view_problem(user, problem_id):
-    problem = Problem(problem_id).obj
-    if problem is None:
+    problem = Problem(problem_id)
+    if problem.obj is None:
         return HTTPError('Problem not exist.', 404)
-    if not can_view(user, problem):
+    if not can_view(user, problem.obj):
         return HTTPError('Problem cannot view.', 403)
-
-    data = {
-        'status': problem.problem_status,
-        'type': problem.problem_type,
-        'problemName': problem.problem_name,
-        'description': {
-            'description': problem.description['description'],
-            'input': problem.description['input'],
-            'output': problem.description['output'],
-            'hint': problem.description['hint'],
-            'sampleInput': problem.description['sample_input'],
-            'sampleOutput': problem.description['sample_output'],
-        },
-        'owner': problem.owner,
-        'tags': problem.tags
-        # 'pdf':
-    }
-    if problem.problem_type == 1:
-        data.update({'fillInTemplate': problem.test_case.fill_in_template})
+    # filter data
+    data = problem.detailed_info(
+        'problemName',
+        'description',
+        'owner',
+        'tags',
+        'allowedLanguage',
+        status='problemStatus',
+        type='problemType',
+    )
+    if problem.obj.problem_type == 1:
+        data.update({'fillInTemplate': problem.obj.test_case.fill_in_template})
 
     return HTTPResponse('Problem can view.', data=data)
 
