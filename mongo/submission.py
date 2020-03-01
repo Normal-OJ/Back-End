@@ -9,7 +9,6 @@ from flask import current_app
 from datetime import date
 from typing import List
 from zipfile import ZipFile, is_zipfile
-from model.submission_config import SubmissionConfig
 
 from . import engine
 from .base import MongoBase
@@ -68,7 +67,32 @@ class NoSourceError(Exception):
     '''
 
 
+class SubmissionConfig(MongoBase, engine=engine.SubmissionConfig):
+    def __init__(self, name):
+        self.name = name
+        self.SOURCE_PATH = pathlib.Path(
+            os.getenv(
+                'SUBMISSION_SOURCE_PATH',
+                'submissions',
+            ), )
+        self.SOURCE_PATH.mkdir(exist_ok=True)
+        self.COMMENT_PATH = pathlib.Path(
+            os.getenv(
+                'SUBMISSION_COMMENT_PATH',
+                'comments',
+            ), )
+        self.COMMENT_PATH.mkdir(exist_ok=True)
+        self.TMP_DIR = pathlib.Path(
+            os.getenv(
+                'SUBMISSION_TMP_DIR',
+                '/tmp' / self.SOURCE_PATH,
+            ), )
+        self.TMP_DIR.mkdir(exist_ok=True)
+
+
 class Submission(MongoBase, engine=engine.Submission):
+    config = SubmissionConfig('submission')
+
     def __init__(self, submission_id):
         self.submission_id = str(submission_id)
 
@@ -122,15 +146,15 @@ class Submission(MongoBase, engine=engine.Submission):
 
     @property
     def code_dir(self) -> pathlib.Path:
-        return SubmissionConfig.SOURCE_PATH / self.id
+        return self.config.SOURCE_PATH / self.id
 
     @property
-    def comment_dir(self) -> pathlib.Path:
-        return SubmissionConfig.COMMENT_PATH / self.id
+    def comment_path(self) -> pathlib.Path:
+        return self.config.COMMENT_PATH / self.id
 
     @property
     def tmp_dir(self) -> pathlib.Path:
-        return SubmissionConfig.TMP_DIR / self.id
+        return self.config.TMP_DIR / self.id
 
     @property
     def main_code_path(self) -> str:
@@ -145,7 +169,7 @@ class Submission(MongoBase, engine=engine.Submission):
         return code.read_text()
 
     def get_comment(self) -> bytes:
-        return self.comment_dir.read_bytes()
+        return self.comment_path.read_bytes()
 
     def make_source_zip(self):
         '''
@@ -289,42 +313,26 @@ class Submission(MongoBase, engine=engine.Submission):
 
         # process task
         for i, cases in enumerate(tasks):
-            # find significant case
-            _cases = cases[:]
-            score = 0
-            if not all(c['status'] == 0 for c in _cases):
-                _cases = [*filter(lambda c: c['status'] != 0, _cases)]
-            else:
-                score = self.problem.test_case.tasks[i].task_score
-            case = sorted(
-                _cases[:],
-                key=lambda c: (c['memoryUsage'], c['execTime']),
-            )[-1]
+            status = max(c['status'] for c in cases)
+            exec_time = max(c['execTime'] for c in cases)
+            memory_usage = max(c['memoryUsage'] for c in cases)
             tasks[i] = engine.TaskResult(
-                status=case['status'],
-                exec_time=case['execTime'],
-                memory_usage=case['memoryUsage'],
-                score=score,
+                status=status,
+                exec_time=exec_time,
+                memory_usage=memory_usage,
+                score=score if stat == 0 else 0,
                 cases=cases,
             )
-
-        # get the task which has the longest memory usage, execution time
-        _tasks = tasks[:]
-        if not all(t.status == 0 for t in _tasks):
-            _tasks = [*filter(lambda t: t.status != 0, _tasks)]
-        m_task = sorted(
-            _tasks,
-            key=lambda t: (t.memory_usage, t.exec_time),
-        )[-1]
-
+        status = max(t['status'] for t in tasks)
+        exec_time = max(t['execTime'] for t in tasks)
+        memory_usage = max(t['memoryUsage'] for t in tasks)
         self.update(
             score=sum(task.score for task in tasks),
-            status=m_task.status,
+            status=status,
             tasks=tasks,
-            exec_time=m_task.exec_time,
-            memory_usage=m_task.memory_usage,
+            exec_time=exec_time,
+            memory_usage=memory_usage,
         )
-
         # update user's submission
         User(self.user.username).add_submission(self.reload())
         # update homework data
@@ -360,7 +368,7 @@ class Submission(MongoBase, engine=engine.Submission):
         if data[1:4] != b'PDF':
             raise ValueError('only accept PDF file.')
 
-        self.comment_dir.write_bytes(data)
+        self.comment_path.write_bytes(data)
         current_app.logger.debug(f'{self} comment updated.')
 
     @staticmethod
@@ -425,10 +433,6 @@ class Submission(MongoBase, engine=engine.Submission):
             right = len(submissions)
 
         return submissions[offset:right]
-
-    @staticmethod
-    def count():
-        return engine.Submission.objects.count()
 
     @classmethod
     def add(

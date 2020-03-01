@@ -15,7 +15,6 @@ from mongo import *
 from mongo import engine
 from .utils import *
 from .auth import *
-from .submission_config import SubmissionConfig
 
 __all__ = ['submission_api']
 submission_api = Blueprint('submission_api', __name__)
@@ -47,8 +46,8 @@ def create_submission(user, language_type, problem_id):
     # the user reach the rate limit for submitting
     now = datetime.now()
     delta = timedelta.total_seconds(now - user.last_submit)
-    if delta <= SubmissionConfig.RATE_LIMIT:
-        wait_for = SubmissionConfig.RATE_LIMIT - delta
+    if delta <= Submission.config.rate_limit:
+        wait_for = Submission.config.rate_limit - delta
         return HTTPError(
             'Submit too fast!\n'
             f'Please wait for {wait_for:.2f} seconds to submit.',
@@ -60,12 +59,8 @@ def create_submission(user, language_type, problem_id):
     # check for fields
     if problem_id is None:
         return HTTPError(
-            'post data missing!',
+            'problemId is required!',
             400,
-            data={
-                'languageType': language_type,
-                'problemId': problem_id
-            },
         )
     # search for problem
     current_app.logger.debug(f'got problem id {problem_id}')
@@ -297,7 +292,7 @@ def get_submission_count(
 @Request.json('tasks: list', 'token: str')
 @submission_required
 def on_submission_complete(submission, tasks, token):
-    if not secrets.compare_digest(token, SubmissionConfig.SANDBOX_TOKEN):
+    if not verify_token(submission.id, token):
         return HTTPError('you are not sandbox :(', 403)
     try:
         submission.process_result(tasks)

@@ -265,3 +265,28 @@ class PostThread(Document):
 class Post(Document):
     post_name = StringField(default='', required=True, max_length=64)
     thread = ReferenceField('PostThread', db_field='postThread')
+
+
+class Config(Document):
+    meta = {
+        'allow_inheritance': True,
+    }
+    name = StringField()
+
+
+class SandBox(EmbeddedDocument):
+    url = StringField(required=True)
+    token = StringField(required=True)
+
+
+class SubmissionConfig(Document):
+    rate_limit = IntField(default=0, db_field='rateLimit')
+    sandbox_instances = EmbeddedDocumentListField(
+        SandBox,
+        default=[
+            SandBox(
+                url='http://sandbox:1450',
+                token='KoNoSandboxDa',
+            ),
+        ],
+    )
