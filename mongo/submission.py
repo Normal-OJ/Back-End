@@ -9,7 +9,6 @@ from flask import current_app
 from datetime import date
 from typing import List
 from zipfile import ZipFile, is_zipfile
-from model.submission_config import SubmissionConfig
 
 from . import engine
 from .base import MongoBase
@@ -18,7 +17,7 @@ from .problem import Problem, can_view
 
 __all__ = [
     'Submission',
-    'get_token',
+    'gen_token',
     'assign_token',
     'verify_token',
     'JudgeQueueFullError',
@@ -30,16 +29,15 @@ __all__ = [
 tokens = {}
 
 
-def get_token():
+def gen_token():
     return secrets.token_urlsafe()
 
 
-def assign_token(submission_id, token_pool=tokens):
+def assign_token(submission_id, token=None):
     '''
     generate a token for the submission
     '''
-    token = get_token()
-    token_pool[submission_id] = token
+    tokens[submission_id] = token or gen_token()
     return token
 
 
@@ -68,7 +66,32 @@ class NoSourceError(Exception):
     '''
 
 
+class SubmissionConfig(MongoBase, engine=engine.SubmissionConfig):
+    def __init__(self, name):
+        self.name = name
+        self.SOURCE_PATH = pathlib.Path(
+            os.getenv(
+                'SUBMISSION_SOURCE_PATH',
+                'submissions',
+            ), )
+        self.SOURCE_PATH.mkdir(exist_ok=True)
+        self.COMMENT_PATH = pathlib.Path(
+            os.getenv(
+                'SUBMISSION_COMMENT_PATH',
+                'comments',
+            ), )
+        self.COMMENT_PATH.mkdir(exist_ok=True)
+        self.TMP_DIR = pathlib.Path(
+            os.getenv(
+                'SUBMISSION_TMP_DIR',
+                '/tmp' / self.SOURCE_PATH,
+            ), )
+        self.TMP_DIR.mkdir(exist_ok=True)
+
+
 class Submission(MongoBase, engine=engine.Submission):
+    config = SubmissionConfig('submission')
+
     def __init__(self, submission_id):
         self.submission_id = str(submission_id)
 
@@ -122,15 +145,15 @@ class Submission(MongoBase, engine=engine.Submission):
 
     @property
     def code_dir(self) -> pathlib.Path:
-        return SubmissionConfig.SOURCE_PATH / self.id
+        return self.config.SOURCE_PATH / self.id
 
     @property
-    def comment_dir(self) -> pathlib.Path:
-        return SubmissionConfig.COMMENT_PATH / self.id
+    def comment_path(self) -> pathlib.Path:
+        return self.config.COMMENT_PATH / self.id
 
     @property
     def tmp_dir(self) -> pathlib.Path:
-        return SubmissionConfig.TMP_DIR / self.id
+        return self.config.TMP_DIR / self.id
 
     @property
     def main_code_path(self) -> str:
@@ -140,12 +163,65 @@ class Submission(MongoBase, engine=engine.Submission):
         ext = lang2ext[self.language]
         return str((self.code_dir / f'main{ext}').absolute())
 
+    @property
+    def logger(self):
+        try:
+            return current_app.logger
+        except RuntimeError:
+            return logging.getLogger('gunicorn.error')
+
+    def sandbox_resp_handler(self, resp):
+        # judge queue is currently full
+        def on_500(resp):
+            raise JudgeQueueFullError
+
+        # backend send some invalid data
+        def on_400(resp):
+            raise ValueError(resp.text)
+
+        # send a invalid token
+        def on_403(resp):
+            raise ValueError('invalid token')
+
+        h = {
+            500: on_500,
+            403: on_403,
+            400: on_400,
+            200: lambda r: True,
+        }
+        try:
+            return h[resp.status_code](resp)
+        except KeyError:
+            self.logger.error('can not handle response from sandbox')
+            self.logger.error(
+                f'status code: {resp.status_code}\n'
+                f'headers: {resp.headers}\n'
+                f'body: {resp.text}', )
+            return False
+
+    def target_sandbox(self):
+        load = 10**3  # current min load
+        tar = None  # target
+        for sb in self.config.sandbox_instances:
+            resp = rq.get(f'{sb.url}/status')
+            if not resp.ok:
+                self.logger.warning(f'sandbox {sb.name} status exception')
+                self.logger.warning(
+                    f'status code: {resp.status_code}\n '
+                    f'body: {resp.text}', )
+                continue
+            resp = resp.json()
+            if resp['load'] < load:
+                load = resp['load']
+                tar = sb
+        return tar
+
     def get_code(self, path: str) -> str:
         code = self.code_dir / path
         return code.read_text()
 
     def get_comment(self) -> bytes:
-        return self.comment_dir.read_bytes()
+        return self.comment_path.read_bytes()
 
     def make_source_zip(self):
         '''
@@ -197,7 +273,7 @@ class Submission(MongoBase, engine=engine.Submission):
         self.code_dir.mkdir()
         with ZipFile(code_file) as f:
             f.extractall(self.code_dir)
-        current_app.logger.debug(f'{self} code updated.')
+        self.logger.debug(f'{self} code updated.')
         self.update(code=True, status=-1)
         self.reload()
         zip_path = self.make_source_zip()
@@ -239,12 +315,8 @@ class Submission(MongoBase, engine=engine.Submission):
                 for task in self.problem.test_case.tasks
             ],
         }
-        current_app.logger.debug(f'meta: {meta}')
+        self.logger.debug(f'meta: {meta}')
         # setup post body
-        post_data = {
-            'token': SubmissionConfig.SANDBOX_TOKEN,
-            'checker': 'print("not implement yet. qaq")',
-        }
         files = {
             'src': (
                 f'{self.id}-source.zip',
@@ -259,25 +331,27 @@ class Submission(MongoBase, engine=engine.Submission):
                 io.StringIO(json.dumps(meta)),
             ),
         }
-
-        judge_url = f'{SubmissionConfig.JUDGE_URL}/{self.id}'
-
+        # look for the target sandbox
+        tar = self.target_sandbox()
+        if tar is None:
+            self.logger.error(f'can not target a sandbox for {repr(self)}')
+            return False
+        # save token for validation
+        assign_token(self.id, tar.token)
+        post_data = {
+            'token': tar.token,
+            'checker': 'print("not implement yet. qaq")',
+        }
+        judge_url = f'{tar.url}/submit/{self.id}'
         # send submission to snadbox for judgement
+        self.logger.info(f'send {self} to {tar.name}')
         resp = rq.post(
             judge_url,
             data=post_data,
             files=files,
         )
-
-        # Queue is full now
-        if resp.status_code == 500:
-            raise JudgeQueueFullError
-        # Invlid data
-        elif resp.status_code == 400:
-            raise ValueError(resp.text)
-        elif resp.status_code != 200:
-            exit(10086)
-        return True
+        self.logger.info(f'recieve {self}')
+        return self.sandbox_resp_handler(resp)
 
     def process_result(self, tasks: list):
         for task in tasks:
@@ -289,42 +363,26 @@ class Submission(MongoBase, engine=engine.Submission):
 
         # process task
         for i, cases in enumerate(tasks):
-            # find significant case
-            _cases = cases[:]
-            score = 0
-            if not all(c['status'] == 0 for c in _cases):
-                _cases = [*filter(lambda c: c['status'] != 0, _cases)]
-            else:
-                score = self.problem.test_case.tasks[i].task_score
-            case = sorted(
-                _cases[:],
-                key=lambda c: (c['memoryUsage'], c['execTime']),
-            )[-1]
+            status = max(c['status'] for c in cases)
+            exec_time = max(c['execTime'] for c in cases)
+            memory_usage = max(c['memoryUsage'] for c in cases)
             tasks[i] = engine.TaskResult(
-                status=case['status'],
-                exec_time=case['execTime'],
-                memory_usage=case['memoryUsage'],
-                score=score,
+                status=status,
+                exec_time=exec_time,
+                memory_usage=memory_usage,
+                score=score if status == 0 else 0,
                 cases=cases,
             )
-
-        # get the task which has the longest memory usage, execution time
-        _tasks = tasks[:]
-        if not all(t.status == 0 for t in _tasks):
-            _tasks = [*filter(lambda t: t.status != 0, _tasks)]
-        m_task = sorted(
-            _tasks,
-            key=lambda t: (t.memory_usage, t.exec_time),
-        )[-1]
-
+        status = max(t['status'] for t in tasks)
+        exec_time = max(t['execTime'] for t in tasks)
+        memory_usage = max(t['memoryUsage'] for t in tasks)
         self.update(
             score=sum(task.score for task in tasks),
-            status=m_task.status,
+            status=status,
             tasks=tasks,
-            exec_time=m_task.exec_time,
-            memory_usage=m_task.memory_usage,
+            exec_time=exec_time,
+            memory_usage=memory_usage,
         )
-
         # update user's submission
         User(self.user.username).add_submission(self.reload())
         # update homework data
@@ -360,8 +418,8 @@ class Submission(MongoBase, engine=engine.Submission):
         if data[1:4] != b'PDF':
             raise ValueError('only accept PDF file.')
 
-        self.comment_dir.write_bytes(data)
-        current_app.logger.debug(f'{self} comment updated.')
+        self.comment_path.write_bytes(data)
+        self.logger.debug(f'{self} comment updated.')
 
     @staticmethod
     def count():
@@ -425,10 +483,6 @@ class Submission(MongoBase, engine=engine.Submission):
             right = len(submissions)
 
         return submissions[offset:right]
-
-    @staticmethod
-    def count():
-        return engine.Submission.objects.count()
 
     @classmethod
     def add(

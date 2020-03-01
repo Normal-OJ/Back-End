@@ -128,9 +128,10 @@ class User(MongoBase, engine=engine.User):
 
     def add_submission(self, submission: engine.Submission):
         if submission.score == 100:
-            if submission.problem_id not in self.AC_problem_ids:
-                self.AC_problem_ids.append(submission.problem_id)
-            self.AC_submission += 1
+            self.update(
+                add_to_set__AC_problem_id=submission.problem_id,
+                inc__AC_submission=1,
+            )
         self.submission += 1
         self.save()
 
