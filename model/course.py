@@ -13,11 +13,10 @@ course_api = Blueprint('course_api', __name__)
 
 @course_api.route('/', methods=['GET', 'POST', 'PUT', 'DELETE'])
 @login_required
+@identity_verify(0, 1)
 def get_courses(user):
     @Request.json('course', 'new_course', 'teacher')
     def modify_courses(course, new_course, teacher):
-        if user.role > 1:
-            return HTTPError('Forbidden.', 403)
         r = None
         if user.role == 1:
             teacher = user.username
