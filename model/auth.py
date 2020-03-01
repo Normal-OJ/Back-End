@@ -173,7 +173,7 @@ def active(token=None):
     @Request.json('profile: dict', 'agreement: bool')
     @Request.cookies(vars_dict={'token': 'piann'})
     def update(profile, agreement, token):
-        '''User: active: flase -> true
+        '''User: active: false -> true
         '''
         if agreement is not True:
             return HTTPError('Not Confirm the Agreement', 403)
