@@ -14,31 +14,16 @@ class TestCopyCat(BaseTester):
     # user, course, problem, submission
     def test_copycat(self, forge_client, problem_ids, make_course, submit_once,
                      save_source, tmp_path):
-        # course
+        # create course
         course_name = make_course(
             username="teacher",
             students=S_NAMES,
         ).name
-
-        # problem
+        # create problem
         pid = problem_ids("teacher", 1, True)[0]
-
-        # modify submission config
-        from model.submission_config import SubmissionConfig
-
-        # use tmp dir to save user source code
-        SubmissionConfig.SOURCE_PATH = (
-            tmp_path / SubmissionConfig.SOURCE_PATH).absolute()
-        SubmissionConfig.SOURCE_PATH.mkdir(exist_ok=True)
-        SubmissionConfig.TMP_DIR = (tmp_path /
-                                    SubmissionConfig.TMP_DIR).absolute()
-        SubmissionConfig.TMP_DIR.mkdir(exist_ok=True)
-        SubmissionConfig.RATE_LIMIT = -1
-
         # save source code (for submit_once)
         src_dir = pathlib.Path('tests/src')
         exts = {'.c', '.cpp', '.py'}
-
         for src in src_dir.iterdir():
             if any([not src.suffix in exts, not src.is_file()]):
                 continue
@@ -51,7 +36,6 @@ class TestCopyCat(BaseTester):
                     '.py',
                 ].index(src.suffix),
             )
-
         # submission
         name2code = {
             'student': [('base.c', 0), ('base.py', 2)],

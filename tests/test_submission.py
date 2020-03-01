@@ -27,24 +27,9 @@ def submission_testcase_setup(
     tmp_path,
 ):
     BaseTester.setup_class()
-
-    # modify submission config
-    from model.submission_config import SubmissionConfig
-
-    # use tmp dir to save user source code
-    SubmissionConfig.SOURCE_PATH = (tmp_path /
-                                    SubmissionConfig.SOURCE_PATH).absolute()
-    SubmissionConfig.SOURCE_PATH.mkdir(exist_ok=True)
-    SubmissionConfig.TMP_DIR = (tmp_path / SubmissionConfig.TMP_DIR).absolute()
-    SubmissionConfig.TMP_DIR.mkdir(exist_ok=True)
-
-    # disable rate limit
-    SubmissionConfig.RATE_LIMIT = -1
-
     # save base source
     src_dir = pathlib.Path('tests/src')
     exts = {'.c', '.cpp', '.py'}
-
     for src in src_dir.iterdir():
         if any([not src.suffix in exts, not src.is_file()]):
             continue
@@ -57,15 +42,13 @@ def submission_testcase_setup(
                 '.py',
             ].index(src.suffix),
         )
-
+    # create courses
     for name in A_NAMES:
         make_course(
             username=name,
             students=S_NAMES,
         )
-
     yield
-
     BaseTester.teardown_class()
 
 
@@ -78,24 +61,25 @@ class TestUserGetSubmission(SubmissionTester):
     @classmethod
     @pytest.fixture(autouse=True)
     def on_create(cls, submit, problem_ids):
+        # create 2 problem for each teacher or admin
         pids = [problem_ids(name, 2, True) for name in A_NAMES]
         pids = itertools.chain(*pids)
+        # get online problem ids
         pids = [pid for pid in pids if Problem(pid).obj.problem_status == 0]
         pids = itertools.cycle(pids)
         names = S_NAMES.keys()
         names = itertools.cycle(names)
-
+        # create submissions
         cls.submissions = submit(
             names,
             pids,
             cls.init_submission_count,
         )
-
+        # check submission count
         assert len([*itertools.chain(*cls.submissions.values())
                     ]) == cls.init_submission_count, cls.submissions
-
         yield
-
+        # clear
         cls.submissions = []
 
     def test_normal_get_submission_list(self, forge_client):
@@ -587,8 +571,7 @@ class TestCreateSubmission(SubmissionTester):
         assert rv.status_code == 403, rv_json
 
     def test_reach_rate_limit(self, client_student):
-        from model.submission_config import SubmissionConfig
-        SubmissionConfig.RATE_LIMIT = 5
+        Submission.config.rate_limit = 5
 
         post_json = self.post_payload(1)
         client_student.post(
@@ -604,7 +587,7 @@ class TestCreateSubmission(SubmissionTester):
 
             assert rv.status_code == 429, rv.get_json()
 
-        SubmissionConfig.RATE_LIMIT = -1
+        Submission.config.rate_limit = 0
 
     def test_normally_rejudge(self, forge_client, submit_once):
         submission_id = submit_once('student', self.pid, 'base.c', 0)
