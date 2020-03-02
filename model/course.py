@@ -131,7 +131,7 @@ def grading(user, course_name, student):
     if not permission:
         return HTTPError('You are not in this course.', 403)
 
-    if not User(student) or not perm(course, User(student).obj):
+    if not User(student) or not student in course.student_nicknames.keys():
         return HTTPError('The student is not in the course.', 404)
 
     if permission == 1 and (user.username != student

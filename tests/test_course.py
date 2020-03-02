@@ -265,6 +265,8 @@ class TestCourseGrade(BaseTester):
                                })
 
         assert rv.status_code == 400
+        json = rv.get_json()
+        assert json['message'] == 'This title is taken.'
 
     def test_modify_score(self, client_admin):
         # modify a score
@@ -289,6 +291,8 @@ class TestCourseGrade(BaseTester):
                               })
 
         assert rv.status_code == 404
+        json = rv.get_json()
+        assert json['message'] == 'Score not found.'
 
     def test_delete_score(self, client_admin):
         # delete a score
@@ -313,3 +317,5 @@ class TestCourseGrade(BaseTester):
         rv = client_teacher.get('/course/math/grade/student')
 
         assert rv.status_code == 403
+        json = rv.get_json()
+        assert json['message'] == 'You are not in this course.'
