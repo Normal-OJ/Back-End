@@ -17,7 +17,7 @@ from .problem import Problem, can_view
 
 __all__ = [
     'Submission',
-    'get_token',
+    'gen_token',
     'assign_token',
     'verify_token',
     'JudgeQueueFullError',
@@ -29,16 +29,15 @@ __all__ = [
 tokens = {}
 
 
-def get_token():
+def gen_token():
     return secrets.token_urlsafe()
 
 
-def assign_token(submission_id, token_pool=tokens):
+def assign_token(submission_id, token=None):
     '''
     generate a token for the submission
     '''
-    token = get_token()
-    token_pool[submission_id] = token
+    tokens[submission_id] = token or gen_token()
     return token
 
 
@@ -164,6 +163,59 @@ class Submission(MongoBase, engine=engine.Submission):
         ext = lang2ext[self.language]
         return str((self.code_dir / f'main{ext}').absolute())
 
+    @property
+    def logger(self):
+        try:
+            return current_app.logger
+        except RuntimeError:
+            return logging.getLogger('gunicorn.error')
+
+    def sandbox_resp_handler(self, resp):
+        # judge queue is currently full
+        def on_500(resp):
+            raise JudgeQueueFullError
+
+        # backend send some invalid data
+        def on_400(resp):
+            raise ValueError(resp.text)
+
+        # send a invalid token
+        def on_403(resp):
+            raise ValueError('invalid token')
+
+        h = {
+            500: on_500,
+            403: on_403,
+            400: on_400,
+            200: lambda r: True,
+        }
+        try:
+            return h[resp.status_code](resp)
+        except KeyError:
+            self.logger.error('can not handle response from sandbox')
+            self.logger.error(
+                f'status code: {resp.status_code}\n'
+                f'headers: {resp.headers}\n'
+                f'body: {resp.text}', )
+            return False
+
+    def target_sandbox(self):
+        load = 10**3  # current min load
+        tar = None  # target
+        for sb in self.config.sandbox_instances:
+            resp = rq.get(f'{sb.url}/status')
+            if not resp.ok:
+                self.logger.warning(f'sandbox {sb.name} status exception')
+                self.logger.warning(
+                    f'status code: {resp.status_code}\n '
+                    f'body: {resp.text}', )
+                continue
+            resp = resp.json()
+            if resp['load'] < load:
+                load = resp['load']
+                tar = sb
+        return tar
+
     def get_code(self, path: str) -> str:
         code = self.code_dir / path
         return code.read_text()
@@ -221,7 +273,7 @@ class Submission(MongoBase, engine=engine.Submission):
         self.code_dir.mkdir()
         with ZipFile(code_file) as f:
             f.extractall(self.code_dir)
-        current_app.logger.debug(f'{self} code updated.')
+        self.logger.debug(f'{self} code updated.')
         self.update(code=True, status=-1)
         self.reload()
         zip_path = self.make_source_zip()
@@ -263,12 +315,8 @@ class Submission(MongoBase, engine=engine.Submission):
                 for task in self.problem.test_case.tasks
             ],
         }
-        current_app.logger.debug(f'meta: {meta}')
+        self.logger.debug(f'meta: {meta}')
         # setup post body
-        post_data = {
-            'token': SubmissionConfig.SANDBOX_TOKEN,
-            'checker': 'print("not implement yet. qaq")',
-        }
         files = {
             'src': (
                 f'{self.id}-source.zip',
@@ -283,25 +331,27 @@ class Submission(MongoBase, engine=engine.Submission):
                 io.StringIO(json.dumps(meta)),
             ),
         }
-
-        judge_url = f'{SubmissionConfig.JUDGE_URL}/{self.id}'
-
+        # look for the target sandbox
+        tar = self.target_sandbox()
+        if tar is None:
+            self.logger.error(f'can not target a sandbox for {repr(self)}')
+            return False
+        # save token for validation
+        assign_token(self.id, tar.token)
+        post_data = {
+            'token': tar.token,
+            'checker': 'print("not implement yet. qaq")',
+        }
+        judge_url = f'{tar.url}/submit/{self.id}'
         # send submission to snadbox for judgement
+        self.logger.info(f'send {self} to {tar.name}')
         resp = rq.post(
             judge_url,
             data=post_data,
             files=files,
         )
-
-        # Queue is full now
-        if resp.status_code == 500:
-            raise JudgeQueueFullError
-        # Invlid data
-        elif resp.status_code == 400:
-            raise ValueError(resp.text)
-        elif resp.status_code != 200:
-            exit(10086)
-        return True
+        self.logger.info(f'recieve {self}')
+        return self.sandbox_resp_handler(resp)
 
     def process_result(self, tasks: list):
         for task in tasks:
@@ -320,7 +370,7 @@ class Submission(MongoBase, engine=engine.Submission):
                 status=status,
                 exec_time=exec_time,
                 memory_usage=memory_usage,
-                score=score if stat == 0 else 0,
+                score=score if status == 0 else 0,
                 cases=cases,
             )
         status = max(t['status'] for t in tasks)
@@ -369,7 +419,7 @@ class Submission(MongoBase, engine=engine.Submission):
             raise ValueError('only accept PDF file.')
 
         self.comment_path.write_bytes(data)
-        current_app.logger.debug(f'{self} comment updated.')
+        self.logger.debug(f'{self} comment updated.')
 
     @staticmethod
     def count():

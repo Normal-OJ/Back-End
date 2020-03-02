@@ -274,7 +274,8 @@ class Config(Document):
     name = StringField()
 
 
-class SandBox(EmbeddedDocument):
+class Sandbox(EmbeddedDocument):
+    name = StringField(required=True)
     url = StringField(required=True)
     token = StringField(required=True)
 
@@ -282,9 +283,9 @@ class SandBox(EmbeddedDocument):
 class SubmissionConfig(Document):
     rate_limit = IntField(default=0, db_field='rateLimit')
     sandbox_instances = EmbeddedDocumentListField(
-        SandBox,
+        Sandbox,
         default=[
-            SandBox(
+            Sandbox(
                 url='http://sandbox:1450',
                 token='KoNoSandboxDa',
             ),
