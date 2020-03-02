@@ -128,6 +128,7 @@ class Course(Document):
     announcements = ListField(ReferenceField('Announcement'),
                               db_field='announcements')
     posts = ListField(ReferenceField('Post'), db_field='posts', default=list)
+    student_scores = DictField(db_field='studentScores')
 
 
 class Number(Document):

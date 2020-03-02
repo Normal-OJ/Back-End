@@ -5,6 +5,7 @@ from .auth import *
 from .utils import *
 from mongo.course import *
 from mongo import engine
+from datetime import datetime
 
 __all__ = ['course_api']
 
@@ -115,3 +116,95 @@ def get_course(user, course_name):
                             })
     else:
         return modify_course()
+
+
+@course_api.route('/<course_name>/grade/<student>',
+                  methods=['GET', 'POST', 'PUT', 'DELETE'])
+@login_required
+def grading(user, course_name, student):
+    course = Course(course_name).obj
+    if course is None:
+        return HTTPError('Course not found.', 404)
+
+    permission = perm(course, user)
+    if not permission:
+        return HTTPError('You are not in this course.', 403)
+
+    if not User(student) or not student in course.student_nicknames.keys():
+        return HTTPError('The student is not in the course.', 404)
+
+    if permission == 1 and (user.username != student
+                            or request.method != 'GET'):
+        return HTTPError('You can only view your score.', 403)
+
+    def get_score():
+        return HTTPResponse(
+            'Success.',
+            data=[{
+                'title': score['title'],
+                'content': score['content'],
+                'score': score['score'],
+                'timestamp': score['timestamp'].timestamp()
+            } for score in course.student_scores.get(student, [])])
+
+    @Request.json('title', 'content', 'score')
+    def add_score(title, content, score):
+        score_list = course.student_scores.get(student, [])
+        if title in [score['title'] for score in score_list]:
+            return HTTPError('This title is taken.', 400)
+
+        score_list.append({
+            'title': title,
+            'content': content,
+            'score': score,
+            'timestamp': datetime.now()
+        })
+
+        course.student_scores[student] = score_list
+        course.save()
+        return HTTPResponse('Success.')
+
+    @Request.json('title', 'new_title', 'content', 'score')
+    def modify_score(title, new_title, content, score):
+        score_list = course.student_scores.get(student, [])
+        title_list = [score['title'] for score in score_list]
+        if title not in title_list:
+            return HTTPError('Score not found.', 404)
+
+        if new_title in title_list:
+            return HTTPError('This title is taken.', 400)
+
+        index = title_list.index(title)
+
+        score_list[index] = {
+            'title': new_title,
+            'content': content,
+            'score': score,
+            'timestamp': datetime.now()
+        }
+
+        course.student_scores[student] = score_list
+        course.save()
+        return HTTPResponse('Success.')
+
+    @Request.json('title')
+    def delete_score(title):
+        score_list = course.student_scores.get(student, [])
+        title_list = [score['title'] for score in score_list]
+        if title not in title_list:
+            return HTTPError('Score not found.', 404)
+
+        index = title_list.index(title)
+        del score_list[index]
+
+        course.student_scores[student] = score_list
+        course.save()
+        return HTTPResponse('Success.')
+
+    methods = {
+        'GET': get_score,
+        'POST': add_score,
+        'PUT': modify_score,
+        'DELETE': delete_score
+    }
+    return methods[request.method]()
