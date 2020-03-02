@@ -34,10 +34,16 @@ def escape_markdown(sender, document):
 
 
 class Profile(EmbeddedDocument):
-    displayed_name = StringField(db_field='displayedName',
-                                 default='',
-                                 max_length=16)
-    bio = StringField(max_length=64, required=True, default='')
+    displayed_name = StringField(
+        db_field='displayedName',
+        default='',
+        max_length=16,
+    )
+    bio = StringField(
+        max_length=64,
+        required=True,
+        default='',
+    )
 
 
 class EditorConfig(EmbeddedDocument):
@@ -45,21 +51,28 @@ class EditorConfig(EmbeddedDocument):
                          min_value=8,
                          max_value=72,
                          default=14)
-    theme = StringField(default='default',
-                        choices=[
-                            "default", "base16-dark", "base16-light",
-                            "dracula", "eclipse", "material", "monokai"
-                        ])
+    theme = StringField(
+        default='default',
+        choices=[
+            "default", "base16-dark", "base16-light", "dracula", "eclipse",
+            "material", "monokai"
+        ],
+    )
     indent_type = IntField(db_field='indentType', default=1, choices=[0, 1])
-    tab_size = IntField(db_field='tabSize',
-                        default=4,
-                        min_value=1,
-                        max_value=8)
-    language = IntField(default=0, choices=[0, 1, 2])
+    tab_size = IntField(
+        db_field='tabSize',
+        default=4,
+        min_value=1,
+        max_value=8,
+    )
+    language = IntField(
+        default=0,
+        choices=[0, 1, 2],
+    )
 
 
 class Duration(EmbeddedDocument):
-    start = DateTimeField(default=datetime.now())
+    start = DateTimeField(default=datetime.now)
     end = DateTimeField(default=datetime.max)
 
 
@@ -67,15 +80,17 @@ class User(Document):
     username = StringField(max_length=16, required=True, primary_key=True)
     user_id = StringField(db_field='userId', max_length=24, required=True)
     user_id2 = StringField(db_field='userId2', max_length=24, default='')
-    email = EmailField(required=True, unique=True)
-    md5 = StringField(required=True)
+    email = EmailField(required=True, unique=True, max_length=128)
+    md5 = StringField(required=True, max_length=32)
     active = BooleanField(default=False)
     role = IntField(default=2, choices=[0, 1, 2])
     profile = EmbeddedDocumentField(Profile, default=Profile)
-    editor_config = EmbeddedDocumentField(EditorConfig,
-                                          db_field='editorConfig',
-                                          default=EditorConfig,
-                                          null=True)
+    editor_config = EmbeddedDocumentField(
+        EditorConfig,
+        db_field='editorConfig',
+        default=EditorConfig,
+        null=True,
+    )
     contest = ReferenceField('Contest', db_field='contestId')
     courses = ListField(ReferenceField('Course'))
     submissions = ListField(ReferenceField('Submission'))
@@ -119,20 +134,17 @@ class Course(Document):
                               required=True,
                               unique=True,
                               db_field='courseName')
-    teacher = ReferenceField('User', db_field='teacher')
-    tas = ListField(ReferenceField('User'), db_field='tas')
-    contests = ListField(ReferenceField('Contest', reverse_delete_rule=PULL),
-                         db_field='contests')
-    homeworks = ListField(ReferenceField('Homework', reverse_delete_rule=PULL),
-                          db_field='homeworks')
-    announcements = ListField(ReferenceField('Announcement'),
-                              db_field='announcements')
-    posts = ListField(ReferenceField('Post'), db_field='posts', default=list)
+    teacher = ReferenceField('User')
+    tas = ListField(ReferenceField('User'))
+    contests = ListField(ReferenceField('Contest', reverse_delete_rule=PULL))
+    homeworks = ListField(ReferenceField('Homework', reverse_delete_rule=PULL))
+    announcements = ListField(ReferenceField('Announcement'))
+    posts = ListField(ReferenceField('Post'), default=list)
     student_scores = DictField(db_field='studentScores')
 
 
 class Number(Document):
-    name = StringField()
+    name = StringField(max_length=64)
     number = IntField(default=1)
 
 
@@ -155,6 +167,7 @@ class ProblemTestCase(EmbeddedDocument):
         db_field='caseZip',
         defautl=None,
         null=True,
+        validate=lambda f: False,
     )
 
 
@@ -164,12 +177,12 @@ class ProblemDescription(EmbeddedDocument):
     output = StringField(max_length=100000)
     hint = StringField(max_length=100000)
     sample_input = ListField(
-        StringField(),
+        StringField(max_length=1024),
         default=list,
         db_field='sampleInput',
     )
     sample_output = ListField(
-        StringField(),
+        StringField(max_length=1024),
         default=list,
         db_field='sampleOutput',
     )
@@ -227,8 +240,12 @@ class Problem(Document):
     contests = ListField(ReferenceField('Contest'), default=list)
     # user can view stdout/stderr
     can_view_stdout = BooleanField(db_field='canViewStdout', default=True)
-    cpp_report_url = StringField(db_field='cppReportUrl', default='')
-    python_report_url = StringField(db_field='pythonReportUrl', default='')
+    cpp_report_url = StringField(db_field='cppReportUrl',
+                                 default='',
+                                 max_length=128)
+    python_report_url = StringField(db_field='pythonReportUrl',
+                                    default='',
+                                    max_length=128)
     # bitmask of allowed languages (c: 1, cpp: 2, py3: 4)
     allowed_language = IntField(db_field='allowedLanguage', default=7)
 
@@ -237,8 +254,8 @@ class CaseResult(EmbeddedDocument):
     status = IntField(required=True)
     exec_time = IntField(required=True, db_field='execTime')
     memory_usage = IntField(required=True, db_field='memoryUsage')
-    stdout = StringField(required=True)
-    stderr = StringField(required=True)
+    stdout = StringField(required=True, max_length=(1024**2) * 512)
+    stderr = StringField(required=True, max_length=(1024**2) * 512)
 
 
 class TaskResult(EmbeddedDocument):
@@ -315,7 +332,7 @@ class Config(Document):
     meta = {
         'allow_inheritance': True,
     }
-    name = StringField()
+    name = StringField(max_length=64)
 
 
 class Sandbox(EmbeddedDocument):
