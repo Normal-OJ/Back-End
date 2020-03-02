@@ -3,6 +3,7 @@ flask
 gunicorn
 
 mongoengine
+blinker
 PyJWT
 requests
 

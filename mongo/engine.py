@@ -1,13 +1,36 @@
 from mongoengine import *
-
+from mongoengine import signals
+from flask import current_app
 import mongoengine
 import os
+import html
 from datetime import datetime
 
 __all__ = [*mongoengine.__all__]
 
 MONGO_HOST = os.environ.get('MONGO_HOST', 'mongomock://localhost')
 connect('normal-oj', host=MONGO_HOST)
+
+
+def handler(event):
+    '''
+    Signal decorator to allow use of callback functions as class decorators.
+    reference: http://docs.mongoengine.org/guide/signals.html
+    '''
+    def decorator(fn):
+        def apply(cls):
+            event.connect(fn, sender=cls)
+            return cls
+
+        fn.apply = apply
+        return fn
+
+    return decorator
+
+
+@handler(signals.pre_save)
+def escape_markdown(sender, document):
+    document.markdown = html.escape(document.markdown)
 
 
 class Profile(EmbeddedDocument):
@@ -62,6 +85,7 @@ class User(Document):
     submission = IntField(default=0)
 
 
+@escape_markdown.apply
 class Homework(Document):
     homework_name = StringField(max_length=64,
                                 required=True,
@@ -149,7 +173,23 @@ class ProblemDescription(EmbeddedDocument):
         db_field='sampleOutput',
     )
 
+    def escape(self):
+        self.description = html.escape(self.description)
+        self.input = html.escape(self.input)
+        self.output = html.escape(self.output)
+        self.hint = html.escape(self.hint)
+        _io = zip(self.sample_input, self.sample_output)
+        for i, (ip, op) in enumerate(_io):
+            self.sample_input[i] = html.escape(ip)
+            self.sample_output[i] = html.escape(op)
 
+
+@handler(signals.pre_save)
+def problem_desc_escape(sender, document):
+    document.description.escape()
+
+
+@problem_desc_escape.apply
 class Problem(Document):
     problem_id = IntField(db_field='problemId', required=True, unique=True)
     courses = ListField(ReferenceField('Course'), default=list)
@@ -224,6 +264,7 @@ class Submission(Document):
     # review = pdf
 
 
+@escape_markdown.apply
 class Message(Document):
     timestamp = DateTimeField(default=datetime.utcnow)
     sender = StringField(max_length=16, required=True)
@@ -239,6 +280,7 @@ class Inbox(Document):
     message = ReferenceField('Message')
 
 
+@escape_markdown.apply
 class Announcement(Document):
     status = IntField(default=0, choices=[0, 1])  # not delete / delete
     title = StringField(max_length=64, required=True)
@@ -250,6 +292,7 @@ class Announcement(Document):
     markdown = StringField(max_length=100000, required=True)
 
 
+@escape_markdown.apply
 class PostThread(Document):
     markdown = StringField(default='', required=True, max_length=100000)
     author = ReferenceField('User', db_field='author')
