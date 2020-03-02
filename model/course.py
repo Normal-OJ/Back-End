@@ -90,11 +90,30 @@ def get_course(user, course_name):
                 return HTTPResponse(f'User: {student} not found.', 404)
             student_dict[student] = nickname
 
-        for user in set(course.student_nicknames) - set(student_dict):
+        drop_user = set(course.student_nicknames) - set(student_dict)
+        new_user = set(student_dict) - set(course.student_nicknames)
+
+        for user in drop_user:
             remove_user(User(user).obj, course)
-        for user in set(student_dict) - set(course.student_nicknames):
+        for user in new_user:
             add_user(User(user).obj, course)
         course.student_nicknames = student_dict
+
+        for homework in course.homeworks:
+            for user in drop_user:
+                del homework.student_status[user]
+
+            user_problems = {}
+            for pid in homework.problem_ids:
+                user_problems[str(pid)] = {
+                    'score': 0,
+                    'problemStatus': None,
+                    'submissionIds': []
+                }
+            for user in new_user:
+                homework.student_status[user] = user_problems
+
+            homework.save()
 
         course.save()
         return HTTPResponse('Success.')
