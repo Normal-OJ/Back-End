@@ -1,26 +1,32 @@
+import logging
 from flask import Flask
 from model import *
 from mongo import *
 from mongo import engine
+from mongo import problem
 
 # Create a flask app
 app = Flask(__name__)
 app.url_map.strict_slashes = False
 
-# Regist flask blueprint
-app.register_blueprint(auth_api, url_prefix='/auth')
-app.register_blueprint(profile_api, url_prefix='/profile')
-app.register_blueprint(problem_api, url_prefix='/problem')
-app.register_blueprint(submission_api, url_prefix='/submission')
-app.register_blueprint(inbox_api, url_prefix='/inbox')
-app.register_blueprint(course_api, url_prefix='/course')
-app.register_blueprint(homework_api, url_prefix='/homework')
-app.register_blueprint(inbox_api, url_prefix='/inbox')
-app.register_blueprint(test_api, url_prefix='/test')
-app.register_blueprint(ann_api, url_prefix='/ann')
-app.register_blueprint(ranking_api, url_prefix='/ranking')
-app.register_blueprint(contest_api, url_prefix='/contest')
-app.register_blueprint(post_api, url_prefix='/post')
+# Register flask blueprint
+api2prefix = [
+    (auth_api, '/auth'),
+    (profile_api, '/profile'),
+    (problem_api, '/problem'),
+    (submission_api, '/submission'),
+    (inbox_api, '/inbox'),
+    (course_api, '/course'),
+    (homework_api, '/homework'),
+    (test_api, '/test'),
+    (ann_api, '/ann'),
+    (ranking_api, '/ranking'),
+    (contest_api, '/contest'),
+    (post_api, '/post'),
+    (copycat_api, '/copycat'),
+]
+for api, prefix in api2prefix:
+    app.register_blueprint(api, url_prefix=prefix)
 
 if not User("first_admin"):
     ADMIN = {
@@ -28,12 +34,23 @@ if not User("first_admin"):
         'password': 'firstpasswordforadmin',
         'email': 'i.am.first.admin@noj.tw'
     }
+    PROFILE = {
+        'displayed_name': 'the first admin',
+        'bio': 'I am super good!!!!!'
+    }
 
     admin = User.signup(**ADMIN)
-    admin.update(active=True, role=0)
+    admin.update(active=True, role=0, profile=PROFILE)
 
 if Course("Public").obj is None:
     add_course("Public", "first_admin")
 
 if Number("serial_number").obj is None:
     engine.Number(name="serial_number").save()
+
+problem.number = Number("serial_number").obj.number
+
+if __name__ != "__main__":
+    logger = logging.getLogger('gunicorn.error')
+    app.logger.handlers = logger.handlers
+    app.logger.setLevel(logger.level)

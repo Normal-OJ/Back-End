@@ -1,6 +1,2 @@
-flask
-mongoengine
 mongomock
 pytest
-PyJWT
-requests

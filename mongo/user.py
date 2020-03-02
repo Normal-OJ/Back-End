@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from hmac import compare_digest
 
-from . import engine
+from . import engine, course
 from .utils import *
 from .base import *
 
@@ -98,11 +98,40 @@ class User(MongoBase, engine=engine.User):
         self.update(user_id=user_id, user_id2=user_id)
         self.reload()
 
+    def activate(self, profile):
+        '''
+        activate a user
+
+        raises:
+            ValidationError: when user field in db is wrong or data isn't valid
+            engine.DoesNotExist
+        '''
+        # check whether `Public` is exists
+        pub_course = course.Course('Public').obj
+        if pub_course is None:
+            raise engine.DoesNotExist('Public Course Not Exists')
+        # update user data
+        self.update(
+            active=True,
+            profile={
+                'displayed_name': profile.get('displayedName'),
+                'bio': profile.get('bio'),
+            },
+            push__courses=pub_course,
+        )
+        # update `Public`
+        pub_course.student_nicknames.update({
+            self.username: self.username,
+        })
+        pub_course.save()
+        return True
+
     def add_submission(self, submission: engine.Submission):
         if submission.score == 100:
-            if submission.problem_id not in self.AC_problem_ids:
-                self.AC_problem_ids.append(submission.problem_id)
-            self.AC_submission += 1
+            self.update(
+                add_to_set__AC_problem_id=submission.problem_id,
+                inc__AC_submission=1,
+            )
         self.submission += 1
         self.save()
 

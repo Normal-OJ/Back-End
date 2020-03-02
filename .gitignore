@@ -1,7 +1,7 @@
 Dockerfile.prod
 
-# Gunicorn
-gunicorn_error.log
+# log file
+*.log
 
 # Python
 __pycache__
@@ -17,3 +17,7 @@ venv
 # vs & vs code cache
 .vs
 .vscode
+
+# default data path
+/submissions/
+/comments/

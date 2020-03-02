@@ -173,7 +173,7 @@ def active(token=None):
     @Request.json('profile: dict', 'agreement: bool')
     @Request.cookies(vars_dict={'token': 'piann'})
     def update(profile, agreement, token):
-        '''User: active: flase -> true
+        '''User: active: false -> true
         '''
         if agreement is not True:
             return HTTPError('Not Confirm the Agreement', 403)
@@ -185,22 +185,10 @@ def active(token=None):
             return HTTPError('User Not Exists', 400)
         if user.active:
             return HTTPError('User Has Been Actived', 400)
-        courses = user.courses
-        courses.append(Course('Public').obj)
         try:
-            user.update(active=True,
-                        profile={
-                            'displayed_name': profile.get('displayedName'),
-                            'bio': profile.get('bio'),
-                        },
-                        courses=courses)
-        except ValidationError as ve:
-            return HTTPError('Failed', 400, data=ve.to_dict())
-        pub_course = Course('Public').obj
-        if pub_course is None:
-            return HTTPError('Public Course Not Exists', 500)
-        pub_course.student_nicknames.update({user.username: user.username})
-        pub_course.save()
+            user.activate(profile)
+        except engine.DoesNotExist as e:
+            return HTTPError(str(e), 404)
         cookies = {'jwt': user.cookie}
         return HTTPResponse('User Is Now Active', cookies=cookies)
 

@@ -2,17 +2,12 @@ import pytest
 import os
 import itertools
 import pathlib
-from zipfile import ZipFile
-from datetime import datetime
 from pprint import pprint
-from copy import copy
-from collections import defaultdict
 
 from mongo import *
 from mongo import engine
 from tests.base_tester import BaseTester, random_string
 from tests.test_homework import CourseData
-from model.submission import assign_token, verify_token, tokens
 
 A_NAMES = [
     'teacher',
@@ -25,138 +20,6 @@ S_NAMES = {
 }
 
 
-@pytest.fixture
-def save_source(tmp_path):
-    def save_source(filename, source, lang, ext=None):
-        '''
-        save user source codes to tmp dir
-        currently only support one file.
-
-        Args:
-            filename: the source code's filename without extension
-            source: source code
-            lang: programming language, only accept {0, 1, 2}
-            ext: main script extension want to use, if None, decided by lang
-
-        Returns:
-            a zip file contains source code
-        '''
-        if not ext:
-            ext = ['.c', '.cpp', '.py'][lang]
-
-        # set path
-        name = tmp_path / (filename + ext)
-        zip_path = tmp_path / f'{name}.zip'
-
-        if name.exists():
-            raise FileExistsError(name)
-
-        with open(name, 'w') as f:
-            f.write(source)
-        with ZipFile(zip_path, 'w') as f:
-            f.write(name, arcname=f'main{ext}')
-        return True
-
-    return save_source
-
-
-@pytest.fixture
-def get_source(tmp_path):
-    def get_source(filename):
-        '''
-        get users zipped source by filename
-
-        Args:
-            filename: a string denote the source code's filename include extension
-        
-        Returns:
-            the zip file
-        '''
-        path = tmp_path / f'{filename}.zip'
-
-        if not path.exists():
-            raise FileNotFoundError(path)
-
-        return open(path, 'rb')
-
-    return get_source
-
-
-@pytest.fixture
-def submit_once(forge_client, get_source):
-    def submit_once(name, pid, filename, lang, client=None):
-        _client = forge_client(name) if client is None else client
-        now = datetime.utcnow()
-        rv, rv_json, rv_data = BaseTester.request(
-            _client,
-            'post',
-            '/submission',
-            json={
-                'problemId': pid,
-                'languageType': lang
-            },
-        )
-        assert rv.status_code == 200, rv_json
-
-        submission_id = rv_data['submissionId']
-        token = rv_data['token']
-
-        submission = {
-            'submissionId': submission_id,
-            'problemId': pid,
-            'username': name,
-            'lang': lang,
-            'timestamp': now
-        }
-
-        files = {
-            'code': (
-                get_source(filename),
-                f'main.{["c", "cpp", "py"][lang]}',
-            )
-        }
-        rv, rv_json, rv_data = BaseTester.request(
-            _client,
-            'put',
-            f'/submission/{submission_id}?token={token}',
-            data=files,
-        )
-        assert rv.status_code == 200, rv_json
-
-        if client is None:
-            _client.cookie_jar.clear()
-        return submission_id
-
-    return submit_once
-
-
-@pytest.fixture
-def submit(submit_once, forge_client):
-    def submit(names, pids, count, filename='base.c', lang=0):
-        n2p = defaultdict(list)  # name to pid
-
-        for n, p, _ in zip(names, pids, 'x' * count):
-            n2p[n].append(p)
-
-        n2s = defaultdict(list)  # name to submission id
-        for name, ps in n2p.items():
-            client = forge_client(name)
-            for p in ps:
-                n2s[name].append(
-                    submit_once(
-                        name=name,
-                        pid=p,
-                        filename=filename,
-                        lang=lang,
-                        client=client,
-                    ))
-            client.cookie_jar.clear()
-
-        return n2s
-
-    return submit
-
-
 @pytest.fixture(autouse=True)
 def submission_testcase_setup(
     save_source,
@@ -164,24 +27,9 @@ def submission_testcase_setup(
     tmp_path,
 ):
     BaseTester.setup_class()
-
-    # modify submission config
-    from model.submission_config import SubmissionConfig
-
-    # use tmp dir to save user source code
-    SubmissionConfig.SOURCE_PATH = (tmp_path /
-                                    SubmissionConfig.SOURCE_PATH).absolute()
-    SubmissionConfig.SOURCE_PATH.mkdir(exist_ok=True)
-    SubmissionConfig.TMP_DIR = (tmp_path / SubmissionConfig.TMP_DIR).absolute()
-    SubmissionConfig.TMP_DIR.mkdir(exist_ok=True)
-
-    # disable rate limit
-    SubmissionConfig.RATE_LIMIT = -1
-
     # save base source
     src_dir = pathlib.Path('tests/src')
     exts = {'.c', '.cpp', '.py'}
-
     for src in src_dir.iterdir():
         if any([not src.suffix in exts, not src.is_file()]):
             continue
@@ -194,23 +42,14 @@ def submission_testcase_setup(
                 '.py',
             ].index(src.suffix),
         )
-
+    # create courses
     for name in A_NAMES:
         make_course(
             username=name,
             students=S_NAMES,
         )
-
     yield
-
     BaseTester.teardown_class()
-
-
-class TestSubmissionUtils:
-    def test_token_assign(self):
-        token = assign_token('8888')
-        assert token is not None
-        assert verify_token('8888', token) is True
 
 
 class SubmissionTester:
@@ -222,24 +61,25 @@ class TestUserGetSubmission(SubmissionTester):
     @classmethod
     @pytest.fixture(autouse=True)
     def on_create(cls, submit, problem_ids):
+        # create 2 problem for each teacher or admin
         pids = [problem_ids(name, 2, True) for name in A_NAMES]
         pids = itertools.chain(*pids)
+        # get online problem ids
         pids = [pid for pid in pids if Problem(pid).obj.problem_status == 0]
         pids = itertools.cycle(pids)
         names = S_NAMES.keys()
         names = itertools.cycle(names)
-
+        # create submissions
         cls.submissions = submit(
             names,
             pids,
             cls.init_submission_count,
         )
-
+        # check submission count
         assert len([*itertools.chain(*cls.submissions.values())
                     ]) == cls.init_submission_count, cls.submissions
-
         yield
-
+        # clear
         cls.submissions = []
 
     def test_normal_get_submission_list(self, forge_client):
@@ -397,7 +237,7 @@ class TestUserGetSubmission(SubmissionTester):
             'languageType',
             'timestamp',
             'status',
-            'cases',
+            'tasks',
             'score',
             'runTime',
             'memoryUsage',
@@ -465,20 +305,23 @@ class TestUserGetSubmission(SubmissionTester):
 
 
 class TestTeacherGetSubmission(SubmissionTester):
-    def test_teacher_can_get_offline_submission(
-        self,
-        forge_client,
-        problem_ids,
-        submit,
-    ):
-        # make submissions
-        pids = []
-        for name in A_NAMES:
-            pids.extend(problem_ids(name, 3, True, -1))
-        pids = itertools.cycle(pids)
-        names = itertools.cycle(['admin'])
-        submit(names, pids, self.init_submission_count)
+    pids = []
 
+    @classmethod
+    @pytest.fixture(autouse=True)
+    def on_create(cls, problem_ids, submit):
+        # make submissions
+        cls.pids = []
+        for name in A_NAMES:
+            cls.pids.extend(problem_ids(name, 3, True, -1))
+        names = itertools.cycle(['admin'])
+        submit(
+            names,
+            itertools.cycle(cls.pids),
+            cls.init_submission_count,
+        )
+
+    def test_teacher_can_get_offline_submission(self, forge_client):
         client = forge_client('teacher')
         rv, rv_json, rv_data = BaseTester.request(
             client,
@@ -501,6 +344,30 @@ class TestTeacherGetSubmission(SubmissionTester):
 
         assert len(rv_data['submissions']) == except_count
 
+    def test_teacher_can_view_students_source(self, forge_client):
+        teacher_name = 'teacher'
+        client = forge_client(teacher_name)
+        rv, rv_json, rv_data = BaseTester.request(
+            client,
+            'get',
+            '/submission?offset=0&count=-1',
+        )
+
+        problems = [Problem(pid).obj for pid in self.pids]
+        problems = {p.problem_id for p in problems if p.owner == teacher_name}
+        submission_ids = [
+            s['submissionId'] for s in rv_data['submissions']
+            if s['problemId'] in problems
+        ]
+
+        for _id in submission_ids:
+            rv, rv_json, rv_data = BaseTester.request(
+                client,
+                'get',
+                f'/submission/{_id}',
+            )
+            assert 'code' in rv_data, rv_data
+
 
 class TestCreateSubmission(SubmissionTester):
     pid = None
@@ -511,6 +378,12 @@ class TestCreateSubmission(SubmissionTester):
         cls.pid = problem_ids('teacher', 1, True)[0]
         yield
         cls.pid = None
+
+    def post_payload(self, language=0, problem_id=None):
+        return {
+            'problemId': problem_id or self.pid,
+            'languageType': language,
+        }
 
     @pytest.mark.parametrize(
         'lang, ext',
@@ -529,26 +402,16 @@ class TestCreateSubmission(SubmissionTester):
         client = forge_client('student')
 
         # first claim a new submission to backend server
-        post_json = {
-            'problemId': self.pid,
-            'languageType': lang,
-        }
         # recieve response, which include the submission id
-        # and a token to validate next request
         rv, rv_json, rv_data = BaseTester.request(
             client,
             'post',
             '/submission',
-            json=post_json,
+            json=self.post_payload(lang),
         )
 
-        pprint(f'post: {rv_json}')
-
-        assert rv.status_code == 200, can_view(
-            User('stucent'),
-            Problem(pid).obj,
-        )
-        assert sorted(rv_data.keys()) == sorted(['token', 'submissionId'])
+        assert rv.status_code == 200, rv_json
+        assert sorted(rv_data.keys()) == sorted(['submissionId'])
 
         # second, post my source code to server. after that,
         # my submission will send to sandbox to be judged
@@ -559,7 +422,7 @@ class TestCreateSubmission(SubmissionTester):
             )
         }
         rv = client.put(
-            f'/submission/{rv_data["submissionId"]}?token={rv_data["token"]}',
+            f'/submission/{rv_data["submissionId"]}',
             data=files,
         )
         rv_json = rv.get_json()
@@ -580,10 +443,7 @@ class TestCreateSubmission(SubmissionTester):
             client,
             'post',
             '/submission',
-            json={
-                'problemId': self.pid,
-                'languageType': 0,
-            },
+            json=self.post_payload(),
         )
 
         # get user's data
@@ -601,19 +461,12 @@ class TestCreateSubmission(SubmissionTester):
         get_source,
     ):
         client = forge_client('student')
-
-        post_json = {
-            'problemId': self.pid,
-            'languageType': 2,
-        }  # 2 for py3
         rv, rv_json, rv_data = BaseTester.request(
             client,
             'post',
             '/submission',
-            json=post_json,
+            json=self.post_payload(2),  # 2 for py3
         )
-
-        pprint(f'post: {rv_json}')
 
         files = {
             'code': (
@@ -622,14 +475,12 @@ class TestCreateSubmission(SubmissionTester):
             )
         }
         rv = client.put(
-            f'/submission/{rv_data["submissionId"]}?token={rv_data["token"]}',
+            f'/submission/{rv_data["submissionId"]}',
             data=files,
         )
         rv_json = rv.get_json()
 
-        pprint(f'put: {rv_json}')
-
-        assert rv.status_code == 200
+        assert rv.status_code == 200, rv_json
 
     def test_empty_source(
         self,
@@ -637,29 +488,21 @@ class TestCreateSubmission(SubmissionTester):
         get_source,
     ):
         client = forge_client('student')
-        post_json = {
-            'problemId': self.pid,
-            'languageType': 0,
-        }
         rv, rv_json, rv_data = BaseTester.request(
             client,
             'post',
             '/submission',
-            json=post_json,
+            json=self.post_payload(),
         )
-
-        pprint(f'post: {rv_json}')
 
         files = {'code': (None, 'code')}
         rv = client.put(
-            f'/submission/{rv_data["submissionId"]}?token={rv_data["token"]}',
+            f'/submission/{rv_data["submissionId"]}',
             data=files,
         )
         rv_json = rv.get_json()
 
-        pprint(f'put: {rv_json}')
-
-        assert rv.status_code == 400
+        assert rv.status_code == 400, rv_json
 
     @pytest.mark.parametrize(
         'lang, ext',
@@ -676,22 +519,18 @@ class TestCreateSubmission(SubmissionTester):
         get_source,
     ):
         client = forge_client('student')
-        post_json = {
-            'problemId': self.pid,
-            'languageType': lang,
-        }
         rv, rv_json, rv_data = BaseTester.request(
             client,
             'post',
             '/submission',
-            json=post_json,
+            json=self.post_payload(),
         )
 
         pprint(f'post: {rv_json}')
 
         files = {'c0d3': (get_source(f'base{ext}'), 'code')}
         rv = client.put(
-            f'/submission/{rv_data["submissionId"]}?token={rv_data["token"]}',
+            f'/submission/{rv_data["submissionId"]}',
             data=files,
         )
         rv_json = rv.get_json()
@@ -710,18 +549,12 @@ class TestCreateSubmission(SubmissionTester):
             client,
             'post',
             '/submission',
-            json={
-                'problemId': self.pid,
-                'languageType': 0
-            },
+            json=self.post_payload(),
         )
-
-        pprint(rv_json)
-        assert rv.status_code == 200
+        assert rv.status_code == 200, rv_json
 
         client = forge_client('student-2')
         submission_id = rv_data['submissionId']
-        token = rv_data['token']
         files = {
             'code': (
                 get_source('base.cpp'),
@@ -731,21 +564,16 @@ class TestCreateSubmission(SubmissionTester):
         rv, rv_json, rv_data = BaseTester.request(
             client,
             'put',
-            f'/submission/{submission_id}?token={token}',
+            f'/submission/{submission_id}',
             data=files,
         )
 
-        pprint(rv_json)
-        assert rv.status_code == 403
+        assert rv.status_code == 403, rv_json
 
     def test_reach_rate_limit(self, client_student):
-        from model.submission_config import SubmissionConfig
-        SubmissionConfig.RATE_LIMIT = 5
+        Submission.config.rate_limit = 5
 
-        post_json = {
-            'problemId': self.pid,
-            'languageType': 1,
-        }
+        post_json = self.post_payload(1)
         client_student.post(
             '/submission',
             json=post_json,
@@ -759,7 +587,17 @@ class TestCreateSubmission(SubmissionTester):
 
             assert rv.status_code == 429, rv.get_json()
 
-        SubmissionConfig.RATE_LIMIT = -1
+        Submission.config.rate_limit = 0
+
+    def test_normally_rejudge(self, forge_client, submit_once):
+        submission_id = submit_once('student', self.pid, 'base.c', 0)
+        client = forge_client('student')
+        rv, rv_json, rv_data = BaseTester.request(
+            client,
+            'get',
+            f'/submission/{submission_id}/rejudge',
+        )
+        assert rv.status_code == 200, rv_json
 
     def test_submit_to_non_participate_contest(self, client_student):
         pass
@@ -772,3 +610,112 @@ class TestCreateSubmission(SubmissionTester):
 
     def test_submit_to_not_enrolled_course(self, client_student):
         pass
+
+
+class TestHandwrittenSubmission(SubmissionTester):
+    pid = None
+
+    @classmethod
+    @pytest.fixture(autouse=True)
+    def on_create(cls, problem_ids):
+        cls.pid = problem_ids('teacher', 1, True, 0, 2)[0]
+        yield
+        cls.pid = None
+
+    def test_handwritten_submission(self, client_student, client_teacher):
+        # first claim a new submission to backend server
+        post_json = {'problemId': self.pid, 'languageType': 0}
+        # recieve response, which include the submission id
+        # and a token to validate next request
+        rv, rv_json, rv_data = BaseTester.request(
+            client_student,
+            'post',
+            '/submission',
+            json=post_json,
+        )
+
+        pprint(f'post: {rv_json}')
+
+        assert rv.status_code == 200, can_view(
+            User('stucent'),
+            Problem(pid).obj,
+        )
+        assert sorted(rv_data.keys()) == sorted(['submissionId'])
+
+        self.submission_id = rv_data["submissionId"]
+
+        # second, post my homework to server. after that,
+        # my submission will be judged by my requests later
+        pdf_dir = pathlib.Path('tests/handwritten/main.pdf.zip')
+        files = {
+            'code': (
+                open(pdf_dir, 'rb'),
+                'code',
+            )
+        }
+        rv = client_student.put(
+            f'/submission/{self.submission_id}',
+            data=files,
+        )
+        rv_json = rv.get_json()
+
+        pprint(f'put: {rv_json}')
+
+        assert rv.status_code == 200
+
+        # Third, grade the submission
+
+        rv = client_teacher.put(
+            f'/submission/{self.submission_id}/grade',
+            json={'score': 87},
+        )
+
+        json = rv.get_json()
+        pprint(f'grade: {json}')
+        assert rv.status_code == 200
+
+        # fourth, sned a wrong file to the submission
+
+        pdf_dir = pathlib.Path('tests/src/base.c')
+        files = {
+            'comment': (
+                open(pdf_dir, 'rb'),
+                'comment',
+            )
+        }
+        rv = client_teacher.put(
+            f'/submission/{self.submission_id}/comment',
+            data=files,
+        )
+
+        assert rv.status_code == 400
+
+        # fifth, sned the comment.pdf to the submission
+
+        pdf_dir = pathlib.Path('tests/handwritten/comment.pdf')
+        files = {
+            'comment': (
+                open(pdf_dir, 'rb'),
+                'comment',
+            )
+        }
+        rv = client_teacher.put(
+            f'/submission/{self.submission_id}/comment',
+            data=files,
+        )
+
+        assert rv.status_code == 200
+
+        # sixth, get the submission info
+
+        rv = client_student.get(f'/submission/{self.submission_id}', )
+
+        json = rv.get_json()
+        assert rv.status_code == 200
+        assert json['data']['score'] == 87
+
+        # seventh, get the submission comment
+
+        rv = client_student.get(f'/submission/{self.submission_id}/pdf', )
+
+        assert rv.status_code == 200

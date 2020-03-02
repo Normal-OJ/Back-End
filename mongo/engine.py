@@ -1,13 +1,36 @@
 from mongoengine import *
-
+from mongoengine import signals
+from flask import current_app
 import mongoengine
 import os
+import html
 from datetime import datetime
 
 __all__ = [*mongoengine.__all__]
 
 MONGO_HOST = os.environ.get('MONGO_HOST', 'mongomock://localhost')
 connect('normal-oj', host=MONGO_HOST)
+
+
+def handler(event):
+    '''
+    Signal decorator to allow use of callback functions as class decorators.
+    reference: http://docs.mongoengine.org/guide/signals.html
+    '''
+    def decorator(fn):
+        def apply(cls):
+            event.connect(fn, sender=cls)
+            return cls
+
+        fn.apply = apply
+        return fn
+
+    return decorator
+
+
+@handler(signals.pre_save)
+def escape_markdown(sender, document):
+    document.markdown = html.escape(document.markdown)
 
 
 class Profile(EmbeddedDocument):
@@ -62,6 +85,7 @@ class User(Document):
     submission = IntField(default=0)
 
 
+@escape_markdown.apply
 class Homework(Document):
     homework_name = StringField(max_length=64,
                                 required=True,
@@ -104,6 +128,7 @@ class Course(Document):
     announcements = ListField(ReferenceField('Announcement'),
                               db_field='announcements')
     posts = ListField(ReferenceField('Post'), db_field='posts', default=list)
+    student_scores = DictField(db_field='studentScores')
 
 
 class Number(Document):
@@ -112,51 +137,116 @@ class Number(Document):
 
 
 class ProblemCase(EmbeddedDocument):
-    case_score = IntField(required=True, db_field='caseScore')
+    task_score = IntField(required=True, db_field='taskScore')
+    case_count = IntField(required=True, db_field='caseCount')
     memory_limit = IntField(required=True, db_field='memoryLimit')
     time_limit = IntField(required=True, db_field='timeLimit')
-    input = StringField(required=True)
-    output = StringField(required=True)
 
 
 class ProblemTestCase(EmbeddedDocument):
     language = IntField(choices=[0, 1, 2])
     fill_in_template = StringField(db_field='fillInTemplate', max_length=16000)
-    cases = ListField(EmbeddedDocumentField(ProblemCase, default=ProblemCase),
-                      default=list)
+    tasks = EmbeddedDocumentListField(
+        ProblemCase,
+        default=list,
+    )
+    # zip file contains testcase input/output
+    case_zip = FileField(
+        db_field='caseZip',
+        defautl=None,
+        null=True,
+    )
 
 
+class ProblemDescription(EmbeddedDocument):
+    description = StringField(max_length=100000)
+    input = StringField(max_length=100000)
+    output = StringField(max_length=100000)
+    hint = StringField(max_length=100000)
+    sample_input = ListField(
+        StringField(),
+        default=list,
+        db_field='sampleInput',
+    )
+    sample_output = ListField(
+        StringField(),
+        default=list,
+        db_field='sampleOutput',
+    )
+
+    def escape(self):
+        self.description = html.escape(self.description)
+        self.input = html.escape(self.input)
+        self.output = html.escape(self.output)
+        self.hint = html.escape(self.hint)
+        _io = zip(self.sample_input, self.sample_output)
+        for i, (ip, op) in enumerate(_io):
+            self.sample_input[i] = html.escape(ip)
+            self.sample_output[i] = html.escape(op)
+
+
+@handler(signals.pre_save)
+def problem_desc_escape(sender, document):
+    document.description.escape()
+
+
+@problem_desc_escape.apply
 class Problem(Document):
     problem_id = IntField(db_field='problemId', required=True, unique=True)
     courses = ListField(ReferenceField('Course'), default=list)
-    problem_status = IntField(default=1, choices=[0, 1])
-    problem_type = IntField(default=0, choices=[0, 1])
-    problem_name = StringField(db_field='problemName',
-                               max_length=64,
-                               required=True)
-    description = StringField(max_length=100000, required=True)
+    problem_status = IntField(
+        default=1,
+        choices=[0, 1],
+        db_field='problemStatus',
+    )
+    problem_type = IntField(
+        default=0,
+        choices=[0, 1, 2],
+        db_field='problemType',
+    )
+    problem_name = StringField(
+        db_field='problemName',
+        max_length=64,
+        required=True,
+    )
+    description = EmbeddedDocumentField(
+        ProblemDescription,
+        default=ProblemDescription,
+    )
     owner = StringField(max_length=16, required=True)
     # pdf =
     tags = ListField(StringField(max_length=16))
-    test_case = EmbeddedDocumentField(ProblemTestCase,
-                                      db_field='testCase',
-                                      required=True,
-                                      default=ProblemTestCase,
-                                      null=True)
+    test_case = EmbeddedDocumentField(
+        ProblemTestCase,
+        db_field='testCase',
+        default=ProblemTestCase,
+    )
     ac_user = IntField(db_field='ACUser', default=0)
     submitter = IntField(default=0)
     homeworks = ListField(ReferenceField('Homework'), default=list)
     contests = ListField(ReferenceField('Contest'), default=list)
     # user can view stdout/stderr
     can_view_stdout = BooleanField(db_field='canViewStdout', default=True)
+    cpp_report_url = StringField(db_field='cppReportUrl', default='')
+    python_report_url = StringField(db_field='pythonReportUrl', default='')
+    # bitmask of allowed languages (c: 1, cpp: 2, py3: 4)
+    allowed_language = IntField(db_field='allowedLanguage', default=7)
 
 
-class TestCaseResult(EmbeddedDocument):
+class CaseResult(EmbeddedDocument):
     status = IntField(required=True)
     exec_time = IntField(required=True, db_field='execTime')
     memory_usage = IntField(required=True, db_field='memoryUsage')
     stdout = StringField(required=True)
     stderr = StringField(required=True)
+
+
+class TaskResult(EmbeddedDocument):
+    status = IntField(default=-1)
+    exec_time = IntField(default=-1, db_field='execTime')
+    memory_usage = IntField(default=-1, db_field='memoryUsage')
+    score = IntField(default=0)
+    cases = EmbeddedDocumentListField(CaseResult, default=list)
 
 
 class Submission(Document):
@@ -165,14 +255,17 @@ class Submission(Document):
     language = IntField(required=True, db_field='languageType')
     timestamp = DateTimeField(required=True)
     status = IntField(default=-2)
-    score = IntField(default=0)
-    cases = ListField(EmbeddedDocumentField(TestCaseResult), default=list)
+    score = IntField(default=-1)
+    tasks = EmbeddedDocumentListField(TaskResult, default=list)
     exec_time = IntField(default=-1, db_field='runTime')
     memory_usage = IntField(default=-1, db_field='memoryUsage')
     code = BooleanField(
         default=False)  # wheather the user has uploaded source code
+    handwritten = BooleanField(default=False)
+    # review = pdf
 
 
+@escape_markdown.apply
 class Message(Document):
     timestamp = DateTimeField(default=datetime.utcnow)
     sender = StringField(max_length=16, required=True)
@@ -188,17 +281,19 @@ class Inbox(Document):
     message = ReferenceField('Message')
 
 
+@escape_markdown.apply
 class Announcement(Document):
     status = IntField(default=0, choices=[0, 1])  # not delete / delete
     title = StringField(max_length=64, required=True)
     course = ReferenceField('Course', required=True)
     create_time = DateTimeField(db_field='createTime', default=datetime.utcnow)
     update_time = DateTimeField(db_field='updateTime', default=datetime.utcnow)
-    creater = ReferenceField('User', required=True)
+    creator = ReferenceField('User', required=True)
     updater = ReferenceField('User', required=True)
     markdown = StringField(max_length=100000, required=True)
 
 
+@escape_markdown.apply
 class PostThread(Document):
     markdown = StringField(default='', required=True, max_length=100000)
     author = ReferenceField('User', db_field='author')
@@ -214,3 +309,29 @@ class PostThread(Document):
 class Post(Document):
     post_name = StringField(default='', required=True, max_length=64)
     thread = ReferenceField('PostThread', db_field='postThread')
+
+
+class Config(Document):
+    meta = {
+        'allow_inheritance': True,
+    }
+    name = StringField()
+
+
+class Sandbox(EmbeddedDocument):
+    name = StringField(required=True)
+    url = StringField(required=True)
+    token = StringField(required=True)
+
+
+class SubmissionConfig(Document):
+    rate_limit = IntField(default=0, db_field='rateLimit')
+    sandbox_instances = EmbeddedDocumentListField(
+        Sandbox,
+        default=[
+            Sandbox(
+                url='http://sandbox:1450',
+                token='KoNoSandboxDa',
+            ),
+        ],
+    )

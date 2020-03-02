@@ -3,5 +3,13 @@ flask
 gunicorn
 
 mongoengine
+blinker
 PyJWT
 requests
+
+mosspy
+# clang-format
+# pylint
+
+pre-commit
+yapf

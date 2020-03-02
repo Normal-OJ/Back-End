@@ -1,6 +1,23 @@
 import pytest
 from tests.base_tester import BaseTester
 from mongo import *
+import io
+
+
+def get_file(file):
+    with open("./tests/problem_test_case/" + file, 'rb') as f:
+        return {'case': (io.BytesIO(f.read()), "test_case.zip")}
+
+
+def description_dict():
+    return {
+        'description': 'Test description.',
+        'input': '',
+        'output': '',
+        'hint': '',
+        'sampleInput': [],
+        'sampleOutput': []
+    }
 
 
 class ProblemData:
@@ -9,17 +26,16 @@ class ProblemData:
         name,
         status=1,
         type=0,
-        description='',
+        description=description_dict(),
         tags=[],
-        test_case={
+        test_case_info={
             'language':
             1,
             'fillInTemplate':
             '',
-            'cases': [{
-                'input': 'a',
-                'output': 'b',
-                'caseScore': 100,
+            'tasks': [{
+                'caseCount': 1,
+                'taskScore': 100,
                 'memoryLimit': 1000,
                 'timeLimit': 1000
             }]
@@ -29,7 +45,8 @@ class ProblemData:
         self.type = type
         self.description = description
         self.tags = tags
-        self.test_case = test_case
+        self.test_case = get_file(test_case)
+        self.test_case_info = test_case_info
 
 
 # First problem (offline)
@@ -38,15 +55,18 @@ def problem_data(request, client_admin):
     BaseTester.setup_class()
     pd = ProblemData(**request.param)
     # add problem
-    client_admin.post('/problem/manage',
-                      json={
-                          'status': pd.status,
-                          'type': pd.type,
-                          'problemName': pd.name,
-                          'description': pd.description,
-                          'tags': pd.tags,
-                          'testCase': pd.test_case
-                      })
+    rv = client_admin.post('/problem/manage',
+                           json={
+                               'status': pd.status,
+                               'type': pd.type,
+                               'problemName': pd.name,
+                               'description': pd.description,
+                               'tags': pd.tags,
+                               'testCaseInfo': pd.test_case_info
+                           })
+    id = rv.get_json()['data']['problemId']
+    rv = client_admin.put(f'/problem/manage/{id}',
+                          data=get_file('test_case.zip'))
     yield pd
     BaseTester.teardown_class()
 
@@ -80,17 +100,16 @@ class TestProblem(BaseTester):
             'status': 2,  # Invalid value
             'type': 0,
             'problemName': 'Test problem name',
-            'description': 'Test description.',
+            'description': description_dict(),
             'tags': [],
-            'testCase': {
+            'testCaseInfo': {
                 'language':
                 1,
                 'fillInTemplate':
                 '',
-                'cases': [{
-                    'input': 'a',
-                    'output': 'b',
-                    'caseScore': 100,
+                'tasks': [{
+                    'caseCount': 1,
+                    'taskScore': 100,
                     'memoryLimit': 1000,
                     'timeLimit': 1000
                 }]
@@ -110,17 +129,16 @@ class TestProblem(BaseTester):
             'status': 1,
             'type': 0,
             #  'problem_name': 'Test problem name',	# missing argument
-            'description': 'Test description.',
+            'description': description_dict(),
             'tags': [],
-            'testCase': {
+            'testCaseInfo': {
                 'language':
                 1,
                 'fillInTemplate':
                 '',
-                'cases': [{
-                    'input': 'a',
-                    'output': 'b',
-                    'caseScore': 100,
+                'tasks': [{
+                    'caseCount': 1,
+                    'taskScore': 100,
                     'memoryLimit': 1000,
                     'timeLimit': 1000
                 }]
@@ -129,9 +147,9 @@ class TestProblem(BaseTester):
         rv = client_admin.post('/problem/manage',
                                json=request_json_with_missing_argument)
         json = rv.get_json()
+        assert json['message'] == 'Invalid or missing arguments.'
         assert rv.status_code == 400
         assert json['status'] == 'err'
-        assert json['message'] == 'Invalid or missing arguments.'
 
     # add a offline problem which problem_id = 1 (POST /problem/manage)
     def test_add_offline_problem(self, client_admin):
@@ -140,17 +158,16 @@ class TestProblem(BaseTester):
             'status': 1,
             'type': 0,
             'problemName': 'Offline problem',
-            'description': 'Test description.',
+            'description': description_dict(),
             'tags': [],
-            'testCase': {
+            'testCaseInfo': {
                 'language':
                 1,
                 'fillInTemplate':
                 '',
-                'cases': [{
-                    'input': 'a',
-                    'output': 'b',
-                    'caseScore': 100,
+                'tasks': [{
+                    'caseCount': 1,
+                    'taskScore': 100,
                     'memoryLimit': 1000,
                     'timeLimit': 1000
                 }]
@@ -158,7 +175,13 @@ class TestProblem(BaseTester):
         }
         rv = client_admin.post('/problem/manage', json=request_json)
         json = rv.get_json()
-        assert rv.status_code == 200
+        id = json['data']['problemId']
+
+        rv = client_admin.put(f'/problem/manage/{id}',
+                              data=get_file('test_case.zip'))
+        json = rv.get_json()
+
+        assert rv.status_code == 200, json
         assert json['status'] == 'ok'
         assert json['message'] == 'Success.'
 
@@ -169,23 +192,27 @@ class TestProblem(BaseTester):
             'status': 0,
             'type': 0,
             'problemName': 'Online problem',
-            'description': 'Test description.',
+            'description': description_dict(),
             'tags': [],
-            'testCase': {
+            'testCaseInfo': {
                 'language':
                 1,
                 'fillInTemplate':
                 '',
-                'cases': [{
-                    'input': 'a',
-                    'output': 'b',
-                    'caseScore': 100,
+                'tasks': [{
+                    'caseCount': 1,
+                    'taskScore': 100,
                     'memoryLimit': 1000,
                     'timeLimit': 1000
                 }]
             }
         }
         rv = client_admin.post('/problem/manage', json=request_json)
+        json = rv.get_json()
+        id = json['data']['problemId']
+
+        rv = client_admin.put(f'/problem/manage/{id}',
+                              data=get_file('test_case.zip'))
         json = rv.get_json()
         assert rv.status_code == 200
         assert json['status'] == 'ok'
@@ -202,6 +229,7 @@ class TestProblem(BaseTester):
             'problemId': 1,
             'type': 0,
             'problemName': 'Offline problem',
+            'status': 1,
             'tags': [],
             'ACUser': 0,
             'submitter': 0
@@ -209,6 +237,7 @@ class TestProblem(BaseTester):
             'problemId': 2,
             'type': 0,
             'problemName': 'Online problem',
+            'status': 0,
             'tags': [],
             'ACUser': 0,
             'submitter': 0
@@ -225,6 +254,7 @@ class TestProblem(BaseTester):
             'problemId': 2,
             'type': 0,
             'problemName': 'Online problem',
+            'status': 0,
             'tags': [],
             'ACUser': 0,
             'submitter': 0
@@ -241,9 +271,10 @@ class TestProblem(BaseTester):
             'status': 1,
             'type': 0,
             'problemName': 'Offline problem',
-            'description': 'Test description.',
+            'description': description_dict(),
             'owner': 'admin',
-            'tags': []
+            'tags': [],
+            'allowedLanguage': 7,
         }
 
     # student view offline problem (GET /problem/view/<problem_id>)
@@ -265,9 +296,10 @@ class TestProblem(BaseTester):
             'status': 0,
             'type': 0,
             'problemName': 'Online problem',
-            'description': 'Test description.',
+            'description': description_dict(),
             'owner': 'admin',
-            'tags': []
+            'tags': [],
+            'allowedLanguage': 7,
         }
 
     # student view problem not exist (GET /problem/view/<problem_id>)
@@ -285,17 +317,16 @@ class TestProblem(BaseTester):
             'status': 1,
             'type': 0,
             'problemName': 'Offline problem (edit)',
-            'description': 'Test description.',
+            'description': description_dict(),
             'tags': [],
-            'testCase': {
+            'testCaseInfo': {
                 'language':
                 1,
                 'fillInTemplate':
                 '',
-                'cases': [{
-                    'input': 'a',
-                    'output': 'b',
-                    'caseScore': 100,
+                'tasks': [{
+                    'caseCount': 1,
+                    'taskScore': 100,
                     'memoryLimit': 1000,
                     'timeLimit': 1000
                 }]
@@ -314,17 +345,16 @@ class TestProblem(BaseTester):
             'status': 1,
             'type': 0,
             'problemName': 'Offline problem (edit)',
-            'description': 'Test description.',
+            'description': description_dict(),
             'tags': [],
-            'testCase': {
+            'testCaseInfo': {
                 'language':
                 1,
                 'fillInTemplate':
                 '',
-                'cases': [{
-                    'input': 'a',
-                    'output': 'b',
-                    'caseScore': 100,
+                'tasks': [{
+                    'caseCount': 1,
+                    'taskScore': 100,
                     'memoryLimit': 1000,
                     'timeLimit': 1000
                 }]
@@ -343,17 +373,16 @@ class TestProblem(BaseTester):
             'status': 1,
             'type': 0,
             'problemName': 'Offline problem (edit)',
-            'description': 'Test description.',
+            'description': description_dict(),
             'tags': [],
-            'testCase': {
+            'testCaseInfo': {
                 'language':
                 1,
                 'fillInTemplate':
                 '',
-                'cases': [{
-                    'input': 'a',
-                    'output': 'b',
-                    'caseScore': 100,
+                'tasks': [{
+                    'caseCount': 1,
+                    'taskScore': 100,
                     'memoryLimit': 1000,
                     'timeLimit': 1000
                 }]
@@ -361,7 +390,7 @@ class TestProblem(BaseTester):
         }
         rv = client_admin.put('/problem/manage/1', json=request_json)
         json = rv.get_json()
-        print(json['data'])
+        print(json)
         assert rv.status_code == 200
         assert json['status'] == 'ok'
         assert json['message'] == 'Success.'
@@ -378,23 +407,25 @@ class TestProblem(BaseTester):
             'status': 1,
             'type': 0,
             'problemName': 'Offline problem (edit)',
-            'description': 'Test description.',
+            'description': description_dict(),
             'tags': [],
             'testCase': {
                 'language':
                 1,
                 'fillInTemplate':
                 '',
-                'cases': [{
-                    'input': 'a',
-                    'output': 'b',
-                    'caseScore': 100,
+                'tasks': [{
+                    'input': ['aaaa\n'],
+                    'output': ['bbbb\n'],
+                    'taskScore': 100,
                     'memoryLimit': 1000,
                     'timeLimit': 1000
                 }]
             },
             'ACUser': 0,
-            'submitter': 0
+            'submitter': 0,
+            'allowedLanguage': 7,
+            'canViewStdout': True,
         }
 
     # non-owner teacher get information of a problem (GET /problem/manage/<problem_id>)
