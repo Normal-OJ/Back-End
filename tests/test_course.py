@@ -280,6 +280,20 @@ class TestCourseGrade(BaseTester):
 
         assert rv.status_code == 200
 
+    def test_student_modify_score(self, client_student):
+        # modify a score while being a student
+        rv = client_student.put('/course/math/grade/student',
+                                json={
+                                    'title': 'exam',
+                                    'newTitle': 'exam (edit)',
+                                    'content': 'super hard',
+                                    'score': 'A+++++',
+                                })
+
+        assert rv.status_code == 403
+        json = rv.get_json()
+        assert json['message'] == 'You can only view your score.'
+
     def test_modify_non_existed_score(self, client_admin):
         # modify a score that is not existed
         rv = client_admin.put('/course/math/grade/student',
