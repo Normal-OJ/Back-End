@@ -1,4 +1,4 @@
-from flask import Blueprint, request
+from flask import Blueprint, request, send_file
 from urllib import parse
 from zipfile import BadZipFile
 from mongo import *
@@ -220,6 +220,21 @@ def manage_problem(user, problem_id=None):
             if lock.locked():
                 lock.release()
             return HTTPError('Course not found.', 404)
+
+
+@problem_api.route('/<int:problem_id>/testcase', methods=['GET'])
+@login_required
+@identity_verify(0, 1)
+def get_testcase(user, problem_id):
+    problem = Problem(problem_id).obj
+    if problem is None:
+        return HTTPError(f'Unexisted problem id ({problem_id})', 404)
+    return send_file(
+        problem.test_case.case_zip,
+        mimetype='application/zip',
+        as_attachment=True,
+        attachment_filename=f'testdata-{problem_id}.zip',
+    )
 
 
 @problem_api.route('/clone', methods=['POST'])
