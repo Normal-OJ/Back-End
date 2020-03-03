@@ -298,7 +298,12 @@ class TaskResult(EmbeddedDocument):
 class Submission(Document):
     problem = ReferenceField(Problem, required=True)
     user = ReferenceField(User, required=True)
-    language = IntField(required=True, db_field='languageType')
+    language = IntField(
+        required=True,
+        min_value=0,
+        max_value=3,
+        db_field='languageType',
+    )
     timestamp = DateTimeField(required=True)
     status = IntField(default=-2)
     score = IntField(default=-1)
@@ -306,7 +311,6 @@ class Submission(Document):
     exec_time = IntField(default=-1, db_field='runTime')
     memory_usage = IntField(default=-1, db_field='memoryUsage')
     code = ZipField(required=True, null=True, max_size=10**7)
-    handwritten = BooleanField(default=False)
     # review = pdf
 
 

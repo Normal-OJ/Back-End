@@ -7,7 +7,7 @@ import logging
 import requests as rq
 from flask import current_app
 from datetime import date
-from typing import List
+from typing import List, Union
 from zipfile import ZipFile, is_zipfile
 
 from . import engine
@@ -124,6 +124,10 @@ class Submission(MongoBase, engine=engine.Submission):
         }
 
     @property
+    def handwritten(self):
+        return self.language == 3
+
+    @property
     def comment_path(self) -> pathlib.Path:
         return self.config.COMMENT_PATH / self.id
 
@@ -197,12 +201,32 @@ class Submission(MongoBase, engine=engine.Submission):
                 tar = sb
         return tar
 
-    def get_code(self, path: str) -> str:
+    def get_code(self, path: str, binary=False) -> Union[str, bytes]:
         with ZipFile(self.code) as zf:
-            return zf.read(path).decode('utf-8')
+            data = zf.read(path)
+        if not binary:
+            data = data.decode('utf-8')
+        return data
 
     def get_comment(self) -> bytes:
         return self.comment_path.read_bytes()
+
+    def check_code(self, file):
+        if not file:
+            return 'no file'
+        if not is_zipfile(file):
+            return 'not a valid zip file'
+        with ZipFile(file) as zf:
+            infos = zf.infolist()
+            if len(infos) != 1:
+                return 'more than one file in zip'
+            name, ext = os.path.splitext(infos[0].filename)
+            if name != 'main':
+                return 'only accept file with name \'main\''
+            if ext != ['.c', '.cpp', '.py', '.pdf'][self.language]:
+                return f'invalid file extension, got {ext}'
+        file.seek(0)
+        return True
 
     def rejudge(self) -> bool:
         '''
@@ -225,17 +249,20 @@ class Submission(MongoBase, engine=engine.Submission):
         if not self:
             raise engine.DoesNotExist(f'{self}')
         # save source
+        res = self.check_code(code_file)
+        if res is not True:
+            raise ValueError(res)
         self.code.put(code_file)
+        self.update(status=-1)
         self.save()
         self.logger.debug(f'{self} code updated.')
-        self.update(status=-1)
         # delete old handwritten submission
         if self.handwritten:
             q = {
                 'problem': self.problem,
                 'score': -1,
                 'user': self.user,
-                'handwritten': True
+                'language': 3,
             }
             for submission in engine.Submission.objects(**q):
                 if submission != self.obj:
@@ -378,7 +405,6 @@ class Submission(MongoBase, engine=engine.Submission):
         q_user=None,
         status=None,
         language_type=None,
-        handwritten=None,
     ):
         if offset is None or count is None:
             raise ValueError('offset and count are required!')
@@ -409,7 +435,6 @@ class Submission(MongoBase, engine=engine.Submission):
             'status': status,
             'language': language_type,
             'user': q_user,
-            'handwritten': handwritten
         }
         q = {k: v for k, v in q.items() if v is not None}
 
@@ -454,7 +479,7 @@ class Submission(MongoBase, engine=engine.Submission):
             user=user.obj,
             language=lang,
             timestamp=timestamp,
-            handwritten=(problem.obj.problem_type == 2))
+        )
         submission.save()
 
         return cls(submission.id)

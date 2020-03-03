@@ -467,7 +467,6 @@ class TestCreateSubmission(SubmissionTester):
             '/submission',
             json=self.post_payload(2),  # 2 for py3
         )
-
         files = {
             'code': (
                 get_source('base.c'),
@@ -479,8 +478,8 @@ class TestCreateSubmission(SubmissionTester):
             data=files,
         )
         rv_json = rv.get_json()
-
-        assert rv.status_code == 200, rv_json
+        # file extension doesn't equal we claimed before
+        assert rv.status_code == 400, rv_json
 
     def test_empty_source(
         self,
@@ -626,7 +625,7 @@ class TestHandwrittenSubmission(SubmissionTester):
 
     def test_handwritten_submission(self, client_student, client_teacher):
         # first claim a new submission to backend server
-        post_json = {'problemId': self.pid, 'languageType': 0}
+        post_json = {'problemId': self.pid, 'languageType': 3}
         # recieve response, which include the submission id
         # and a token to validate next request
         rv, rv_json, rv_data = BaseTester.request(

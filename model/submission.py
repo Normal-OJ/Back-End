@@ -86,7 +86,7 @@ def create_submission(user, language_type, problem_id):
                     'problemId': problem_id
                 },
             )
-        language_type = 0
+        language_type = 3
     # not allowed language
     if not problem.allowed(language_type):
         return HTTPError(
