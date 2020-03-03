@@ -105,12 +105,12 @@ def create_submission(user, language_type, problem_id):
     except engine.DoesNotExist as e:
         return HTTPError(str(e), 404)
     # update user
-    user.update(last_submit=now)
-    user.submissions.append(submission.obj)
-    user.save()
+    user.update(
+        last_submit=now,
+        push__submissions=submission.obj,
+    )
     # update problem
-    submission.problem.submitter += 1
-    submission.problem.save()
+    submission.problem.update(inc__submitter=1)
     return HTTPResponse(
         'submission recieved.\n'
         'please send source code with given submission id later.',
@@ -317,6 +317,9 @@ def update_submission(user, submission):
                 f'can not find the source file',
                 400,
             )
+        if len(code.read()) == 0:
+            return HTTPError('empty file', 400)
+        code.seek(0)
 
         if submission.code:
             return HTTPError(
@@ -332,6 +335,8 @@ def update_submission(user, submission):
             return HTTPError(str(e), 400)
         except JudgeQueueFullError as e:
             return HTTPResponse(str(e), 202)
+        except ValidationError as e:
+            return HTTPError(str(e), data=e.to_dict())
         return HTTPResponse(
             f'{submission} {"is finished." if submission.handwritten else "send to judgement."}'
         )
@@ -380,17 +385,5 @@ def comment_submission(submission, comment):
 @login_required
 @submission_required
 def rejudge(user, submission):
-    try:
-        submission.rejudge()
-    except SourceNotFoundError:
-        return HTTPError(
-            'the source code missing, please contact the admin.',
-            500,
-        )
-    except NoSourceError:
-        return HTTPError(
-            f'{submission} haven\'t upload source code, '
-            'please submit it first.',
-            403,
-        )
+    submission.rejudge()
     return HTTPResponse('success.')

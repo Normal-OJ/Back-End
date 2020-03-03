@@ -21,9 +21,6 @@ def app(tmp_path):
     mongomock.gridfs.enable_gridfs_integration()
     # modify submission config for testing
     # use tmp dir to save user source code
-    Submission.config.SOURCE_PATH = (tmp_path /
-                                     Submission.config.SOURCE_PATH).absolute()
-    Submission.config.SOURCE_PATH.mkdir(exist_ok=True)
     Submission.config.TMP_DIR = (tmp_path /
                                  Submission.config.TMP_DIR).absolute()
     Submission.config.TMP_DIR.mkdir(exist_ok=True)

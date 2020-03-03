@@ -21,8 +21,6 @@ __all__ = [
     'assign_token',
     'verify_token',
     'JudgeQueueFullError',
-    'SourceNotFoundError',
-    'NoSourceError',
 ]
 
 # TODO: save tokens in db
@@ -54,27 +52,9 @@ class JudgeQueueFullError(Exception):
     '''
 
 
-class SourceNotFoundError(Exception):
-    '''
-    when source code not found but it shoud be
-    '''
-
-
-class NoSourceError(Exception):
-    '''
-    when source code haven't been uploaded but try to access them
-    '''
-
-
 class SubmissionConfig(MongoBase, engine=engine.SubmissionConfig):
     def __init__(self, name):
         self.name = name
-        self.SOURCE_PATH = pathlib.Path(
-            os.getenv(
-                'SUBMISSION_SOURCE_PATH',
-                'submissions',
-            ), )
-        self.SOURCE_PATH.mkdir(exist_ok=True)
         self.COMMENT_PATH = pathlib.Path(
             os.getenv(
                 'SUBMISSION_COMMENT_PATH',
@@ -84,7 +64,7 @@ class SubmissionConfig(MongoBase, engine=engine.SubmissionConfig):
         self.TMP_DIR = pathlib.Path(
             os.getenv(
                 'SUBMISSION_TMP_DIR',
-                '/tmp' / self.SOURCE_PATH,
+                '/tmp/submissions',
             ), )
         self.TMP_DIR.mkdir(exist_ok=True)
 
@@ -144,10 +124,6 @@ class Submission(MongoBase, engine=engine.Submission):
         }
 
     @property
-    def code_dir(self) -> pathlib.Path:
-        return self.config.SOURCE_PATH / self.id
-
-    @property
     def comment_path(self) -> pathlib.Path:
         return self.config.COMMENT_PATH / self.id
 
@@ -157,11 +133,16 @@ class Submission(MongoBase, engine=engine.Submission):
 
     @property
     def main_code_path(self) -> str:
+        # get excepted code name & temp path
         lang2ext = {0: '.c', 1: '.cpp', 2: '.py'}
-        if self.language not in lang2ext:
-            raise ValueError
         ext = lang2ext[self.language]
-        return str((self.code_dir / f'main{ext}').absolute())
+        path = self.tmp_dir / f'main{ext}'
+        # check whether the code has been generated
+        if not path.exists():
+            with ZipFile(self.code) as zf:
+                path.write_text(zf.read(f'main{ext}').decode('utf-8'))
+        # return absolute path
+        return str(path.absolute())
 
     @property
     def logger(self):
@@ -217,42 +198,23 @@ class Submission(MongoBase, engine=engine.Submission):
         return tar
 
     def get_code(self, path: str) -> str:
-        code = self.code_dir / path
-        return code.read_text()
+        with ZipFile(self.code) as zf:
+            return zf.read(path).decode('utf-8')
 
     def get_comment(self) -> bytes:
         return self.comment_path.read_bytes()
-
-    def make_source_zip(self):
-        '''
-        zip source file
-        '''
-        # check source code
-        if not self.code:
-            raise NoSourceError
-        if not self.code_dir.exists():
-            raise SourceNotFoundError
-        # if source zip has been created, directly return
-        zip_path = self.tmp_dir / 'source.zip'
-        if zip_path.exists():
-            return zip_path
-        zip_path.parent.mkdir(exist_ok=True)
-        with ZipFile(zip_path, 'w') as f:
-            for code in self.code_dir.iterdir():
-                f.write(code, arcname=code.name)
-        return zip_path
 
     def rejudge(self) -> bool:
         '''
         rejudge this submission
         '''
-        zip_path = self.make_source_zip()
+        # turn back to haven't be judged
         self.update(status=-1)
         if current_app.config['TESTING']:
             return False
-        return self.send(zip_path)
+        return self.send()
 
-    def submit(self, code_file, rejudge=False) -> bool:
+    def submit(self, code_file) -> bool:
         '''
         prepara data for submit code to sandbox and then send it
 
@@ -262,22 +224,11 @@ class Submission(MongoBase, engine=engine.Submission):
         # unexisted id
         if not self:
             raise engine.DoesNotExist(f'{self}')
-        # init submission data
-
-        if self.code_dir.is_dir():
-            raise FileExistsError(f'{submission} code found on server')
-        # check zip
-        if not is_zipfile(code_file):
-            raise ValueError('only accept zip file.')
         # save source
-        self.code_dir.mkdir()
-        with ZipFile(code_file) as f:
-            f.extractall(self.code_dir)
+        self.code.put(code_file)
+        self.save()
         self.logger.debug(f'{self} code updated.')
-        self.update(code=True, status=-1)
-        self.reload()
-        zip_path = self.make_source_zip()
-
+        self.update(status=-1)
         # delete old handwritten submission
         if self.handwritten:
             q = {
@@ -286,22 +237,17 @@ class Submission(MongoBase, engine=engine.Submission):
                 'user': self.user,
                 'handwritten': True
             }
-
             for submission in engine.Submission.objects(**q):
                 if submission != self.obj:
                     submission.delete()
-
         # we no need to actually send code to sandbox during testing
         if current_app.config['TESTING'] or self.handwritten:
             return False
-        return self.send(zip_path)
+        return self.send()
 
-    def send(self, code_zip_path) -> bool:
+    def send(self) -> bool:
         '''
         send code to sandbox
-
-        Args:
-            code_zip_path: code path for the user's code zip file
         '''
         if self.handwritten:
             logging.warning(f'try to send a handwritten {submission}')
@@ -320,7 +266,7 @@ class Submission(MongoBase, engine=engine.Submission):
         files = {
             'src': (
                 f'{self.id}-source.zip',
-                code_zip_path.open('rb'),
+                self.code,
             ),
             'testcase': (
                 f'{self.id}-testcase.zip',
