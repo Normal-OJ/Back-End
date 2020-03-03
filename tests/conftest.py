@@ -216,16 +216,15 @@ def save_source(tmp_path):
         Returns:
             a zip file contains source code
         '''
+        # decide extension
         if not ext:
             ext = ['.c', '.cpp', '.py'][lang]
-
         # set path
         name = tmp_path / (filename + ext)
         zip_path = tmp_path / f'{name}.zip'
-
+        # duplicated file
         if name.exists():
             raise FileExistsError(name)
-
         with open(name, 'w') as f:
             f.write(source)
         with ZipFile(zip_path, 'w') as f:
@@ -258,48 +257,22 @@ def get_source(tmp_path):
 
 
 @pytest.fixture
-def submit_once(forge_client, get_source):
+def submit_once(app, forge_client, get_source):
     def submit_once(name, pid, filename, lang, client=None):
-        _client = forge_client(name) if client is None else client
-        now = datetime.utcnow()
-        rv, rv_json, rv_data = BaseTester.request(
-            _client,
-            'post',
-            '/submission',
-            json={
-                'problemId': pid,
-                'languageType': lang
-            },
-        )
-        assert rv.status_code == 200, rv_json
-
-        submission_id = rv_data['submissionId']
-
-        submission = {
-            'submissionId': submission_id,
-            'problemId': pid,
-            'username': name,
-            'lang': lang,
-            'timestamp': now
-        }
-
-        files = {
-            'code': (
-                get_source(filename),
-                f'main.{["c", "cpp", "py"][lang]}',
-            )
-        }
-        rv, rv_json, rv_data = BaseTester.request(
-            _client,
-            'put',
-            f'/submission/{submission_id}',
-            data=files,
-        )
-        assert rv.status_code == 200, rv_json
-
-        if client is None:
-            _client.cookie_jar.clear()
-        return submission_id
+        with app.app_context():
+            now = datetime.utcnow()
+            try:
+                submission = Submission.add(
+                    problem_id=pid,
+                    username=name,
+                    lang=lang,
+                    timestamp=now,
+                )
+            except engine.DoesNotExist as e:
+                assert False, str(e)
+            res = submission.submit(get_source(filename))
+            assert res == True
+        return submission.id
 
     return submit_once
 
@@ -308,13 +281,10 @@ def submit_once(forge_client, get_source):
 def submit(submit_once, forge_client):
     def submit(names, pids, count, filename='base.c', lang=0):
         n2p = defaultdict(list)  # name to pid
-
         for n, p, _ in zip(names, pids, 'x' * count):
             n2p[n].append(p)
-
         n2s = defaultdict(list)  # name to submission id
         for name, ps in n2p.items():
-            client = forge_client(name)
             for p in ps:
                 n2s[name].append(
                     submit_once(
@@ -322,9 +292,7 @@ def submit(submit_once, forge_client):
                         pid=p,
                         filename=filename,
                         lang=lang,
-                        client=client,
                     ))
-            client.cookie_jar.clear()
 
         return n2s
 

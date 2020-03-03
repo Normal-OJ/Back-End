@@ -600,6 +600,34 @@ class TestCreateSubmission(SubmissionTester):
         )
         assert rv.status_code == 200, rv_json
 
+    def test_reach_file_size_limit(
+        self,
+        forge_client,
+        save_source,
+        get_source,
+    ):
+        save_source('big', 'a' * (10**7) + '<(_ _)>', 0)
+        client = forge_client('student')
+        rv, rv_json, rv_data = BaseTester.request(
+            client,
+            'post',
+            f'/submission',
+            json=self.post_payload(),
+        )
+        submission_id = rv_data['submissionId']
+        rv, rv_json, rv_data = BaseTester.request(
+            client,
+            'put',
+            f'/submission/{submission_id}',
+            data={
+                'code': {
+                    get_source('big.c'),
+                    'aaaaa',
+                },
+            },
+        )
+        assert rv.status_code == 400
+
     def test_submit_to_non_participate_contest(self, client_student):
         pass
 
