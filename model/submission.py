@@ -6,11 +6,10 @@ import json
 import pathlib
 import string
 import secrets
-from flask import Blueprint, request, send_file
+from flask import Blueprint, request, send_file, current_app
 from datetime import datetime, timedelta
 from functools import wraps
-from flask import current_app
-from flask import make_response
+from zipfile import ZipFile
 
 from mongo import *
 from mongo import engine
@@ -213,8 +212,14 @@ def get_submission(user, submission):
     if not submission.problem.can_view_stdout:
         for task in ret['tasks']:
             for case in task['cases']:
-                del case['stdout']
-                del case['stderr']
+                del case['output']
+    else:
+        for task in ret['tasks']:
+            for case in task['cases']:
+                output = GridFSProxy(case.pop('output'))
+                with ZipFile(output) as zf:
+                    case['stdout'] = zf.read('stdout').decode('utf-8')
+                    case['stderr'] = zf.read('stderr').decode('utf-8')
     # give user source code
     if 'code' in ret:
         ext = ['.c', '.cpp', '.py'][submission.language]

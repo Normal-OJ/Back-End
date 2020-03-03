@@ -6,6 +6,7 @@ import secrets
 import logging
 import requests as rq
 from flask import current_app
+from tempfile import NamedTemporaryFile
 from datetime import date
 from typing import List, Union
 from zipfile import ZipFile, is_zipfile
@@ -94,20 +95,19 @@ class Submission(MongoBase, engine=engine.Submission):
             'problemId': self.problem.problem_id,
             'user': User(self.user.username).info,
             'submissionId': self.id,
-            'timestamp': self.timestamp.timestamp()
+            'timestamp': self.timestamp.timestamp(),
+            'code': bool(self.code),
         }
-        ret = json.loads(self.obj.to_json())
-
+        ret = self.to_mongo()
         old = [
             '_id',
             'problem',
+            'code',
         ]
         for o in old:
             del ret[o]
-
         for n in _ret.keys():
             ret[n] = _ret[n]
-
         return ret
 
     @property
@@ -255,6 +255,7 @@ class Submission(MongoBase, engine=engine.Submission):
         self.code.put(code_file)
         self.update(status=-1)
         self.save()
+        self.reload()
         self.logger.debug(f'{self} code updated.')
         # delete old handwritten submission
         if self.handwritten:
@@ -323,10 +324,11 @@ class Submission(MongoBase, engine=engine.Submission):
             data=post_data,
             files=files,
         )
-        self.logger.info(f'recieve {self}')
+        self.logger.info(f'recieve {self} resp from sandbox')
         return self.sandbox_resp_handler(resp)
 
     def process_result(self, tasks: list):
+        self.logger.info(f'recieve {self} result')
         for task in tasks:
             for case in task:
                 # we don't need exit code
@@ -335,9 +337,30 @@ class Submission(MongoBase, engine=engine.Submission):
                 case['status'] = self.status2code.get(case['status'], -3)
         # process task
         for i, cases in enumerate(tasks):
-            status = max(c['status'] for c in cases)
-            exec_time = max(c['execTime'] for c in cases)
-            memory_usage = max(c['memoryUsage'] for c in cases)
+            # save stdout/stderr
+            fds = ['stdout', 'stderr']
+            for j, case in enumerate(cases):
+                tf = NamedTemporaryFile(delete=False)
+                with ZipFile(tf, 'w') as zf:
+                    for fd in fds:
+                        content = case.pop(fd)
+                        if content is None:
+                            self.logger.error(
+                                f'key {fd} not in case result {self} {i:02d}{j:02d}'
+                            )
+                        zf.writestr(fd, content)
+                tf.seek(0)
+                case['output'] = tf
+                # convert dict to document
+                cases[j] = engine.CaseResult(
+                    status=case['status'],
+                    exec_time=case['execTime'],
+                    memory_usage=case['memoryUsage'],
+                    output=case['output'],
+                )
+            status = max(c.status for c in cases)
+            exec_time = max(c.exec_time for c in cases)
+            memory_usage = max(c.memory_usage for c in cases)
             tasks[i] = engine.TaskResult(
                 status=status,
                 exec_time=exec_time,
@@ -345,9 +368,9 @@ class Submission(MongoBase, engine=engine.Submission):
                 score=score if status == 0 else 0,
                 cases=cases,
             )
-        status = max(t['status'] for t in tasks)
-        exec_time = max(t['execTime'] for t in tasks)
-        memory_usage = max(t['memoryUsage'] for t in tasks)
+        status = max(t.status for t in tasks)
+        exec_time = max(t.exec_time for t in tasks)
+        memory_usage = max(t.memory_usage for t in tasks)
         self.update(
             score=sum(task.score for task in tasks),
             status=status,

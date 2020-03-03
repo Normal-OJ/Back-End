@@ -214,14 +214,14 @@ class ProblemDescription(EmbeddedDocument):
     )
 
     def escape(self):
-        self.description = html.escape(self.description)
-        self.input = html.escape(self.input)
-        self.output = html.escape(self.output)
-        self.hint = html.escape(self.hint)
+        self.description = self.description or html.escape(self.description)
+        self.input = self.input or html.escape(self.input)
+        self.output = self.output or html.escape(self.output)
+        self.hint = self.hint or html.escape(self.hint)
         _io = zip(self.sample_input, self.sample_output)
         for i, (ip, op) in enumerate(_io):
-            self.sample_input[i] = html.escape(ip)
-            self.sample_output[i] = html.escape(op)
+            self.sample_input[i] = ip or html.escape(ip)
+            self.sample_output[i] = op or html.escape(op)
 
 
 @handler(signals.pre_save)
@@ -283,7 +283,7 @@ class CaseResult(EmbeddedDocument):
     output = ZipField(
         required=True,
         null=True,
-        max_size=10**9,
+        max_size=11**9,
     )
 
 
