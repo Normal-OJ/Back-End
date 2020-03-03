@@ -1,5 +1,6 @@
-from email.message import EmailMessage
-from smtplib import SMTP_SSL
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from smtplib import SMTP
 
 import os
 import threading
@@ -13,19 +14,21 @@ SMTP_NOREPLY = os.environ.get('SMTP_NOREPLY')
 SMTP_NOREPLY_PASSWORD = os.environ.get('SMTP_NOREPLY_PASSWORD')
 
 
-def send(from_addr, password, to_addrs, subject, content):
+def send(from_addr, password, to_addrs, subject, text, html):
     if SMTP_SERVER is None:
         return
-    with SMTP_SSL(SMTP_SERVER) as server:
+    with SMTP(SMTP_SERVER, 587) as server:
         server.login(from_addr, password)
-        msg = EmailMessage()
+        msg = MIMEMultipart('alternative')
         msg['From'] = from_addr
         msg['To'] = ', '.join(to_addrs)
         msg['Subject'] = subject
-        msg.set_content(content)
+        msg.attach(MIMEText(text, 'plain'))
+        msg.attach(MIMEText(html, 'html'))
         server.send_message(msg, from_addr, to_addrs)
 
 
-def send_noreply(to_addrs, subject, content):
-    args = (SMTP_NOREPLY, SMTP_NOREPLY_PASSWORD, to_addrs, subject, content)
+def send_noreply(to_addrs, subject, text, html=None):
+    args = (SMTP_NOREPLY, SMTP_NOREPLY_PASSWORD, to_addrs, subject, text, html
+            or text)
     threading.Thread(target=send, args=args).start()
