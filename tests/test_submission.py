@@ -591,6 +591,8 @@ class TestCreateSubmission(SubmissionTester):
 
     def test_normally_rejudge(self, forge_client, submit_once):
         submission_id = submit_once('student', self.pid, 'base.c', 0)
+        # make a fake AC submission
+        Submission(submission_id).update(status=0)
         client = forge_client('student')
         rv, rv_json, rv_data = BaseTester.request(
             client,

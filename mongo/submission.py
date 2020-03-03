@@ -211,7 +211,7 @@ class Submission(MongoBase, engine=engine.Submission):
         # turn back to haven't be judged
         self.update(status=-1)
         if current_app.config['TESTING']:
-            return False
+            return True
         return self.send()
 
     def submit(self, code_file) -> bool:
@@ -242,7 +242,7 @@ class Submission(MongoBase, engine=engine.Submission):
                     submission.delete()
         # we no need to actually send code to sandbox during testing
         if current_app.config['TESTING'] or self.handwritten:
-            return False
+            return True
         return self.send()
 
     def send(self) -> bool:
@@ -306,7 +306,6 @@ class Submission(MongoBase, engine=engine.Submission):
                 del case['exitCode']
                 # convert status into integer
                 case['status'] = self.status2code.get(case['status'], -3)
-
         # process task
         for i, cases in enumerate(tasks):
             status = max(c['status'] for c in cases)
@@ -350,7 +349,6 @@ class Submission(MongoBase, engine=engine.Submission):
         ac_users = {s.user.username for s in ac_submissions}
         self.problem.ac_user = len(ac_users)
         self.problem.save()
-
         return True
 
     def comment(self, file):
@@ -363,7 +361,6 @@ class Submission(MongoBase, engine=engine.Submission):
         data = file.read()
         if data[1:4] != b'PDF':
             raise ValueError('only accept PDF file.')
-
         self.comment_path.write_bytes(data)
         self.logger.debug(f'{self} comment updated.')
 
