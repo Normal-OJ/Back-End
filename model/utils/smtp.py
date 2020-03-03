@@ -29,5 +29,6 @@ def send(from_addr, password, to_addrs, subject, text, html):
 
 
 def send_noreply(to_addrs, subject, text, html=None):
-    args = (SMTP_NOREPLY, SMTP_NOREPLY_PASSWORD, to_addrs, subject, text, html or text)
+    args = (SMTP_NOREPLY, SMTP_NOREPLY_PASSWORD, to_addrs, subject, text, html
+            or text)
     threading.Thread(target=send, args=args).start()
