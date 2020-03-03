@@ -5,6 +5,7 @@ import mongoengine
 import os
 import html
 from datetime import datetime
+from zipfile import ZipFile, BadZipFile
 
 __all__ = [*mongoengine.__all__]
 
@@ -31,6 +32,32 @@ def handler(event):
 @handler(signals.pre_save)
 def escape_markdown(sender, document):
     document.markdown = html.escape(document.markdown)
+
+
+class ZipField(FileField):
+    def __init__(self, max_size=0, **ks):
+        super().__init__(**ks)
+        self.max_size = max_size
+
+    def validate(self, value):
+        super().validate(value)
+        # skip check
+        if not value:
+            return
+        try:
+            with ZipFile(value) as zf:
+                # no limit
+                if self.max_size <= 0:
+                    return
+                # the size of original files
+                size = sum(info.file_size
+                           for info in ZipFile(value).infolist())
+                if size > self.max_size:
+                    self.error(
+                        f'{size} byytes is exceed the max size limit {self.max_size} bytes.'
+                    )
+        except BadZipFile:
+            self.error('Only accept zip file.')
 
 
 class Profile(EmbeddedDocument):
@@ -163,11 +190,10 @@ class ProblemTestCase(EmbeddedDocument):
         default=list,
     )
     # zip file contains testcase input/output
-    case_zip = FileField(
+    case_zip = ZipField(
         db_field='caseZip',
         defautl=None,
         null=True,
-        validate=lambda f: False,
     )
 
 
@@ -254,8 +280,11 @@ class CaseResult(EmbeddedDocument):
     status = IntField(required=True)
     exec_time = IntField(required=True, db_field='execTime')
     memory_usage = IntField(required=True, db_field='memoryUsage')
-    stdout = StringField(required=True, max_length=(1024**2) * 512)
-    stderr = StringField(required=True, max_length=(1024**2) * 512)
+    output = ZipField(
+        required=True,
+        null=True,
+        max_size=10**9,
+    )
 
 
 class TaskResult(EmbeddedDocument):
@@ -276,8 +305,7 @@ class Submission(Document):
     tasks = EmbeddedDocumentListField(TaskResult, default=list)
     exec_time = IntField(default=-1, db_field='runTime')
     memory_usage = IntField(default=-1, db_field='memoryUsage')
-    code = BooleanField(
-        default=False)  # wheather the user has uploaded source code
+    code = ZipField(required=True, null=True, max_size=10**7)
     handwritten = BooleanField(default=False)
     # review = pdf
 
