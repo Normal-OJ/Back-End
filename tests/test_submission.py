@@ -692,7 +692,14 @@ class TestHandwrittenSubmission(SubmissionTester):
 
         assert rv.status_code == 200
 
-        # Third, grade the submission
+        # third, read the student's upload
+
+        rv = client_student.get(
+            f'/submission/{self.submission_id}/pdf/upload', )
+
+        assert rv.status_code == 200
+
+        # fourth, grade the submission
 
         rv = client_teacher.put(
             f'/submission/{self.submission_id}/grade',
@@ -703,7 +710,7 @@ class TestHandwrittenSubmission(SubmissionTester):
         pprint(f'grade: {json}')
         assert rv.status_code == 200
 
-        # fourth, sned a wrong file to the submission
+        # fifth, send a wrong file to the submission
 
         pdf_dir = pathlib.Path('tests/src/base.c')
         files = {
@@ -719,7 +726,7 @@ class TestHandwrittenSubmission(SubmissionTester):
 
         assert rv.status_code == 400
 
-        # fifth, sned the comment.pdf to the submission
+        # sixth, send the comment.pdf to the submission
 
         pdf_dir = pathlib.Path('tests/handwritten/comment.pdf')
         files = {
@@ -735,7 +742,7 @@ class TestHandwrittenSubmission(SubmissionTester):
 
         assert rv.status_code == 200
 
-        # sixth, get the submission info
+        # seventh, get the submission info
 
         rv = client_student.get(f'/submission/{self.submission_id}', )
 
@@ -743,8 +750,9 @@ class TestHandwrittenSubmission(SubmissionTester):
         assert rv.status_code == 200
         assert json['data']['score'] == 87
 
-        # seventh, get the submission comment
+        # eighth, get the submission comment
 
-        rv = client_student.get(f'/submission/{self.submission_id}/pdf', )
+        rv = client_student.get(
+            f'/submission/{self.submission_id}/pdf/comment', )
 
         assert rv.status_code == 200
