@@ -41,8 +41,6 @@ def course_data(request, client_admin, problem_ids):
                               'studentNicknames': cd.students
                           })
 
-    rv = client_admin.get(f'/course/{cd.name}')
-
     # add homework
     hw = Homework.add_hw(
         user=User(cd.teacher).obj,
