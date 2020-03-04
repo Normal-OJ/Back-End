@@ -133,6 +133,7 @@ def get_problem_list(
     problem_id,
     name,
     tags: list,
+    course
 ):
     '''
     get a list of problems
@@ -144,6 +145,9 @@ def get_problem_list(
     if tags:
         tags = set(tags)
         problems = [p for p in problems if len(set(p.tags) & tags)]
+
+    if course:
+        problems = [p for p in problems if course in p.courses]
 
     if offset >= len(problems) and len(problems):
         raise IndexError
