@@ -35,11 +35,12 @@ def course_data(request, client_admin, problem_ids):
     # add course
     add_course(cd.name, cd.teacher)
     # add students and TA
-    client_admin.put(f'/course/{cd.name}',
-                     json={
-                         'TAs': cd.tas,
-                         'studentNicknames': cd.students
-                     })
+    rv = client_admin.put(f'/course/{cd.name}',
+                          json={
+                              'TAs': cd.tas,
+                              'studentNicknames': cd.students
+                          })
+
     # add homework
     hw = Homework.add_hw(
         user=User(cd.teacher).obj,
@@ -158,6 +159,39 @@ class TestHomework(BaseTester):
         for key in ['name', 'markdown', 'start', 'end']:
             assert rv_data[key] == new_data[key]
         assert sorted(rv_data['problemIds']) == sorted(new_data['problemIds'])
+
+    def test_update_student_status(self, forge_client, course_data,
+                                   problem_ids):
+        # get teacher client
+        client = forge_client(course_data.teacher)
+
+        rv = client.put(f'/course/{course_data.name}',
+                        json={
+                            'TAs': [],
+                            'studentNicknames': {
+                                'Yin-Da-Chen': 'noobs'
+                            }
+                        })
+
+        assert rv.status_code == 200
+
+        rv, rv_json, rv_data = self.request(client,
+                                            'put',
+                                            f'/course/{course_data.name}',
+                                            json={
+                                                'TAs': course_data.tas,
+                                                'studentNicknames': {
+                                                    'Bo-Chieh-Chuang': 'genius'
+                                                }
+                                            })
+
+        assert rv.status_code == 200
+
+        rv, rv_json, rv_data = self.request(
+            client, 'get', f'/homework/{course_data.homework_ids[0]}')
+
+        assert 'Yin-Da-Chen' not in rv_data['studentStatus']
+        assert 'Bo-Chieh-Chuang' in rv_data['studentStatus']
 
     def test_delete_homework(self, forge_client, course_data):
         client = forge_client(course_data.teacher)

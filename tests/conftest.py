@@ -59,13 +59,13 @@ def client_student(forge_client):
 @pytest.fixture
 def test_token():
     # Token for user: test
-    return 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJ0ZXN0LnRlc3QiLCJleHAiOjE1ODMyODEzNjAsInNlY3JldCI6dHJ1ZSwiZGF0YSI6eyJ1c2VybmFtZSI6InRlc3QiLCJ1c2VySWQiOiI2NGMzN2YxNWNhNzNmMDRkNGFiMzRmNmYifX0.69AR19NzVpn1Rwlr1uP5Se7c-fMHTzdde8fjpKBAqvk'
+    return User('test').secret
 
 
 @pytest.fixture
 def test2_token():
     # Token for user: test2
-    return 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJ0ZXN0LnRlc3QiLCJleHAiOjE1ODMyODEzNzksInNlY3JldCI6dHJ1ZSwiZGF0YSI6eyJ1c2VybmFtZSI6InRlc3QyIiwidXNlcklkIjoiNWY5YjdjZGZhYTEwYjRiNTY3MDBkZmNiIn19.MQA7Sk7enQeiB0St8vmAB_DM4ZCmwT2ZzNylHsUDqzs'
+    return User('test2').secret
 
 
 def random_problem_data(username=None, status=-1, type=0):
