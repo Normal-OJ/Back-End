@@ -227,10 +227,10 @@ def get_submission(user, submission):
     return HTTPResponse(data=ret)
 
 
-@submission_api.route('/<submission_id>/pdf', methods=['GET'])
+@submission_api.route('/<submission_id>/pdf/<item>', methods=['GET'])
 @login_required
 @submission_required
-def get_submission_pdf(user, submission):
+def get_submission_pdf(user, submission, item):
     ret = submission.to_dict()
     # can not view the problem, also the submission
     if not can_view(user, submission.problem):
@@ -245,15 +245,19 @@ def get_submission_pdf(user, submission):
             return HTTPError('forbidden.', 403)
     if not submission.handwritten:
         return HTTPError('it is not a handwritten submission.', 400)
+
+    if item not in ['comment', 'upload']:
+        return HTTPError('/<submission_id>/pdf/<"upload" or "comment">', 400)
+
     try:
-        data = submission.get_comment()
+        data = submission.get_comment() if item == 'comment' else submission.get_code(f'main.pdf', True)
     except FileNotFoundError as e:
         return HTTPError('comment not found.', 404)
     return send_file(
         io.BytesIO(data),
         mimetype='application/pdf',
         as_attachment=True,
-        attachment_filename=f'comment-{submission.id[:6]}.pdf',
+        attachment_filename=f'{item}-{submission.id[:6]}.pdf',
     )
 
 
