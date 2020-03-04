@@ -250,7 +250,8 @@ def get_submission_pdf(user, submission, item):
         return HTTPError('/<submission_id>/pdf/<"upload" or "comment">', 400)
 
     try:
-        data = submission.get_comment() if item == 'comment' else submission.get_code(f'main.pdf', True)
+        data = submission.get_comment(
+        ) if item == 'comment' else submission.get_code(f'main.pdf', True)
     except FileNotFoundError as e:
         return HTTPError('comment not found.', 404)
     return send_file(

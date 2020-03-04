@@ -694,7 +694,8 @@ class TestHandwrittenSubmission(SubmissionTester):
 
         # third, read the student's upload
 
-        rv = client_student.get(f'/submission/{self.submission_id}/pdf/upload', )
+        rv = client_student.get(
+            f'/submission/{self.submission_id}/pdf/upload', )
 
         assert rv.status_code == 200
 
@@ -725,7 +726,7 @@ class TestHandwrittenSubmission(SubmissionTester):
 
         assert rv.status_code == 400
 
-        # sixth, sned the comment.pdf to the submission
+        # sixth, send the comment.pdf to the submission
 
         pdf_dir = pathlib.Path('tests/handwritten/comment.pdf')
         files = {
@@ -751,6 +752,7 @@ class TestHandwrittenSubmission(SubmissionTester):
 
         # eighth, get the submission comment
 
-        rv = client_student.get(f'/submission/{self.submission_id}/pdf/comment', )
+        rv = client_student.get(
+            f'/submission/{self.submission_id}/pdf/comment', )
 
         assert rv.status_code == 200
