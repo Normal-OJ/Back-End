@@ -6,8 +6,9 @@ import secrets
 import logging
 import requests as rq
 from flask import current_app
+from tempfile import NamedTemporaryFile
 from datetime import date
-from typing import List
+from typing import List, Union
 from zipfile import ZipFile, is_zipfile
 
 from . import engine
@@ -21,8 +22,6 @@ __all__ = [
     'assign_token',
     'verify_token',
     'JudgeQueueFullError',
-    'SourceNotFoundError',
-    'NoSourceError',
 ]
 
 # TODO: save tokens in db
@@ -54,27 +53,9 @@ class JudgeQueueFullError(Exception):
     '''
 
 
-class SourceNotFoundError(Exception):
-    '''
-    when source code not found but it shoud be
-    '''
-
-
-class NoSourceError(Exception):
-    '''
-    when source code haven't been uploaded but try to access them
-    '''
-
-
 class SubmissionConfig(MongoBase, engine=engine.SubmissionConfig):
     def __init__(self, name):
         self.name = name
-        self.SOURCE_PATH = pathlib.Path(
-            os.getenv(
-                'SUBMISSION_SOURCE_PATH',
-                'submissions',
-            ), )
-        self.SOURCE_PATH.mkdir(exist_ok=True)
         self.COMMENT_PATH = pathlib.Path(
             os.getenv(
                 'SUBMISSION_COMMENT_PATH',
@@ -84,7 +65,7 @@ class SubmissionConfig(MongoBase, engine=engine.SubmissionConfig):
         self.TMP_DIR = pathlib.Path(
             os.getenv(
                 'SUBMISSION_TMP_DIR',
-                '/tmp' / self.SOURCE_PATH,
+                '/tmp/submissions',
             ), )
         self.TMP_DIR.mkdir(exist_ok=True)
 
@@ -114,20 +95,19 @@ class Submission(MongoBase, engine=engine.Submission):
             'problemId': self.problem.problem_id,
             'user': User(self.user.username).info,
             'submissionId': self.id,
-            'timestamp': self.timestamp.timestamp()
+            'timestamp': self.timestamp.timestamp(),
+            'code': bool(self.code),
         }
-        ret = json.loads(self.obj.to_json())
-
+        ret = self.to_mongo()
         old = [
             '_id',
             'problem',
+            'code',
         ]
         for o in old:
             del ret[o]
-
         for n in _ret.keys():
             ret[n] = _ret[n]
-
         return ret
 
     @property
@@ -144,8 +124,8 @@ class Submission(MongoBase, engine=engine.Submission):
         }
 
     @property
-    def code_dir(self) -> pathlib.Path:
-        return self.config.SOURCE_PATH / self.id
+    def handwritten(self):
+        return self.language == 3
 
     @property
     def comment_path(self) -> pathlib.Path:
@@ -157,11 +137,16 @@ class Submission(MongoBase, engine=engine.Submission):
 
     @property
     def main_code_path(self) -> str:
+        # get excepted code name & temp path
         lang2ext = {0: '.c', 1: '.cpp', 2: '.py'}
-        if self.language not in lang2ext:
-            raise ValueError
         ext = lang2ext[self.language]
-        return str((self.code_dir / f'main{ext}').absolute())
+        path = self.tmp_dir / f'main{ext}'
+        # check whether the code has been generated
+        if not path.exists():
+            with ZipFile(self.code) as zf:
+                path.write_text(zf.read(f'main{ext}').decode('utf-8'))
+        # return absolute path
+        return str(path.absolute())
 
     @property
     def logger(self):
@@ -216,43 +201,44 @@ class Submission(MongoBase, engine=engine.Submission):
                 tar = sb
         return tar
 
-    def get_code(self, path: str) -> str:
-        code = self.code_dir / path
-        return code.read_text()
+    def get_code(self, path: str, binary=False) -> Union[str, bytes]:
+        with ZipFile(self.code) as zf:
+            data = zf.read(path)
+        if not binary:
+            data = data.decode('utf-8')
+        return data
 
     def get_comment(self) -> bytes:
         return self.comment_path.read_bytes()
 
-    def make_source_zip(self):
-        '''
-        zip source file
-        '''
-        # check source code
-        if not self.code:
-            raise NoSourceError
-        if not self.code_dir.exists():
-            raise SourceNotFoundError
-        # if source zip has been created, directly return
-        zip_path = self.tmp_dir / 'source.zip'
-        if zip_path.exists():
-            return zip_path
-        zip_path.parent.mkdir(exist_ok=True)
-        with ZipFile(zip_path, 'w') as f:
-            for code in self.code_dir.iterdir():
-                f.write(code, arcname=code.name)
-        return zip_path
+    def check_code(self, file):
+        if not file:
+            return 'no file'
+        if not is_zipfile(file):
+            return 'not a valid zip file'
+        with ZipFile(file) as zf:
+            infos = zf.infolist()
+            if len(infos) != 1:
+                return 'more than one file in zip'
+            name, ext = os.path.splitext(infos[0].filename)
+            if name != 'main':
+                return 'only accept file with name \'main\''
+            if ext != ['.c', '.cpp', '.py', '.pdf'][self.language]:
+                return f'invalid file extension, got {ext}'
+        file.seek(0)
+        return True
 
     def rejudge(self) -> bool:
         '''
         rejudge this submission
         '''
-        zip_path = self.make_source_zip()
+        # turn back to haven't be judged
         self.update(status=-1)
         if current_app.config['TESTING']:
-            return False
-        return self.send(zip_path)
+            return True
+        return self.send()
 
-    def submit(self, code_file, rejudge=False) -> bool:
+    def submit(self, code_file) -> bool:
         '''
         prepara data for submit code to sandbox and then send it
 
@@ -262,46 +248,34 @@ class Submission(MongoBase, engine=engine.Submission):
         # unexisted id
         if not self:
             raise engine.DoesNotExist(f'{self}')
-        # init submission data
-
-        if self.code_dir.is_dir():
-            raise FileExistsError(f'{submission} code found on server')
-        # check zip
-        if not is_zipfile(code_file):
-            raise ValueError('only accept zip file.')
         # save source
-        self.code_dir.mkdir()
-        with ZipFile(code_file) as f:
-            f.extractall(self.code_dir)
-        self.logger.debug(f'{self} code updated.')
-        self.update(code=True, status=-1)
+        res = self.check_code(code_file)
+        if res is not True:
+            raise ValueError(res)
+        self.code.put(code_file)
+        self.update(status=-1)
+        self.save()
         self.reload()
-        zip_path = self.make_source_zip()
-
+        self.logger.debug(f'{self} code updated.')
         # delete old handwritten submission
         if self.handwritten:
             q = {
                 'problem': self.problem,
                 'score': -1,
                 'user': self.user,
-                'handwritten': True
+                'language': 3,
             }
-
             for submission in engine.Submission.objects(**q):
                 if submission != self.obj:
                     submission.delete()
-
         # we no need to actually send code to sandbox during testing
         if current_app.config['TESTING'] or self.handwritten:
-            return False
-        return self.send(zip_path)
+            return True
+        return self.send()
 
-    def send(self, code_zip_path) -> bool:
+    def send(self) -> bool:
         '''
         send code to sandbox
-
-        Args:
-            code_zip_path: code path for the user's code zip file
         '''
         if self.handwritten:
             logging.warning(f'try to send a handwritten {submission}')
@@ -320,7 +294,7 @@ class Submission(MongoBase, engine=engine.Submission):
         files = {
             'src': (
                 f'{self.id}-source.zip',
-                code_zip_path.open('rb'),
+                self.code,
             ),
             'testcase': (
                 f'{self.id}-testcase.zip',
@@ -350,22 +324,43 @@ class Submission(MongoBase, engine=engine.Submission):
             data=post_data,
             files=files,
         )
-        self.logger.info(f'recieve {self}')
+        self.logger.info(f'recieve {self} resp from sandbox')
         return self.sandbox_resp_handler(resp)
 
     def process_result(self, tasks: list):
+        self.logger.info(f'recieve {self} result')
         for task in tasks:
             for case in task:
                 # we don't need exit code
                 del case['exitCode']
                 # convert status into integer
                 case['status'] = self.status2code.get(case['status'], -3)
-
         # process task
         for i, cases in enumerate(tasks):
-            status = max(c['status'] for c in cases)
-            exec_time = max(c['execTime'] for c in cases)
-            memory_usage = max(c['memoryUsage'] for c in cases)
+            # save stdout/stderr
+            fds = ['stdout', 'stderr']
+            for j, case in enumerate(cases):
+                tf = NamedTemporaryFile(delete=False)
+                with ZipFile(tf, 'w') as zf:
+                    for fd in fds:
+                        content = case.pop(fd)
+                        if content is None:
+                            self.logger.error(
+                                f'key {fd} not in case result {self} {i:02d}{j:02d}'
+                            )
+                        zf.writestr(fd, content)
+                tf.seek(0)
+                case['output'] = tf
+                # convert dict to document
+                cases[j] = engine.CaseResult(
+                    status=case['status'],
+                    exec_time=case['execTime'],
+                    memory_usage=case['memoryUsage'],
+                    output=case['output'],
+                )
+            status = max(c.status for c in cases)
+            exec_time = max(c.exec_time for c in cases)
+            memory_usage = max(c.memory_usage for c in cases)
             tasks[i] = engine.TaskResult(
                 status=status,
                 exec_time=exec_time,
@@ -373,9 +368,9 @@ class Submission(MongoBase, engine=engine.Submission):
                 score=score if status == 0 else 0,
                 cases=cases,
             )
-        status = max(t['status'] for t in tasks)
-        exec_time = max(t['execTime'] for t in tasks)
-        memory_usage = max(t['memoryUsage'] for t in tasks)
+        status = max(t.status for t in tasks)
+        exec_time = max(t.exec_time for t in tasks)
+        memory_usage = max(t.memory_usage for t in tasks)
         self.update(
             score=sum(task.score for task in tasks),
             status=status,
@@ -404,7 +399,6 @@ class Submission(MongoBase, engine=engine.Submission):
         ac_users = {s.user.username for s in ac_submissions}
         self.problem.ac_user = len(ac_users)
         self.problem.save()
-
         return True
 
     def comment(self, file):
@@ -417,7 +411,6 @@ class Submission(MongoBase, engine=engine.Submission):
         data = file.read()
         if data[1:4] != b'PDF':
             raise ValueError('only accept PDF file.')
-
         self.comment_path.write_bytes(data)
         self.logger.debug(f'{self} comment updated.')
 
@@ -435,7 +428,6 @@ class Submission(MongoBase, engine=engine.Submission):
         q_user=None,
         status=None,
         language_type=None,
-        handwritten=None,
     ):
         if offset is None or count is None:
             raise ValueError('offset and count are required!')
@@ -466,7 +458,6 @@ class Submission(MongoBase, engine=engine.Submission):
             'status': status,
             'language': language_type,
             'user': q_user,
-            'handwritten': handwritten
         }
         q = {k: v for k, v in q.items() if v is not None}
 
@@ -511,7 +502,7 @@ class Submission(MongoBase, engine=engine.Submission):
             user=user.obj,
             language=lang,
             timestamp=timestamp,
-            handwritten=(problem.obj.problem_type == 2))
+        )
         submission.save()
 
         return cls(submission.id)

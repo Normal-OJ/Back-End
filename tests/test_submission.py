@@ -467,7 +467,6 @@ class TestCreateSubmission(SubmissionTester):
             '/submission',
             json=self.post_payload(2),  # 2 for py3
         )
-
         files = {
             'code': (
                 get_source('base.c'),
@@ -479,8 +478,8 @@ class TestCreateSubmission(SubmissionTester):
             data=files,
         )
         rv_json = rv.get_json()
-
-        assert rv.status_code == 200, rv_json
+        # file extension doesn't equal we claimed before
+        assert rv.status_code == 400, rv_json
 
     def test_empty_source(
         self,
@@ -591,6 +590,8 @@ class TestCreateSubmission(SubmissionTester):
 
     def test_normally_rejudge(self, forge_client, submit_once):
         submission_id = submit_once('student', self.pid, 'base.c', 0)
+        # make a fake AC submission
+        Submission(submission_id).update(status=0)
         client = forge_client('student')
         rv, rv_json, rv_data = BaseTester.request(
             client,
@@ -598,6 +599,34 @@ class TestCreateSubmission(SubmissionTester):
             f'/submission/{submission_id}/rejudge',
         )
         assert rv.status_code == 200, rv_json
+
+    def test_reach_file_size_limit(
+        self,
+        forge_client,
+        save_source,
+        get_source,
+    ):
+        save_source('big', 'a' * (10**7) + '<(_ _)>', 0)
+        client = forge_client('student')
+        rv, rv_json, rv_data = BaseTester.request(
+            client,
+            'post',
+            f'/submission',
+            json=self.post_payload(),
+        )
+        submission_id = rv_data['submissionId']
+        rv, rv_json, rv_data = BaseTester.request(
+            client,
+            'put',
+            f'/submission/{submission_id}',
+            data={
+                'code': {
+                    get_source('big.c'),
+                    'aaaaa',
+                },
+            },
+        )
+        assert rv.status_code == 400
 
     def test_submit_to_non_participate_contest(self, client_student):
         pass
@@ -624,7 +653,7 @@ class TestHandwrittenSubmission(SubmissionTester):
 
     def test_handwritten_submission(self, client_student, client_teacher):
         # first claim a new submission to backend server
-        post_json = {'problemId': self.pid, 'languageType': 0}
+        post_json = {'problemId': self.pid, 'languageType': 3}
         # recieve response, which include the submission id
         # and a token to validate next request
         rv, rv_json, rv_data = BaseTester.request(

@@ -1,15 +1,15 @@
 import os
+import io
 import requests as rq
 import random
 import json
 import pathlib
 import string
 import secrets
-from flask import Blueprint, request
+from flask import Blueprint, request, send_file, current_app
 from datetime import datetime, timedelta
 from functools import wraps
-from flask import current_app
-from flask import make_response
+from zipfile import ZipFile
 
 from mongo import *
 from mongo import engine
@@ -70,6 +70,10 @@ def create_submission(user, language_type, problem_id):
     # problem permissoion
     if not can_view(user, problem.obj):
         return HTTPError('problem permission denied!', 403)
+    # check deadline
+    for homework in problem.obj.homeworks:
+        if now > homework.duration.end:
+            return HTTPError('this homework is overdue', 403)
     # handwritten problem doesn't need language type
     if language_type is None:
         if problem.problem_type != 2:
@@ -81,7 +85,7 @@ def create_submission(user, language_type, problem_id):
                     'problemId': problem_id
                 },
             )
-        language_type = 0
+        language_type = 3
     # not allowed language
     if not problem.allowed(language_type):
         return HTTPError(
@@ -105,12 +109,12 @@ def create_submission(user, language_type, problem_id):
     except engine.DoesNotExist as e:
         return HTTPError(str(e), 404)
     # update user
-    user.update(last_submit=now)
-    user.submissions.append(submission.obj)
-    user.save()
+    user.update(
+        last_submit=now,
+        push__submissions=submission.obj,
+    )
     # update problem
-    submission.problem.submitter += 1
-    submission.problem.save()
+    submission.problem.update(inc__submitter=1)
     return HTTPResponse(
         'submission recieved.\n'
         'please send source code with given submission id later.',
@@ -165,25 +169,22 @@ def get_submission_list(
         )
     except ValueError as e:
         return HTTPError(str(e), 400)
-
     submissions = [Submission(s.id).to_dict() for s in submissions]
-
+    # no need to display code and task results in list
     for s in submissions:
         del s['code']
         del s['tasks']
-
+    # unicorn gifs
     unicorns = [
         'https://media.giphy.com/media/xTiTnLmaxrlBHxsMMg/giphy.gif',
         'https://media.giphy.com/media/26AHG5KGFxSkUWw1i/giphy.gif',
         'https://media.giphy.com/media/g6i1lEax9Pa24/giphy.gif',
         'https://media.giphy.com/media/tTyTbFF9uEbPW/giphy.gif'
     ]
-
     ret = {
         'unicorn': random.choice(unicorns),
         'submissions': submissions,
     }
-
     return HTTPResponse(
         'here you are, bro',
         data=ret,
@@ -195,8 +196,8 @@ def get_submission_list(
 @submission_required
 def get_submission(user, submission):
     ret = submission.to_dict()
-
     # can not view the problem, also the submission
+    # and handwritten submission doesn't have source code
     if not can_view(user, submission.problem) or submission.handwritten:
         del ret['code']
     # you can view self submission
@@ -207,19 +208,22 @@ def get_submission(user, submission):
             permissions.append(perm(course, user) >= 2)
         if not any(permissions):
             del ret['code']
-
     # check user's stdout/stderr
     if not submission.problem.can_view_stdout:
         for task in ret['tasks']:
             for case in task['cases']:
-                del case['stdout']
-                del case['stderr']
-
+                del case['output']
+    else:
+        for task in ret['tasks']:
+            for case in task['cases']:
+                output = GridFSProxy(case.pop('output'))
+                with ZipFile(output) as zf:
+                    case['stdout'] = zf.read('stdout').decode('utf-8')
+                    case['stderr'] = zf.read('stderr').decode('utf-8')
     # give user source code
     if 'code' in ret:
         ext = ['.c', '.cpp', '.py'][submission.language]
         ret['code'] = submission.get_code(f'main{ext}')
-
     return HTTPResponse(data=ret)
 
 
@@ -228,7 +232,6 @@ def get_submission(user, submission):
 @submission_required
 def get_submission_pdf(user, submission):
     ret = submission.to_dict()
-
     # can not view the problem, also the submission
     if not can_view(user, submission.problem):
         return HTTPError('forbidden.', 403)
@@ -240,19 +243,18 @@ def get_submission_pdf(user, submission):
             permissions.append(perm(course, user) >= 2)
         if not any(permissions):
             return HTTPError('forbidden.', 403)
-
     if not submission.handwritten:
         return HTTPError('it is not a handwritten submission.', 400)
-
     try:
         data = submission.get_comment()
     except FileNotFoundError as e:
         return HTTPError('comment not found.', 404)
-
-    response = make_response(data)
-    response.headers['Content-Type'] = 'application/pdf'
-    response.headers['Content-Disposition'] = 'inline; filename=comment.pdf'
-    return response
+    return send_file(
+        io.BytesIO(data),
+        mimetype='application/pdf',
+        as_attachment=True,
+        attachment_filename=f'comment-{submission.id[:6]}.pdf',
+    )
 
 
 @submission_api.route('/count', methods=['GET'])
@@ -293,7 +295,7 @@ def get_submission_count(
 @submission_required
 def on_submission_complete(submission, tasks, token):
     if not verify_token(submission.id, token):
-        return HTTPError('you are not sandbox :(', 403)
+        return HTTPError('i don\'t know you', 403)
     try:
         submission.process_result(tasks)
     except (ValidationError, KeyError) as e:
@@ -308,34 +310,8 @@ def on_submission_complete(submission, tasks, token):
 @submission_api.route('/<submission_id>', methods=['PUT'])
 @login_required
 @submission_required
-def update_submission(user, submission):
-    @Request.files('code')
-    def recieve_source_file(code):
-        # if source code not found
-        if code is None:
-            return HTTPError(
-                f'can not find the source file',
-                400,
-            )
-
-        if submission.code:
-            return HTTPError(
-                f'{submission} has been uploaded source file!',
-                403,
-            )
-
-        try:
-            success = submission.submit(code)
-        except FileExistsError:
-            exit(10086)
-        except ValueError as e:
-            return HTTPError(str(e), 400)
-        except JudgeQueueFullError as e:
-            return HTTPResponse(str(e), 202)
-        return HTTPResponse(
-            f'{submission} {"is finished." if submission.handwritten else "send to judgement."}'
-        )
-
+@Request.files('code')
+def update_submission(user, submission, code):
     # put handler
     # validate this reques
     if submission.status >= 0:
@@ -343,18 +319,48 @@ def update_submission(user, submission):
             f'{submission} has finished judgement.',
             403,
         )
-
     # if user not equal, reject
     if not secrets.compare_digest(submission.user.username, user.username):
         return HTTPError('user not equal!', 403)
-
-    return recieve_source_file()
+    # if source code not found
+    if code is None:
+        return HTTPError(
+            f'can not find the source file',
+            400,
+        )
+    # or empty file
+    if len(code.read()) == 0:
+        return HTTPError('empty file', 400)
+    code.seek(0)
+    # has been uploaded
+    if submission.code:
+        return HTTPError(
+            f'{submission} has been uploaded source file!',
+            403,
+        )
+    try:
+        success = submission.submit(code)
+    except FileExistsError:
+        exit(10086)
+    except ValueError as e:
+        return HTTPError(str(e), 400)
+    except JudgeQueueFullError as e:
+        return HTTPResponse(str(e), 202)
+    except ValidationError as e:
+        return HTTPError(str(e), data=e.to_dict())
+    if success:
+        return HTTPResponse(
+            f'{submission} {"is finished." if submission.handwritten else "send to judgement."}'
+        )
+    else:
+        return HTTPError('Some error occurred, please contact the admin', 500)
 
 
 @submission_api.route('/<submission_id>/grade', methods=['PUT'])
 @Request.json('score')
 @submission_required
-def grade_submission(submission, score):
+@identity_verify(0, 1)
+def grade_submission(user, submission, score):
     submission.update(score=score)
     return HTTPResponse(f'{submission} score recieved.')
 
@@ -365,10 +371,9 @@ def grade_submission(submission, score):
 def comment_submission(submission, comment):
     if comment is None:
         return HTTPError(
-            f'can not find the source file',
+            f'can not find the comment',
             400,
         )
-
     try:
         submission.comment(comment)
     except ValueError as e:
@@ -380,17 +385,7 @@ def comment_submission(submission, comment):
 @login_required
 @submission_required
 def rejudge(user, submission):
-    try:
-        submission.rejudge()
-    except SourceNotFoundError:
-        return HTTPError(
-            'the source code missing, please contact the admin.',
-            500,
-        )
-    except NoSourceError:
-        return HTTPError(
-            f'{submission} haven\'t upload source code, '
-            'please submit it first.',
-            403,
-        )
+    if submission.status < 0:
+        return HTTPError(f'{submission} haven\'t be judged', 403)
+    submission.rejudge()
     return HTTPResponse('success.')
