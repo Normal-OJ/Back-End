@@ -126,25 +126,10 @@ def create_submission(user, language_type, problem_id):
 
 @submission_api.route('/', methods=['GET'])
 @login_required
-@Request.args(
-    'offset',
-    'count',
-    'problem_id',
-    'submission_id',
-    'username',
-    'status',
-    'language_type',
-)
-def get_submission_list(
-    user,
-    offset,
-    count,
-    problem_id,
-    submission_id,
-    username,
-    status,
-    language_type,
-):
+@Request.args('offset', 'count', 'problem_id', 'submission_id', 'username',
+              'status', 'language_type', 'course')
+def get_submission_list(user, offset, count, problem_id, submission_id,
+                        username, status, language_type, course):
     '''
     get the list of submission data
     avaliable filter:
@@ -155,18 +140,18 @@ def get_submission_list(
         - runtime
         - score
         - language
+        - course
     '''
     try:
-        submissions = Submission.filter(
-            user=user,
-            offset=offset,
-            count=count,
-            problem=problem_id,
-            submission=submission_id,
-            q_user=username,
-            status=status,
-            language_type=language_type,
-        )
+        submissions = Submission.filter(user=user,
+                                        offset=offset,
+                                        count=count,
+                                        problem=problem_id,
+                                        submission=submission_id,
+                                        q_user=username,
+                                        status=status,
+                                        language_type=language_type,
+                                        course=course)
     except ValueError as e:
         return HTTPError(str(e), 400)
     submissions = [Submission(s.id).to_dict() for s in submissions]
@@ -264,32 +249,20 @@ def get_submission_pdf(user, submission, item):
 
 @submission_api.route('/count', methods=['GET'])
 @login_required
-@Request.args(
-    'problem_id',
-    'submission_id',
-    'username',
-    'status',
-    'language_type',
-)
-def get_submission_count(
-    user,
-    problem_id,
-    submission_id,
-    username,
-    status,
-    language_type,
-):
+@Request.args('problem_id', 'submission_id', 'username', 'status',
+              'language_type', 'course')
+def get_submission_count(user, problem_id, submission_id, username, status,
+                         language_type, course):
     try:
-        submissions = Submission.filter(
-            user=user,
-            offset=0,
-            count=-1,
-            problem=problem_id,
-            submission=submission_id,
-            q_user=username,
-            status=status,
-            language_type=language_type,
-        )
+        submissions = Submission.filter(user=user,
+                                        offset=0,
+                                        count=-1,
+                                        problem=problem_id,
+                                        submission=submission_id,
+                                        q_user=username,
+                                        status=status,
+                                        language_type=language_type,
+                                        course=course)
     except ValueError as e:
         return HTTPError(str(e), 400)
     return HTTPResponse('Padoru~', data={'count': len(submissions)})

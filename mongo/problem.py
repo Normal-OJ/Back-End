@@ -126,15 +126,8 @@ def can_view(user, problem):
     return False
 
 
-def get_problem_list(
-    user,
-    offset: int,
-    count: int,
-    problem_id,
-    name,
-    tags: list,
-    course
-):
+def get_problem_list(user, offset: int, count: int, problem_id, name,
+                     tags: list, course):
     '''
     get a list of problems
     '''
@@ -147,7 +140,10 @@ def get_problem_list(
         problems = [p for p in problems if len(set(p.tags) & tags)]
 
     if course:
-        problems = [p for p in problems if course in p.courses]
+        problems = [
+            p for p in problems
+            if course in [c.course_name for c in p.courses]
+        ]
 
     if offset >= len(problems) and len(problems):
         raise IndexError

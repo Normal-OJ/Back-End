@@ -419,16 +419,15 @@ class Submission(MongoBase, engine=engine.Submission):
         return len(engine.Submission.objects)
 
     @staticmethod
-    def filter(
-        user,
-        offset,
-        count,
-        problem=None,
-        submission=None,
-        q_user=None,
-        status=None,
-        language_type=None,
-    ):
+    def filter(user,
+               offset,
+               count,
+               problem=None,
+               submission=None,
+               q_user=None,
+               status=None,
+               language_type=None,
+               course=None):
         if offset is None or count is None:
             raise ValueError('offset and count are required!')
         try:
@@ -465,6 +464,13 @@ class Submission(MongoBase, engine=engine.Submission):
         submissions = [
             *filter(lambda s: can_view(user, s.problem), submissions)
         ]
+
+        if course:
+            submissions = [
+                *filter(
+                    lambda s: course in
+                    [c.course_name for c in s.problem.courses], submissions)
+            ]
 
         if offset >= len(submissions) and len(submissions):
             raise ValueError(f'offset ({offset}) is out of range!')
