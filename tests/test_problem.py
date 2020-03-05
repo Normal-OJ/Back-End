@@ -81,10 +81,15 @@ class TestProblem(BaseTester):
     # add a problem which status value is invalid (POST /problem/manage)
     def test_add_with_invalid_value(self, client_admin):
 
-        # create a course
+        # create courses
         client_admin.post('/course',
                           json={
                               'course': 'math',
+                              'teacher': 'admin'
+                          })
+        client_admin.post('/course',
+                          json={
+                              'course': 'English',
                               'teacher': 'admin'
                           })
         client_admin.put('/course/math',
@@ -154,7 +159,7 @@ class TestProblem(BaseTester):
     # add a offline problem which problem_id = 1 (POST /problem/manage)
     def test_add_offline_problem(self, client_admin):
         request_json = {
-            'courses': ['math'],
+            'courses': ['English'],
             'status': 1,
             'type': 0,
             'problemName': 'Offline problem',
@@ -238,6 +243,23 @@ class TestProblem(BaseTester):
             'type': 0,
             'problemName': 'Online problem',
             'status': 0,
+            'tags': [],
+            'ACUser': 0,
+            'submitter': 0
+        }]
+
+    # admin get problem list with a filter(GET /problem)
+    def test_admin_get_problem_list_with_filter(self, client_admin):
+        rv = client_admin.get('/problem?offset=0&count=5&course=English')
+        json = rv.get_json()
+        assert rv.status_code == 200
+        assert json['status'] == 'ok'
+        assert json['message'] == 'Success.'
+        assert json['data'] == [{
+            'problemId': 1,
+            'type': 0,
+            'problemName': 'Offline problem',
+            'status': 1,
             'tags': [],
             'ACUser': 0,
             'submitter': 0

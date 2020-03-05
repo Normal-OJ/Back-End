@@ -53,6 +53,7 @@ def submission_testcase_setup(
 
 
 class SubmissionTester:
+    # all submission count
     init_submission_count = 8
     submissions = []
 
@@ -66,6 +67,9 @@ class TestUserGetSubmission(SubmissionTester):
         pids = itertools.chain(*pids)
         # get online problem ids
         pids = [pid for pid in pids if Problem(pid).obj.problem_status == 0]
+        # get a course name
+        cls.courses = [Problem(pid).obj.courses[0].course_name for pid in pids]
+
         pids = itertools.cycle(pids)
         names = S_NAMES.keys()
         names = itertools.cycle(names)
@@ -302,6 +306,29 @@ class TestUserGetSubmission(SubmissionTester):
         assert len(rv_data['submissions']) != 0
         assert all(map(lambda x: x[key] == except_val,
                        rv_data['submissions'])) == True
+
+    def test_get_submission_list_by_course_filter(
+        self,
+        forge_client,
+    ):
+        client = forge_client('student')
+        rv, rv_json, rv_data = BaseTester.request(
+            client,
+            'get',
+            f'/submission/?offset=0&count=-1&course=aaa',
+        )
+
+        assert rv.status_code == 200
+        assert len(rv_data['submissions']) == 0
+
+        rv, rv_json, rv_data = BaseTester.request(
+            client,
+            'get',
+            f'/submission/?offset=0&count=-1&course={self.courses[0]}',
+        )
+
+        assert rv.status_code == 200
+        assert len(rv_data['submissions']) == 4
 
 
 class TestTeacherGetSubmission(SubmissionTester):
