@@ -15,6 +15,7 @@ from . import engine
 from .base import MongoBase
 from .user import User
 from .problem import Problem, can_view
+from .course import Course
 
 __all__ = [
     'Submission',
@@ -419,15 +420,18 @@ class Submission(MongoBase, engine=engine.Submission):
         return len(engine.Submission.objects)
 
     @staticmethod
-    def filter(user,
-               offset,
-               count,
-               problem=None,
-               submission=None,
-               q_user=None,
-               status=None,
-               language_type=None,
-               course=None):
+    def filter(
+        user,
+        offset,
+        count,
+        problem=None,
+        submission=None,
+        q_user=None,
+        status=None,
+        language_type=None,
+        course=None,
+    ):
+        # convert args
         if offset is None or count is None:
             raise ValueError('offset and count are required!')
         try:
@@ -449,7 +453,8 @@ class Submission(MongoBase, engine=engine.Submission):
         if isinstance(q_user, str):
             q_user = User(q_user)
             q_user = q_user.obj if q_user else None
-
+        if isinstance(course, str):
+            course = Course(course).obj
         # query args
         q = {
             'problem': problem,
@@ -457,28 +462,21 @@ class Submission(MongoBase, engine=engine.Submission):
             'status': status,
             'language': language_type,
             'user': q_user,
+            'problem__courses': course,
         }
         q = {k: v for k, v in q.items() if v is not None}
-
+        # sort by upload time
         submissions = engine.Submission.objects(**q).order_by('-timestamp')
+        # check permission
         submissions = [
             *filter(lambda s: can_view(user, s.problem), submissions)
         ]
-
-        if course:
-            submissions = [
-                *filter(
-                    lambda s: course in
-                    [c.course_name for c in s.problem.courses], submissions)
-            ]
-
+        # truncate
         if offset >= len(submissions) and len(submissions):
             raise ValueError(f'offset ({offset}) is out of range!')
-
         right = min(offset + count, len(submissions))
         if count == -1:
             right = len(submissions)
-
         return submissions[offset:right]
 
     @classmethod

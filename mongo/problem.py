@@ -126,33 +126,34 @@ def can_view(user, problem):
     return False
 
 
-def get_problem_list(user, offset: int, count: int, problem_id, name,
-                     tags: list, course):
+def get_problem_list(
+    user,
+    offset: int,
+    count: int,
+    problem_id,
+    name,
+    tags: list,
+    course,
+):
     '''
     get a list of problems
     '''
-    ks = {'problem_id': problem_id, 'problem_name': name}
+    # qurey args
+    ks = {
+        'problem_id': problem_id,
+        'problem_name': name,
+        'courses': Course(course).obj,
+        'tags__in': tags,
+    }
     ks = {k: v for k, v in ks.items() if v is not None}
-    problems = engine.Problem.objects.filter(**ks).order_by('problemId')
+    problems = engine.Problem.objects(**ks).order_by('problemId')
     problems = [p for p in problems if can_view(user, p)]
-    if tags:
-        tags = set(tags)
-        problems = [p for p in problems if len(set(p.tags) & tags)]
-
-    if course:
-        problems = [
-            p for p in problems
-            if course in [c.course_name for c in p.courses]
-        ]
-
+    # truncate
     if offset >= len(problems) and len(problems):
         raise IndexError
-
     right = len(problems) if count == -1 else offset + count
     right = min(len(problems), right)
-    problems = problems[offset:right]
-
-    return problems
+    return problems[offset:right]
 
 
 def add_written_problem(user, courses, status, problem_name, description,
