@@ -16,8 +16,8 @@ lock = threading.Lock()
 
 @problem_api.route('/', methods=['GET'])
 @login_required
-@Request.args('offset', 'count', 'problem_id', 'tags', 'name')
-def view_problem_list(user, offset, count, problem_id, tags, name):
+@Request.args('offset', 'count', 'problem_id', 'tags', 'name', 'course')
+def view_problem_list(user, offset, count, problem_id, tags, name, course):
     if offset is None or count is None:
         return HTTPError(
             'offset and count are required!',
@@ -44,17 +44,11 @@ def view_problem_list(user, offset, count, problem_id, tags, name):
         return HTTPError('count must >=-1!', 400)
 
     try:
-        problem_id, name, tags = (parse.unquote(p or '') or None
-                                  for p in [problem_id, name, tags])
+        problem_id, name, tags, course = (parse.unquote(
+            p or '') or None for p in [problem_id, name, tags, course])
 
-        data = get_problem_list(
-            user,
-            offset,
-            count,
-            problem_id,
-            name,
-            tags and tags.split(','),
-        )
+        data = get_problem_list(user, offset, count, problem_id, name, tags
+                                and tags.split(','), course)
         data = [
             *map(
                 lambda p: {
