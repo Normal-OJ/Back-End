@@ -1,4 +1,4 @@
-from flask import Blueprint, request
+from flask import Blueprint, request, send_file
 from urllib import parse
 from zipfile import BadZipFile
 from mongo import *
@@ -16,8 +16,8 @@ lock = threading.Lock()
 
 @problem_api.route('/', methods=['GET'])
 @login_required
-@Request.args('offset', 'count', 'problem_id', 'tags', 'name')
-def view_problem_list(user, offset, count, problem_id, tags, name):
+@Request.args('offset', 'count', 'problem_id', 'tags', 'name', 'course')
+def view_problem_list(user, offset, count, problem_id, tags, name, course):
     if offset is None or count is None:
         return HTTPError(
             'offset and count are required!',
@@ -44,17 +44,11 @@ def view_problem_list(user, offset, count, problem_id, tags, name):
         return HTTPError('count must >=-1!', 400)
 
     try:
-        problem_id, name, tags = (parse.unquote(p or '') or None
-                                  for p in [problem_id, name, tags])
+        problem_id, name, tags, course = (parse.unquote(
+            p or '') or None for p in [problem_id, name, tags, course])
 
-        data = get_problem_list(
-            user,
-            offset,
-            count,
-            problem_id,
-            name,
-            tags and tags.split(','),
-        )
+        data = get_problem_list(user, offset, count, problem_id, name, tags
+                                and tags.split(','), course)
         data = [
             *map(
                 lambda p: {
@@ -220,6 +214,21 @@ def manage_problem(user, problem_id=None):
             if lock.locked():
                 lock.release()
             return HTTPError('Course not found.', 404)
+
+
+@problem_api.route('/<int:problem_id>/testcase', methods=['GET'])
+@login_required
+@identity_verify(0, 1)
+def get_testcase(user, problem_id):
+    problem = Problem(problem_id).obj
+    if problem is None:
+        return HTTPError(f'Unexisted problem id ({problem_id})', 404)
+    return send_file(
+        problem.test_case.case_zip,
+        mimetype='application/zip',
+        as_attachment=True,
+        attachment_filename=f'testdata-{problem_id}.zip',
+    )
 
 
 @problem_api.route('/clone', methods=['POST'])

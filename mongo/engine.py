@@ -1,8 +1,11 @@
 from mongoengine import *
-
+from mongoengine import signals
+from flask import current_app
 import mongoengine
 import os
+import html
 from datetime import datetime
+from zipfile import ZipFile, BadZipFile
 
 __all__ = [*mongoengine.__all__]
 
@@ -10,11 +13,64 @@ MONGO_HOST = os.environ.get('MONGO_HOST', 'mongomock://localhost')
 connect('normal-oj', host=MONGO_HOST)
 
 
+def handler(event):
+    '''
+    Signal decorator to allow use of callback functions as class decorators.
+    reference: http://docs.mongoengine.org/guide/signals.html
+    '''
+    def decorator(fn):
+        def apply(cls):
+            event.connect(fn, sender=cls)
+            return cls
+
+        fn.apply = apply
+        return fn
+
+    return decorator
+
+
+@handler(signals.pre_save)
+def escape_markdown(sender, document):
+    document.markdown = html.escape(document.markdown)
+
+
+class ZipField(FileField):
+    def __init__(self, max_size=0, **ks):
+        super().__init__(**ks)
+        self.max_size = max_size
+
+    def validate(self, value):
+        super().validate(value)
+        # skip check
+        if not value:
+            return
+        try:
+            with ZipFile(value) as zf:
+                # no limit
+                if self.max_size <= 0:
+                    return
+                # the size of original files
+                size = sum(info.file_size
+                           for info in ZipFile(value).infolist())
+                if size > self.max_size:
+                    self.error(
+                        f'{size} byytes is exceed the max size limit {self.max_size} bytes.'
+                    )
+        except BadZipFile:
+            self.error('Only accept zip file.')
+
+
 class Profile(EmbeddedDocument):
-    displayed_name = StringField(db_field='displayedName',
-                                 default='',
-                                 max_length=16)
-    bio = StringField(max_length=64, required=True, default='')
+    displayed_name = StringField(
+        db_field='displayedName',
+        default='',
+        max_length=16,
+    )
+    bio = StringField(
+        max_length=64,
+        required=True,
+        default='',
+    )
 
 
 class EditorConfig(EmbeddedDocument):
@@ -22,21 +78,28 @@ class EditorConfig(EmbeddedDocument):
                          min_value=8,
                          max_value=72,
                          default=14)
-    theme = StringField(default='default',
-                        choices=[
-                            "default", "base16-dark", "base16-light",
-                            "dracula", "eclipse", "material", "monokai"
-                        ])
+    theme = StringField(
+        default='default',
+        choices=[
+            "default", "base16-dark", "base16-light", "dracula", "eclipse",
+            "material", "monokai"
+        ],
+    )
     indent_type = IntField(db_field='indentType', default=1, choices=[0, 1])
-    tab_size = IntField(db_field='tabSize',
-                        default=4,
-                        min_value=1,
-                        max_value=8)
-    language = IntField(default=0, choices=[0, 1, 2])
+    tab_size = IntField(
+        db_field='tabSize',
+        default=4,
+        min_value=1,
+        max_value=8,
+    )
+    language = IntField(
+        default=0,
+        choices=[0, 1, 2],
+    )
 
 
 class Duration(EmbeddedDocument):
-    start = DateTimeField(default=datetime.now())
+    start = DateTimeField(default=datetime.now)
     end = DateTimeField(default=datetime.max)
 
 
@@ -44,15 +107,17 @@ class User(Document):
     username = StringField(max_length=16, required=True, primary_key=True)
     user_id = StringField(db_field='userId', max_length=24, required=True)
     user_id2 = StringField(db_field='userId2', max_length=24, default='')
-    email = EmailField(required=True, unique=True)
-    md5 = StringField(required=True)
+    email = EmailField(required=True, unique=True, max_length=128)
+    md5 = StringField(required=True, max_length=32)
     active = BooleanField(default=False)
     role = IntField(default=2, choices=[0, 1, 2])
     profile = EmbeddedDocumentField(Profile, default=Profile)
-    editor_config = EmbeddedDocumentField(EditorConfig,
-                                          db_field='editorConfig',
-                                          default=EditorConfig,
-                                          null=True)
+    editor_config = EmbeddedDocumentField(
+        EditorConfig,
+        db_field='editorConfig',
+        default=EditorConfig,
+        null=True,
+    )
     contest = ReferenceField('Contest', db_field='contestId')
     courses = ListField(ReferenceField('Course'))
     submissions = ListField(ReferenceField('Submission'))
@@ -62,6 +127,7 @@ class User(Document):
     submission = IntField(default=0)
 
 
+@escape_markdown.apply
 class Homework(Document):
     homework_name = StringField(max_length=64,
                                 required=True,
@@ -95,20 +161,17 @@ class Course(Document):
                               required=True,
                               unique=True,
                               db_field='courseName')
-    teacher = ReferenceField('User', db_field='teacher')
-    tas = ListField(ReferenceField('User'), db_field='tas')
-    contests = ListField(ReferenceField('Contest', reverse_delete_rule=PULL),
-                         db_field='contests')
-    homeworks = ListField(ReferenceField('Homework', reverse_delete_rule=PULL),
-                          db_field='homeworks')
-    announcements = ListField(ReferenceField('Announcement'),
-                              db_field='announcements')
-    posts = ListField(ReferenceField('Post'), db_field='posts', default=list)
+    teacher = ReferenceField('User')
+    tas = ListField(ReferenceField('User'))
+    contests = ListField(ReferenceField('Contest', reverse_delete_rule=PULL))
+    homeworks = ListField(ReferenceField('Homework', reverse_delete_rule=PULL))
+    announcements = ListField(ReferenceField('Announcement'))
+    posts = ListField(ReferenceField('Post'), default=list)
     student_scores = DictField(db_field='studentScores')
 
 
 class Number(Document):
-    name = StringField()
+    name = StringField(max_length=64)
     number = IntField(default=1)
 
 
@@ -127,7 +190,7 @@ class ProblemTestCase(EmbeddedDocument):
         default=list,
     )
     # zip file contains testcase input/output
-    case_zip = FileField(
+    case_zip = ZipField(
         db_field='caseZip',
         defautl=None,
         null=True,
@@ -140,17 +203,33 @@ class ProblemDescription(EmbeddedDocument):
     output = StringField(max_length=100000)
     hint = StringField(max_length=100000)
     sample_input = ListField(
-        StringField(),
+        StringField(max_length=1024),
         default=list,
         db_field='sampleInput',
     )
     sample_output = ListField(
-        StringField(),
+        StringField(max_length=1024),
         default=list,
         db_field='sampleOutput',
     )
 
+    def escape(self):
+        self.description = self.description or html.escape(self.description)
+        self.input = self.input or html.escape(self.input)
+        self.output = self.output or html.escape(self.output)
+        self.hint = self.hint or html.escape(self.hint)
+        _io = zip(self.sample_input, self.sample_output)
+        for i, (ip, op) in enumerate(_io):
+            self.sample_input[i] = ip or html.escape(ip)
+            self.sample_output[i] = op or html.escape(op)
 
+
+@handler(signals.pre_save)
+def problem_desc_escape(sender, document):
+    document.description.escape()
+
+
+@problem_desc_escape.apply
 class Problem(Document):
     problem_id = IntField(db_field='problemId', required=True, unique=True)
     courses = ListField(ReferenceField('Course'), default=list)
@@ -187,8 +266,12 @@ class Problem(Document):
     contests = ListField(ReferenceField('Contest'), default=list)
     # user can view stdout/stderr
     can_view_stdout = BooleanField(db_field='canViewStdout', default=True)
-    cpp_report_url = StringField(db_field='cppReportUrl', default='')
-    python_report_url = StringField(db_field='pythonReportUrl', default='')
+    cpp_report_url = StringField(db_field='cppReportUrl',
+                                 default='',
+                                 max_length=128)
+    python_report_url = StringField(db_field='pythonReportUrl',
+                                    default='',
+                                    max_length=128)
     # bitmask of allowed languages (c: 1, cpp: 2, py3: 4)
     allowed_language = IntField(db_field='allowedLanguage', default=7)
 
@@ -197,8 +280,11 @@ class CaseResult(EmbeddedDocument):
     status = IntField(required=True)
     exec_time = IntField(required=True, db_field='execTime')
     memory_usage = IntField(required=True, db_field='memoryUsage')
-    stdout = StringField(required=True)
-    stderr = StringField(required=True)
+    output = ZipField(
+        required=True,
+        null=True,
+        max_size=11**9,
+    )
 
 
 class TaskResult(EmbeddedDocument):
@@ -212,19 +298,23 @@ class TaskResult(EmbeddedDocument):
 class Submission(Document):
     problem = ReferenceField(Problem, required=True)
     user = ReferenceField(User, required=True)
-    language = IntField(required=True, db_field='languageType')
+    language = IntField(
+        required=True,
+        min_value=0,
+        max_value=3,
+        db_field='languageType',
+    )
     timestamp = DateTimeField(required=True)
     status = IntField(default=-2)
     score = IntField(default=-1)
     tasks = EmbeddedDocumentListField(TaskResult, default=list)
     exec_time = IntField(default=-1, db_field='runTime')
     memory_usage = IntField(default=-1, db_field='memoryUsage')
-    code = BooleanField(
-        default=False)  # wheather the user has uploaded source code
-    handwritten = BooleanField(default=False)
+    code = ZipField(required=True, null=True, max_size=10**7)
     # review = pdf
 
 
+@escape_markdown.apply
 class Message(Document):
     timestamp = DateTimeField(default=datetime.utcnow)
     sender = StringField(max_length=16, required=True)
@@ -240,6 +330,7 @@ class Inbox(Document):
     message = ReferenceField('Message')
 
 
+@escape_markdown.apply
 class Announcement(Document):
     status = IntField(default=0, choices=[0, 1])  # not delete / delete
     title = StringField(max_length=64, required=True)
@@ -251,6 +342,7 @@ class Announcement(Document):
     markdown = StringField(max_length=100000, required=True)
 
 
+@escape_markdown.apply
 class PostThread(Document):
     markdown = StringField(default='', required=True, max_length=100000)
     author = ReferenceField('User', db_field='author')
@@ -266,3 +358,29 @@ class PostThread(Document):
 class Post(Document):
     post_name = StringField(default='', required=True, max_length=64)
     thread = ReferenceField('PostThread', db_field='postThread')
+
+
+class Config(Document):
+    meta = {
+        'allow_inheritance': True,
+    }
+    name = StringField(max_length=64)
+
+
+class Sandbox(EmbeddedDocument):
+    name = StringField(required=True)
+    url = StringField(required=True)
+    token = StringField(required=True)
+
+
+class SubmissionConfig(Document):
+    rate_limit = IntField(default=0, db_field='rateLimit')
+    sandbox_instances = EmbeddedDocumentListField(
+        Sandbox,
+        default=[
+            Sandbox(
+                url='http://sandbox:1450',
+                token='KoNoSandboxDa',
+            ),
+        ],
+    )

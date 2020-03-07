@@ -27,24 +27,9 @@ def submission_testcase_setup(
     tmp_path,
 ):
     BaseTester.setup_class()
-
-    # modify submission config
-    from model.submission_config import SubmissionConfig
-
-    # use tmp dir to save user source code
-    SubmissionConfig.SOURCE_PATH = (tmp_path /
-                                    SubmissionConfig.SOURCE_PATH).absolute()
-    SubmissionConfig.SOURCE_PATH.mkdir(exist_ok=True)
-    SubmissionConfig.TMP_DIR = (tmp_path / SubmissionConfig.TMP_DIR).absolute()
-    SubmissionConfig.TMP_DIR.mkdir(exist_ok=True)
-
-    # disable rate limit
-    SubmissionConfig.RATE_LIMIT = -1
-
     # save base source
     src_dir = pathlib.Path('tests/src')
     exts = {'.c', '.cpp', '.py'}
-
     for src in src_dir.iterdir():
         if any([not src.suffix in exts, not src.is_file()]):
             continue
@@ -57,19 +42,18 @@ def submission_testcase_setup(
                 '.py',
             ].index(src.suffix),
         )
-
+    # create courses
     for name in A_NAMES:
         make_course(
             username=name,
             students=S_NAMES,
         )
-
     yield
-
     BaseTester.teardown_class()
 
 
 class SubmissionTester:
+    # all submission count
     init_submission_count = 8
     submissions = []
 
@@ -78,24 +62,28 @@ class TestUserGetSubmission(SubmissionTester):
     @classmethod
     @pytest.fixture(autouse=True)
     def on_create(cls, submit, problem_ids):
+        # create 2 problem for each teacher or admin
         pids = [problem_ids(name, 2, True) for name in A_NAMES]
         pids = itertools.chain(*pids)
+        # get online problem ids
         pids = [pid for pid in pids if Problem(pid).obj.problem_status == 0]
+        # get a course name
+        cls.courses = [Problem(pid).obj.courses[0].course_name for pid in pids]
+
         pids = itertools.cycle(pids)
         names = S_NAMES.keys()
         names = itertools.cycle(names)
-
+        # create submissions
         cls.submissions = submit(
             names,
             pids,
             cls.init_submission_count,
         )
-
+        # check submission count
         assert len([*itertools.chain(*cls.submissions.values())
                     ]) == cls.init_submission_count, cls.submissions
-
         yield
-
+        # clear
         cls.submissions = []
 
     def test_normal_get_submission_list(self, forge_client):
@@ -319,6 +307,29 @@ class TestUserGetSubmission(SubmissionTester):
         assert all(map(lambda x: x[key] == except_val,
                        rv_data['submissions'])) == True
 
+    def test_get_submission_list_by_course_filter(
+        self,
+        forge_client,
+    ):
+        client = forge_client('student')
+        rv, rv_json, rv_data = BaseTester.request(
+            client,
+            'get',
+            f'/submission/?offset=0&count=-1&course=aaa',
+        )
+
+        assert rv.status_code == 200
+        assert len(rv_data['submissions']) == 0
+
+        rv, rv_json, rv_data = BaseTester.request(
+            client,
+            'get',
+            f'/submission/?offset=0&count=-1&course={self.courses[0]}',
+        )
+
+        assert rv.status_code == 200
+        assert len(rv_data['submissions']) == 4
+
 
 class TestTeacherGetSubmission(SubmissionTester):
     pids = []
@@ -483,7 +494,6 @@ class TestCreateSubmission(SubmissionTester):
             '/submission',
             json=self.post_payload(2),  # 2 for py3
         )
-
         files = {
             'code': (
                 get_source('base.c'),
@@ -495,8 +505,8 @@ class TestCreateSubmission(SubmissionTester):
             data=files,
         )
         rv_json = rv.get_json()
-
-        assert rv.status_code == 200, rv_json
+        # file extension doesn't equal we claimed before
+        assert rv.status_code == 400, rv_json
 
     def test_empty_source(
         self,
@@ -587,8 +597,7 @@ class TestCreateSubmission(SubmissionTester):
         assert rv.status_code == 403, rv_json
 
     def test_reach_rate_limit(self, client_student):
-        from model.submission_config import SubmissionConfig
-        SubmissionConfig.RATE_LIMIT = 5
+        Submission.config.rate_limit = 5
 
         post_json = self.post_payload(1)
         client_student.post(
@@ -604,10 +613,12 @@ class TestCreateSubmission(SubmissionTester):
 
             assert rv.status_code == 429, rv.get_json()
 
-        SubmissionConfig.RATE_LIMIT = -1
+        Submission.config.rate_limit = 0
 
     def test_normally_rejudge(self, forge_client, submit_once):
         submission_id = submit_once('student', self.pid, 'base.c', 0)
+        # make a fake AC submission
+        Submission(submission_id).update(status=0)
         client = forge_client('student')
         rv, rv_json, rv_data = BaseTester.request(
             client,
@@ -615,6 +626,34 @@ class TestCreateSubmission(SubmissionTester):
             f'/submission/{submission_id}/rejudge',
         )
         assert rv.status_code == 200, rv_json
+
+    def test_reach_file_size_limit(
+        self,
+        forge_client,
+        save_source,
+        get_source,
+    ):
+        save_source('big', 'a' * (10**7) + '<(_ _)>', 0)
+        client = forge_client('student')
+        rv, rv_json, rv_data = BaseTester.request(
+            client,
+            'post',
+            f'/submission',
+            json=self.post_payload(),
+        )
+        submission_id = rv_data['submissionId']
+        rv, rv_json, rv_data = BaseTester.request(
+            client,
+            'put',
+            f'/submission/{submission_id}',
+            data={
+                'code': {
+                    get_source('big.c'),
+                    'aaaaa',
+                },
+            },
+        )
+        assert rv.status_code == 400
 
     def test_submit_to_non_participate_contest(self, client_student):
         pass
@@ -641,7 +680,7 @@ class TestHandwrittenSubmission(SubmissionTester):
 
     def test_handwritten_submission(self, client_student, client_teacher):
         # first claim a new submission to backend server
-        post_json = {'problemId': self.pid, 'languageType': 0}
+        post_json = {'problemId': self.pid, 'languageType': 3}
         # recieve response, which include the submission id
         # and a token to validate next request
         rv, rv_json, rv_data = BaseTester.request(
@@ -680,7 +719,14 @@ class TestHandwrittenSubmission(SubmissionTester):
 
         assert rv.status_code == 200
 
-        # Third, grade the submission
+        # third, read the student's upload
+
+        rv = client_student.get(
+            f'/submission/{self.submission_id}/pdf/upload', )
+
+        assert rv.status_code == 200
+
+        # fourth, grade the submission
 
         rv = client_teacher.put(
             f'/submission/{self.submission_id}/grade',
@@ -691,7 +737,7 @@ class TestHandwrittenSubmission(SubmissionTester):
         pprint(f'grade: {json}')
         assert rv.status_code == 200
 
-        # fourth, sned a wrong file to the submission
+        # fifth, send a wrong file to the submission
 
         pdf_dir = pathlib.Path('tests/src/base.c')
         files = {
@@ -707,7 +753,7 @@ class TestHandwrittenSubmission(SubmissionTester):
 
         assert rv.status_code == 400
 
-        # fifth, sned the comment.pdf to the submission
+        # sixth, send the comment.pdf to the submission
 
         pdf_dir = pathlib.Path('tests/handwritten/comment.pdf')
         files = {
@@ -723,7 +769,7 @@ class TestHandwrittenSubmission(SubmissionTester):
 
         assert rv.status_code == 200
 
-        # sixth, get the submission info
+        # seventh, get the submission info
 
         rv = client_student.get(f'/submission/{self.submission_id}', )
 
@@ -731,8 +777,9 @@ class TestHandwrittenSubmission(SubmissionTester):
         assert rv.status_code == 200
         assert json['data']['score'] == 87
 
-        # seventh, get the submission comment
+        # eighth, get the submission comment
 
-        rv = client_student.get(f'/submission/{self.submission_id}/pdf', )
+        rv = client_student.get(
+            f'/submission/{self.submission_id}/pdf/comment', )
 
         assert rv.status_code == 200
