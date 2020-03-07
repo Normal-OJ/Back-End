@@ -128,12 +128,12 @@ def can_view(user, problem):
 
 def get_problem_list(
     user,
-    offset: int,
-    count: int,
-    problem_id,
-    name,
-    tags: list,
-    course,
+    offset: int = 0,
+    count: int = -1,
+    problem_id: int = None,
+    name: str = None,
+    tags: list = None,
+    course: str = None,
 ):
     '''
     get a list of problems

@@ -14,7 +14,7 @@ from zipfile import ZipFile, is_zipfile
 from . import engine
 from .base import MongoBase
 from .user import User
-from .problem import Problem, can_view
+from .problem import Problem, can_view, get_problem_list
 from .course import Course
 
 __all__ = [
@@ -366,7 +366,8 @@ class Submission(MongoBase, engine=engine.Submission):
                 status=status,
                 exec_time=exec_time,
                 memory_usage=memory_usage,
-                score=score if status == 0 else 0,
+                score=self.problem.test_case.tasks[i].task_score
+                if status == 0 else 0,
                 cases=cases,
             )
         status = max(t.status for t in tasks)
@@ -448,6 +449,8 @@ class Submission(MongoBase, engine=engine.Submission):
                 problem = Problem(int(problem)).obj
             except ValueError:
                 raise ValueError(f'can not convert {type(problem)} into int')
+            if problem is None:
+                return []
         if isinstance(submission, (Submission, engine.Submission)):
             submission = submission.id
         if isinstance(q_user, str):
@@ -455,14 +458,24 @@ class Submission(MongoBase, engine=engine.Submission):
             q_user = q_user.obj if q_user else None
         if isinstance(course, str):
             course = Course(course).obj
+            if course is None:
+                return []
+        p_k = 'problem'
+        # if problem not in course
+        if course:
+            problems = get_problem_list(user, course=course.course_name)
+            if problem is None:
+                p_k = 'problem__in'
+                problem = problems
+            elif problem not in problems:
+                return []
         # query args
         q = {
-            'problem': problem,
+            p_k: problem,
             'id': submission,
             'status': status,
             'language': language_type,
             'user': q_user,
-            'problem__courses': course,
         }
         q = {k: v for k, v in q.items() if v is not None}
         # sort by upload time
