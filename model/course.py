@@ -190,13 +190,15 @@ def grading(user, course_name, student):
         if title not in title_list:
             return HTTPError('Score not found.', 404)
 
-        if new_title in title_list:
-            return HTTPError('This title is taken.', 400)
-
         index = title_list.index(title)
 
+        if new_title is not None:
+            if new_title in title_list:
+                return HTTPError('This title is taken.', 400)
+            title = new_title
+
         score_list[index] = {
-            'title': new_title,
+            'title': title,
             'content': content,
             'score': score,
             'timestamp': datetime.now()
