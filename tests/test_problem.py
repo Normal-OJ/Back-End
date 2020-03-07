@@ -265,6 +265,24 @@ class TestProblem(BaseTester):
             'submitter': 0
         }]
 
+    def test_admin_get_problem_list_with_unexist_params(self, client_admin):
+        # unexisted course
+        rv, rv_json, rv_data = self.request(
+            client_admin,
+            'get',
+            '/problem?offset=0&count=-1&course=Programming',
+        )
+        assert rv.status_code == 200
+        assert len(rv_data) == 0
+        # unexisted tags
+        rv, rv_json, rv_data = self.request(
+            client_admin,
+            'get',
+            '/problem?offset=0&count=-1&tags=yo',
+        )
+        assert rv.status_code == 200
+        assert len(rv_data) == 0
+
     # student get problem list (GET /problem)
     def test_student_get_problem_list(self, client_student):
         rv = client_student.get('/problem?offset=0&count=5')

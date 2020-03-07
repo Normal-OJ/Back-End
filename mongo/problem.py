@@ -138,11 +138,15 @@ def get_problem_list(
     '''
     get a list of problems
     '''
+    if course is not None:
+        course = Course(course).obj
+        if course is None:
+            return []
     # qurey args
     ks = {
         'problem_id': problem_id,
         'problem_name': name,
-        'courses': Course(course).obj,
+        'courses': course,
         'tags__in': tags,
     }
     ks = {k: v for k, v in ks.items() if v is not None}
