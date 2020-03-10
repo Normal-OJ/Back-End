@@ -365,7 +365,9 @@ def comment_submission(submission, comment):
 @login_required
 @submission_required
 def rejudge(user, submission):
-    if submission.status < 0:
+    if submission.status == -2 or (
+            submission.status == -1 and
+        (datetime.now() - submission.last_send).seconds < 300):
         return HTTPError(f'{submission} haven\'t be judged', 403)
 
     if max(perm(course, user) for course in submission.problem.courses) < 3:
