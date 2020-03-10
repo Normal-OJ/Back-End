@@ -367,5 +367,9 @@ def comment_submission(submission, comment):
 def rejudge(user, submission):
     if submission.status < 0:
         return HTTPError(f'{submission} haven\'t be judged', 403)
+
+    if max(perm(course, user) for course in submission.problem.courses) < 3:
+        return HTTPError(f'Forbidden.', 403)
+
     submission.rejudge()
     return HTTPResponse('success.')
