@@ -233,8 +233,14 @@ class Submission(MongoBase, engine=engine.Submission):
         '''
         rejudge this submission
         '''
+        # delete result
+        for task_result in self.tasks:
+            for case_result in task_result:
+                case_result.output.delete()
+                case_result.save()
+
         # turn back to haven't be judged
-        self.update(status=-1, last_send=datetime.now())
+        self.update(status=-1, last_send=datetime.now(), tasks=[])
         if current_app.config['TESTING']:
             return True
         return self.send()
