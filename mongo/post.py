@@ -15,13 +15,13 @@ def found_thread(target_thread):
         for reply in target_thread.reply:
             reply_thread.append(found_thread(reply))
     thread = {
-        "id": str(target_thread.id),
-        "content": target_thread.markdown,
-        "author": User(target_thread.author.username).info,
-        "status": target_thread.status,
-        "created": target_thread.created.timestamp(),
-        "updated": target_thread.updated.timestamp(),
-        "reply": reply_thread
+        'id': str(target_thread.id),
+        'content': target_thread.markdown,
+        'author': User(target_thread.author.username).info,
+        'status': target_thread.status,
+        'created': target_thread.created.timestamp(),
+        'updated': target_thread.updated.timestamp(),
+        'reply': reply_thread
     }
     return thread
 
@@ -31,16 +31,16 @@ def found_post(course_obj, target_id=None):
     for x in course_obj.posts:  #target_threads
         post = dict()
         x_thread = x.thread
-        post["thread"] = found_thread(x_thread)
-        post["title"] = x.post_name
-        if (target_id == None or post["thread"]["id"] == target_id):
+        post['thread'] = found_thread(x_thread)
+        post['title'] = x.post_name
+        if (target_id == None or post['thread']['id'] == target_id):
             data.append(post)
     return data
 
 
 def add_post(course, user, content, title):
     course_obj = Course(course).obj
-    created_time = datetime.now()  # local time use utc
+    created_time = datetime.now()
     created_time.timestamp()
     updated_time = created_time
     new_thread = engine.PostThread(markdown=content,
@@ -56,13 +56,13 @@ def add_post(course, user, content, title):
 
 
 def add_reply(target_thread, user, content):
-    created_time = datetime.now()  #  time use utc
+    created_time = datetime.now()
     created_time.timestamp()
     updated_time = created_time
     new_depth = target_thread.depth + 1
     ''' not open this feature ,reply to reply'''
     if new_depth > 2:
-        return "Forbidden,you can not reply too deap (not open)."
+        return 'Forbidden,you can not reply too deap (not open).'
     origin_course = target_thread.course_id
     new_thread = engine.PostThread(markdown=content,
                                    course_id=origin_course,
@@ -81,14 +81,14 @@ def edit_post(target_thread, user, content, title, permission, delete=0):
     ''' Authority check (use by edit or delete) '''
     if delete == 1:  # deete
         if permission == 1 and user != author:  # teacher,ta,author can delete
-            return "Forbidden,you donˊt have enough Authority to delete it."
+            return 'Forbidden,you donˊt have enough Authority to delete it.'
         target_thread.status = 1
     else:  #  edit
         author = target_thread.author
         if user != author and permission < 4:  #only author or admin can edit
-            return "Forbidden,you donˊt have enough Authority to edit it."
+            return 'Forbidden,you donˊt have enough Authority to edit it.'
     ''' update thread '''
-    updated_time = datetime.now()  # local time use utc
+    updated_time = datetime.now()
     updated_time.timestamp()
     target_thread.updated = updated_time
     target_thread.markdown = content
@@ -104,6 +104,6 @@ def edit_post(target_thread, user, content, title, permission, delete=0):
 
 
 def delete_post(target_thread, user, permission):
-    content = "*Content was deleted.*"
-    title = "*The Post was deleted*"
+    content = '*Content was deleted.*'
+    title = '*The Post was deleted*'
     return edit_post(target_thread, user, content, title, permission, 1)
