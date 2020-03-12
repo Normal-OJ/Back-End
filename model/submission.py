@@ -365,7 +365,25 @@ def comment_submission(submission, comment):
 @login_required
 @submission_required
 def rejudge(user, submission):
-    if submission.status < 0:
+    if submission.status == -2 or (
+            submission.status == -1 and
+        (datetime.now() - submission.last_send).seconds < 300):
         return HTTPError(f'{submission} haven\'t be judged', 403)
-    submission.rejudge()
-    return HTTPResponse('success.')
+
+    if max(perm(course, user) for course in submission.problem.courses) < 3:
+        return HTTPError(f'Forbidden.', 403)
+
+    try:
+        success = submission.rejudge()
+    except FileExistsError:
+        exit(10086)
+    except ValueError as e:
+        return HTTPError(str(e), 400)
+    except JudgeQueueFullError as e:
+        return HTTPResponse(str(e), 202)
+    except ValidationError as e:
+        return HTTPError(str(e), data=e.to_dict())
+    if success:
+        return HTTPResponse(f'{submission} is sent to judgement.')
+    else:
+        return HTTPError('Some error occurred, please contact the admin', 500)

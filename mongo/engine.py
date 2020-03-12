@@ -313,6 +313,7 @@ class Submission(Document):
     exec_time = IntField(default=-1, db_field='runTime')
     memory_usage = IntField(default=-1, db_field='memoryUsage')
     code = ZipField(required=True, null=True, max_size=10**7)
+    last_send = DateTimeField(db_field='lastSend', default=datetime.utcnow)
     # review = pdf
 
 
