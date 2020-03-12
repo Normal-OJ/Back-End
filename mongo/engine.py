@@ -313,13 +313,13 @@ class Submission(Document):
     exec_time = IntField(default=-1, db_field='runTime')
     memory_usage = IntField(default=-1, db_field='memoryUsage')
     code = ZipField(required=True, null=True, max_size=10**7)
-    last_send = DateTimeField(db_field='lastSend', default=datetime.utcnow)
+    last_send = DateTimeField(db_field='lastSend', default=datetime.now)
     # review = pdf
 
 
 @escape_markdown.apply
 class Message(Document):
-    timestamp = DateTimeField(default=datetime.utcnow)
+    timestamp = DateTimeField(default=datetime.now)
     sender = StringField(max_length=16, required=True)
     receivers = ListField(StringField(max_length=16), required=True)
     status = IntField(default=0, choices=[0, 1])  # not delete / delete
@@ -338,8 +338,8 @@ class Announcement(Document):
     status = IntField(default=0, choices=[0, 1])  # not delete / delete
     title = StringField(max_length=64, required=True)
     course = ReferenceField('Course', required=True)
-    create_time = DateTimeField(db_field='createTime', default=datetime.utcnow)
-    update_time = DateTimeField(db_field='updateTime', default=datetime.utcnow)
+    create_time = DateTimeField(db_field='createTime', default=datetime.now)
+    update_time = DateTimeField(db_field='updateTime', default=datetime.now)
     creator = ReferenceField('User', required=True)
     updater = ReferenceField('User', required=True)
     markdown = StringField(max_length=100000, required=True)

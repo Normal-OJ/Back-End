@@ -40,7 +40,7 @@ def found_post(course_obj, target_id=None):
 
 def add_post(course, user, content, title):
     course_obj = Course(course).obj
-    created_time = datetime.utcnow()  # local time use utc
+    created_time = datetime.now()  # local time use utc
     created_time.timestamp()
     updated_time = created_time
     new_thread = engine.PostThread(markdown=content,
@@ -56,7 +56,7 @@ def add_post(course, user, content, title):
 
 
 def add_reply(target_thread, user, content):
-    created_time = datetime.utcnow()  #  time use utc
+    created_time = datetime.now()  #  time use utc
     created_time.timestamp()
     updated_time = created_time
     new_depth = target_thread.depth + 1
