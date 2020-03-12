@@ -45,16 +45,15 @@ class ZipField(FileField):
         if not value:
             return
         try:
+            # no limit
+            if self.max_size <= 0:
+                return
             with ZipFile(value) as zf:
-                # no limit
-                if self.max_size <= 0:
-                    return
                 # the size of original files
-                size = sum(info.file_size
-                           for info in ZipFile(value).infolist())
+                size = sum(info.file_size for info in zf.infolist())
                 if size > self.max_size:
                     self.error(
-                        f'{size} byytes is exceed the max size limit {self.max_size} bytes.'
+                        f'{size} bytes exceed the max size limit ({self.max_size} bytes)'
                     )
         except BadZipFile:
             self.error('Only accept zip file.')
@@ -214,10 +213,13 @@ class ProblemDescription(EmbeddedDocument):
     )
 
     def escape(self):
-        self.description = self.description or html.escape(self.description)
-        self.input = self.input or html.escape(self.input)
-        self.output = self.output or html.escape(self.output)
-        self.hint = self.hint or html.escape(self.hint)
+        self.description, self.input, self.output, self.hint = (
+            v or html.escape(v) for v in (
+                self.description,
+                self.input,
+                self.output,
+                self.hint,
+            ))
         _io = zip(self.sample_input, self.sample_output)
         for i, (ip, op) in enumerate(_io):
             self.sample_input[i] = ip or html.escape(ip)
@@ -364,7 +366,7 @@ class Config(Document):
     meta = {
         'allow_inheritance': True,
     }
-    name = StringField(max_length=64)
+    name = StringField(required=True, max_length=64, primary_key=True)
 
 
 class Sandbox(EmbeddedDocument):
@@ -373,7 +375,7 @@ class Sandbox(EmbeddedDocument):
     token = StringField(required=True)
 
 
-class SubmissionConfig(Document):
+class SubmissionConfig(Config):
     rate_limit = IntField(default=0, db_field='rateLimit')
     sandbox_instances = EmbeddedDocumentListField(
         Sandbox,
@@ -383,4 +385,5 @@ class SubmissionConfig(Document):
                 token='KoNoSandboxDa',
             ),
         ],
+        db_field='sandboxInstances',
     )
