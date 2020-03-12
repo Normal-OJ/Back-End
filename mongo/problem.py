@@ -48,6 +48,8 @@ class Problem:
         _ret = p_obj.to_mongo()
         # if this problem has testcase
         if p_obj.test_case:
+            # get time limit and memery limit
+            limit = []
             # get tasks info
             tasks = [task.to_mongo() for task in p_obj.test_case.tasks]
             for t in tasks:
@@ -55,6 +57,7 @@ class Problem:
                     'input': [],
                     'output': [],
                 })
+                limit.append((t['timeLimit'], t['memoryLimit']))
             # has uploaded testdata
             if p_obj.test_case.case_zip:
                 with ZipFile(p_obj.test_case.case_zip) as zf:
@@ -70,6 +73,7 @@ class Problem:
                             ],
                         })
             _ret['testCase']['tasks'] = tasks
+            _ret['limit'] = limit
             # case zip can not be serialized
             if 'caseZip' in _ret['testCase']:
                 del _ret['testCase']['caseZip']

@@ -315,6 +315,7 @@ class TestProblem(BaseTester):
             'owner': 'admin',
             'tags': [],
             'allowedLanguage': 7,
+            'limit': [[1000, 1000]]
         }
 
     # student view offline problem (GET /problem/view/<problem_id>)
@@ -340,6 +341,7 @@ class TestProblem(BaseTester):
             'owner': 'admin',
             'tags': [],
             'allowedLanguage': 7,
+            'limit': [[1000, 1000]]
         }
 
     # student view problem not exist (GET /problem/view/<problem_id>)
