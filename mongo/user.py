@@ -87,7 +87,7 @@ class User(MongoBase, engine=engine.User):
         data.update(kwargs)
         payload = {
             'iss': JWT_ISS,
-            'exp': datetime.utcnow() + JWT_EXP,
+            'exp': datetime.now() + JWT_EXP,
             'secret': secret,
             'data': data
         }
