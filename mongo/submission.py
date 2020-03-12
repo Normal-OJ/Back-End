@@ -18,6 +18,7 @@ from .problem import Problem, can_view, get_problem_list
 from .course import Course
 
 __all__ = [
+    'SubmissionConfig',
     'Submission',
     'gen_token',
     'assign_token',

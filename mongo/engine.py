@@ -366,7 +366,7 @@ class Config(Document):
     meta = {
         'allow_inheritance': True,
     }
-    name = StringField(required=True, max_length=64)
+    name = StringField(required=True, max_length=64, primary_key=True)
 
 
 class Sandbox(EmbeddedDocument):
