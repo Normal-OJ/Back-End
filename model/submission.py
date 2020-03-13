@@ -385,6 +385,39 @@ def config(user):
 
     @Request.json('rate_limit: int', 'sandbox_instances: list')
     def modify_config(rate_limit, sandbox_instances):
+        # try to convert json object to Sandbox instance
+        try:
+            sandbox_instances = [
+                *map(
+                    lambda s: engine.Sandbox(**s),
+                    sandbox_instances,
+                )
+            ]
+        except engine.ValidationError as e:
+            return HTTPError(
+                'wrong Sandbox schema',
+                400,
+                data=e.to_dict(),
+            )
+        # skip if during testing
+        if not current_app.config['TESTING']:
+            resps = []
+            # check sandbox status
+            for sb in sandbox_instances:
+                resp = rq.get(f'{sb.url}/status')
+                if not resp.ok:
+                    resps.append((sb.name, resp))
+            # some exception occurred
+            if len(resps) != 0:
+                return HTTPError(
+                    'some error occurred when check sandbox status',
+                    400,
+                    data=[{
+                        'name': name,
+                        'statusCode': resp.status_code,
+                        'response': resp.text,
+                    } for name, resp in resps],
+                )
         try:
             config.update(
                 rate_limit=rate_limit,
