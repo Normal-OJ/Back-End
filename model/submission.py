@@ -46,8 +46,8 @@ def create_submission(user, language_type, problem_id):
     # the user reach the rate limit for submitting
     now = datetime.now()
     delta = timedelta.total_seconds(now - user.last_submit)
-    if delta <= Submission.config.rate_limit:
-        wait_for = Submission.config.rate_limit - delta
+    if delta <= Submission.config().rate_limit:
+        wait_for = Submission.config().rate_limit - delta
         return HTTPError(
             'Submit too fast!\n'
             f'Please wait for {wait_for:.2f} seconds to submit.',
@@ -375,28 +375,25 @@ def rejudge(user, submission):
 @login_required
 @identity_verify(0)
 def config(user):
-    config = Submission.config
+    config = Submission.config()
 
     def get_config():
-        return HTTPResponse('success.', data={
-            'rateLimit': config.rate_limit,
-            'sandboxInstances': [{
-                'name': sandbox.name,
-                'url': sandbox.url,
-                'token': sandbox.token,
-            }for sandbox in config.sandbox_instances]
-        })
+        ret = config.to_mongo()
+        del ret['_cls']
+        del ret['_id']
+        return HTTPResponse('success.', data=ret)
 
     @Request.json('rate_limit: int', 'sandbox_instances: list')
     def modify_config(rate_limit, sandbox_instances):
         try:
-            config.update(rate_limit=rate_limit,
-                          sandbox_instances=sandbox_instances)
-            config.reload()
+            config.update(
+                rate_limit=rate_limit,
+                sandbox_instances=sandbox_instances,
+            )
         except ValidationError as e:
             return HTTPError(str(e), 400)
 
-        return HTTPResponse('success.'+str(engine.SubmissionConfig.objects))
+        return HTTPResponse('success.')
 
     methods = {'GET': get_config, 'PUT': modify_config}
     return methods[request.method]()
