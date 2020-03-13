@@ -619,7 +619,7 @@ class TestCreateSubmission(SubmissionTester):
         submission_id = submit_once('student', self.pid, 'base.c', 0)
         # make a fake AC submission
         Submission(submission_id).update(status=0)
-        client = forge_client('student')
+        client = forge_client('admin')
         rv, rv_json, rv_data = BaseTester.request(
             client,
             'get',

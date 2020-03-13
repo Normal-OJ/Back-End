@@ -81,7 +81,7 @@ def anncmnt(user, course_name=None, ann_id=None):
         try:
             ann.update(title=title,
                        markdown=markdown,
-                       update_time=datetime.utcnow(),
+                       update_time=datetime.now(),
                        updater=user.obj)
         except ValidationError as ve:
             return HTTPError('Failed to Update Announcement',

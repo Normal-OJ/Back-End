@@ -260,7 +260,7 @@ def get_source(tmp_path):
 def submit_once(app, forge_client, get_source):
     def submit_once(name, pid, filename, lang, client=None):
         with app.app_context():
-            now = datetime.utcnow()
+            now = datetime.now()
             try:
                 submission = Submission.add(
                     problem_id=pid,

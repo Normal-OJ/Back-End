@@ -7,7 +7,7 @@ import logging
 import requests as rq
 from flask import current_app
 from tempfile import NamedTemporaryFile
-from datetime import date
+from datetime import date, datetime
 from typing import List, Union
 from zipfile import ZipFile, is_zipfile
 
@@ -247,8 +247,14 @@ class Submission(MongoBase, engine=engine.Submission):
         '''
         rejudge this submission
         '''
+        # delete result
+        for task_result in self.tasks:
+            for case_result in task_result:
+                case_result.output.delete()
+                case_result.save()
+
         # turn back to haven't be judged
-        self.update(status=-1)
+        self.update(status=-1, last_send=datetime.now(), tasks=[])
         if current_app.config['TESTING']:
             return True
         return self.send()
@@ -268,7 +274,7 @@ class Submission(MongoBase, engine=engine.Submission):
         if res is not True:
             raise ValueError(res)
         self.code.put(code_file)
-        self.update(status=-1)
+        self.update(status=-1, last_send=datetime.now())
         self.save()
         self.reload()
         self.logger.debug(f'{self} code updated.')
