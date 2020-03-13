@@ -597,8 +597,8 @@ class TestCreateSubmission(SubmissionTester):
         assert rv.status_code == 403, rv_json
 
     def test_reach_rate_limit(self, client_student):
-        Submission.config.rate_limit = 5
-
+        # set rate limit to 5 sec
+        Submission.config().update(rate_limit=5)
         post_json = self.post_payload(1)
         client_student.post(
             '/submission',
@@ -612,8 +612,8 @@ class TestCreateSubmission(SubmissionTester):
             )
 
             assert rv.status_code == 429, rv.get_json()
-
-        Submission.config.rate_limit = 0
+        # recover rate limit
+        Submission.config().update(rate_limit=0)
 
     def test_normally_rejudge(self, forge_client, submit_once):
         submission_id = submit_once('student', self.pid, 'base.c', 0)
@@ -783,3 +783,38 @@ class TestHandwrittenSubmission(SubmissionTester):
             f'/submission/{self.submission_id}/pdf/comment', )
 
         assert rv.status_code == 200
+
+
+class TestSubmissionConfig(SubmissionTester):
+    def test_get_config(self, client_admin):
+        rv = client_admin.get(f'/submission/config')
+        json = rv.get_json()
+        assert rv.status_code == 200
+
+    def test_edit_config(self, client_admin):
+        rv = client_admin.put(
+            f'/submission/config',
+            json={
+                'rateLimit':
+                10,
+                'sandboxInstances': [{
+                    'name': 'Test',
+                    'url': 'http://sandbox:6666',
+                    'token': 'AAAAA',
+                }]
+            },
+        )
+        json = rv.get_json()
+        assert rv.status_code == 200, json
+        rv = client_admin.get(f'/submission/config', )
+        json = rv.get_json()
+        assert rv.status_code == 200, json
+        assert json['data'] == {
+            'rateLimit':
+            10,
+            'sandboxInstances': [{
+                'name': 'Test',
+                'url': 'http://sandbox:6666',
+                'token': 'AAAAA',
+            }]
+        }

@@ -56,24 +56,28 @@ class JudgeQueueFullError(Exception):
 
 
 class SubmissionConfig(MongoBase, engine=engine.SubmissionConfig):
+    TMP_DIR = pathlib.Path(
+        os.getenv(
+            'SUBMISSION_TMP_DIR',
+            '/tmp/submissions',
+        ), )
+    COMMENT_PATH = pathlib.Path(
+        os.getenv(
+            'SUBMISSION_COMMENT_PATH',
+            'comments',
+        ), )
+
+    def __new__(cls, *args, **ks):
+        cls.COMMENT_PATH.mkdir(exist_ok=True)
+        cls.TMP_DIR.mkdir(exist_ok=True)
+        return super().__new__(cls, *args, **ks)
+
     def __init__(self, name):
         self.name = name
-        self.COMMENT_PATH = pathlib.Path(
-            os.getenv(
-                'SUBMISSION_COMMENT_PATH',
-                'comments',
-            ), )
-        self.COMMENT_PATH.mkdir(exist_ok=True)
-        self.TMP_DIR = pathlib.Path(
-            os.getenv(
-                'SUBMISSION_TMP_DIR',
-                '/tmp/submissions',
-            ), )
-        self.TMP_DIR.mkdir(exist_ok=True)
 
 
 class Submission(MongoBase, engine=engine.Submission):
-    config = SubmissionConfig('submission')
+    _config = None
 
     def __init__(self, submission_id):
         self.submission_id = str(submission_id)
@@ -131,11 +135,11 @@ class Submission(MongoBase, engine=engine.Submission):
 
     @property
     def comment_path(self) -> pathlib.Path:
-        return self.config.COMMENT_PATH / self.id
+        return self.config().COMMENT_PATH / self.id
 
     @property
     def tmp_dir(self) -> pathlib.Path:
-        return self.config.TMP_DIR / self.id
+        return self.config().TMP_DIR / self.id
 
     @property
     def main_code_path(self) -> str:
@@ -156,6 +160,15 @@ class Submission(MongoBase, engine=engine.Submission):
             return current_app.logger
         except RuntimeError:
             return logging.getLogger('gunicorn.error')
+
+    @classmethod
+    def config(cls):
+        if not cls._config:
+            cls._config = SubmissionConfig('submission')
+        if not cls._config:
+            cls._config.save()
+        cls._config.reload()
+        return cls._config
 
     def sandbox_resp_handler(self, resp):
         # judge queue is currently full
@@ -189,7 +202,7 @@ class Submission(MongoBase, engine=engine.Submission):
     def target_sandbox(self):
         load = 10**3  # current min load
         tar = None  # target
-        for sb in self.config.sandbox_instances:
+        for sb in self.config().sandbox_instances:
             resp = rq.get(f'{sb.url}/status')
             if not resp.ok:
                 self.logger.warning(f'sandbox {sb.name} status exception')
