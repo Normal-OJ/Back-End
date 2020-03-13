@@ -783,3 +783,36 @@ class TestHandwrittenSubmission(SubmissionTester):
             f'/submission/{self.submission_id}/pdf/comment', )
 
         assert rv.status_code == 200
+
+
+class TestSubmissionConfig(SubmissionTester):
+    def test_get_config(self, client_admin):
+        rv = client_admin.get(f'/submission/config', )
+
+        json = rv.get_json()
+        assert rv.status_code == 200
+
+    def test_edit_config(self, client_admin):
+        rv = client_admin.put(f'/submission/config', json={
+            'rateLimit': 10,
+            'sandboxInstances': [{'name': 'Test',
+                                   'url': 'http://sandbox:6666',
+                                   'token': 'AAAAA',
+                                   }]
+        })
+
+        json = rv.get_json()
+        print(json['message'])
+        assert rv.status_code == 200
+
+        rv = client_admin.get(f'/submission/config', )
+
+        json = rv.get_json()
+        assert rv.status_code == 200
+        assert json['data'] == {
+            'rateLimit': 10,
+            'sandboxInstances': [{'name': 'Test',
+                                   'url': 'http://sandbox:6666',
+                                   'token': 'AAAAA',
+                                   }]
+        }

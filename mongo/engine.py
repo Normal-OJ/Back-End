@@ -381,6 +381,7 @@ class SubmissionConfig(Config):
         Sandbox,
         default=[
             Sandbox(
+                name='Sandbox-0',
                 url='http://sandbox:1450',
                 token='KoNoSandboxDa',
             ),

@@ -71,6 +71,8 @@ class SubmissionConfig(MongoBase, engine=engine.SubmissionConfig):
             ), )
         self.TMP_DIR.mkdir(exist_ok=True)
 
+        self.save()
+
 
 class Submission(MongoBase, engine=engine.Submission):
     config = SubmissionConfig('submission')

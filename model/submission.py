@@ -369,3 +369,34 @@ def rejudge(user, submission):
         return HTTPError(f'{submission} haven\'t be judged', 403)
     submission.rejudge()
     return HTTPResponse('success.')
+
+
+@submission_api.route('/config', methods=['GET', 'PUT'])
+@login_required
+@identity_verify(0)
+def config(user):
+    config = Submission.config
+
+    def get_config():
+        return HTTPResponse('success.', data={
+            'rateLimit': config.rate_limit,
+            'sandboxInstances': [{
+                'name': sandbox.name,
+                'url': sandbox.url,
+                'token': sandbox.token,
+            }for sandbox in config.sandbox_instances]
+        })
+
+    @Request.json('rate_limit: int', 'sandbox_instances: list')
+    def modify_config(rate_limit, sandbox_instances):
+        try:
+            config.update(rate_limit=rate_limit,
+                          sandbox_instances=sandbox_instances)
+            config.reload()
+        except ValidationError as e:
+            return HTTPError(str(e), 400)
+
+        return HTTPResponse('success.'+str(engine.SubmissionConfig.objects))
+
+    methods = {'GET': get_config, 'PUT': modify_config}
+    return methods[request.method]()
