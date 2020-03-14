@@ -61,14 +61,8 @@ class SubmissionConfig(MongoBase, engine=engine.SubmissionConfig):
             'SUBMISSION_TMP_DIR',
             '/tmp/submissions',
         ), )
-    COMMENT_PATH = pathlib.Path(
-        os.getenv(
-            'SUBMISSION_COMMENT_PATH',
-            'comments',
-        ), )
 
     def __new__(cls, *args, **ks):
-        cls.COMMENT_PATH.mkdir(exist_ok=True)
         cls.TMP_DIR.mkdir(exist_ok=True)
         return super().__new__(cls, *args, **ks)
 
@@ -132,10 +126,6 @@ class Submission(MongoBase, engine=engine.Submission):
     @property
     def handwritten(self):
         return self.language == 3
-
-    @property
-    def comment_path(self) -> pathlib.Path:
-        return self.config().COMMENT_PATH / self.id
 
     @property
     def tmp_dir(self) -> pathlib.Path:
@@ -224,7 +214,7 @@ class Submission(MongoBase, engine=engine.Submission):
         return data
 
     def get_comment(self) -> bytes:
-        return self.comment_path.read_bytes()
+        return self.comment.read()
 
     def check_code(self, file):
         if not file:
@@ -424,7 +414,7 @@ class Submission(MongoBase, engine=engine.Submission):
         self.problem.save()
         return True
 
-    def comment(self, file):
+    def add_comment(self, file):
         '''
         comment a submission with PDF
 
@@ -434,7 +424,7 @@ class Submission(MongoBase, engine=engine.Submission):
         data = file.read()
         if data[1:4] != b'PDF':
             raise ValueError('only accept PDF file.')
-        self.comment_path.write_bytes(data)
+        self.comment.put(data)
         self.logger.debug(f'{self} comment updated.')
 
     @staticmethod

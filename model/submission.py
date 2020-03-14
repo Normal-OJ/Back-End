@@ -355,7 +355,7 @@ def comment_submission(submission, comment):
             400,
         )
     try:
-        submission.comment(comment)
+        submission.add_comment(comment)
     except ValueError as e:
         return HTTPError(str(e), 400)
     return HTTPResponse(f'{submission} comment recieved.')

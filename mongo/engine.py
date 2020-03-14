@@ -314,7 +314,7 @@ class Submission(Document):
     memory_usage = IntField(default=-1, db_field='memoryUsage')
     code = ZipField(required=True, null=True, max_size=10**7)
     last_send = DateTimeField(db_field='lastSend', default=datetime.now)
-    # review = pdf
+    comment = FileField()
 
 
 @escape_markdown.apply
