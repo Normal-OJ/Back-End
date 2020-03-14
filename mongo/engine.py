@@ -298,6 +298,15 @@ class TaskResult(EmbeddedDocument):
 
 
 class Submission(Document):
+    meta = {
+        'indexes': [(
+            'timestamp',
+            'user',
+            'language',
+            'problem',
+            'status',
+        )]
+    }
     problem = ReferenceField(Problem, required=True)
     user = ReferenceField(User, required=True)
     language = IntField(
