@@ -410,6 +410,7 @@ class Submission(MongoBase, engine=engine.Submission):
             if self.score >= stat['score']:
                 stat['score'] = self.score
                 stat['problemStatus'] = self.status
+            homework.save()
         # update problem
         ac_submissions = Submission.filter(
             user=self.user,
