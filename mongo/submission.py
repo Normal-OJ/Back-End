@@ -92,7 +92,7 @@ class Submission(MongoBase, engine=engine.Submission):
 
     def to_dict(self):
         _ret = {
-            'problemId': self.problem.problem_id,
+            'problemId': self.problem_id,
             'user': User(self.user.username).info,
             'submissionId': self.id,
             'timestamp': self.timestamp.timestamp(),
@@ -104,9 +104,11 @@ class Submission(MongoBase, engine=engine.Submission):
             'problem',
             'code',
         ]
+        # delete old keys
         for o in old:
             del ret[o]
-        for n in _ret.keys():
+        # insert new keys
+        for n in _ret:
             ret[n] = _ret[n]
         return ret
 
@@ -466,7 +468,10 @@ class Submission(MongoBase, engine=engine.Submission):
             submission = submission.id
         if isinstance(q_user, str):
             q_user = User(q_user)
-            q_user = q_user.obj if q_user else None
+            # if not exist
+            if not q_user:
+                return []
+            q_user = q_user.obj
         if isinstance(course, str):
             course = Course(course).obj
             if course is None:
@@ -491,10 +496,6 @@ class Submission(MongoBase, engine=engine.Submission):
         q = {k: v for k, v in q.items() if v is not None}
         # sort by upload time
         submissions = engine.Submission.objects(**q).order_by('-timestamp')
-        # check permission
-        submissions = [
-            *filter(lambda s: can_view(user, s.problem), submissions)
-        ]
         # truncate
         if offset >= len(submissions) and len(submissions):
             raise ValueError(f'offset ({offset}) is out of range!')
