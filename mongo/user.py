@@ -11,6 +11,7 @@ import html
 import json as jsonlib
 import jwt
 import os
+import re
 
 __all__ = ['User', 'jwt_decode']
 
@@ -25,6 +26,9 @@ class User(MongoBase, engine=engine.User):
 
     @classmethod
     def signup(cls, username, password, email):
+        if re.match(r'^[a-zA-Z0-9_\-]+$', username) is None:
+            raise ValueError
+
         user = cls(username)
         user_id = hash_id(user.username, password)
         cls.engine(user_id=user_id,

@@ -119,6 +119,8 @@ def signup(username, password, email):
         return HTTPError('Signup Failed', 400, data=ve.to_dict())
     except NotUniqueError as ne:
         return HTTPError('User Exists', 400)
+    except ValueError as ve:
+        return HTTPError('Not Allowed Name', 400)
     verify_link = f'https://noj.tw/api/auth/active/{user.cookie}'
     text = VERIFY_TEXT.format(url=verify_link)
     html = VERIFY_HTML.format(url=verify_link)
