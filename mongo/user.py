@@ -129,7 +129,7 @@ class User(MongoBase, engine=engine.User):
     def add_submission(self, submission: engine.Submission):
         if submission.score == 100:
             self.update(
-                add_to_set__AC_problem_id=submission.problem_id,
+                add_to_set__AC_problem_ids=submission.problem_id,
                 inc__AC_submission=1,
             )
         self.submission += 1
