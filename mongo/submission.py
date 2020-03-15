@@ -103,6 +103,7 @@ class Submission(MongoBase, engine=engine.Submission):
             '_id',
             'problem',
             'code',
+            'comment',
         ]
         # delete old keys
         for o in old:
@@ -244,6 +245,8 @@ class Submission(MongoBase, engine=engine.Submission):
         return data
 
     def get_comment(self) -> bytes:
+        if self.comment.grid_id is None:
+            return None
         return self.comment.read()
 
     def check_code(self, file):
@@ -456,10 +459,19 @@ class Submission(MongoBase, engine=engine.Submission):
             file: a PDF file
         '''
         data = file.read()
+        # check magic number
         if data[1:4] != b'PDF':
             raise ValueError('only accept PDF file.')
-        self.comment.put(data)
+        # write to a new file if it did not exist before
+        if self.comment.grid_id is None:
+            write_func = self.comment.put
+        # replace its content otherwise
+        else:
+            write_func = self.comment.replace
+        write_func(data)
         self.logger.debug(f'{self} comment updated.')
+        # update submission
+        self.save()
 
     @staticmethod
     def count():
