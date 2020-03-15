@@ -11,6 +11,7 @@ import html
 import json as jsonlib
 import jwt
 import os
+import re
 
 __all__ = ['User', 'jwt_decode']
 
@@ -25,14 +26,20 @@ class User(MongoBase, engine=engine.User):
 
     @classmethod
     def signup(cls, username, password, email):
+        if re.match(r'^[a-zA-Z0-9_\-]+$', username) is None:
+            raise ValueError
+
         user = cls(username)
         user_id = hash_id(user.username, password)
-        cls.engine(user_id=user_id,
-                   user_id2=user_id,
-                   username=user.username,
-                   email=email,
-                   md5=hashlib.md5(email.strip().encode()).hexdigest(),
-                   active=False).save(force_insert=True)
+        email = email.lower().strip()
+        cls.engine(
+            user_id=user_id,
+            user_id2=user_id,
+            username=user.username,
+            email=email,
+            md5=hashlib.md5(email.encode()).hexdigest(),
+            active=False,
+        ).save(force_insert=True)
         return user.reload()
 
     @classmethod
@@ -54,7 +61,7 @@ class User(MongoBase, engine=engine.User):
 
     @classmethod
     def get_by_email(cls, email):
-        obj = cls.engine.objects.get(email=email)
+        obj = cls.engine.objects.get(email=email.lower())
         return cls(obj.username)
 
     @property

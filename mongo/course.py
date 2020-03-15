@@ -64,7 +64,7 @@ def delete_course(user, course):
 
 
 def add_course(course, teacher):
-    if re.match(r'^[a-zA-Z0-9._]+$', course) is None:
+    if re.match(r'^[a-zA-Z0-9._\- ]+$', course) is None:
         raise ValueError
     te = User(teacher)
     if not te:
@@ -77,7 +77,7 @@ def add_course(course, teacher):
 
 
 def edit_course(user, course, new_course, teacher):
-    if re.match(r'^[a-zA-Z0-9._]+$', new_course) is None:
+    if re.match(r'^[a-zA-Z0-9._\- ]+$', new_course) is None:
         raise ValueError
 
     co = Course(course).obj

@@ -15,7 +15,7 @@ from . import engine
 from .base import MongoBase
 from .user import User
 from .problem import Problem, can_view, get_problem_list
-from .course import Course
+from .course import Course, perm
 
 __all__ = [
     'SubmissionConfig',
@@ -162,6 +162,22 @@ class Submission(MongoBase, engine=engine.Submission):
         cls._config.reload()
         return cls._config
 
+    def permission(self, user):
+        '''
+        4: can rejudge & grade, 
+        3: can view upload & comment, 
+        2: can view score, 
+        1: can view basic info, 
+        0: can't view
+        '''
+        if not can_view(user, self.problem):
+            return 0
+
+        return 3 - [
+            max(perm(course, user) for course in self.problem.courses) >= 2,
+            user.username == self.user.username, True
+        ].index(True)
+
     def sandbox_resp_handler(self, resp):
         # judge queue is currently full
         def on_500(resp):
@@ -303,7 +319,7 @@ class Submission(MongoBase, engine=engine.Submission):
         send code to sandbox
         '''
         if self.handwritten:
-            logging.warning(f'try to send a handwritten {submission}')
+            logging.warning(f'try to send a handwritten {self}')
             return False
         # metadata
         meta = {
@@ -404,6 +420,11 @@ class Submission(MongoBase, engine=engine.Submission):
             exec_time=exec_time,
             memory_usage=memory_usage,
         )
+        self.finish_judging()
+
+        return True
+
+    def finish_judging(self):
         # update user's submission
         User(self.user.username).add_submission(self.reload())
         # update homework data
@@ -426,7 +447,6 @@ class Submission(MongoBase, engine=engine.Submission):
         ac_users = {s.user.username for s in ac_submissions}
         self.problem.ac_user = len(ac_users)
         self.problem.save()
-        return True
 
     def add_comment(self, file):
         '''
