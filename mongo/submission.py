@@ -304,12 +304,18 @@ class Submission(MongoBase, engine=engine.Submission):
         if self.handwritten:
             q = {
                 'problem': self.problem,
-                'score': -1,
                 'user': self.user,
                 'language': 3,
             }
             for submission in engine.Submission.objects(**q):
                 if submission != self.obj:
+                    for homework in self.problem.homeworks:
+                        stat = homework.student_status[self.user.username][str(
+                            self.problem_id)]
+                        stat['score'] = 0
+                        stat['problemStatus'] = -1
+                        stat['submissionIds'] = []
+                        homework.save()
                     submission.delete()
         # we no need to actually send code to sandbox during testing
         if current_app.config['TESTING'] or self.handwritten:
@@ -434,7 +440,9 @@ class Submission(MongoBase, engine=engine.Submission):
             stat = homework.student_status[self.user.username][str(
                 self.problem_id)]
             stat['submissionIds'].append(self.id)
-            if self.score >= stat['score']:
+            if self.handwritten:
+                stat['submissionIds'] = stat['submissionIds'][-1:]
+            if self.score >= stat['score'] or self.handwritten:
                 stat['score'] = self.score
                 stat['problemStatus'] = self.status
             homework.save()
