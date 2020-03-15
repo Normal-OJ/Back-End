@@ -306,12 +306,12 @@ def edit_problem_test_case(problem_id, test_case):
     test_case.seek(0)
     # check whether the test case exists
     if problem.test_case.case_zip.grid_id is None:
-        # if no, force add a new file
-        problem.test_case.case_zip.new_file()
-        problem.test_case.case_zip.close()
-        problem.save()
-    # replace original test case
-    problem.test_case.case_zip.replace(
+        # if no, put data to a new file
+        write_func = problem.test_case.case_zip.put
+    else:
+        # else, replace original file with a new one
+        write_func = problem.test_case.case_zip.replace
+    write_func(
         test_case,
         content_type='application/zip',
     )
