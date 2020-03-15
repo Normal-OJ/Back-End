@@ -392,6 +392,11 @@ class Submission(MongoBase, engine=engine.Submission):
             exec_time=exec_time,
             memory_usage=memory_usage,
         )
+        self.finish_judging()
+
+        return True
+
+    def finish_judging(self):
         # update user's submission
         User(self.user.username).add_submission(self.reload())
         # update homework data
@@ -414,7 +419,6 @@ class Submission(MongoBase, engine=engine.Submission):
         ac_users = {s.user.username for s in ac_submissions}
         self.problem.ac_user = len(ac_users)
         self.problem.save()
-        return True
 
     def add_comment(self, file):
         '''
