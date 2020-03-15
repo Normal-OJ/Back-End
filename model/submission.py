@@ -341,14 +341,22 @@ def update_submission(user, submission, code):
 @submission_required
 @identity_verify(0, 1)
 def grade_submission(user, submission, score):
-    submission.update(score=score)
+    if not can_view(user, submission.problem):
+        return HTTPError('forbidden.', 403)
+
+    # AC if the score is 100, WA otherwise
+    submission.update(score=score, status=(0 if score == 100 else 1))
+    submission.finish_judging()
     return HTTPResponse(f'{submission} score recieved.')
 
 
 @submission_api.route('/<submission_id>/comment', methods=['PUT'])
 @Request.files('comment')
 @submission_required
-def comment_submission(submission, comment):
+@identity_verify(0, 1)
+def comment_submission(user, submission, comment):
+    if not can_view(user, submission.problem):
+        return HTTPError('forbidden.', 403)
     if comment is None:
         return HTTPError(
             f'can not find the comment',
