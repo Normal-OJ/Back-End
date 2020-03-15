@@ -768,16 +768,16 @@ class TestHandwrittenSubmission(SubmissionTester):
         assert rv.status_code == 200
 
     @pytest.mark.parametrize(
-        'user_a, user_b, score',
+        'user_a, user_b, status_code',
         [
             # student can view self score
-            ('student', 'student', -1),
+            ('student', 'student', 200),
             # normal user can not view other's score
-            ('student-2', 'student', '*'),
+            ('student-2', 'student', 403),
             # teacher can view student's score
-            ('student-2', 'teacher', -1),
+            ('student-2', 'teacher', 200),
             # also the admin
-            ('student-2', 'admin', -1),
+            ('student-2', 'admin', 200),
         ],
     )
     def test_handwritten_submission_score_visibility(
@@ -786,7 +786,7 @@ class TestHandwrittenSubmission(SubmissionTester):
         submit_once,
         user_a,
         user_b,
-        score,
+        status_code,
     ):
         '''
         test whether a `user_b` can view the `user_a`'s handwritten submission score
@@ -798,8 +798,7 @@ class TestHandwrittenSubmission(SubmissionTester):
             'get',
             f'/submission/{submission_id}',
         )
-        assert rv.status_code == 200, rv_json
-        assert rv_data['score'] == score, rv_data
+        assert rv.status_code == status_code, rv_json
 
 
 class TestSubmissionConfig(SubmissionTester):
