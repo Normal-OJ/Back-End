@@ -298,9 +298,9 @@ class Submission(MongoBase, engine=engine.Submission):
                     for homework in self.problem.homeworks:
                         stat = homework.student_status[self.user.username][str(
                             self.problem_id)]
-                        stat['score']=0
-                        stat['problemStatus']=-1
-                        stat['submissionIds']=[]
+                        stat['score'] = 0
+                        stat['problemStatus'] = -1
+                        stat['submissionIds'] = []
                         homework.save()
                     submission.delete()
         # we no need to actually send code to sandbox during testing
