@@ -333,11 +333,14 @@ def update_submission(user, submission, code):
 
 @submission_api.route('/<submission_id>/grade', methods=['PUT'])
 @login_required
-@Request.json('score')
+@Request.json('score: int')
 @submission_required
 def grade_submission(user, submission, score):
     if submission.permission(user) < 3:
         return HTTPError('forbidden.', 403)
+
+    if score < 0 or score > 100:
+        return HTTPError('score must be between 0 to 100.', 400)
 
     # AC if the score is 100, WA otherwise
     submission.update(score=score, status=(0 if score == 100 else 1))
