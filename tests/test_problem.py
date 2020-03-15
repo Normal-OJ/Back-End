@@ -489,6 +489,19 @@ class TestProblem(BaseTester):
         _io = [(t['input'], t['output']) for t in rv_data['testCase']['tasks']]
         assert _io == [(['I AM A TEAPOT\n'], ['I AM A TEAPOT\n'])], rv_data
 
+    def test_admin_update_problem_test_case_with_invalid_data(
+        self,
+        client_admin,
+    ):
+        # upload a test case with invalid data
+        rv, rv_json, rv_data = BaseTester.request(
+            client_admin,
+            'put',
+            '/problem/manage/1',
+            data=get_file('task-exceed/test_case.zip'),
+        )
+        assert rv.status_code == 400
+
     # non-owner teacher get information of a problem (GET /problem/manage/<problem_id>)
     def test_teacher_not_owner_manage_problem(self, client_teacher):
         rv = client_teacher.get('/problem/manage/1')
