@@ -61,14 +61,8 @@ class SubmissionConfig(MongoBase, engine=engine.SubmissionConfig):
             'SUBMISSION_TMP_DIR',
             '/tmp/submissions',
         ), )
-    COMMENT_PATH = pathlib.Path(
-        os.getenv(
-            'SUBMISSION_COMMENT_PATH',
-            'comments',
-        ), )
 
     def __new__(cls, *args, **ks):
-        cls.COMMENT_PATH.mkdir(exist_ok=True)
         cls.TMP_DIR.mkdir(exist_ok=True)
         return super().__new__(cls, *args, **ks)
 
@@ -98,7 +92,7 @@ class Submission(MongoBase, engine=engine.Submission):
 
     def to_dict(self):
         _ret = {
-            'problemId': self.problem.problem_id,
+            'problemId': self.problem_id,
             'user': User(self.user.username).info,
             'submissionId': self.id,
             'timestamp': self.timestamp.timestamp(),
@@ -110,9 +104,11 @@ class Submission(MongoBase, engine=engine.Submission):
             'problem',
             'code',
         ]
+        # delete old keys
         for o in old:
             del ret[o]
-        for n in _ret.keys():
+        # insert new keys
+        for n in _ret:
             ret[n] = _ret[n]
         return ret
 
@@ -132,10 +128,6 @@ class Submission(MongoBase, engine=engine.Submission):
     @property
     def handwritten(self):
         return self.language == 3
-
-    @property
-    def comment_path(self) -> pathlib.Path:
-        return self.config().COMMENT_PATH / self.id
 
     @property
     def tmp_dir(self) -> pathlib.Path:
@@ -224,7 +216,7 @@ class Submission(MongoBase, engine=engine.Submission):
         return data
 
     def get_comment(self) -> bytes:
-        return self.comment_path.read_bytes()
+        return self.comment.read()
 
     def check_code(self, file):
         if not file:
@@ -424,7 +416,7 @@ class Submission(MongoBase, engine=engine.Submission):
         self.problem.save()
         return True
 
-    def comment(self, file):
+    def add_comment(self, file):
         '''
         comment a submission with PDF
 
@@ -434,7 +426,7 @@ class Submission(MongoBase, engine=engine.Submission):
         data = file.read()
         if data[1:4] != b'PDF':
             raise ValueError('only accept PDF file.')
-        self.comment_path.write_bytes(data)
+        self.comment.put(data)
         self.logger.debug(f'{self} comment updated.')
 
     @staticmethod
@@ -476,7 +468,10 @@ class Submission(MongoBase, engine=engine.Submission):
             submission = submission.id
         if isinstance(q_user, str):
             q_user = User(q_user)
-            q_user = q_user.obj if q_user else None
+            # if not exist
+            if not q_user:
+                return []
+            q_user = q_user.obj
         if isinstance(course, str):
             course = Course(course).obj
             if course is None:
@@ -501,10 +496,6 @@ class Submission(MongoBase, engine=engine.Submission):
         q = {k: v for k, v in q.items() if v is not None}
         # sort by upload time
         submissions = engine.Submission.objects(**q).order_by('-timestamp')
-        # check permission
-        submissions = [
-            *filter(lambda s: can_view(user, s.problem), submissions)
-        ]
         # truncate
         if offset >= len(submissions) and len(submissions):
             raise ValueError(f'offset ({offset}) is out of range!')

@@ -355,21 +355,8 @@ class TestTeacherGetSubmission(SubmissionTester):
             'get',
             '/submission?offset=0&count=-1',
         )
-
-        pprint(rv_json)
-
-        user = User('teacher')
-        except_count = len([
-            *filter(
-                lambda s: can_view(
-                    user,
-                    s.problem,
-                ),
-                engine.Submission.objects,
-            )
-        ])
-
-        assert len(rv_data['submissions']) == except_count
+        except_count = len(engine.Submission.objects)
+        assert len(rv_data['submissions']) == except_count, rv_json
 
     def test_teacher_can_view_students_source(self, forge_client):
         teacher_name = 'teacher'
