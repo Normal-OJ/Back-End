@@ -29,18 +29,14 @@ def submission_testcase_setup(
     BaseTester.setup_class()
     # save base source
     src_dir = pathlib.Path('tests/src')
-    exts = {'.c', '.cpp', '.py'}
+    exts = ['.c', '.cpp', '.py', '.pdf']
     for src in src_dir.iterdir():
         if any([not src.suffix in exts, not src.is_file()]):
             continue
         save_source(
             src.stem,
-            src.read_text(),
-            [
-                '.c',
-                '.cpp',
-                '.py',
-            ].index(src.suffix),
+            src.read_bytes(),
+            exts.index(src.suffix),
         )
     # create courses
     for name in A_NAMES:
@@ -620,7 +616,7 @@ class TestCreateSubmission(SubmissionTester):
         save_source,
         get_source,
     ):
-        save_source('big', 'a' * (10**7) + '<(_ _)>', 0)
+        save_source('big', b'a' * (10**7) + b'<(_ _)>', 0)
         client = forge_client('student')
         rv, rv_json, rv_data = BaseTester.request(
             client,
@@ -770,6 +766,40 @@ class TestHandwrittenSubmission(SubmissionTester):
             f'/submission/{self.submission_id}/pdf/comment', )
 
         assert rv.status_code == 200
+
+    @pytest.mark.parametrize(
+        'user_a, user_b, score',
+        [
+            # student can view self score
+            ('student', 'student', -1),
+            # normal user can not view other's score
+            ('student-2', 'student', '*'),
+            # teacher can view student's score
+            ('student-2', 'teacher', -1),
+            # also the admin
+            ('student-2', 'admin', -1),
+        ],
+    )
+    def test_handwritten_submission_score_visibility(
+        self,
+        forge_client,
+        submit_once,
+        user_a,
+        user_b,
+        score,
+    ):
+        '''
+        test whether a `user_b` can view the `user_a`'s handwritten submission score
+        '''
+        submission_id = submit_once(user_a, self.pid, 'main.pdf', 3)
+        client = forge_client(user_b)
+        rv, rv_json, rv_data = BaseTester.request(
+            client,
+            'get',
+            f'/submission/{submission_id}',
+        )
+        assert rv.status_code == 200, rv_json
+        assert rv_data['score'] == score, rv_data
 
 
 class TestSubmissionConfig(SubmissionTester):
