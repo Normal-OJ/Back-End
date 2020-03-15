@@ -767,6 +767,31 @@ class TestHandwrittenSubmission(SubmissionTester):
 
         assert rv.status_code == 200
 
+        # submit again will only replace the old one
+
+        rv, rv_json, rv_data = BaseTester.request(
+            client_student,
+            'post',
+            '/submission',
+            json=post_json,
+        )
+        self.submission_id = rv_data["submissionId"]
+
+        pdf_dir = pathlib.Path('tests/handwritten/main.pdf.zip')
+        files = {
+            'code': (
+                open(pdf_dir, 'rb'),
+                'code',
+            )
+        }
+        rv = client_student.put(
+            f'/submission/{self.submission_id}',
+            data=files,
+        )
+        rv_json = rv.get_json()
+
+        assert rv.status_code == 200
+
         # see if the student and thw teacher can get the submission
 
         rv = client_student.get(f'/submission?offset=0&count=-1')
