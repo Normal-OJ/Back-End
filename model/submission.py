@@ -218,8 +218,8 @@ def get_submission(user, submission):
     # rules about handwrittem submission
     if submission.handwritten:
         # only viewing self score are acceptable for students
-        if user.role == 2 and user.username != submission['user']['username']:
-            submission['score'] = '*'
+        if user.role == 2 and user.username != submission.user.username:
+            ret['score'] = '*'
     return HTTPResponse(data=ret)
 
 
