@@ -61,7 +61,7 @@ class User(MongoBase, engine=engine.User):
 
     @classmethod
     def get_by_email(cls, email):
-        obj = cls.engine.objects.get(email=email)
+        obj = cls.engine.objects.get(email=email.lower())
         return cls(obj.username)
 
     @property
