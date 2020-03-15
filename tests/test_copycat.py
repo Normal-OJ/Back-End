@@ -23,18 +23,14 @@ class TestCopyCat(BaseTester):
         pid = problem_ids("teacher", 1, True)[0]
         # save source code (for submit_once)
         src_dir = pathlib.Path('tests/src')
-        exts = {'.c', '.cpp', '.py'}
+        exts = ['.c', '.cpp', '.py', '.pdf']
         for src in src_dir.iterdir():
             if any([not src.suffix in exts, not src.is_file()]):
                 continue
             save_source(
                 src.stem,
-                src.read_text(),
-                [
-                    '.c',
-                    '.cpp',
-                    '.py',
-                ].index(src.suffix),
+                src.read_bytes(),
+                exts.index(src.suffix),
             )
         # submission
         name2code = {
