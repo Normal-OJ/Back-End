@@ -103,6 +103,7 @@ class Submission(MongoBase, engine=engine.Submission):
             '_id',
             'problem',
             'code',
+            'comment',
         ]
         # delete old keys
         for o in old:
@@ -225,13 +226,27 @@ class Submission(MongoBase, engine=engine.Submission):
         return tar
 
     def get_code(self, path: str, binary=False) -> Union[str, bytes]:
-        with ZipFile(self.code) as zf:
-            data = zf.read(path)
+        # read file
+        try:
+            with ZipFile(self.code) as zf:
+                data = zf.read(path)
+        except KeyError:
+            # file not exists in the zip
+            return None
+        except AttributeError:
+            # code haven't been uploaded
+            return None
+        # decode byte if need
         if not binary:
-            data = data.decode('utf-8')
+            try:
+                data = data.decode('utf-8')
+            except UnicodeDecodeError:
+                data = 'Unusual file content, decode fail'
         return data
 
     def get_comment(self) -> bytes:
+        if self.comment.grid_id is None:
+            return None
         return self.comment.read()
 
     def check_code(self, file):
@@ -444,10 +459,19 @@ class Submission(MongoBase, engine=engine.Submission):
             file: a PDF file
         '''
         data = file.read()
+        # check magic number
         if data[1:4] != b'PDF':
             raise ValueError('only accept PDF file.')
-        self.comment.put(data)
+        # write to a new file if it did not exist before
+        if self.comment.grid_id is None:
+            write_func = self.comment.put
+        # replace its content otherwise
+        else:
+            write_func = self.comment.replace
+        write_func(data)
         self.logger.debug(f'{self} comment updated.')
+        # update submission
+        self.save()
 
     @staticmethod
     def count():

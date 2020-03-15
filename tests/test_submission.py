@@ -800,6 +800,37 @@ class TestHandwrittenSubmission(SubmissionTester):
         )
         assert rv.status_code == status_code, rv_json
 
+    def test_update_existing_comment(
+        self,
+        forge_client,
+        submit_once,
+    ):
+        # create a handwritten submission
+        submission_id = submit_once('student', self.pid, 'main.pdf', 3)
+        client = forge_client('teacher')
+        # prepare comment
+        comment_path = 'tests/handwritten/comment.pdf'
+        comment_data = open(comment_path, 'rb').read()
+        comment = lambda: {
+            'comment': (
+                open(comment_path, 'rb'),
+                'comment.pdf',
+            ),
+        }
+        # try upload comment 5 times
+        for _ in range(5):
+            rv, rv_json, rv_data = BaseTester.request(
+                client,
+                'put',
+                f'/submission/{submission_id}/comment',
+                data=comment(),
+            )
+            assert rv.status_code == 200, rv_json
+            # check comment content
+            rv = client.get(f'/submission/{submission_id}/pdf/comment')
+            assert rv.status_code == 200, rv.status_code
+            assert rv.data == comment_data
+
 
 class TestSubmissionConfig(SubmissionTester):
     def test_get_config(self, client_admin):
