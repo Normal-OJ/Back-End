@@ -209,10 +209,22 @@ class Submission(MongoBase, engine=engine.Submission):
         return tar
 
     def get_code(self, path: str, binary=False) -> Union[str, bytes]:
-        with ZipFile(self.code) as zf:
-            data = zf.read(path)
+        # read file
+        try:
+            with ZipFile(self.code) as zf:
+                data = zf.read(path)
+        except KeyError:
+            # file not exists in the zip
+            return None
+        except AttributeError:
+            # code haven't been uploaded
+            return None
+        # decode byte if need
         if not binary:
-            data = data.decode('utf-8')
+            try:
+                data = data.decode('utf-8')
+            except UnicodeDecodeError:
+                data = 'Unusual file content, decode fail'
         return data
 
     def get_comment(self) -> bytes:
