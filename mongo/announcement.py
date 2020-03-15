@@ -27,16 +27,25 @@ class Announcement(MongoBase, engine=engine.Announcement):
         return anns
 
     @staticmethod
-    def new_ann(course_name, title, creator, markdown):
+    def new_ann(
+        course_name,
+        title,
+        creator,
+        markdown,
+        pinned,
+    ):
         course = Course(course_name).obj
         if course is None:
             return None
         if perm(course, creator) < 2:
             return None
-        ann = engine.Announcement(title=title,
-                                  course=course,
-                                  creator=creator,
-                                  updater=creator,
-                                  markdown=markdown)
+        ann = engine.Announcement(
+            title=title,
+            course=course,
+            creator=creator,
+            updater=creator,
+            markdown=markdown,
+            pinned=pinned,
+        )
         ann.save()
         return ann
