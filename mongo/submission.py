@@ -295,6 +295,11 @@ class Submission(MongoBase, engine=engine.Submission):
             }
             for submission in engine.Submission.objects(**q):
                 if submission != self.obj:
+                    for homework in self.problem.homeworks:
+                        stat = homework.student_status[self.user.username][str(
+                            self.problem_id)]
+                        stat['submissionIds'].remove(submission.id)
+                        homework.save()
                     submission.delete()
         # we no need to actually send code to sandbox during testing
         if current_app.config['TESTING'] or self.handwritten:
