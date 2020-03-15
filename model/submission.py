@@ -339,7 +339,9 @@ def grade_submission(user, submission, score):
     if submission.permission(user) < 3:
         return HTTPError('forbidden.', 403)
 
-    submission.update(score=score)
+    # AC if the score is 100, WA otherwise
+    submission.update(score=score, status=(0 if score == 100 else 1))
+    submission.finish_judging()
     return HTTPResponse(f'{submission} score recieved.')
 
 
