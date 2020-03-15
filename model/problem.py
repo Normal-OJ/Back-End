@@ -154,6 +154,8 @@ def manage_problem(user, problem_id=None):
             return HTTPError(str(e), 404)
         except (ValueError, BadZipFile) as e:
             return HTTPError(str(e), 400)
+        except BadTestCase as e:
+            return HTTPError(str(e), 400, data=e.dict)
         return HTTPResponse('Success.', data=result)
 
     # get problem object from DB
