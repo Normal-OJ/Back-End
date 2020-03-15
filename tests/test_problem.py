@@ -314,6 +314,7 @@ class TestProblem(BaseTester):
             'description': description_dict(),
             'owner': 'admin',
             'tags': [],
+            'courses': ['English'],
             'allowedLanguage': 7,
             'limit': [[1000, 1000]]
         }
@@ -340,6 +341,7 @@ class TestProblem(BaseTester):
             'description': description_dict(),
             'owner': 'admin',
             'tags': [],
+            'courses': ['math'],
             'allowedLanguage': 7,
             'limit': [[1000, 1000]]
         }

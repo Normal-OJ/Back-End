@@ -268,14 +268,21 @@ class Problem(Document):
     contests = ListField(ReferenceField('Contest'), default=list)
     # user can view stdout/stderr
     can_view_stdout = BooleanField(db_field='canViewStdout', default=True)
-    cpp_report_url = StringField(db_field='cppReportUrl',
-                                 default='',
-                                 max_length=128)
-    python_report_url = StringField(db_field='pythonReportUrl',
-                                    default='',
-                                    max_length=128)
+    cpp_report_url = StringField(
+        db_field='cppReportUrl',
+        default='',
+        max_length=128,
+    )
+    python_report_url = StringField(
+        db_field='pythonReportUrl',
+        default='',
+        max_length=128,
+    )
     # bitmask of allowed languages (c: 1, cpp: 2, py3: 4)
     allowed_language = IntField(db_field='allowedLanguage', default=7)
+    # high score for each student
+    # Dict[username, score]
+    high_scores = DictField(db_field='highScore', default={})
 
 
 class CaseResult(EmbeddedDocument):
@@ -305,6 +312,7 @@ class Submission(Document):
             'language',
             'problem',
             'status',
+            'score',
         )]
     }
     problem = ReferenceField(Problem, required=True)

@@ -82,6 +82,7 @@ def view_problem(user, problem_id):
         'tags',
         'allowedLanguage',
         'limit',
+        'courses',
         status='problemStatus',
         type='problemType',
     )
@@ -231,6 +232,24 @@ def get_testcase(user, problem_id):
         mimetype='application/zip',
         as_attachment=True,
         attachment_filename=f'testdata-{problem_id}.zip',
+    )
+
+
+@problem_api.route('/<int:problem_id>/high-score', methods=['GET'])
+@login_required
+def high_score(user, problem_id):
+    problem = Problem(problem_id).obj
+    if problem is None:
+        return HTTPError('problem not exists', 404)
+    return HTTPResponse(
+        'Mya nee, 10 hrs ver.\n'
+        'https://www.youtube.com/watch?v=K7s2BuuPKgg',
+        data={
+            'score': problem.high_scores.get(
+                user.username,
+                0,
+            ),
+        },
     )
 
 

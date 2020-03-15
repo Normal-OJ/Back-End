@@ -79,6 +79,8 @@ class BaseTester:
         func = getattr(client, method)
         rv = func(url, **ks)
         rv_json = rv.get_json()
-        rv_data = rv_json['data']
-
+        if isinstance(rv_json, dict):
+            rv_data = rv_json.get('data')
+        else:
+            rv_data = None
         return rv, rv_json, rv_data

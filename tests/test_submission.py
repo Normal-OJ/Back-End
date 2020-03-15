@@ -65,10 +65,8 @@ class TestUserGetSubmission(SubmissionTester):
         pids = [pid for pid in pids if Problem(pid).obj.problem_status == 0]
         # get a course name
         cls.courses = [Problem(pid).obj.courses[0].course_name for pid in pids]
-
         pids = itertools.cycle(pids)
-        names = S_NAMES.keys()
-        names = itertools.cycle(names)
+        names = itertools.cycle(S_NAMES.keys())
         # create submissions
         cls.submissions = submit(
             names,
@@ -325,6 +323,47 @@ class TestUserGetSubmission(SubmissionTester):
 
         assert rv.status_code == 200
         assert len(rv_data['submissions']) == 4
+
+    def test_user_get_high_score(
+        self,
+        forge_client,
+        submit_once,
+    ):
+        # get all problems that user can view
+        pids = [p.problem_id for p in get_problem_list(User('student'))]
+        assert len(pids) != 0
+        pid = pids[0]
+        # get current high score
+        rv, rv_json, rv_data = BaseTester.request(
+            forge_client('student'),
+            'get',
+            f'/problem/{pid}/high-score',
+        )
+        assert rv.status_code == 200, rv_json
+        assert rv_data['score'] == 0, [*engine.Submission.objects]
+        # create a new handwritten submission
+        submission_id = submit_once(
+            name='student',
+            pid=pid,
+            filename='main.pdf',
+            lang=3,
+        )
+        # let teacher grade this submission
+        rv, rv_json, rv_data = BaseTester.request(
+            forge_client('teacher'),
+            'put',
+            f'/submission/{submission_id}/grade',
+            json={'score': 100},
+        )
+        assert rv.status_code == 200, rv_json
+        # check the high score again
+        rv, rv_json, rv_data = BaseTester.request(
+            forge_client('student'),
+            'get',
+            f'/problem/{pid}/high-score',
+        )
+        assert rv.status_code == 200, rv_json
+        assert rv_data['score'] == 100, [*engine.Submission.objects]
 
 
 class TestTeacherGetSubmission(SubmissionTester):
