@@ -283,6 +283,7 @@ def edit_problem_test_case(problem_id, test_case):
     Return:
         a bool denote whether the update is successful
     '''
+    # query problem document
     problem = Problem(problem_id).obj
     if problem is None:
         raise engine.DoesNotExist(f'problem [{problem_id}] not exists.')
@@ -303,7 +304,14 @@ def edit_problem_test_case(problem_id, test_case):
         return False
     # save zip file
     test_case.seek(0)
-    problem.test_case.case_zip.put(
+    # check whether the test case exists
+    if problem.test_case.case_zip.grid_id is None:
+        # if no, force add a new file
+        problem.test_case.case_zip.new_file()
+        problem.test_case.case_zip.close()
+        problem.save()
+    # replace original test case
+    problem.test_case.case_zip.replace(
         test_case,
         content_type='application/zip',
     )
