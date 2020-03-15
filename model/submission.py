@@ -143,18 +143,24 @@ def get_submission_list(user, offset, count, problem_id, submission_id,
         - course
     '''
     try:
-        submissions = Submission.filter(user=user,
-                                        offset=offset,
-                                        count=count,
-                                        problem=problem_id,
-                                        submission=submission_id,
-                                        q_user=username,
-                                        status=status,
-                                        language_type=language_type,
-                                        course=course)
+        submissions = Submission.filter(
+            user=user,
+            offset=offset,
+            count=count,
+            problem=problem_id,
+            submission=submission_id,
+            q_user=username,
+            status=status,
+            language_type=language_type,
+            course=course,
+        )
     except ValueError as e:
         return HTTPError(str(e), 400)
     submissions = [Submission(s.id).to_dict() for s in submissions]
+    if user.role == 2:
+        for s in submissions:
+            if user.username != s['user']['username']:
+                s.score = '*'
     # no need to display code and task results in list
     for s in submissions:
         del s['code']
@@ -209,6 +215,11 @@ def get_submission(user, submission):
     if 'code' in ret:
         ext = ['.c', '.cpp', '.py'][submission.language]
         ret['code'] = submission.get_code(f'main{ext}')
+    # rules about handwrittem submission
+    if submission.handwritten:
+        # only viewing self score are acceptable for students
+        if user.role == 2 and user.username != submission['user']['username']:
+            submission['score'] = '*'
     return HTTPResponse(data=ret)
 
 
