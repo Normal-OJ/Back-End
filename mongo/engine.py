@@ -352,6 +352,7 @@ class Announcement(Document):
     creator = ReferenceField('User', required=True)
     updater = ReferenceField('User', required=True)
     markdown = StringField(max_length=100000, required=True)
+    pinned = BooleanField(default=False)
 
 
 @escape_markdown.apply

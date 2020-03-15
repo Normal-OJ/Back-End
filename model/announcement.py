@@ -22,7 +22,8 @@ def get_sys_ann(ann_id=None):
         'updateTime': int(an.update_time.timestamp()),
         'creator': User(an.creator.username).info,
         'updater': User(an.updater.username).info,
-        'markdown': an.markdown
+        'markdown': an.markdown,
+        'pinned': an.pinned
     } for an in anns if ann_id == None or str(an.id) == ann_id]
     return HTTPResponse('Sys Ann bro', data=data)
 
@@ -47,7 +48,8 @@ def anncmnt(user, course_name=None, ann_id=None):
             'updateTime': int(an.update_time.timestamp()),
             'creator': User(an.creator.username).info,
             'updater': User(an.updater.username).info,
-            'markdown': an.markdown
+            'markdown': an.markdown,
+            'pinned': an.pinned
         } for an in anns if ann_id == None or str(an.id) == ann_id]
         return HTTPResponse('Announcement List', data=data)
 
@@ -69,24 +71,29 @@ def anncmnt(user, course_name=None, ann_id=None):
         }
         return HTTPResponse('Announcement Created', data=data)
 
-    @Request.json('ann_id', 'title', 'markdown')
-    def update(ann_id, title, markdown):
+    @Request.json('ann_id', 'title', 'markdown', 'pinned')
+    def update(ann_id, title, markdown, pinned):
         # Update an announcement
         ann = Announcement(ann_id)
         if not ann:
             return HTTPError('Announcement Not Found', 404)
         course = ann.course
-        if user.role != 0 and user != course.teacher and user not in course.tas:
+        if perm(course, user) < 2:
             return HTTPError('Failed to Update Announcement', 403)
         try:
-            ann.update(title=title,
-                       markdown=markdown,
-                       update_time=datetime.now(),
-                       updater=user.obj)
+            ann.update(
+                title=title,
+                markdown=markdown,
+                update_time=datetime.now(),
+                updater=user.obj,
+                pinned=pinned,
+            )
         except ValidationError as ve:
-            return HTTPError('Failed to Update Announcement',
-                             400,
-                             data=ve.to_dict())
+            return HTTPError(
+                'Failed to Update Announcement',
+                400,
+                data=ve.to_dict(),
+            )
         return HTTPResponse('Updated')
 
     @Request.json('ann_id')
@@ -96,7 +103,7 @@ def anncmnt(user, course_name=None, ann_id=None):
         if not ann:
             return HTTPError('Announcement Not Found', 404)
         course = ann.course
-        if user.role != 0 and user != course.teacher and user not in course.tas:
+        if perm(course, user) < 2:
             return HTTPError('Failed to Delete Announcement', 403)
         ann.update(status=1)
         return HTTPResponse('Deleted')
