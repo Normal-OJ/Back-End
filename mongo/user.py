@@ -31,12 +31,15 @@ class User(MongoBase, engine=engine.User):
 
         user = cls(username)
         user_id = hash_id(user.username, password)
-        cls.engine(user_id=user_id,
-                   user_id2=user_id,
-                   username=user.username,
-                   email=email,
-                   md5=hashlib.md5(email.strip().encode()).hexdigest(),
-                   active=False).save(force_insert=True)
+        email = email.lower().strip()
+        cls.engine(
+            user_id=user_id,
+            user_id2=user_id,
+            username=user.username,
+            email=email,
+            md5=hashlib.md5(email.encode()).hexdigest(),
+            active=False,
+        ).save(force_insert=True)
         return user.reload()
 
     @classmethod
