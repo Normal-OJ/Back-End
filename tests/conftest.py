@@ -188,7 +188,7 @@ def problem_ids(forge_client, make_course):
             # upload testcase
             client.put(
                 f'/problem/manage/{_id}',
-                data=get_file('test_case.zip'),
+                data=get_file('default/test_case.zip'),
             )
             assert rv.status_code == 200, rv.get_json()
             rets.append(_id)

@@ -66,7 +66,7 @@ def problem_data(request, client_admin):
                            })
     id = rv.get_json()['data']['problemId']
     rv = client_admin.put(f'/problem/manage/{id}',
-                          data=get_file('test_case.zip'))
+                          data=get_file('default/test_case.zip'))
     yield pd
     BaseTester.teardown_class()
 
@@ -183,7 +183,7 @@ class TestProblem(BaseTester):
         id = json['data']['problemId']
 
         rv = client_admin.put(f'/problem/manage/{id}',
-                              data=get_file('test_case.zip'))
+                              data=get_file('default/test_case.zip'))
         json = rv.get_json()
 
         assert rv.status_code == 200, json
@@ -217,7 +217,7 @@ class TestProblem(BaseTester):
         id = json['data']['problemId']
 
         rv = client_admin.put(f'/problem/manage/{id}',
-                              data=get_file('test_case.zip'))
+                              data=get_file('default/test_case.zip'))
         json = rv.get_json()
         assert rv.status_code == 200
         assert json['status'] == 'ok'
