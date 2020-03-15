@@ -66,7 +66,7 @@ def problem_data(request, client_admin):
                            })
     id = rv.get_json()['data']['problemId']
     rv = client_admin.put(f'/problem/manage/{id}',
-                          data=get_file('test_case.zip'))
+                          data=get_file('default/test_case.zip'))
     yield pd
     BaseTester.teardown_class()
 
@@ -183,7 +183,7 @@ class TestProblem(BaseTester):
         id = json['data']['problemId']
 
         rv = client_admin.put(f'/problem/manage/{id}',
-                              data=get_file('test_case.zip'))
+                              data=get_file('default/test_case.zip'))
         json = rv.get_json()
 
         assert rv.status_code == 200, json
@@ -217,7 +217,7 @@ class TestProblem(BaseTester):
         id = json['data']['problemId']
 
         rv = client_admin.put(f'/problem/manage/{id}',
-                              data=get_file('test_case.zip'))
+                              data=get_file('default/test_case.zip'))
         json = rv.get_json()
         assert rv.status_code == 200
         assert json['status'] == 'ok'
@@ -469,6 +469,38 @@ class TestProblem(BaseTester):
             'allowedLanguage': 7,
             'canViewStdout': True,
         }
+
+    def test_admin_update_problem_test_case(self, client_admin):
+        # update test case
+        rv, rv_json, rv_data = BaseTester.request(
+            client_admin,
+            'put',
+            '/problem/manage/1',
+            data=get_file('bogay/test_case.zip'),
+        )
+        assert rv.status_code == 200, rv_json
+        # check content
+        rv, rv_json, rv_data = BaseTester.request(
+            client_admin,
+            'get',
+            '/problem/manage/1',
+        )
+        assert rv.status_code == 200, rv_json
+        _io = [(t['input'], t['output']) for t in rv_data['testCase']['tasks']]
+        assert _io == [(['I AM A TEAPOT\n'], ['I AM A TEAPOT\n'])], rv_data
+
+    def test_admin_update_problem_test_case_with_invalid_data(
+        self,
+        client_admin,
+    ):
+        # upload a test case with invalid data
+        rv, rv_json, rv_data = BaseTester.request(
+            client_admin,
+            'put',
+            '/problem/manage/1',
+            data=get_file('task-exceed/test_case.zip'),
+        )
+        assert rv.status_code == 400
 
     # non-owner teacher get information of a problem (GET /problem/manage/<problem_id>)
     def test_teacher_not_owner_manage_problem(self, client_teacher):

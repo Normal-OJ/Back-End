@@ -6,13 +6,37 @@ from random import randint
 import json
 
 __all__ = [
-    'Number', 'Problem', 'get_problem_list', 'add_problem',
-    'add_written_problem', 'edit_problem', 'edit_written_problem',
-    'edit_problem_test_case', 'delete_problem', 'copy_problem',
-    'release_problem', 'can_view'
+    'Number',
+    'Problem',
+    'BadTestCase',
+    'get_problem_list',
+    'add_problem',
+    'add_written_problem',
+    'edit_problem',
+    'edit_written_problem',
+    'edit_problem_test_case',
+    'delete_problem',
+    'copy_problem',
+    'release_problem',
+    'can_view',
 ]
 
 number = 1
+
+
+class BadTestCase(Exception):
+    def __init__(self, expression, extra, short):
+        super().__init__(expression)
+        self.extra = extra
+        self.short = short
+
+    @property
+    def dict(self):
+        return {
+            'extra': self.extra,
+            'short': self.short,
+            'ERR_TYPE': 'BAD_TEST_CASE',
+        }
 
 
 class Number:
@@ -283,6 +307,7 @@ def edit_problem_test_case(problem_id, test_case):
     Return:
         a bool denote whether the update is successful
     '''
+    # query problem document
     problem = Problem(problem_id).obj
     if problem is None:
         raise engine.DoesNotExist(f'problem [{problem_id}] not exists.')
@@ -299,11 +324,20 @@ def edit_problem_test_case(problem_id, test_case):
     # input/output filenames
     in_out = {*ZipFile(test_case).namelist()}
     # check diff
-    if len(excepted_names - in_out) != 0:
-        return False
+    ex = in_out - excepted_names
+    sh = excepted_names - in_out
+    if len(ex) != 0 or len(sh) != 0:
+        raise BadTestCase('io data not equal to meta provided', [*ex], [*sh])
     # save zip file
     test_case.seek(0)
-    problem.test_case.case_zip.put(
+    # check whether the test case exists
+    if problem.test_case.case_zip.grid_id is None:
+        # if no, put data to a new file
+        write_func = problem.test_case.case_zip.put
+    else:
+        # else, replace original file with a new one
+        write_func = problem.test_case.case_zip.replace
+    write_func(
         test_case,
         content_type='application/zip',
     )
