@@ -164,9 +164,8 @@ class Submission(MongoBase, engine=engine.Submission):
 
     def permission(self, user):
         '''
-        4: can rejudge & grade, 
-        3: can view upload & comment, 
-        2: can view score, 
+        3: can rejudge & grade, 
+        2: can view upload & comment, 
         1: can view basic info, 
         0: can't view
         '''

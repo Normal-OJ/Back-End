@@ -20,7 +20,7 @@ class Announcement(MongoBase, engine=engine.Announcement):
         course = Course(course_name).obj
         if course is None:
             return None
-        if user.role != 0 and user != course.teacher and user not in course.tas and course not in user.courses:
+        if not perm(course, user):
             return None
         anns = engine.Announcement.objects(course=course,
                                            status=0).order_by('-createTime')
@@ -31,7 +31,7 @@ class Announcement(MongoBase, engine=engine.Announcement):
         course = Course(course_name).obj
         if course is None:
             return None
-        if creator.role != 0 and creator != course.teacher and creator not in course.tas:
+        if perm(course, creator) < 2:
             return None
         ann = engine.Announcement(title=title,
                                   course=course,
