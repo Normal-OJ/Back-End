@@ -290,7 +290,6 @@ class Submission(MongoBase, engine=engine.Submission):
         if self.handwritten:
             q = {
                 'problem': self.problem,
-                'score': -1,
                 'user': self.user,
                 'language': 3,
             }
@@ -420,7 +419,7 @@ class Submission(MongoBase, engine=engine.Submission):
             stat = homework.student_status[self.user.username][str(
                 self.problem_id)]
             stat['submissionIds'].append(self.id)
-            if self.score >= stat['score']:
+            if self.score >= stat['score'] or self.handwritten:
                 stat['score'] = self.score
                 stat['problemStatus'] = self.status
             homework.save()

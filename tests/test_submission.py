@@ -767,6 +767,22 @@ class TestHandwrittenSubmission(SubmissionTester):
 
         assert rv.status_code == 200
 
+        # see if the student and thw teacher can get the submission
+
+        rv = client_student.get(f'/submission?offset=0&count=-1')
+
+        json = rv.get_json()
+        print(json['data'])
+        assert len(json['data']['submissions']) == 1
+        assert rv.status_code == 200
+
+        rv = client_teacher.get(f'/submission?offset=0&count=-1')
+
+        json = rv.get_json()
+        print(json['data'])
+        assert len(json['data']['submissions']) == 1
+        assert rv.status_code == 200
+
     @pytest.mark.parametrize(
         'user_a, user_b, status_code',
         [
