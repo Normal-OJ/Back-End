@@ -218,7 +218,6 @@ def get_submission(user, submission):
 @login_required
 @submission_required
 def get_submission_pdf(user, submission, item):
-    ret = submission.to_dict()
     # check the permission
     if submission.permission(user) < 2:
         return HTTPError('forbidden.', 403)
