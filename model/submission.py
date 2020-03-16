@@ -238,7 +238,7 @@ def get_submission_pdf(user, submission, item):
         io.BytesIO(data),
         mimetype='application/pdf',
         as_attachment=True,
-        attachment_filename=f'{item}-{submission.id[:6]}.pdf',
+        attachment_filename=f'{item}-{submission.id[-6:] or "missing-id"}.pdf',
     )
 
 
