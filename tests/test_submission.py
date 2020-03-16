@@ -700,6 +700,27 @@ class TestHandwrittenSubmission(SubmissionTester):
         yield
         cls.pid = None
 
+    @property
+    def comment_paths(self):
+        return itertools.cycle([
+            'tests/handwritten/comment.pdf',
+            'tests/handwritten/main.pdf',
+        ])
+
+    def comment(self, p):
+        '''
+        get a comment to upload
+
+        Args:
+            p: the comment file path
+        '''
+        return {
+            'comment': (
+                open(p, 'rb'),
+                'comment.pdf',
+            ),
+        }
+
     def test_handwritten_submission(self, client_student, client_teacher):
         # first claim a new submission to backend server
         post_json = {'problemId': self.pid, 'languageType': 3}
@@ -888,28 +909,52 @@ class TestHandwrittenSubmission(SubmissionTester):
         # create a handwritten submission
         submission_id = submit_once('student', self.pid, 'main.pdf', 3)
         client = forge_client('teacher')
-        # prepare comment
-        comment_path = 'tests/handwritten/comment.pdf'
-        comment_data = open(comment_path, 'rb').read()
-        comment = lambda: {
-            'comment': (
-                open(comment_path, 'rb'),
-                'comment.pdf',
-            ),
-        }
         # try upload comment 5 times
-        for _ in range(5):
+        for _, p in zip(range(5), self.comment_paths):
             rv, rv_json, rv_data = BaseTester.request(
                 client,
                 'put',
                 f'/submission/{submission_id}/comment',
-                data=comment(),
+                data=self.comment(p),
             )
             assert rv.status_code == 200, rv_json
             # check comment content
             rv = client.get(f'/submission/{submission_id}/pdf/comment')
             assert rv.status_code == 200, rv.status_code
-            assert rv.data == comment_data
+            assert rv.data == open(p, 'rb').read()
+
+    def test_comment_for_different_submissions(
+        self,
+        forge_client,
+        submit_once,
+    ):
+        # try many times
+        for _, p in zip(range(5), self.comment_paths):
+            # create a new handwritten submission
+            submission_id = submit_once(
+                name='student',
+                pid=self.pid,
+                filename='main.pdf',
+                lang=3,
+            )
+            # comment it
+            client = forge_client('teacher')
+            rv, rv_json, rv_data = BaseTester.request(
+                client,
+                'put',
+                f'/submission/{submission_id}/comment',
+                data=self.comment(p),
+            )
+            assert rv.status_code == 200, rv_json
+            # student get feedback
+            client = forge_client('student')
+            rv, rv_json, rv_data = BaseTester.request(
+                client,
+                'get',
+                f'/submission/{submission_id}/pdf/comment',
+            )
+            assert rv.status_code == 200
+            assert rv.data == open(p, 'rb').read(), p
 
 
 class TestSubmissionConfig(SubmissionTester):
