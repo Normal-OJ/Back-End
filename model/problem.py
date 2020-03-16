@@ -81,10 +81,10 @@ def view_problem(user, problem_id):
         'owner',
         'tags',
         'allowedLanguage',
-        'limit',
         'courses',
         status='problemStatus',
         type='problemType',
+        testCase='testCase__tasks',
     )
     if problem.obj.problem_type == 1:
         data.update({'fillInTemplate': problem.obj.test_case.fill_in_template})
