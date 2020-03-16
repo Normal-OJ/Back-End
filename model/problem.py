@@ -181,8 +181,6 @@ def manage_problem(user, problem_id=None):
             status='problemStatus',
             type='problemType',
         )
-        for task in info['testCase']['tasks']:
-            del task['caseCount']
         return HTTPResponse(
             'Success.',
             data=info,
