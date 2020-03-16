@@ -65,42 +65,31 @@ class Problem:
         return obj
 
     def detailed_info(self, *ks, **kns):
+        '''
+        return detailed info about this problem notice
+        that the `input` and `output` of problem test
+        case won't be sent to front end, need call other
+        route to get this info.
+
+        Args:
+            ks (str): the field name you want to get
+            kns (str):
+                specify the dict key you want to store
+                the data get by field name
+        
+        Return:
+            a dict contains problem data
+        '''
         p_obj = self.obj
         if p_obj is None:
             return None
         # problem -> dict
         _ret = p_obj.to_mongo()
-        # if this problem has testcase
-        if p_obj.test_case:
-            # get time limit and memery limit
-            limit = []
-            # get tasks info
-            tasks = [task.to_mongo() for task in p_obj.test_case.tasks]
-            for t in tasks:
-                t.update({
-                    'input': [],
-                    'output': [],
-                })
-                limit.append((t['timeLimit'], t['memoryLimit']))
-            # has uploaded testdata
-            if p_obj.test_case.case_zip:
-                with ZipFile(p_obj.test_case.case_zip) as zf:
-                    for i, task in enumerate(tasks):
-                        task.update({
-                            'input': [
-                                zf.read(f'{i:02d}{j:02d}.in').decode('utf-8')
-                                for j in range(task['caseCount'])
-                            ],
-                            'output': [
-                                zf.read(f'{i:02d}{j:02d}.out').decode('utf-8')
-                                for j in range(task['caseCount'])
-                            ],
-                        })
-            _ret['testCase']['tasks'] = tasks
-            _ret['limit'] = limit
-            # case zip can not be serialized
-            if 'caseZip' in _ret['testCase']:
-                del _ret['testCase']['caseZip']
+        # preprocess fields
+        # case zip can not be serialized
+        if 'caseZip' in _ret['testCase']:
+            del _ret['testCase']['caseZip']
+        # convert couse document to course name
         _ret['courses'] = [course.course_name for course in p_obj.courses]
         ret = {}
         for k in ks:
