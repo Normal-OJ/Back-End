@@ -1,7 +1,8 @@
+import io
 import pytest
+from zipfile import ZipFile
 from tests.base_tester import BaseTester
 from mongo import *
-import io
 
 
 def get_file(file):
@@ -308,15 +309,28 @@ class TestProblem(BaseTester):
         assert json['status'] == 'ok'
         assert json['message'] == 'Problem can view.'
         assert json['data'] == {
-            'status': 1,
-            'type': 0,
-            'problemName': 'Offline problem',
-            'description': description_dict(),
-            'owner': 'admin',
+            'status':
+            1,
+            'type':
+            0,
+            'problemName':
+            'Offline problem',
+            'description':
+            description_dict(),
+            'owner':
+            'admin',
             'tags': [],
             'courses': ['English'],
-            'allowedLanguage': 7,
-            'limit': [[1000, 1000]]
+            'allowedLanguage':
+            7,
+            'testCase': [
+                {
+                    'caseCount': 1,
+                    'memoryLimit': 1000,
+                    'taskScore': 100,
+                    'timeLimit': 1000,
+                },
+            ],
         }
 
     # student view offline problem (GET /problem/view/<problem_id>)
@@ -335,15 +349,28 @@ class TestProblem(BaseTester):
         assert json['status'] == 'ok'
         assert json['message'] == 'Problem can view.'
         assert json['data'] == {
-            'status': 0,
-            'type': 0,
-            'problemName': 'Online problem',
-            'description': description_dict(),
-            'owner': 'admin',
+            'status':
+            0,
+            'type':
+            0,
+            'problemName':
+            'Online problem',
+            'description':
+            description_dict(),
+            'owner':
+            'admin',
             'tags': [],
             'courses': ['math'],
-            'allowedLanguage': 7,
-            'limit': [[1000, 1000]]
+            'allowedLanguage':
+            7,
+            'testCase': [
+                {
+                    'caseCount': 1,
+                    'memoryLimit': 1000,
+                    'taskScore': 100,
+                    'timeLimit': 1000,
+                },
+            ],
         }
 
     # student view problem not exist (GET /problem/view/<problem_id>)
@@ -459,8 +486,7 @@ class TestProblem(BaseTester):
                 'fillInTemplate':
                 '',
                 'tasks': [{
-                    'input': ['aaaa\n'],
-                    'output': ['bbbb\n'],
+                    'caseCount': 1,
                     'taskScore': 100,
                     'memoryLimit': 1000,
                     'timeLimit': 1000
@@ -485,11 +511,19 @@ class TestProblem(BaseTester):
         rv, rv_json, rv_data = BaseTester.request(
             client_admin,
             'get',
-            '/problem/manage/1',
+            '/problem/1/testcase',
         )
-        assert rv.status_code == 200, rv_json
-        _io = [(t['input'], t['output']) for t in rv_data['testCase']['tasks']]
-        assert _io == [(['I AM A TEAPOT\n'], ['I AM A TEAPOT\n'])], rv_data
+        assert rv.status_code == 200
+        with ZipFile(io.BytesIO(rv.data)) as zf:
+            ns = sorted(zf.namelist())
+            in_ns = ns[::2]
+            out_ns = ns[1::2]
+            ns = zip(in_ns, out_ns)
+            _io = [(
+                zf.read(in_n),
+                zf.read(out_n),
+            ) for in_n, out_n in ns]
+        assert _io == [(b'I AM A TEAPOT\n', b'I AM A TEAPOT\n')], rv_data
 
     def test_admin_update_problem_test_case_with_invalid_data(
         self,
