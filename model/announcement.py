@@ -53,12 +53,17 @@ def anncmnt(user, course_name=None, ann_id=None):
         } for an in anns if ann_id == None or str(an.id) == ann_id]
         return HTTPResponse('Announcement List', data=data)
 
-    @Request.json('title', 'markdown', 'course_name')
-    def create(title, markdown, course_name):
+    @Request.json('title', 'markdown', 'course_name', 'pinned')
+    def create(title, markdown, course_name, pinned):
         # Create a new announcement
         try:
-            ann = Announcement.new_ann(course_name or 'Public', title,
-                                       user.obj, markdown)
+            ann = Announcement.new_ann(
+                course_name or 'Public',
+                title,
+                user.obj,
+                markdown,
+                pinned,
+            )
         except ValidationError as ve:
             return HTTPError('Failed to Create Announcement',
                              400,
