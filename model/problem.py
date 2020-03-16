@@ -82,6 +82,7 @@ def view_problem(user, problem_id):
         'tags',
         'allowedLanguage',
         'limit',
+        'courses',
         status='problemStatus',
         type='problemType',
     )
