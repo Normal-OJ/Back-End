@@ -90,10 +90,14 @@ class Submission(MongoBase, engine=engine.Submission):
     def problem_id(self):
         return self.problem.problem_id
 
+    @property
+    def username(self):
+        return self.user.username
+
     def to_dict(self):
         _ret = {
             'problemId': self.problem_id,
-            'user': User(self.user.username).info,
+            'user': User(self.username).info,
             'submissionId': self.id,
             'timestamp': self.timestamp.timestamp(),
             'code': bool(self.code),
@@ -176,7 +180,8 @@ class Submission(MongoBase, engine=engine.Submission):
 
         return 3 - [
             max(perm(course, user) for course in self.problem.courses) >= 2,
-            user.username == self.user.username, True
+            user.username == self.username,
+            True,
         ].index(True)
 
     def sandbox_resp_handler(self, resp):
@@ -429,26 +434,29 @@ class Submission(MongoBase, engine=engine.Submission):
 
     def finish_judging(self):
         # update user's submission
-        User(self.user.username).add_submission(self.reload())
+        User(self.username).add_submission(self.reload())
         # update homework data
         for homework in self.problem.homeworks:
-            stat = homework.student_status[self.user.username][str(
-                self.problem_id)]
+            stat = homework.student_status[self.username][str(self.problem_id)]
             stat['submissionIds'].append(self.id)
             if self.score >= stat['score']:
                 stat['score'] = self.score
                 stat['problemStatus'] = self.status
             homework.save()
         # update problem
-        ac_submissions = Submission.filter(
-            user=self.user,
-            offset=0,
-            count=-1,
-            problem=self.problem,
-            status=0,
-        )
-        ac_users = {s.user.username for s in ac_submissions}
-        self.problem.ac_user = len(ac_users)
+        # TODO: compute ac_user count (unused now)
+        # ac_submissions = Submission.filter(
+        #     user=self.user,
+        #     offset=0,
+        #     count=-1,
+        #     problem=self.problem,
+        #     status=0,
+        # )
+        # ac_users = {s.username for s in ac_submissions}
+        # self.problem.ac_user = len(ac_users)
+        # update high score
+        self.problem.high_scores[self.username] = max(
+            self.problem.high_scores.get(self.username, 0), self.score)
         self.problem.save()
 
     def add_comment(self, file):
