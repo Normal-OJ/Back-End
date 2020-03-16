@@ -221,22 +221,23 @@ def get_submission_pdf(user, submission, item):
     # check the permission
     if submission.permission(user) < 2:
         return HTTPError('forbidden.', 403)
-
+    # non-handwritten submissions have no pdf file
     if not submission.handwritten:
         return HTTPError('it is not a handwritten submission.', 400)
-
     if item not in ['comment', 'upload']:
         return HTTPError('/<submission_id>/pdf/<"upload" or "comment">', 400)
-
     try:
-        data = submission.get_comment(
-        ) if item == 'comment' else submission.get_code(f'main.pdf', True)
+        if item == 'comment':
+            data = submission.get_comment()
+        else:
+            data = submission.get_code('main.pdf', binary=True)
     except FileNotFoundError as e:
         return HTTPError('File not found.', 404)
     return send_file(
         io.BytesIO(data),
         mimetype='application/pdf',
         as_attachment=True,
+        cache_timeout=0,
         attachment_filename=f'{item}-{submission.id[-6:] or "missing-id"}.pdf',
     )
 
