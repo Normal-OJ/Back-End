@@ -348,22 +348,23 @@ class TestUserGetSubmission(SubmissionTester):
             filename='main.pdf',
             lang=3,
         )
-        # let teacher grade this submission
-        rv, rv_json, rv_data = BaseTester.request(
-            forge_client('teacher'),
-            'put',
-            f'/submission/{submission_id}/grade',
-            json={'score': 100},
-        )
-        assert rv.status_code == 200, rv_json
-        # check the high score again
-        rv, rv_json, rv_data = BaseTester.request(
-            forge_client('student'),
-            'get',
-            f'/problem/{pid}/high-score',
-        )
-        assert rv.status_code == 200, rv_json
-        assert rv_data['score'] == 100, [*engine.Submission.objects]
+        for score in (100, 87, 60):
+            # modify this submission's score
+            rv, rv_json, rv_data = BaseTester.request(
+                forge_client('teacher'),
+                'put',
+                f'/submission/{submission_id}/grade',
+                json={'score': score},
+            )
+            assert rv.status_code == 200, rv_json
+            # check the high score again
+            rv, rv_json, rv_data = BaseTester.request(
+                forge_client('student'),
+                'get',
+                f'/problem/{pid}/high-score',
+            )
+            assert rv.status_code == 200, rv_json
+            assert rv_data['score'] == score, [*engine.Submission.objects]
 
 
 class TestTeacherGetSubmission(SubmissionTester):
