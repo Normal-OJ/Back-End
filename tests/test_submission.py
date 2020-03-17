@@ -532,6 +532,29 @@ class TestCreateSubmission(SubmissionTester):
         # file extension doesn't equal we claimed before
         assert rv.status_code == 400, rv_json
 
+    def test_wrong_file_type(self, forge_client, get_source, problem_ids):
+        pid = problem_ids('teacher', 1, True, 0, 2)[0]
+        client = forge_client('student')
+        rv, rv_json, rv_data = BaseTester.request(client,
+                                                  'post',
+                                                  '/submission',
+                                                  json=self.post_payload(
+                                                      3, pid))
+        files = {
+            'code': (
+                get_source('main2.pdf'),
+                'code',
+            )
+        }
+        print(rv_json)
+        rv = client.put(
+            f'/submission/{rv_data["submissionId"]}',
+            data=files,
+        )
+        rv_json = rv.get_json()
+        # file is not PDF
+        assert rv.status_code == 400, rv_json
+
     def test_empty_source(
         self,
         forge_client,
@@ -659,8 +682,9 @@ class TestCreateSubmission(SubmissionTester):
         save_source,
         get_source,
     ):
-        save_source('big', b'a' * (10**7) + b'<(_ _)>', 0)
+        save_source('big', b'%PDF-' + b'a' * (10**7) + b'<(_ _)>', 0)
         client = forge_client('student')
+
         rv, rv_json, rv_data = BaseTester.request(
             client,
             'post',
@@ -673,12 +697,13 @@ class TestCreateSubmission(SubmissionTester):
             'put',
             f'/submission/{submission_id}',
             data={
-                'code': {
+                'code': (
                     get_source('big.c'),
                     'aaaaa',
-                },
+                ),
             },
         )
+        print(rv_json)
         assert rv.status_code == 400
 
     def test_submit_to_non_participate_contest(self, client_student):
