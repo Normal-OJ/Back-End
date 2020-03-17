@@ -475,7 +475,7 @@ class Submission(MongoBase, engine=engine.Submission):
         '''
         data = file.read()
         # check magic number
-        if data[1:4] != b'PDF':
+        if data[:5] != b'%PDF-':
             raise ValueError('only accept PDF file.')
         # write to a new file if it did not exist before
         if self.comment.grid_id is None:
