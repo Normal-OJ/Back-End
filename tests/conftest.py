@@ -257,7 +257,7 @@ def get_source(tmp_path):
 
 
 @pytest.fixture
-def submit_once(app, forge_client, get_source):
+def submit_once(app, get_source):
     def submit_once(name, pid, filename, lang, client=None):
         '''
         create one submission
@@ -286,7 +286,7 @@ def submit_once(app, forge_client, get_source):
 
 
 @pytest.fixture
-def submit(submit_once, forge_client):
+def submit(submit_once):
     def submit(names, pids, count, filename='base.c', lang=0):
         n2p = defaultdict(list)  # name to pid
         for n, p, _ in zip(names, pids, 'x' * count):

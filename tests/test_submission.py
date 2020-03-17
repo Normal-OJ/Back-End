@@ -6,8 +6,9 @@ from pprint import pprint
 
 from mongo import *
 from mongo import engine
-from tests.base_tester import BaseTester, random_string
-from tests.test_homework import CourseData
+from .base_tester import BaseTester, random_string
+from .test_homework import CourseData
+from .utils import *
 
 A_NAMES = [
     'teacher',
@@ -640,15 +641,17 @@ class TestCreateSubmission(SubmissionTester):
 
     def test_normally_rejudge(self, forge_client, submit_once):
         submission_id = submit_once('student', self.pid, 'base.c', 0)
-        # make a fake AC submission
-        Submission(submission_id).update(status=0)
         client = forge_client('admin')
-        rv, rv_json, rv_data = BaseTester.request(
-            client,
-            'get',
-            f'/submission/{submission_id}/rejudge',
-        )
-        assert rv.status_code == 200, rv_json
+        # rejudge it many times
+        for _ in range(5):
+            # make a fake finish submission
+            Submission(submission_id).process_result(problem_result(self.pid))
+            rv, rv_json, rv_data = BaseTester.request(
+                client,
+                'get',
+                f'/submission/{submission_id}/rejudge',
+            )
+            assert rv.status_code == 200, rv_json
 
     def test_reach_file_size_limit(
         self,
