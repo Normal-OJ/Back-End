@@ -175,7 +175,7 @@ class Submission(MongoBase, engine=engine.Submission):
             args: ignored value, don't mind
         '''
         for task in self.tasks:
-            for case in task:
+            for case in task.cases:
                 case.output.delete()
 
     def delete(self, *keeps):
@@ -415,6 +415,21 @@ class Submission(MongoBase, engine=engine.Submission):
         return self.sandbox_resp_handler(resp)
 
     def process_result(self, tasks: list):
+        '''
+        process results from sandbox
+
+        Args:
+            tasks:
+                a 2-dim list of the dict with schema
+                {
+                    'exitCode': int,
+                    'status': str,
+                    'stdout': str,
+                    'stderr': str,
+                    'execTime': int,
+                    'memoryUsage': int
+                }
+        '''
         self.logger.info(f'recieve {self} result')
         for task in tasks:
             for case in task:
