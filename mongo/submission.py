@@ -462,8 +462,9 @@ class Submission(MongoBase, engine=engine.Submission):
         # ac_users = {s.username for s in ac_submissions}
         # self.problem.ac_user = len(ac_users)
         # update high score
-        self.problem.high_scores[self.username] = max(
-            self.problem.high_scores.get(self.username, 0), self.score)
+        self.problem.high_scores[self.username] = engine.Submission.objects(
+            user=self.user, problem=self.problem).only('score').order_by(
+                '-score').first().score
         self.problem.save()
 
     def add_comment(self, file):
