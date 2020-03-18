@@ -33,7 +33,6 @@ steps:
   commands:
   - cd /home/development/Normal-OJ/Back-End
   - git pull
-  - git checkout $DRONE_COMMIT -b develop
   - docker-compose up -d --build web
 
 trigger:
@@ -57,7 +56,6 @@ steps:
   commands:
   - cd /home/development/Normal-OJ/Back-End
   - git pull
-  - git checkout $DRONE_COMMIT -b master
   - docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build web
 
 trigger:
