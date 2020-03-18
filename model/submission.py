@@ -322,7 +322,7 @@ def update_submission(user, submission, code):
     except JudgeQueueFullError as e:
         return HTTPResponse(str(e), 202)
     except ValidationError as e:
-        return HTTPError(str(e), data=e.to_dict())
+        return HTTPError(str(e), 400, data=e.to_dict())
     if success:
         return HTTPResponse(
             f'{submission} {"is finished." if submission.handwritten else "send to judgement."}'
