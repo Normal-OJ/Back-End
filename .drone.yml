@@ -33,7 +33,8 @@ steps:
   commands:
   - cd /home/development/Normal-OJ/Back-End
   - git pull
-  - docker-compose up -d --build web
+  - docker-compose up -d --build --no-start web
+  - docker-compose restart web
 
 trigger:
   event:
