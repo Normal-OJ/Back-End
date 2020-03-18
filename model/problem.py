@@ -81,9 +81,10 @@ def view_problem(user, problem_id):
         'owner',
         'tags',
         'allowedLanguage',
-        'limit',
+        'courses',
         status='problemStatus',
         type='problemType',
+        testCase='testCase__tasks',
     )
     if problem.obj.problem_type == 1:
         data.update({'fillInTemplate': problem.obj.test_case.fill_in_template})
@@ -154,6 +155,8 @@ def manage_problem(user, problem_id=None):
             return HTTPError(str(e), 404)
         except (ValueError, BadZipFile) as e:
             return HTTPError(str(e), 400)
+        except BadTestCase as e:
+            return HTTPError(str(e), 400, data=e.dict)
         return HTTPResponse('Success.', data=result)
 
     # get problem object from DB
@@ -178,8 +181,6 @@ def manage_problem(user, problem_id=None):
             status='problemStatus',
             type='problemType',
         )
-        for task in info['testCase']['tasks']:
-            del task['caseCount']
         return HTTPResponse(
             'Success.',
             data=info,
@@ -229,6 +230,24 @@ def get_testcase(user, problem_id):
         mimetype='application/zip',
         as_attachment=True,
         attachment_filename=f'testdata-{problem_id}.zip',
+    )
+
+
+@problem_api.route('/<int:problem_id>/high-score', methods=['GET'])
+@login_required
+def high_score(user, problem_id):
+    problem = Problem(problem_id).obj
+    if problem is None:
+        return HTTPError('problem not exists', 404)
+    return HTTPResponse(
+        'Mya nee, 10 hrs ver.\n'
+        'https://www.youtube.com/watch?v=K7s2BuuPKgg',
+        data={
+            'score': problem.high_scores.get(
+                user.username,
+                0,
+            ),
+        },
     )
 
 

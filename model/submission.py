@@ -143,18 +143,24 @@ def get_submission_list(user, offset, count, problem_id, submission_id,
         - course
     '''
     try:
-        submissions = Submission.filter(user=user,
-                                        offset=offset,
-                                        count=count,
-                                        problem=problem_id,
-                                        submission=submission_id,
-                                        q_user=username,
-                                        status=status,
-                                        language_type=language_type,
-                                        course=course)
+        submissions = Submission.filter(
+            user=user,
+            offset=offset,
+            count=count,
+            problem=problem_id,
+            submission=submission_id,
+            q_user=username,
+            status=status,
+            language_type=language_type,
+            course=course,
+        )
     except ValueError as e:
         return HTTPError(str(e), 400)
-    submissions = [Submission(s.id).to_dict() for s in submissions]
+    submissions = [Submission(s.id) for s in submissions]
+    submissions = [
+        s.to_dict() for s in submissions
+        if not s.handwritten or s.permission(user) > 1
+    ]
     # no need to display code and task results in list
     for s in submissions:
         del s['code']
@@ -181,18 +187,13 @@ def get_submission_list(user, offset, count, problem_id, submission_id,
 @submission_required
 def get_submission(user, submission):
     ret = submission.to_dict()
-    # can not view the problem, also the submission
+    # check permission
+    # rules about handwrittem submission
+    if submission.handwritten and submission.permission(user) < 2:
+        return HTTPError('forbidden.', 403)
     # and handwritten submission doesn't have source code
-    if not can_view(user, submission.problem) or submission.handwritten:
+    if submission.permission(user) < 2 or submission.handwritten:
         del ret['code']
-    # you can view self submission
-    elif user.username != submission.user.username:
-        # TA and teacher can view students' submissions
-        permissions = []
-        for course in submission.problem.courses:
-            permissions.append(perm(course, user) >= 2)
-        if not any(permissions):
-            del ret['code']
     # check user's stdout/stderr
     if not submission.problem.can_view_stdout:
         for task in ret['tasks']:
@@ -209,6 +210,7 @@ def get_submission(user, submission):
     if 'code' in ret:
         ext = ['.c', '.cpp', '.py'][submission.language]
         ret['code'] = submission.get_code(f'main{ext}')
+
     return HTTPResponse(data=ret)
 
 
@@ -216,34 +218,27 @@ def get_submission(user, submission):
 @login_required
 @submission_required
 def get_submission_pdf(user, submission, item):
-    ret = submission.to_dict()
-    # can not view the problem, also the submission
-    if not can_view(user, submission.problem):
+    # check the permission
+    if submission.permission(user) < 2:
         return HTTPError('forbidden.', 403)
-    # you can view self submission
-    elif user.username != submission.user.username:
-        # TA and teacher can view students' submissions
-        permissions = []
-        for course in submission.problem.courses:
-            permissions.append(perm(course, user) >= 2)
-        if not any(permissions):
-            return HTTPError('forbidden.', 403)
+    # non-handwritten submissions have no pdf file
     if not submission.handwritten:
         return HTTPError('it is not a handwritten submission.', 400)
-
     if item not in ['comment', 'upload']:
         return HTTPError('/<submission_id>/pdf/<"upload" or "comment">', 400)
-
     try:
-        data = submission.get_comment(
-        ) if item == 'comment' else submission.get_code(f'main.pdf', True)
+        if item == 'comment':
+            data = submission.get_comment()
+        else:
+            data = submission.get_code('main.pdf', binary=True)
     except FileNotFoundError as e:
         return HTTPError('File not found.', 404)
     return send_file(
         io.BytesIO(data),
         mimetype='application/pdf',
         as_attachment=True,
-        attachment_filename=f'{item}-{submission.id[:6]}.pdf',
+        cache_timeout=0,
+        attachment_filename=f'{item}-{submission.id[-6:] or "missing-id"}.pdf',
     )
 
 
@@ -327,7 +322,7 @@ def update_submission(user, submission, code):
     except JudgeQueueFullError as e:
         return HTTPResponse(str(e), 202)
     except ValidationError as e:
-        return HTTPError(str(e), data=e.to_dict())
+        return HTTPError(str(e), 400, data=e.to_dict())
     if success:
         return HTTPResponse(
             f'{submission} {"is finished." if submission.handwritten else "send to judgement."}'
@@ -337,18 +332,30 @@ def update_submission(user, submission, code):
 
 
 @submission_api.route('/<submission_id>/grade', methods=['PUT'])
-@Request.json('score')
+@login_required
+@Request.json('score: int')
 @submission_required
-@identity_verify(0, 1)
 def grade_submission(user, submission, score):
-    submission.update(score=score)
+    if submission.permission(user) < 3:
+        return HTTPError('forbidden.', 403)
+
+    if score < 0 or score > 100:
+        return HTTPError('score must be between 0 to 100.', 400)
+
+    # AC if the score is 100, WA otherwise
+    submission.update(score=score, status=(0 if score == 100 else 1))
+    submission.finish_judging()
     return HTTPResponse(f'{submission} score recieved.')
 
 
 @submission_api.route('/<submission_id>/comment', methods=['PUT'])
+@login_required
 @Request.files('comment')
 @submission_required
-def comment_submission(submission, comment):
+def comment_submission(user, submission, comment):
+    if submission.permission(user) < 3:
+        return HTTPError('forbidden.', 403)
+
     if comment is None:
         return HTTPError(
             f'can not find the comment',
@@ -369,8 +376,8 @@ def rejudge(user, submission):
             submission.status == -1 and
         (datetime.now() - submission.last_send).seconds < 300):
         return HTTPError(f'{submission} haven\'t be judged', 403)
-    if max(perm(course, user) for course in submission.problem.courses) < 3:
-        return HTTPError(f'Forbidden.', 403)
+    if submission.permission(user) < 3:
+        return HTTPError('forbidden.', 403)
     try:
         success = submission.rejudge()
     except FileExistsError:

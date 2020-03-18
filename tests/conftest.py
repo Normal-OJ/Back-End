@@ -188,7 +188,7 @@ def problem_ids(forge_client, make_course):
             # upload testcase
             client.put(
                 f'/problem/manage/{_id}',
-                data=get_file('test_case.zip'),
+                data=get_file('default/test_case.zip'),
             )
             assert rv.status_code == 200, rv.get_json()
             rets.append(_id)
@@ -209,7 +209,7 @@ def save_source(tmp_path):
 
         Args:
             filename: the source code's filename without extension
-            source: source code
+            source: source code (must be bytes-like object)
             lang: programming language, only accept {0, 1, 2}
             ext: main script extension want to use, if None, decided by lang
 
@@ -218,14 +218,14 @@ def save_source(tmp_path):
         '''
         # decide extension
         if not ext:
-            ext = ['.c', '.cpp', '.py'][lang]
+            ext = ['.c', '.cpp', '.py', '.pdf'][lang]
         # set path
         name = tmp_path / (filename + ext)
         zip_path = tmp_path / f'{name}.zip'
         # duplicated file
         if name.exists():
             raise FileExistsError(name)
-        with open(name, 'w') as f:
+        with open(name, 'wb') as f:
             f.write(source)
         with ZipFile(zip_path, 'w') as f:
             f.write(name, arcname=f'main{ext}')
@@ -257,8 +257,16 @@ def get_source(tmp_path):
 
 
 @pytest.fixture
-def submit_once(app, forge_client, get_source):
+def submit_once(app, get_source):
     def submit_once(name, pid, filename, lang, client=None):
+        '''
+        create one submission
+        Args:
+            name: user's name who want to create a submission
+            pid: the problem id
+            filename: source code's zip filename
+            lang: language ID
+        '''
         with app.app_context():
             now = datetime.now()
             try:
@@ -278,7 +286,7 @@ def submit_once(app, forge_client, get_source):
 
 
 @pytest.fixture
-def submit(submit_once, forge_client):
+def submit(submit_once):
     def submit(names, pids, count, filename='base.c', lang=0):
         n2p = defaultdict(list)  # name to pid
         for n, p, _ in zip(names, pids, 'x' * count):

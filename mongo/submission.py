@@ -15,7 +15,7 @@ from . import engine
 from .base import MongoBase
 from .user import User
 from .problem import Problem, can_view, get_problem_list
-from .course import Course
+from .course import Course, perm
 
 __all__ = [
     'SubmissionConfig',
@@ -90,10 +90,14 @@ class Submission(MongoBase, engine=engine.Submission):
     def problem_id(self):
         return self.problem.problem_id
 
+    @property
+    def username(self):
+        return self.user.username
+
     def to_dict(self):
         _ret = {
             'problemId': self.problem_id,
-            'user': User(self.user.username).info,
+            'user': User(self.username).info,
             'submissionId': self.id,
             'timestamp': self.timestamp.timestamp(),
             'code': bool(self.code),
@@ -103,6 +107,7 @@ class Submission(MongoBase, engine=engine.Submission):
             '_id',
             'problem',
             'code',
+            'comment',
         ]
         # delete old keys
         for o in old:
@@ -162,6 +167,52 @@ class Submission(MongoBase, engine=engine.Submission):
         cls._config.reload()
         return cls._config
 
+    def delete_output(self, *args):
+        '''
+        delete stdout/stderr of this submission
+
+        Args:
+            args: ignored value, don't mind
+        '''
+        for task in self.tasks:
+            for case in task.cases:
+                case.output.delete()
+
+    def delete(self, *keeps):
+        '''
+        delete submission and its related file
+
+        Args:
+            keeps:
+                the field name you want to keep, accepted
+                value is {'comment', 'code', 'output'}
+                other value will be ignored
+        '''
+        drops = {'comment', 'code', 'output'} - {*keeps}
+        del_funcs = {
+            'output': self.delete_output,
+        }
+        default_del_func = lambda d: self.obj[d].delete()
+        for d in drops:
+            del_funcs.get(d, default_del_func)(d)
+        self.obj.delete()
+
+    def permission(self, user):
+        '''
+        3: can rejudge & grade, 
+        2: can view upload & comment, 
+        1: can view basic info, 
+        0: can't view
+        '''
+        if not can_view(user, self.problem):
+            return 0
+
+        return 3 - [
+            max(perm(course, user) for course in self.problem.courses) >= 2,
+            user.username == self.username,
+            True,
+        ].index(True)
+
     def sandbox_resp_handler(self, resp):
         # judge queue is currently full
         def on_500(resp):
@@ -209,13 +260,30 @@ class Submission(MongoBase, engine=engine.Submission):
         return tar
 
     def get_code(self, path: str, binary=False) -> Union[str, bytes]:
-        with ZipFile(self.code) as zf:
-            data = zf.read(path)
+        # read file
+        try:
+            with ZipFile(self.code) as zf:
+                data = zf.read(path)
+        except KeyError:
+            # file not exists in the zip
+            return None
+        except AttributeError:
+            # code haven't been uploaded
+            return None
+        # decode byte if need
         if not binary:
-            data = data.decode('utf-8')
+            try:
+                data = data.decode('utf-8')
+            except UnicodeDecodeError:
+                data = 'Unusual file content, decode fail'
         return data
 
     def get_comment(self) -> bytes:
+        '''
+        if comment not exist
+        '''
+        if self.comment.grid_id is None:
+            raise FileNotFoundError('it seems that comment haven\'t upload')
         return self.comment.read()
 
     def check_code(self, file):
@@ -232,6 +300,8 @@ class Submission(MongoBase, engine=engine.Submission):
                 return 'only accept file with name \'main\''
             if ext != ['.c', '.cpp', '.py', '.pdf'][self.language]:
                 return f'invalid file extension, got {ext}'
+            if ext == '.pdf' and zf.read('main.pdf')[:5] != b'%PDF-':
+                return 'only accept PDF file.'
         file.seek(0)
         return True
 
@@ -239,14 +309,14 @@ class Submission(MongoBase, engine=engine.Submission):
         '''
         rejudge this submission
         '''
-        # delete result
-        for task_result in self.tasks:
-            for case_result in task_result:
-                case_result.output.delete()
-                case_result.save()
-
+        # delete output file
+        self.delete_output()
         # turn back to haven't be judged
-        self.update(status=-1, last_send=datetime.now(), tasks=[])
+        self.update(
+            status=-1,
+            last_send=datetime.now(),
+            tasks=[],
+        )
         if current_app.config['TESTING']:
             return True
         return self.send()
@@ -274,12 +344,18 @@ class Submission(MongoBase, engine=engine.Submission):
         if self.handwritten:
             q = {
                 'problem': self.problem,
-                'score': -1,
                 'user': self.user,
                 'language': 3,
             }
             for submission in engine.Submission.objects(**q):
                 if submission != self.obj:
+                    for homework in self.problem.homeworks:
+                        stat = homework.student_status[self.user.username][str(
+                            self.problem_id)]
+                        stat['score'] = 0
+                        stat['problemStatus'] = -1
+                        stat['submissionIds'] = []
+                        homework.save()
                     submission.delete()
         # we no need to actually send code to sandbox during testing
         if current_app.config['TESTING'] or self.handwritten:
@@ -291,7 +367,7 @@ class Submission(MongoBase, engine=engine.Submission):
         send code to sandbox
         '''
         if self.handwritten:
-            logging.warning(f'try to send a handwritten {submission}')
+            logging.warning(f'try to send a handwritten {self}')
             return False
         # metadata
         meta = {
@@ -341,6 +417,21 @@ class Submission(MongoBase, engine=engine.Submission):
         return self.sandbox_resp_handler(resp)
 
     def process_result(self, tasks: list):
+        '''
+        process results from sandbox
+
+        Args:
+            tasks:
+                a 2-dim list of the dict with schema
+                {
+                    'exitCode': int,
+                    'status': str,
+                    'stdout': str,
+                    'stderr': str,
+                    'execTime': int,
+                    'memoryUsage': int
+                }
+        '''
         self.logger.info(f'recieve {self} result')
         for task in tasks:
             for case in task:
@@ -392,29 +483,39 @@ class Submission(MongoBase, engine=engine.Submission):
             exec_time=exec_time,
             memory_usage=memory_usage,
         )
+        self.finish_judging()
+
+        return True
+
+    def finish_judging(self):
         # update user's submission
-        User(self.user.username).add_submission(self.reload())
+        User(self.username).add_submission(self.reload())
         # update homework data
         for homework in self.problem.homeworks:
-            stat = homework.student_status[self.user.username][str(
-                self.problem_id)]
+            stat = homework.student_status[self.username][str(self.problem_id)]
             stat['submissionIds'].append(self.id)
-            if self.score >= stat['score']:
+            if self.handwritten:
+                stat['submissionIds'] = stat['submissionIds'][-1:]
+            if self.score >= stat['score'] or self.handwritten:
                 stat['score'] = self.score
                 stat['problemStatus'] = self.status
             homework.save()
         # update problem
-        ac_submissions = Submission.filter(
-            user=self.user,
-            offset=0,
-            count=-1,
-            problem=self.problem,
-            status=0,
-        )
-        ac_users = {s.user.username for s in ac_submissions}
-        self.problem.ac_user = len(ac_users)
+        # TODO: compute ac_user count (unused now)
+        # ac_submissions = Submission.filter(
+        #     user=self.user,
+        #     offset=0,
+        #     count=-1,
+        #     problem=self.problem,
+        #     status=0,
+        # )
+        # ac_users = {s.username for s in ac_submissions}
+        # self.problem.ac_user = len(ac_users)
+        # update high score
+        self.problem.high_scores[self.username] = engine.Submission.objects(
+            user=self.user, problem=self.problem).only('score').order_by(
+                '-score').first().score
         self.problem.save()
-        return True
 
     def add_comment(self, file):
         '''
@@ -424,10 +525,19 @@ class Submission(MongoBase, engine=engine.Submission):
             file: a PDF file
         '''
         data = file.read()
-        if data[1:4] != b'PDF':
+        # check magic number
+        if data[:5] != b'%PDF-':
             raise ValueError('only accept PDF file.')
-        self.comment.put(data)
+        # write to a new file if it did not exist before
+        if self.comment.grid_id is None:
+            write_func = self.comment.put
+        # replace its content otherwise
+        else:
+            write_func = self.comment.replace
+        write_func(data)
         self.logger.debug(f'{self} comment updated.')
+        # update submission
+        self.save()
 
     @staticmethod
     def count():
@@ -510,7 +620,7 @@ class Submission(MongoBase, engine=engine.Submission):
             problem_id: str,
             username: str,
             lang: int,
-            timestamp: date,
+            timestamp: date = None,
     ) -> 'Submission':
         '''
         Insert a new submission into db
@@ -518,14 +628,16 @@ class Submission(MongoBase, engine=engine.Submission):
         Returns:
             The created submission
         '''
+        # check existence
         user = User(username)
         if not user:
             raise engine.DoesNotExist(f'user {username} does not exist')
-
         problem = Problem(problem_id)
         if problem.obj is None:
             raise engine.DoesNotExist(f'problem {problem_id} dose not exist')
-
+        if timestamp is None:
+            timestamp = datetime.now()
+        # create a new submission
         submission = engine.Submission(
             problem=problem.obj,
             user=user.obj,
@@ -533,5 +645,4 @@ class Submission(MongoBase, engine=engine.Submission):
             timestamp=timestamp,
         )
         submission.save()
-
         return cls(submission.id)

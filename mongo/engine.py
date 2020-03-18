@@ -268,14 +268,21 @@ class Problem(Document):
     contests = ListField(ReferenceField('Contest'), default=list)
     # user can view stdout/stderr
     can_view_stdout = BooleanField(db_field='canViewStdout', default=True)
-    cpp_report_url = StringField(db_field='cppReportUrl',
-                                 default='',
-                                 max_length=128)
-    python_report_url = StringField(db_field='pythonReportUrl',
-                                    default='',
-                                    max_length=128)
+    cpp_report_url = StringField(
+        db_field='cppReportUrl',
+        default='',
+        max_length=128,
+    )
+    python_report_url = StringField(
+        db_field='pythonReportUrl',
+        default='',
+        max_length=128,
+    )
     # bitmask of allowed languages (c: 1, cpp: 2, py3: 4)
     allowed_language = IntField(db_field='allowedLanguage', default=7)
+    # high score for each student
+    # Dict[username, score]
+    high_scores = DictField(db_field='highScore', default={})
 
 
 class CaseResult(EmbeddedDocument):
@@ -305,6 +312,7 @@ class Submission(Document):
             'language',
             'problem',
             'status',
+            'score',
         )]
     }
     problem = ReferenceField(Problem, required=True)
@@ -323,7 +331,7 @@ class Submission(Document):
     memory_usage = IntField(default=-1, db_field='memoryUsage')
     code = ZipField(required=True, null=True, max_size=10**7)
     last_send = DateTimeField(db_field='lastSend', default=datetime.now)
-    comment = FileField()
+    comment = FileField(default=None, null=True)
 
 
 @escape_markdown.apply
@@ -352,6 +360,7 @@ class Announcement(Document):
     creator = ReferenceField('User', required=True)
     updater = ReferenceField('User', required=True)
     markdown = StringField(max_length=100000, required=True)
+    pinned = BooleanField(default=False)
 
 
 @escape_markdown.apply

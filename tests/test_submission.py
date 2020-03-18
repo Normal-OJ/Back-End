@@ -6,8 +6,9 @@ from pprint import pprint
 
 from mongo import *
 from mongo import engine
-from tests.base_tester import BaseTester, random_string
-from tests.test_homework import CourseData
+from .base_tester import BaseTester, random_string
+from .test_homework import CourseData
+from .utils import *
 
 A_NAMES = [
     'teacher',
@@ -29,18 +30,14 @@ def submission_testcase_setup(
     BaseTester.setup_class()
     # save base source
     src_dir = pathlib.Path('tests/src')
-    exts = {'.c', '.cpp', '.py'}
+    exts = ['.c', '.cpp', '.py', '.pdf']
     for src in src_dir.iterdir():
         if any([not src.suffix in exts, not src.is_file()]):
             continue
         save_source(
             src.stem,
-            src.read_text(),
-            [
-                '.c',
-                '.cpp',
-                '.py',
-            ].index(src.suffix),
+            src.read_bytes(),
+            exts.index(src.suffix),
         )
     # create courses
     for name in A_NAMES:
@@ -69,10 +66,8 @@ class TestUserGetSubmission(SubmissionTester):
         pids = [pid for pid in pids if Problem(pid).obj.problem_status == 0]
         # get a course name
         cls.courses = [Problem(pid).obj.courses[0].course_name for pid in pids]
-
         pids = itertools.cycle(pids)
-        names = S_NAMES.keys()
-        names = itertools.cycle(names)
+        names = itertools.cycle(S_NAMES.keys())
         # create submissions
         cls.submissions = submit(
             names,
@@ -330,6 +325,48 @@ class TestUserGetSubmission(SubmissionTester):
         assert rv.status_code == 200
         assert len(rv_data['submissions']) == 4
 
+    def test_user_get_high_score(
+        self,
+        forge_client,
+        submit_once,
+    ):
+        # get all problems that user can view
+        pids = [p.problem_id for p in get_problem_list(User('student'))]
+        assert len(pids) != 0
+        pid = pids[0]
+        # get current high score
+        rv, rv_json, rv_data = BaseTester.request(
+            forge_client('student'),
+            'get',
+            f'/problem/{pid}/high-score',
+        )
+        assert rv.status_code == 200, rv_json
+        assert rv_data['score'] == 0, [*engine.Submission.objects]
+        # create a new handwritten submission
+        submission_id = submit_once(
+            name='student',
+            pid=pid,
+            filename='main.pdf',
+            lang=3,
+        )
+        for score in (100, 87, 60):
+            # modify this submission's score
+            rv, rv_json, rv_data = BaseTester.request(
+                forge_client('teacher'),
+                'put',
+                f'/submission/{submission_id}/grade',
+                json={'score': score},
+            )
+            assert rv.status_code == 200, rv_json
+            # check the high score again
+            rv, rv_json, rv_data = BaseTester.request(
+                forge_client('student'),
+                'get',
+                f'/problem/{pid}/high-score',
+            )
+            assert rv.status_code == 200, rv_json
+            assert rv_data['score'] == score, [*engine.Submission.objects]
+
 
 class TestTeacherGetSubmission(SubmissionTester):
     pids = []
@@ -495,6 +532,29 @@ class TestCreateSubmission(SubmissionTester):
         # file extension doesn't equal we claimed before
         assert rv.status_code == 400, rv_json
 
+    def test_wrong_file_type(self, forge_client, get_source, problem_ids):
+        pid = problem_ids('teacher', 1, True, 0, 2)[0]
+        client = forge_client('student')
+        rv, rv_json, rv_data = BaseTester.request(client,
+                                                  'post',
+                                                  '/submission',
+                                                  json=self.post_payload(
+                                                      3, pid))
+        files = {
+            'code': (
+                get_source('main2.pdf'),
+                'code',
+            )
+        }
+        print(rv_json)
+        rv = client.put(
+            f'/submission/{rv_data["submissionId"]}',
+            data=files,
+        )
+        rv_json = rv.get_json()
+        # file is not PDF
+        assert rv.status_code == 400, rv_json
+
     def test_empty_source(
         self,
         forge_client,
@@ -604,15 +664,17 @@ class TestCreateSubmission(SubmissionTester):
 
     def test_normally_rejudge(self, forge_client, submit_once):
         submission_id = submit_once('student', self.pid, 'base.c', 0)
-        # make a fake AC submission
-        Submission(submission_id).update(status=0)
         client = forge_client('admin')
-        rv, rv_json, rv_data = BaseTester.request(
-            client,
-            'get',
-            f'/submission/{submission_id}/rejudge',
-        )
-        assert rv.status_code == 200, rv_json
+        # rejudge it many times
+        for _ in range(5):
+            # make a fake finish submission
+            Submission(submission_id).process_result(problem_result(self.pid))
+            rv, rv_json, rv_data = BaseTester.request(
+                client,
+                'get',
+                f'/submission/{submission_id}/rejudge',
+            )
+            assert rv.status_code == 200, rv_json
 
     def test_reach_file_size_limit(
         self,
@@ -620,8 +682,9 @@ class TestCreateSubmission(SubmissionTester):
         save_source,
         get_source,
     ):
-        save_source('big', 'a' * (10**7) + '<(_ _)>', 0)
+        save_source('big', b'%PDF-' + b'a' * (10**7) + b'<(_ _)>', 0)
         client = forge_client('student')
+
         rv, rv_json, rv_data = BaseTester.request(
             client,
             'post',
@@ -634,12 +697,13 @@ class TestCreateSubmission(SubmissionTester):
             'put',
             f'/submission/{submission_id}',
             data={
-                'code': {
+                'code': (
                     get_source('big.c'),
                     'aaaaa',
-                },
+                ),
             },
         )
+        print(rv_json)
         assert rv.status_code == 400
 
     def test_submit_to_non_participate_contest(self, client_student):
@@ -664,6 +728,27 @@ class TestHandwrittenSubmission(SubmissionTester):
         cls.pid = problem_ids('teacher', 1, True, 0, 2)[0]
         yield
         cls.pid = None
+
+    @property
+    def comment_paths(self):
+        return itertools.cycle([
+            'tests/handwritten/comment.pdf',
+            'tests/handwritten/main.pdf',
+        ])
+
+    def comment(self, p):
+        '''
+        get a comment to upload
+
+        Args:
+            p: the comment file path
+        '''
+        return {
+            'comment': (
+                open(p, 'rb'),
+                'comment.pdf',
+            ),
+        }
 
     def test_handwritten_submission(self, client_student, client_teacher):
         # first claim a new submission to backend server
@@ -770,6 +855,135 @@ class TestHandwrittenSubmission(SubmissionTester):
             f'/submission/{self.submission_id}/pdf/comment', )
 
         assert rv.status_code == 200
+
+        # submit again will only replace the old one
+
+        rv, rv_json, rv_data = BaseTester.request(
+            client_student,
+            'post',
+            '/submission',
+            json=post_json,
+        )
+        self.submission_id = rv_data["submissionId"]
+
+        pdf_dir = pathlib.Path('tests/handwritten/main.pdf.zip')
+        files = {
+            'code': (
+                open(pdf_dir, 'rb'),
+                'code',
+            )
+        }
+        rv = client_student.put(
+            f'/submission/{self.submission_id}',
+            data=files,
+        )
+        rv_json = rv.get_json()
+
+        assert rv.status_code == 200
+
+        # see if the student and thw teacher can get the submission
+
+        rv = client_student.get(f'/submission?offset=0&count=-1')
+
+        json = rv.get_json()
+        print(json['data'])
+        assert len(json['data']['submissions']) == 1
+        assert rv.status_code == 200
+
+        rv = client_teacher.get(f'/submission?offset=0&count=-1')
+
+        json = rv.get_json()
+        print(json['data'])
+        assert len(json['data']['submissions']) == 1
+        assert rv.status_code == 200
+
+    @pytest.mark.parametrize(
+        'user_a, user_b, status_code',
+        [
+            # student can view self score
+            ('student', 'student', 200),
+            # normal user can not view other's score
+            ('student-2', 'student', 403),
+            # teacher can view student's score
+            ('student-2', 'teacher', 200),
+            # also the admin
+            ('student-2', 'admin', 200),
+        ],
+    )
+    def test_handwritten_submission_score_visibility(
+        self,
+        forge_client,
+        submit_once,
+        user_a,
+        user_b,
+        status_code,
+    ):
+        '''
+        test whether a `user_b` can view the `user_a`'s handwritten submission score
+        '''
+        submission_id = submit_once(user_a, self.pid, 'main.pdf', 3)
+        client = forge_client(user_b)
+        rv, rv_json, rv_data = BaseTester.request(
+            client,
+            'get',
+            f'/submission/{submission_id}',
+        )
+        assert rv.status_code == status_code, rv_json
+
+    def test_update_existing_comment(
+        self,
+        forge_client,
+        submit_once,
+    ):
+        # create a handwritten submission
+        submission_id = submit_once('student', self.pid, 'main.pdf', 3)
+        client = forge_client('teacher')
+        # try upload comment 5 times
+        for _, p in zip(range(5), self.comment_paths):
+            rv, rv_json, rv_data = BaseTester.request(
+                client,
+                'put',
+                f'/submission/{submission_id}/comment',
+                data=self.comment(p),
+            )
+            assert rv.status_code == 200, rv_json
+            # check comment content
+            rv = client.get(f'/submission/{submission_id}/pdf/comment')
+            assert rv.status_code == 200, rv.status_code
+            assert rv.data == open(p, 'rb').read()
+
+    def test_comment_for_different_submissions(
+        self,
+        forge_client,
+        submit_once,
+    ):
+        # try many times
+        for _, p in zip(range(5), self.comment_paths):
+            # create a new handwritten submission
+            submission_id = submit_once(
+                name='student',
+                pid=self.pid,
+                filename='main.pdf',
+                lang=3,
+            )
+            # comment it
+            client = forge_client('teacher')
+            rv, rv_json, rv_data = BaseTester.request(
+                client,
+                'put',
+                f'/submission/{submission_id}/comment',
+                data=self.comment(p),
+            )
+            assert rv.status_code == 200, rv_json
+            # student get feedback
+            client = forge_client('student')
+            rv, rv_json, rv_data = BaseTester.request(
+                client,
+                'get',
+                f'/submission/{submission_id}/pdf/comment',
+            )
+            assert rv.status_code == 200
+            assert rv.data == open(p, 'rb').read(), p
 
 
 class TestSubmissionConfig(SubmissionTester):

@@ -1,7 +1,8 @@
+import io
 import pytest
+from zipfile import ZipFile
 from tests.base_tester import BaseTester
 from mongo import *
-import io
 
 
 def get_file(file):
@@ -66,7 +67,7 @@ def problem_data(request, client_admin):
                            })
     id = rv.get_json()['data']['problemId']
     rv = client_admin.put(f'/problem/manage/{id}',
-                          data=get_file('test_case.zip'))
+                          data=get_file('default/test_case.zip'))
     yield pd
     BaseTester.teardown_class()
 
@@ -183,7 +184,7 @@ class TestProblem(BaseTester):
         id = json['data']['problemId']
 
         rv = client_admin.put(f'/problem/manage/{id}',
-                              data=get_file('test_case.zip'))
+                              data=get_file('default/test_case.zip'))
         json = rv.get_json()
 
         assert rv.status_code == 200, json
@@ -217,7 +218,7 @@ class TestProblem(BaseTester):
         id = json['data']['problemId']
 
         rv = client_admin.put(f'/problem/manage/{id}',
-                              data=get_file('test_case.zip'))
+                              data=get_file('default/test_case.zip'))
         json = rv.get_json()
         assert rv.status_code == 200
         assert json['status'] == 'ok'
@@ -308,14 +309,28 @@ class TestProblem(BaseTester):
         assert json['status'] == 'ok'
         assert json['message'] == 'Problem can view.'
         assert json['data'] == {
-            'status': 1,
-            'type': 0,
-            'problemName': 'Offline problem',
-            'description': description_dict(),
-            'owner': 'admin',
+            'status':
+            1,
+            'type':
+            0,
+            'problemName':
+            'Offline problem',
+            'description':
+            description_dict(),
+            'owner':
+            'admin',
             'tags': [],
-            'allowedLanguage': 7,
-            'limit': [[1000, 1000]]
+            'courses': ['English'],
+            'allowedLanguage':
+            7,
+            'testCase': [
+                {
+                    'caseCount': 1,
+                    'memoryLimit': 1000,
+                    'taskScore': 100,
+                    'timeLimit': 1000,
+                },
+            ],
         }
 
     # student view offline problem (GET /problem/view/<problem_id>)
@@ -334,14 +349,28 @@ class TestProblem(BaseTester):
         assert json['status'] == 'ok'
         assert json['message'] == 'Problem can view.'
         assert json['data'] == {
-            'status': 0,
-            'type': 0,
-            'problemName': 'Online problem',
-            'description': description_dict(),
-            'owner': 'admin',
+            'status':
+            0,
+            'type':
+            0,
+            'problemName':
+            'Online problem',
+            'description':
+            description_dict(),
+            'owner':
+            'admin',
             'tags': [],
-            'allowedLanguage': 7,
-            'limit': [[1000, 1000]]
+            'courses': ['math'],
+            'allowedLanguage':
+            7,
+            'testCase': [
+                {
+                    'caseCount': 1,
+                    'memoryLimit': 1000,
+                    'taskScore': 100,
+                    'timeLimit': 1000,
+                },
+            ],
         }
 
     # student view problem not exist (GET /problem/view/<problem_id>)
@@ -457,8 +486,7 @@ class TestProblem(BaseTester):
                 'fillInTemplate':
                 '',
                 'tasks': [{
-                    'input': ['aaaa\n'],
-                    'output': ['bbbb\n'],
+                    'caseCount': 1,
                     'taskScore': 100,
                     'memoryLimit': 1000,
                     'timeLimit': 1000
@@ -469,6 +497,46 @@ class TestProblem(BaseTester):
             'allowedLanguage': 7,
             'canViewStdout': True,
         }
+
+    def test_admin_update_problem_test_case(self, client_admin):
+        # update test case
+        rv, rv_json, rv_data = BaseTester.request(
+            client_admin,
+            'put',
+            '/problem/manage/1',
+            data=get_file('bogay/test_case.zip'),
+        )
+        assert rv.status_code == 200, rv_json
+        # check content
+        rv, rv_json, rv_data = BaseTester.request(
+            client_admin,
+            'get',
+            '/problem/1/testcase',
+        )
+        assert rv.status_code == 200
+        with ZipFile(io.BytesIO(rv.data)) as zf:
+            ns = sorted(zf.namelist())
+            in_ns = ns[::2]
+            out_ns = ns[1::2]
+            ns = zip(in_ns, out_ns)
+            _io = [(
+                zf.read(in_n),
+                zf.read(out_n),
+            ) for in_n, out_n in ns]
+        assert _io == [(b'I AM A TEAPOT\n', b'I AM A TEAPOT\n')], rv_data
+
+    def test_admin_update_problem_test_case_with_invalid_data(
+        self,
+        client_admin,
+    ):
+        # upload a test case with invalid data
+        rv, rv_json, rv_data = BaseTester.request(
+            client_admin,
+            'put',
+            '/problem/manage/1',
+            data=get_file('task-exceed/test_case.zip'),
+        )
+        assert rv.status_code == 400
 
     # non-owner teacher get information of a problem (GET /problem/manage/<problem_id>)
     def test_teacher_not_owner_manage_problem(self, client_teacher):

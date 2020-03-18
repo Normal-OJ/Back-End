@@ -6,13 +6,37 @@ from random import randint
 import json
 
 __all__ = [
-    'Number', 'Problem', 'get_problem_list', 'add_problem',
-    'add_written_problem', 'edit_problem', 'edit_written_problem',
-    'edit_problem_test_case', 'delete_problem', 'copy_problem',
-    'release_problem', 'can_view'
+    'Number',
+    'Problem',
+    'BadTestCase',
+    'get_problem_list',
+    'add_problem',
+    'add_written_problem',
+    'edit_problem',
+    'edit_written_problem',
+    'edit_problem_test_case',
+    'delete_problem',
+    'copy_problem',
+    'release_problem',
+    'can_view',
 ]
 
 number = 1
+
+
+class BadTestCase(Exception):
+    def __init__(self, expression, extra, short):
+        super().__init__(expression)
+        self.extra = extra
+        self.short = short
+
+    @property
+    def dict(self):
+        return {
+            'extra': self.extra,
+            'short': self.short,
+            'ERR_TYPE': 'BAD_TEST_CASE',
+        }
 
 
 class Number:
@@ -41,42 +65,31 @@ class Problem:
         return obj
 
     def detailed_info(self, *ks, **kns):
+        '''
+        return detailed info about this problem notice
+        that the `input` and `output` of problem test
+        case won't be sent to front end, need call other
+        route to get this info.
+
+        Args:
+            ks (str): the field name you want to get
+            kns (str):
+                specify the dict key you want to store
+                the data get by field name
+        
+        Return:
+            a dict contains problem data
+        '''
         p_obj = self.obj
         if p_obj is None:
             return None
         # problem -> dict
         _ret = p_obj.to_mongo()
-        # if this problem has testcase
-        if p_obj.test_case:
-            # get time limit and memery limit
-            limit = []
-            # get tasks info
-            tasks = [task.to_mongo() for task in p_obj.test_case.tasks]
-            for t in tasks:
-                t.update({
-                    'input': [],
-                    'output': [],
-                })
-                limit.append((t['timeLimit'], t['memoryLimit']))
-            # has uploaded testdata
-            if p_obj.test_case.case_zip:
-                with ZipFile(p_obj.test_case.case_zip) as zf:
-                    for i, task in enumerate(tasks):
-                        task.update({
-                            'input': [
-                                zf.read(f'{i:02d}{j:02d}.in').decode('utf-8')
-                                for j in range(task['caseCount'])
-                            ],
-                            'output': [
-                                zf.read(f'{i:02d}{j:02d}.out').decode('utf-8')
-                                for j in range(task['caseCount'])
-                            ],
-                        })
-            _ret['testCase']['tasks'] = tasks
-            _ret['limit'] = limit
-            # case zip can not be serialized
-            if 'caseZip' in _ret['testCase']:
-                del _ret['testCase']['caseZip']
+        # preprocess fields
+        # case zip can not be serialized
+        if 'caseZip' in _ret['testCase']:
+            del _ret['testCase']['caseZip']
+        # convert couse document to course name
         _ret['courses'] = [course.course_name for course in p_obj.courses]
         ret = {}
         for k in ks:
@@ -283,6 +296,7 @@ def edit_problem_test_case(problem_id, test_case):
     Return:
         a bool denote whether the update is successful
     '''
+    # query problem document
     problem = Problem(problem_id).obj
     if problem is None:
         raise engine.DoesNotExist(f'problem [{problem_id}] not exists.')
@@ -299,11 +313,20 @@ def edit_problem_test_case(problem_id, test_case):
     # input/output filenames
     in_out = {*ZipFile(test_case).namelist()}
     # check diff
-    if len(excepted_names - in_out) != 0:
-        return False
+    ex = in_out - excepted_names
+    sh = excepted_names - in_out
+    if len(ex) != 0 or len(sh) != 0:
+        raise BadTestCase('io data not equal to meta provided', [*ex], [*sh])
     # save zip file
     test_case.seek(0)
-    problem.test_case.case_zip.put(
+    # check whether the test case exists
+    if problem.test_case.case_zip.grid_id is None:
+        # if no, put data to a new file
+        write_func = problem.test_case.case_zip.put
+    else:
+        # else, replace original file with a new one
+        write_func = problem.test_case.case_zip.replace
+    write_func(
         test_case,
         content_type='application/zip',
     )
