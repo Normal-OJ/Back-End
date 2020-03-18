@@ -32,9 +32,9 @@ steps:
 - name: deploy
   commands:
   - cd /home/development/Normal-OJ
-  - git checkout develop
   - git pull
-  - docker-compose restart web
+  - git checkout $DRONE_COMMIT -b develop
+  - docker-compose up -d --build web
 
 trigger:
   event:
@@ -56,8 +56,8 @@ steps:
 - name: deploy
   commands:
   - cd /home/development/Normal-OJ
-  - git checkout master
   - git pull
+  - git checkout $DRONE_COMMIT -b master
   - docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build web
 
 trigger:
