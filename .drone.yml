@@ -1,0 +1,67 @@
+---
+kind: pipeline
+name: default
+
+steps:
+- name: test
+  image: python:3.7
+  commands:
+  - pip install yapf
+  - yapf . -rd
+  - pip install -r requirements.txt
+  - pip install -r tests/requirements.txt
+  - pytest
+
+trigger:
+  branch:
+    exclude:
+    - master
+    - develop
+---
+kind: pipeline
+type: ssh
+name: dev-deploy
+
+server:
+  host: s2.noj.tw
+  user: development
+  ssh_key:
+    from_secret: dev-ssh_key
+
+steps:
+- name: deploy
+  commands:
+  - cd /home/development/Normal-OJ
+  - git checkout develop
+  - git pull
+  - docker-compose restart web
+
+trigger:
+  event:
+  - push
+  branch:
+  - develop
+---
+kind: pipeline
+type: ssh
+name: prod-deploy
+
+server:
+  host: noj.tw
+  user: development
+  ssh_key:
+    from_secret: prod-ssh_key
+
+steps:
+- name: deploy
+  commands:
+  - cd /home/development/Normal-OJ
+  - git checkout master
+  - git pull
+  - docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build web
+
+trigger:
+  event:
+  - push
+  branch:
+  - master
