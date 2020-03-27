@@ -59,6 +59,9 @@ def view_problem_list(user, offset, count, problem_id, tags, name, course):
                     'submitter': p.submitter,
                     'tags': p.tags,
                     'type': p.problem_type,
+                    'quota': p.quota,
+                    'submitCount': user.problem_submission.get(
+                        (p.problem_id), 0)
                 }, data)
         ]
     except IndexError:
@@ -82,12 +85,15 @@ def view_problem(user, problem_id):
         'tags',
         'allowedLanguage',
         'courses',
+        'quota',
         status='problemStatus',
         type='problemType',
         testCase='testCase__tasks',
     )
     if problem.obj.problem_type == 1:
         data.update({'fillInTemplate': problem.obj.test_case.fill_in_template})
+    data.update(
+        {'submitCount': user.problem_submission.get((problem.problem_id), 0)})
 
     return HTTPResponse('Problem can view.', data=data)
 
@@ -161,9 +167,14 @@ def manage_problem(user, problem_id=None):
             'submitter',
             'allowedLanguage',
             'canViewStdout',
+            'quota',
             status='problemStatus',
             type='problemType',
         )
+        info.update({
+            'submitCount':
+            user.problem_submission.get((problem.problem_id), 0)
+        })
         return HTTPResponse(
             'Success.',
             data=info,

@@ -238,7 +238,9 @@ class TestProblem(BaseTester):
             'status': 1,
             'tags': [],
             'ACUser': 0,
-            'submitter': 0
+            'submitter': 0,
+            'quota': -1,
+            'submitCount': 0
         }, {
             'problemId': 2,
             'type': 0,
@@ -246,7 +248,9 @@ class TestProblem(BaseTester):
             'status': 0,
             'tags': [],
             'ACUser': 0,
-            'submitter': 0
+            'submitter': 0,
+            'quota': -1,
+            'submitCount': 0
         }]
 
     # admin get problem list with a filter(GET /problem)
@@ -263,7 +267,9 @@ class TestProblem(BaseTester):
             'status': 1,
             'tags': [],
             'ACUser': 0,
-            'submitter': 0
+            'submitter': 0,
+            'quota': -1,
+            'submitCount': 0
         }]
 
     def test_admin_get_problem_list_with_unexist_params(self, client_admin):
@@ -298,7 +304,9 @@ class TestProblem(BaseTester):
             'status': 0,
             'tags': [],
             'ACUser': 0,
-            'submitter': 0
+            'submitter': 0,
+            'quota': -1,
+            'submitCount': 0
         }]
 
     # admin view offline problem (GET /problem/view/<problem_id>)
@@ -331,6 +339,10 @@ class TestProblem(BaseTester):
                     'timeLimit': 1000,
                 },
             ],
+            'quota':
+            -1,
+            'submitCount':
+            0
         }
 
     # student view offline problem (GET /problem/view/<problem_id>)
@@ -371,6 +383,10 @@ class TestProblem(BaseTester):
                     'timeLimit': 1000,
                 },
             ],
+            'quota':
+            -1,
+            'submitCount':
+            0
         }
 
     # student view problem not exist (GET /problem/view/<problem_id>)
@@ -401,7 +417,7 @@ class TestProblem(BaseTester):
                     'memoryLimit': 1000,
                     'timeLimit': 1000
                 }]
-            }
+            },
         }
         rv = client_student.put('/problem/manage/1', json=request_json)
         json = rv.get_json()
@@ -496,6 +512,8 @@ class TestProblem(BaseTester):
             'submitter': 0,
             'allowedLanguage': 7,
             'canViewStdout': True,
+            'quota': -1,
+            'submitCount': 0
         }
 
     def test_admin_update_problem_test_case(self, client_admin):
