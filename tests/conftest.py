@@ -68,7 +68,7 @@ def test2_token():
     return User('test2').secret
 
 
-def random_problem_data(username=None, status=-1, type=0):
+def random_problem_data(username=None, status=-1, type=0, quota=-1):
     '''
     generate dummy problem data
 
@@ -109,7 +109,9 @@ def random_problem_data(username=None, status=-1, type=0):
                     'timeLimit': 1000,
                 },
             ],
-        }
+        },
+        'quota':
+        quota
     }
 
 
@@ -161,7 +163,12 @@ def make_course(forge_client):
 
 @pytest.fixture()
 def problem_ids(forge_client, make_course):
-    def problem_ids(username, length, add_to_course=False, status=0, type=0):
+    def problem_ids(username,
+                    length,
+                    add_to_course=False,
+                    status=0,
+                    type=0,
+                    quota=-1):
         '''
         insert dummy problems into db
 
@@ -181,7 +188,7 @@ def problem_ids(forge_client, make_course):
                     username=username if add_to_course else None,
                     status=status,
                     type=type,
-                ),
+                    quota=quota),
             )
             assert rv.status_code == 200, rv.get_json()
             _id = rv.get_json()['data']['problemId']
