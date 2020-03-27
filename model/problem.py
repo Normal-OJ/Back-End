@@ -97,20 +97,15 @@ def view_problem(user, problem_id):
                    methods=['GET', 'PUT', 'DELETE'])
 @identity_verify(0, 1)
 def manage_problem(user, problem_id=None):
-    @Request.json('type')
-    def modify_problem(type):
-        if type == 2:
-            return modify_written_problem()
+    @Request.json('type', 'courses: list', 'status', 'type', 'description',
+                  'tags', 'problem_name', 'quota')
+    def modify_problem(**p_ks):
+        if p_ks['type'] == 2:
+            return modify_general_problem(**p_ks)
         else:
-            return modify_coding_problem()
+            return modify_coding_problem(**p_ks)
 
     @Request.json(
-        'courses: list',
-        'status',
-        'type',
-        'description',
-        'tags',
-        'problem_name',
         'test_case_info',
         'can_view_stdout',
         'allowed_language',
@@ -119,6 +114,9 @@ def manage_problem(user, problem_id=None):
         if sum(case['taskScore']
                for case in p_ks['test_case_info']['tasks']) != 100:
             return HTTPError("Cases' scores should be 100 in total", 400)
+        return modify_general_problem(**p_ks)
+
+    def modify_general_problem(**p_ks):
         if request.method == 'POST':
             lock.acquire()
             pid = add_problem(user=user, **p_ks)
@@ -130,21 +128,6 @@ def manage_problem(user, problem_id=None):
                 problem_id=problem_id,
                 **p_ks,
             )
-            return HTTPResponse('Success.')
-
-    @Request.json('courses: list', 'status', 'description', 'tags',
-                  'problem_name')
-    def modify_written_problem(courses, status, problem_name, description,
-                               tags):
-        if request.method == 'POST':
-            lock.acquire()
-            pid = add_written_problem(user, courses, status, problem_name,
-                                      description, tags)
-            lock.release()
-            return HTTPResponse('Success.', data={'problemId': pid})
-        elif request.method == 'PUT':
-            edit_written_problem(user, problem_id, courses, status,
-                                 problem_name, description, tags)
             return HTTPResponse('Success.')
 
     @Request.files('case')

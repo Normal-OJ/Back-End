@@ -11,9 +11,7 @@ __all__ = [
     'BadTestCase',
     'get_problem_list',
     'add_problem',
-    'add_written_problem',
     'edit_problem',
-    'edit_written_problem',
     'edit_problem_test_case',
     'delete_problem',
     'copy_problem',
@@ -76,7 +74,7 @@ class Problem:
             kns (str):
                 specify the dict key you want to store
                 the data get by field name
-        
+
         Return:
             a dict contains problem data
         '''
@@ -177,109 +175,72 @@ def get_problem_list(
     return problems[offset:right]
 
 
-def add_written_problem(user, courses, status, problem_name, description,
-                        tags):
+def add_problem(user,
+                courses,
+                status,
+                problem_name,
+                description,
+                tags,
+                type,
+                test_case_info=None,
+                can_view_stdout=False,
+                allowed_language=7,
+                quota=-1):
     problem_id = number
-    engine.Problem(
-        problem_id=problem_id,
-        courses=list(Course(name).obj for name in courses),
-        problem_status=status,
-        problem_type=2,
-        problem_name=problem_name,
-        description=description,
-        owner=user.username,
-        tags=tags,
-    ).save()
+    problem = engine.Problem(problem_id=problem_id,
+                             courses=list(
+                                 Course(name).obj for name in courses),
+                             problem_status=status,
+                             problem_type=type,
+                             problem_name=problem_name,
+                             description=description,
+                             owner=user.username,
+                             tags=tags,
+                             quota=quota)
+    problem.save()
+    if type != 2:
+        problem.update(test_case=test_case_info,
+                       can_view_stdout=can_view_stdout,
+                       allowed_language=allowed_language)
+
     increased_number()
 
     return problem_id
 
 
-def add_problem(
-    user,
-    courses,
-    status,
-    type,
-    problem_name,
-    description,
-    tags,
-    test_case_info,
-    can_view_stdout=False,
-    allowed_language=7,
-):
-    problem_id = number
-    engine.Problem(
-        problem_id=problem_id,
-        courses=list(Course(name).obj for name in courses),
-        problem_status=status,
-        problem_type=type,
-        problem_name=problem_name,
-        description=description,
-        owner=user.username,
-        tags=tags,
-        test_case=test_case_info,
-        can_view_stdout=can_view_stdout,
-        allowed_language=allowed_language,
-    ).save()
-    increased_number()
-
-    return problem_id
-
-
-def edit_written_problem(
-    user,
-    problem_id,
-    courses,
-    status,
-    problem_name,
-    description,
-    tags,
-):
+def edit_problem(user,
+                 problem_id,
+                 courses,
+                 status,
+                 problem_name,
+                 description,
+                 tags,
+                 type,
+                 test_case_info=None,
+                 allowed_language=7,
+                 can_view_stdout=False,
+                 quota=-1):
     problem = Problem(problem_id).obj
-    problem.update(
-        courses=[Course(name).obj for name in courses],
-        problem_status=status,
-        problem_name=problem_name,
-        description=description,
-        owner=user.username,
-        tags=tags,
-    )
-    problem.save()
-
-
-def edit_problem(
-    user,
-    problem_id,
-    courses,
-    status,
-    type,
-    problem_name,
-    description,
-    tags,
-    test_case_info=None,
-    allowed_language=7,
-    can_view_stdout=False,
-):
-    problem = Problem(problem_id).obj
-    # preprocess test case
-    test_case = problem.test_case
-    if test_case_info:
-        test_case = engine.ProblemTestCase.from_json(
-            json.dumps(test_case_info))
-        test_case.case_zip = problem.test_case.case_zip
-    problem.update(
-        courses=[Course(name).obj for name in courses],
-        problem_status=status,
-        problem_type=type,
-        problem_name=problem_name,
-        description=description,
-        owner=user.username,
-        tags=tags,
-        allowed_language=allowed_language,
-        can_view_stdout=can_view_stdout,
-        test_case=test_case,
-    )
-    problem.save()
+    problem.update(courses=[Course(name).obj for name in courses],
+                   problem_status=status,
+                   problem_type=type,
+                   problem_name=problem_name,
+                   description=description,
+                   owner=user.username,
+                   tags=tags,
+                   quota=quota)
+    if type != 2:
+        # preprocess test case
+        test_case = problem.test_case
+        if test_case_info:
+            test_case = engine.ProblemTestCase.from_json(
+                json.dumps(test_case_info))
+            test_case.case_zip = problem.test_case.case_zip
+        problem.update(
+            allowed_language=allowed_language,
+            can_view_stdout=can_view_stdout,
+            test_case=test_case,
+        )
 
 
 def edit_problem_test_case(problem_id, test_case):
