@@ -662,6 +662,29 @@ class TestCreateSubmission(SubmissionTester):
         # recover rate limit
         Submission.config().update(rate_limit=0)
 
+    def test_reach_quota(self, problem_ids, forge_client):
+        pid = problem_ids('teacher', 1, True, 0, 0, 10)[0]
+        post_json = self.post_payload(0, pid)
+        client = forge_client('student')
+
+        for _ in range(10):
+            rv = client.post(
+                '/submission',
+                json=post_json,
+            )
+
+            assert rv.status_code == 200, str(rv.get_json()) + str(_)
+
+        rv = client.get(f'/problem/view/{pid}')
+        assert rv.status_code == 200
+        assert rv.get_json()['data']['submitCount'] == 10
+
+        rv = client.post(
+            '/submission',
+            json=post_json,
+        )
+        assert rv.status_code == 403, rv.get_json()
+
     def test_normally_rejudge(self, forge_client, submit_once):
         submission_id = submit_once('student', self.pid, 'base.c', 0)
         client = forge_client('admin')
