@@ -40,8 +40,9 @@ def get_user_courses(user):
 
 
 def add_user(user, course):
-    user.courses.append(course)
-    user.save()
+    if course not in user.courses:
+        user.courses.append(course)
+        user.save()
 
 
 def remove_user(user, course):

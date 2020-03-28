@@ -140,7 +140,7 @@ class TestTeacherCourse(BaseTester):
         client_admin.post('/course',
                           json={
                               'course': 'math',
-                              'teacher': 'admin'
+                              'teacher': 'teacher'
                           })
 
         rv = client_admin.put('/course/PE',
@@ -154,15 +154,16 @@ class TestTeacherCourse(BaseTester):
         assert json['message'] == 'Course not found.'
         assert rv.status_code == 404
 
-    def test_modify_when_not_in_course(self, client_teacher):
+    def test_modify_when_not_in_course(self, forge_client):
         # modify a course when not in it
-        rv = client_teacher.put('/course/math',
-                                json={
-                                    'TAs': ['admin'],
-                                    'studentNicknames': {
-                                        'student': 'noobs'
-                                    }
-                                })
+        client = forge_client('teacher-2')
+        rv = client.put('/course/math',
+                        json={
+                            'TAs': ['admin'],
+                            'studentNicknames': {
+                                'student': 'noobs'
+                            }
+                        })
         json = rv.get_json()
         assert json['message'] == 'You are not in this course.'
         assert rv.status_code == 403
@@ -180,16 +181,23 @@ class TestTeacherCourse(BaseTester):
         assert json['message'] == 'User: studentt not found.'
         assert rv.status_code == 404
 
-    def test_modify(self, client_admin):
+    def test_modify(self, client_teacher):
         # modify a course
-        rv = client_admin.put('/course/math',
-                              json={
-                                  'TAs': ['admin'],
-                                  'studentNicknames': {
-                                      'student': 'noobs'
-                                  }
-                              })
+        rv = client_teacher.put('/course/math',
+                                json={
+                                    'TAs': ['teacher'],
+                                    'studentNicknames': {
+                                        'student': 'noobs',
+                                    }
+                                })
         json = rv.get_json()
+        assert rv.status_code == 200
+
+        rv = client_teacher.get('/course')
+        json = rv.get_json()
+        print(json)
+
+        assert len(json['data']) == 1
         assert rv.status_code == 200
 
     def test_modify_with_only_student(self, client_student):
@@ -210,8 +218,8 @@ class TestTeacherCourse(BaseTester):
         rv = client_student.get('/course/math')
         json = rv.get_json()
         assert rv.status_code == 200
-        assert json['data']['TAs'][0]['username'] == 'admin'
-        assert json['data']['teacher']['username'] == 'admin'
+        assert json['data']['TAs'][0]['username'] == 'teacher'
+        assert json['data']['teacher']['username'] == 'teacher'
         assert json['data']['studentNicknames'] == {'student': 'noobs'}
 
 
