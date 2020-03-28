@@ -454,6 +454,33 @@ class TestProblem(BaseTester):
         assert json['message'] == 'Not the owner.'
 
     # admin change the name of a problem (PUT /problem/manage/<problem_id>)
+    def test_admin_edit_problem_with_non_exist_course(self, client_admin):
+        request_json = {
+            'courses': ['PE'],
+            'status': 1,
+            'type': 0,
+            'problemName': 'Offline problem (edit)',
+            'description': description_dict(),
+            'tags': [],
+            'testCaseInfo': {
+                'language':
+                1,
+                'fillInTemplate':
+                '',
+                'tasks': [{
+                    'caseCount': 1,
+                    'taskScore': 100,
+                    'memoryLimit': 1000,
+                    'timeLimit': 1000
+                }]
+            }
+        }
+        rv = client_admin.put('/problem/manage/1', json=request_json)
+        json = rv.get_json()
+        print(json)
+        assert rv.status_code == 404
+
+    # admin change the name of a problem (PUT /problem/manage/<problem_id>)
     def test_admin_edit_problem(self, client_admin):
         request_json = {
             'courses': [],

@@ -193,9 +193,14 @@ def add_problem(user,
                 allowed_language=7,
                 quota=-1):
     problem_id = number
+    course_objs = []
+    for name in courses:
+        if Course(name).obj is None:
+            raise engine.DoesNotExist
+        course_objs.append(Course(name).obj)
+
     problem = engine.Problem(problem_id=problem_id,
-                             courses=list(
-                                 Course(name).obj for name in courses),
+                             courses=course_objs,
                              problem_status=status,
                              problem_type=type,
                              problem_name=problem_name,
@@ -227,7 +232,12 @@ def edit_problem(user,
                  can_view_stdout=False,
                  quota=-1):
     problem = Problem(problem_id).obj
-    problem.update(courses=[Course(name).obj for name in courses],
+    course_objs = []
+    for name in courses:
+        if Course(name).obj is None:
+            raise engine.DoesNotExist
+        course_objs.append(Course(name).obj)
+    problem.update(courses=course_objs,
                    problem_status=status,
                    problem_type=type,
                    problem_name=problem_name,
