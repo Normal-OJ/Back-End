@@ -74,7 +74,6 @@ class Problem:
             kns (str):
                 specify the dict key you want to store
                 the data get by field name
-
         Return:
             a dict contains problem data
         '''
