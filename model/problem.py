@@ -60,8 +60,7 @@ def view_problem_list(user, offset, count, problem_id, tags, name, course):
                     'tags': p.tags,
                     'type': p.problem_type,
                     'quota': p.quota,
-                    'submitCount': user.problem_submission.get(
-                        (p.problem_id), 0)
+                    'submitCount': Problem(p.problem_id).submit_count(user)
                 }, data)
         ]
     except IndexError:
@@ -92,8 +91,7 @@ def view_problem(user, problem_id):
     )
     if problem.obj.problem_type == 1:
         data.update({'fillInTemplate': problem.obj.test_case.fill_in_template})
-    data.update(
-        {'submitCount': user.problem_submission.get((problem.problem_id), 0)})
+    data.update({'submitCount': problem.submit_count(user)})
 
     return HTTPResponse('Problem can view.', data=data)
 
@@ -157,7 +155,8 @@ def manage_problem(user, problem_id=None):
             return HTTPError('Not the owner.', 403)
     # return detailed problem info
     if request.method == 'GET':
-        info = Problem(problem_id).detailed_info(
+        problem = Problem(problem_id)
+        info = problem.detailed_info(
             'courses',
             'problemName',
             'description',
@@ -171,10 +170,7 @@ def manage_problem(user, problem_id=None):
             status='problemStatus',
             type='problemType',
         )
-        info.update({
-            'submitCount':
-            user.problem_submission.get((problem.problem_id), 0)
-        })
+        info.update({'submitCount': problem.submit_count(user)})
         return HTTPResponse(
             'Success.',
             data=info,

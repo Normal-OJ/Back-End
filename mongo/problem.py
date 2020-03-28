@@ -3,6 +3,7 @@ from .course import *
 from zipfile import ZipFile, is_zipfile
 from pathlib import Path
 from random import randint
+from datetime import datetime
 import json
 
 __all__ = [
@@ -111,6 +112,12 @@ class Problem:
         if language >= 3 or language < 0:
             return False
         return bool((1 << language) & self.obj.allowed_language)
+
+    def submit_count(self, user):
+        # reset quota if it's a new day
+        if user.last_submit.date() != datetime.now().date():
+            user.update(problem_submission={})
+        return user.problem_submission.get(str(self.problem_id), 0)
 
 
 def increased_number():

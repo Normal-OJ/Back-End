@@ -96,16 +96,11 @@ def create_submission(user, language_type, problem_id):
                 'got': language_type
             },
         )
-    # reset quota if it's a new day
-    if user.last_submit.date() != now.date():
-        user.update(problem_submission={})
     # check if the user has used all his quota
-    if problem.obj.quota != -1 and str(
-            problem_id) in user.problem_submission and user.problem_submission[
-                str(problem_id)] >= problem.obj.quota:
+    if problem.obj.quota != -1 and problem.submit_count(
+            user) >= problem.obj.quota:
         return HTTPError('you have used all your quotas', 403)
-    user.problem_submission[str(problem_id)] = user.problem_submission.get(
-        str(problem_id), 0) + 1
+    user.problem_submission[str(problem_id)] = problem.submit_count(user) + 1
     user.save()
     # insert submission to DB
     try:
