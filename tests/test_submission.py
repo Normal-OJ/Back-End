@@ -662,10 +662,14 @@ class TestCreateSubmission(SubmissionTester):
         # recover rate limit
         Submission.config().update(rate_limit=0)
 
-    def test_reach_quota(self, problem_ids, forge_client):
+    @pytest.mark.parametrize(
+        'user, response',
+        [('student', 403), ('teacher', 200)],
+    )
+    def test_reach_quota(self, problem_ids, forge_client, user, response):
         pid = problem_ids('teacher', 1, True, 0, 0, 10)[0]
         post_json = self.post_payload(0, pid)
-        client = forge_client('student')
+        client = forge_client(user)
 
         for _ in range(10):
             rv = client.post(
@@ -683,7 +687,7 @@ class TestCreateSubmission(SubmissionTester):
             '/submission',
             json=post_json,
         )
-        assert rv.status_code == 403, rv.get_json()
+        assert rv.status_code == response, rv.get_json()
 
     def test_normally_rejudge(self, forge_client, submit_once):
         submission_id = submit_once('student', self.pid, 'base.c', 0)

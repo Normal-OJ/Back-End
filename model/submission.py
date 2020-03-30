@@ -97,8 +97,10 @@ def create_submission(user, language_type, problem_id):
             },
         )
     # check if the user has used all his quota
-    if problem.obj.quota != -1 and problem.submit_count(
-            user) >= problem.obj.quota:
+    if problem.obj.quota != -1 and max(
+            perm(course, user)
+            for course in problem.obj.courses) < 2 and problem.submit_count(
+                user) >= problem.obj.quota:
         return HTTPError('you have used all your quotas', 403)
     user.problem_submission[str(problem_id)] = problem.submit_count(user) + 1
     user.save()
