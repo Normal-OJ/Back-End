@@ -451,7 +451,6 @@ class TestCreateSubmission(SubmissionTester):
         ext,
     ):
         client = forge_client('student')
-
         # first claim a new submission to backend server
         # recieve response, which include the submission id
         rv, rv_json, rv_data = BaseTester.request(
@@ -460,10 +459,8 @@ class TestCreateSubmission(SubmissionTester):
             '/submission',
             json=self.post_payload(lang),
         )
-
         assert rv.status_code == 200, rv_json
-        assert sorted(rv_data.keys()) == sorted(['submissionId'])
-
+        assert 'submissionId' in rv_data, rv_data
         # second, post my source code to server. after that,
         # my submission will send to sandbox to be judged
         files = {
@@ -477,10 +474,7 @@ class TestCreateSubmission(SubmissionTester):
             data=files,
         )
         rv_json = rv.get_json()
-
-        pprint(f'put: {rv_json}')
-
-        assert rv.status_code == 200
+        assert rv.status_code == 200, rv_json
 
     def test_user_db_submission_field_content(
         self,
@@ -535,11 +529,12 @@ class TestCreateSubmission(SubmissionTester):
     def test_wrong_file_type(self, forge_client, get_source, problem_ids):
         pid = problem_ids('teacher', 1, True, 0, 2)[0]
         client = forge_client('student')
-        rv, rv_json, rv_data = BaseTester.request(client,
-                                                  'post',
-                                                  '/submission',
-                                                  json=self.post_payload(
-                                                      3, pid))
+        rv, rv_json, rv_data = BaseTester.request(
+            client,
+            'post',
+            '/submission',
+            json=self.post_payload(3, pid),
+        )
         files = {
             'code': (
                 get_source('main2.pdf'),
@@ -732,6 +727,23 @@ class TestCreateSubmission(SubmissionTester):
         )
         print(rv_json)
         assert rv.status_code == 400
+
+    def test_submission_main_code_path(
+        self,
+        submit_once,
+        forge_client,
+    ):
+        s = Submission(
+            submit_once(
+                name='student',
+                pid=self.pid,
+                filename='base.c',
+                lang=0,
+            ))
+        assert bool(s)
+        s_code = open(s.main_code_path).read()
+        code = open('tests/src/base.c').read()
+        assert code == s_code, (s.main_code_path, s_code)
 
     def test_submit_to_non_participate_contest(self, client_student):
         pass
