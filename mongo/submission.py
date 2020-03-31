@@ -136,10 +136,15 @@ class Submission(MongoBase, engine=engine.Submission):
 
     @property
     def tmp_dir(self) -> pathlib.Path:
-        return self.config().TMP_DIR / self.id
+        tmp_dir = self.config().TMP_DIR / self.id
+        tmp_dir.mkdir(exist_ok=True)
+        return tmp_dir
 
     @property
     def main_code_path(self) -> str:
+        # handwritten submission didn't provide this function
+        if self.handwritten:
+            return
         # get excepted code name & temp path
         lang2ext = {0: '.c', 1: '.cpp', 2: '.py'}
         ext = lang2ext[self.language]
