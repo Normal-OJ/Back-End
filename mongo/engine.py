@@ -124,6 +124,7 @@ class User(Document):
     AC_problem_ids = ListField(IntField(), default=list)
     AC_submission = IntField(default=0)
     submission = IntField(default=0)
+    problem_submission = DictField(db_field='problemSubmission')
 
 
 @escape_markdown.apply
@@ -283,6 +284,7 @@ class Problem(Document):
     # high score for each student
     # Dict[username, score]
     high_scores = DictField(db_field='highScore', default={})
+    quota = IntField(default=-1)
 
 
 class CaseResult(EmbeddedDocument):

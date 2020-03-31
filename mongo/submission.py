@@ -192,7 +192,10 @@ class Submission(MongoBase, engine=engine.Submission):
         del_funcs = {
             'output': self.delete_output,
         }
-        default_del_func = lambda d: self.obj[d].delete()
+
+        def default_del_func(d):
+            return self.obj[d].delete()
+
         for d in drops:
             del_funcs.get(d, default_del_func)(d)
         self.obj.delete()
@@ -300,8 +303,10 @@ class Submission(MongoBase, engine=engine.Submission):
                 return 'only accept file with name \'main\''
             if ext != ['.c', '.cpp', '.py', '.pdf'][self.language]:
                 return f'invalid file extension, got {ext}'
-            if ext == '.pdf' and zf.read('main.pdf')[:5] != b'%PDF-':
-                return 'only accept PDF file.'
+            if ext == '.pdf':
+                with zf.open('main.pdf') as pdf:
+                    if pdf.read(5) != b'%PDF-':
+                        return 'only accept PDF file.'
         file.seek(0)
         return True
 

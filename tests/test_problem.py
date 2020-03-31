@@ -238,7 +238,9 @@ class TestProblem(BaseTester):
             'status': 1,
             'tags': [],
             'ACUser': 0,
-            'submitter': 0
+            'submitter': 0,
+            'quota': -1,
+            'submitCount': 0
         }, {
             'problemId': 2,
             'type': 0,
@@ -246,7 +248,9 @@ class TestProblem(BaseTester):
             'status': 0,
             'tags': [],
             'ACUser': 0,
-            'submitter': 0
+            'submitter': 0,
+            'quota': -1,
+            'submitCount': 0
         }]
 
     # admin get problem list with a filter(GET /problem)
@@ -263,7 +267,9 @@ class TestProblem(BaseTester):
             'status': 1,
             'tags': [],
             'ACUser': 0,
-            'submitter': 0
+            'submitter': 0,
+            'quota': -1,
+            'submitCount': 0
         }]
 
     def test_admin_get_problem_list_with_unexist_params(self, client_admin):
@@ -298,7 +304,9 @@ class TestProblem(BaseTester):
             'status': 0,
             'tags': [],
             'ACUser': 0,
-            'submitter': 0
+            'submitter': 0,
+            'quota': -1,
+            'submitCount': 0
         }]
 
     # admin view offline problem (GET /problem/view/<problem_id>)
@@ -331,6 +339,10 @@ class TestProblem(BaseTester):
                     'timeLimit': 1000,
                 },
             ],
+            'quota':
+            -1,
+            'submitCount':
+            0
         }
 
     # student view offline problem (GET /problem/view/<problem_id>)
@@ -371,6 +383,10 @@ class TestProblem(BaseTester):
                     'timeLimit': 1000,
                 },
             ],
+            'quota':
+            -1,
+            'submitCount':
+            0
         }
 
     # student view problem not exist (GET /problem/view/<problem_id>)
@@ -401,7 +417,7 @@ class TestProblem(BaseTester):
                     'memoryLimit': 1000,
                     'timeLimit': 1000
                 }]
-            }
+            },
         }
         rv = client_student.put('/problem/manage/1', json=request_json)
         json = rv.get_json()
@@ -436,6 +452,33 @@ class TestProblem(BaseTester):
         assert rv.status_code == 403
         assert json['status'] == 'err'
         assert json['message'] == 'Not the owner.'
+
+    # admin change the name of a problem (PUT /problem/manage/<problem_id>)
+    def test_admin_edit_problem_with_non_exist_course(self, client_admin):
+        request_json = {
+            'courses': ['PE'],
+            'status': 1,
+            'type': 0,
+            'problemName': 'Offline problem (edit)',
+            'description': description_dict(),
+            'tags': [],
+            'testCaseInfo': {
+                'language':
+                1,
+                'fillInTemplate':
+                '',
+                'tasks': [{
+                    'caseCount': 1,
+                    'taskScore': 100,
+                    'memoryLimit': 1000,
+                    'timeLimit': 1000
+                }]
+            }
+        }
+        rv = client_admin.put('/problem/manage/1', json=request_json)
+        json = rv.get_json()
+        print(json)
+        assert rv.status_code == 404
 
     # admin change the name of a problem (PUT /problem/manage/<problem_id>)
     def test_admin_edit_problem(self, client_admin):
@@ -496,6 +539,8 @@ class TestProblem(BaseTester):
             'submitter': 0,
             'allowedLanguage': 7,
             'canViewStdout': True,
+            'quota': -1,
+            'submitCount': 0
         }
 
     def test_admin_update_problem_test_case(self, client_admin):
