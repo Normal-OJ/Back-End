@@ -117,6 +117,7 @@ class Problem:
         # reset quota if it's a new day
         if user.last_submit.date() != datetime.now().date():
             user.update(problem_submission={})
+            return 0
         return user.problem_submission.get(str(self.problem_id), 0)
 
 
