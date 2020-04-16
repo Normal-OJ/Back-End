@@ -610,7 +610,8 @@ class Submission(MongoBase, engine=engine.Submission):
         }
         q = {k: v for k, v in q.items() if v is not None}
         # sort by upload time
-        submissions = engine.Submission.objects(**q).order_by('-timestamp')
+        submissions = engine.Submission.objects(
+            **q).only('id').order_by('-timestamp')
         # truncate
         if offset >= len(submissions) and len(submissions):
             raise ValueError(f'offset ({offset}) is out of range!')
