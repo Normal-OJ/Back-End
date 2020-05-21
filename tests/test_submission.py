@@ -10,6 +10,9 @@ from .base_tester import BaseTester, random_string
 from .test_homework import CourseData
 from .utils import *
 
+from pycallgraph import PyCallGraph
+from pycallgraph.output import GraphvizOutput
+
 A_NAMES = [
     'teacher',
     'admin',
@@ -140,31 +143,32 @@ class TestUserGetSubmission(SubmissionTester):
         assert rv.status_code == 400
 
     def test_get_all_submission(self, forge_client):
-        client = forge_client('student')
-        rv, rv_json, rv_data = BaseTester.request(
-            client,
-            'get',
-            '/submission/?offset=0&count=-1',
-        )
+        with PyCallGraph(output=GraphvizOutput()):
+            client = forge_client('student')
+            rv, rv_json, rv_data = BaseTester.request(
+                client,
+                'get',
+                '/submission/?offset=0&count=-1',
+            )
 
-        pprint(rv_json)
+            pprint(rv_json)
 
-        assert rv.status_code == 200
-        # only get online submissions
-        assert len(rv_data['submissions']) == self.init_submission_count
+            assert rv.status_code == 200
+            # only get online submissions
+            assert len(rv_data['submissions']) == self.init_submission_count
 
-        offset = self.init_submission_count // 2
-        rv, rv_json, rv_data = BaseTester.request(
-            client,
-            'get',
-            f'/submission/?offset={offset}&count=-1',
-        )
+            offset = self.init_submission_count // 2
+            rv, rv_json, rv_data = BaseTester.request(
+                client,
+                'get',
+                f'/submission/?offset={offset}&count=-1',
+            )
 
-        pprint(rv_json)
+            pprint(rv_json)
 
-        assert rv.status_code == 200
-        assert len(rv_data['submissions']) == (self.init_submission_count -
-                                               offset)
+            assert rv.status_code == 200
+            assert len(rv_data['submissions']) == (self.init_submission_count -
+                                                offset)
 
     def test_get_submission_count(self, forge_client):
         client = forge_client('student')

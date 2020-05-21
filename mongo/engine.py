@@ -6,6 +6,7 @@ import os
 import html
 from datetime import datetime
 from zipfile import ZipFile, BadZipFile
+from .utils import perm, can_view_problem
 
 __all__ = [*mongoengine.__all__]
 
@@ -125,6 +126,14 @@ class User(Document):
     AC_submission = IntField(default=0)
     submission = IntField(default=0)
     problem_submission = DictField(db_field='problemSubmission')
+
+    @property
+    def info(self):
+        return {
+            'username': self.username,
+            'displayedName': self.profile.displayed_name,
+            'md5': self.md5
+        }
 
 
 @escape_markdown.apply
@@ -335,6 +344,48 @@ class Submission(Document):
     last_send = DateTimeField(db_field='lastSend', default=datetime.now)
     comment = FileField(default=None, null=True)
 
+    def permission(self, user):
+        '''
+        3: can rejudge & grade, 
+        2: can view upload & comment, 
+        1: can view basic info, 
+        0: can't view
+        '''
+        if not can_view_problem(user, self.problem):
+            return 0
+
+        return 3 - [
+            max(perm(course, user) for course in self.problem.courses) >= 2,
+            user.username == self.user.username,
+            True,
+        ].index(True)
+
+    def to_dict(self):
+        _ret = {
+            'problemId': self.problem.problem_id,
+            'user': self.user.info,
+            'submissionId': str(self.id),
+            'timestamp': self.timestamp.timestamp(),
+            'code': bool(self.code),
+        }
+        ret = self.to_mongo()
+        old = [
+            '_id',
+            'problem',
+            'code',
+            'comment',
+        ]
+        # delete old keys
+        for o in old:
+            del ret[o]
+        # insert new keys
+        for n in _ret:
+            ret[n] = _ret[n]
+        return ret
+
+    @property
+    def handwritten(self):
+        return self.language == 3
 
 @escape_markdown.apply
 class Message(Document):

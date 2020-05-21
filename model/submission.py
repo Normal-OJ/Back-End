@@ -164,7 +164,6 @@ def get_submission_list(user, offset, count, problem_id, submission_id,
         )
     except ValueError as e:
         return HTTPError(str(e), 400)
-    submissions = [Submission(s.id) for s in submissions]
     submissions = [
         s.to_dict() for s in submissions
         if not s.handwritten or s.permission(user) > 1

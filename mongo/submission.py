@@ -94,29 +94,6 @@ class Submission(MongoBase, engine=engine.Submission):
     def username(self):
         return self.user.username
 
-    def to_dict(self):
-        _ret = {
-            'problemId': self.problem_id,
-            'user': User(self.username).info,
-            'submissionId': self.id,
-            'timestamp': self.timestamp.timestamp(),
-            'code': bool(self.code),
-        }
-        ret = self.to_mongo()
-        old = [
-            '_id',
-            'problem',
-            'code',
-            'comment',
-        ]
-        # delete old keys
-        for o in old:
-            del ret[o]
-        # insert new keys
-        for n in _ret:
-            ret[n] = _ret[n]
-        return ret
-
     @property
     def status2code(self):
         return {
@@ -129,10 +106,6 @@ class Submission(MongoBase, engine=engine.Submission):
             'JE': 6,
             'OLE': 7,
         }
-
-    @property
-    def handwritten(self):
-        return self.language == 3
 
     @property
     def tmp_dir(self) -> pathlib.Path:
@@ -200,21 +173,6 @@ class Submission(MongoBase, engine=engine.Submission):
             del_funcs.get(d, default_del_func)(d)
         self.obj.delete()
 
-    def permission(self, user):
-        '''
-        3: can rejudge & grade, 
-        2: can view upload & comment, 
-        1: can view basic info, 
-        0: can't view
-        '''
-        if not can_view(user, self.problem):
-            return 0
-
-        return 3 - [
-            max(perm(course, user) for course in self.problem.courses) >= 2,
-            user.username == self.username,
-            True,
-        ].index(True)
 
     def sandbox_resp_handler(self, resp):
         # judge queue is currently full
