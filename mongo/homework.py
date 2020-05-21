@@ -1,6 +1,7 @@
 from mongo import *
 from mongo import engine
-from mongo.course import perm, Course
+from mongo.course import Course
+from mongo.utils import perm
 from mongo.problem import Problem
 from datetime import datetime
 

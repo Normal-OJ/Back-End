@@ -1,5 +1,6 @@
 from . import engine
 from .course import *
+from .utils import perm, can_view_problem
 from zipfile import ZipFile, is_zipfile
 from pathlib import Path
 from random import randint
@@ -17,7 +18,6 @@ __all__ = [
     'delete_problem',
     'copy_problem',
     'release_problem',
-    'can_view',
 ]
 
 number = 1
@@ -130,24 +130,6 @@ def increased_number():
     serial_number.save()
 
 
-def can_view(user, problem):
-    '''cheeck if a user can view the problem'''
-    if user.role == 0:
-        return True
-    if user.contest:
-        if user.contest in problem.contests:
-            return True
-        return False
-    if user.username == problem.owner:
-        return True
-    for course in problem.courses:
-        permission = 1 if course.course_name == "Public" else perm(
-            course, user)
-        if permission and (problem.problem_status == 0 or permission >= 2):
-            return True
-    return False
-
-
 def get_problem_list(
     user,
     offset: int = 0,
@@ -173,7 +155,7 @@ def get_problem_list(
     }
     ks = {k: v for k, v in ks.items() if v is not None}
     problems = engine.Problem.objects(**ks).order_by('problemId')
-    problems = [p for p in problems if can_view(user, p)]
+    problems = [p for p in problems if can_view_problem(user, p)]
     # truncate
     if offset >= len(problems) and len(problems):
         raise IndexError

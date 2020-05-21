@@ -1,5 +1,5 @@
 from . import engine
-from mongo.course import perm
+from mongo.utils import perm
 from mongoengine import DoesNotExist, NotUniqueError
 from datetime import datetime
 from mongo.problem import Problem

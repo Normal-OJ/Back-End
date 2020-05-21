@@ -13,6 +13,7 @@ from zipfile import ZipFile
 
 from mongo import *
 from mongo import engine
+from mongo.utils import can_view_problem
 from .utils import *
 from .auth import *
 
@@ -68,7 +69,7 @@ def create_submission(user, language_type, problem_id):
     if problem.obj is None:
         return HTTPError('Unexisted problem id.', 404)
     # problem permissoion
-    if not can_view(user, problem.obj):
+    if not can_view_problem(user, problem.obj):
         return HTTPError('problem permission denied!', 403)
     # check deadline
     for homework in problem.obj.homeworks:

@@ -6,6 +6,7 @@ from pprint import pprint
 
 from mongo import *
 from mongo import engine
+from mongo.utils import can_view_problem
 from .base_tester import BaseTester, random_string
 from .test_homework import CourseData
 from .utils import *
@@ -795,7 +796,7 @@ class TestHandwrittenSubmission(SubmissionTester):
 
         pprint(f'post: {rv_json}')
 
-        assert rv.status_code == 200, can_view(
+        assert rv.status_code == 200, can_view_problem(
             User('stucent'),
             Problem(pid).obj,
         )

@@ -2,6 +2,7 @@ from . import engine
 from .user import *
 from .course import *
 from .base import *
+from .utils import *
 
 __all__ = ['Announcement']
 

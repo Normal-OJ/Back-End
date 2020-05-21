@@ -20,8 +20,8 @@ def get_sys_ann(ann_id=None):
         'title': an.title,
         'createTime': int(an.create_time.timestamp()),
         'updateTime': int(an.update_time.timestamp()),
-        'creator': User(an.creator.username).info,
-        'updater': User(an.updater.username).info,
+        'creator': an.creator.info,
+        'updater': an.updater.info,
         'markdown': an.markdown,
         'pinned': an.pinned
     } for an in anns if ann_id == None or str(an.id) == ann_id]
@@ -46,8 +46,8 @@ def anncmnt(user, course_name=None, ann_id=None):
             'title': an.title,
             'createTime': int(an.create_time.timestamp()),
             'updateTime': int(an.update_time.timestamp()),
-            'creator': User(an.creator.username).info,
-            'updater': User(an.updater.username).info,
+            'creator': an.creator.info,
+            'updater': an.updater.info,
             'markdown': an.markdown,
             'pinned': an.pinned
         } for an in anns if ann_id == None or str(an.id) == ann_id]

@@ -17,7 +17,7 @@ def found_thread(target_thread):
     thread = {
         'id': str(target_thread.id),
         'content': target_thread.markdown,
-        'author': User(target_thread.author.username).info,
+        'author': target_thread.author.info,
         'status': target_thread.status,
         'created': target_thread.created.timestamp(),
         'updated': target_thread.updated.timestamp(),

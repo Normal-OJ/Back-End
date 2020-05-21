@@ -14,8 +14,9 @@ from zipfile import ZipFile, is_zipfile
 from . import engine
 from .base import MongoBase
 from .user import User
-from .problem import Problem, can_view, get_problem_list
-from .course import Course, perm
+from .problem import Problem, get_problem_list
+from .course import Course
+from .utils import can_view_problem
 
 __all__ = [
     'SubmissionConfig',
