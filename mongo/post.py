@@ -29,12 +29,13 @@ def found_thread(target_thread):
 def found_post(course_obj, target_id=None):
     data = []
     for x in course_obj.posts:  #target_threads
-        post = dict()
-        x_thread = x.thread
-        post['thread'] = found_thread(x_thread)
-        post['title'] = x.post_name
-        if (target_id == None or post['thread']['id'] == target_id):
-            data.append(post)
+        if (target_id is not None and str(x.thread.id) != target_id):
+            continue
+        post = {
+            'thread': found_thread(x.thread),
+            'title': x.post_name,
+        }
+        data.append(post)
     return data
 
 
