@@ -166,13 +166,9 @@ def get_submission_list(user, offset, count, problem_id, submission_id,
     except ValueError as e:
         return HTTPError(str(e), 400)
     submissions = [
-        s.to_dict() for s in submissions
+        s.to_dict(False) for s in submissions
         if not s.handwritten or s.permission(user) > 1
     ]
-    # no need to display code and task results in list
-    for s in submissions:
-        del s['code']
-        del s['tasks']
     # unicorn gifs
     unicorns = [
         'https://media.giphy.com/media/xTiTnLmaxrlBHxsMMg/giphy.gif',
@@ -194,14 +190,13 @@ def get_submission_list(user, offset, count, problem_id, submission_id,
 @login_required
 @submission_required
 def get_submission(user, submission):
-    ret = submission.to_dict()
+    ret = submission.to_dict(
+        submission.permission(user) >= 2 and not submission.handwritten,
+        submission.problem.can_view_stdout)
     # check permission
     # rules about handwrittem submission
     if submission.handwritten and submission.permission(user) < 2:
         return HTTPError('forbidden.', 403)
-    # and handwritten submission doesn't have source code
-    if submission.permission(user) < 2 or submission.handwritten:
-        del ret['code']
     # check user's stdout/stderr
     if not submission.problem.can_view_stdout:
         for task in ret['tasks']:

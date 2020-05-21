@@ -43,10 +43,7 @@ def get_courses(user):
     if request.method == 'GET':
         data = []
         for co in get_user_courses(user):
-            data.append({
-                'course': co.course_name,
-                'teacher': co.teacher.info
-            })
+            data.append({'course': co.course_name, 'teacher': co.teacher.info})
 
         return HTTPResponse('Success.', data=data)
     else:

@@ -174,7 +174,6 @@ class Submission(MongoBase, engine=engine.Submission):
             del_funcs.get(d, default_del_func)(d)
         self.obj.delete()
 
-
     def sandbox_resp_handler(self, resp):
         # judge queue is currently full
         def on_500(resp):

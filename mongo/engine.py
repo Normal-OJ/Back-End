@@ -7,6 +7,7 @@ import html
 from datetime import datetime
 from zipfile import ZipFile, BadZipFile
 from .utils import perm, can_view_problem
+import functools
 
 __all__ = [*mongoengine.__all__]
 
@@ -360,14 +361,17 @@ class Submission(Document):
             True,
         ].index(True)
 
-    def to_dict(self):
+    @functools.lru_cache()
+    def to_dict(self, has_code=True, has_stdout=True):
         _ret = {
             'problemId': self.problem.problem_id,
             'user': self.user.info,
             'submissionId': str(self.id),
-            'timestamp': self.timestamp.timestamp(),
-            'code': bool(self.code),
+            'timestamp': self.timestamp.timestamp()
         }
+        if has_code:
+            _ret['code'] = bool(self.code)
+
         ret = self.to_mongo()
         old = [
             '_id',
@@ -386,6 +390,7 @@ class Submission(Document):
     @property
     def handwritten(self):
         return self.language == 3
+
 
 @escape_markdown.apply
 class Message(Document):
