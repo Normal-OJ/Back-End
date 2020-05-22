@@ -2,7 +2,7 @@ flask
 
 gunicorn
 
-mongoengine
+mongoengine==0.19.1
 blinker
 PyJWT
 requests

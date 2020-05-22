@@ -77,14 +77,6 @@ class User(MongoBase, engine=engine.User):
         keys = ['username', 'userId']
         return self.jwt(*keys, secret=True)
 
-    @property
-    def info(self):
-        return {
-            'username': self.username,
-            'displayedName': self.profile.displayed_name,
-            'md5': self.md5
-        }
-
     def jwt(self, *keys, secret=False, **kwargs):
         if not self:
             return ''

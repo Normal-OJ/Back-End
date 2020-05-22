@@ -5,6 +5,7 @@ from mongo import *
 from mongo import engine
 from .auth import *
 from .utils import *
+from mongo.utils import can_view_problem
 from mongo.problem import *
 import threading
 
@@ -68,13 +69,13 @@ def view_problem_list(user, offset, count, problem_id, tags, name, course):
     return HTTPResponse('Success.', data=data)
 
 
-@problem_api.route('/view/<problem_id>', methods=['GET'])
+@problem_api.route('/view/<int:problem_id>', methods=['GET'])
 @login_required
 def view_problem(user, problem_id):
     problem = Problem(problem_id)
-    if problem.obj is None:
+    if not problem:
         return HTTPError('Problem not exist.', 404)
-    if not can_view(user, problem.obj):
+    if not can_view_problem(user, problem.obj):
         return HTTPError('Problem cannot view.', 403)
     # filter data
     data = problem.detailed_info(
@@ -248,7 +249,7 @@ def clone_problem(user, problem_id):
     problem = Problem(problem_id).obj
     if problem is None:
         return HTTPError('Problem not exist.', 404)
-    if not can_view(user, problem):
+    if not can_view_problem(user, problem):
         return HTTPError('Problem can not view.', 403)
 
     lock.acquire()

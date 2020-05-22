@@ -43,10 +43,7 @@ def get_courses(user):
     if request.method == 'GET':
         data = []
         for co in get_user_courses(user):
-            data.append({
-                'course': co.course_name,
-                'teacher': User(co.teacher.username).info
-            })
+            data.append({'course': co.course_name, 'teacher': co.teacher.info})
 
         return HTTPResponse('Success.', data=data)
     else:
@@ -119,18 +116,14 @@ def get_course(user, course_name):
         return HTTPResponse('Success.')
 
     if request.method == 'GET':
-        tas = []
-        for ta in course.tas:
-            tas.append(ta.username)
-
         student_dict = {}
         for student, nickname in course.student_nicknames.items():
             student_dict[student] = nickname
 
         return HTTPResponse('Success.',
                             data={
-                                "teacher": User(course.teacher.username).info,
-                                "TAs": [User(t).info for t in tas],
+                                "teacher": course.teacher.info,
+                                "TAs": [ta.info for ta in course.tas],
                                 "studentNicknames": student_dict
                             })
     else:

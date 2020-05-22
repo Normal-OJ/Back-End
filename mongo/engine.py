@@ -4,8 +4,11 @@ from flask import current_app
 import mongoengine
 import os
 import html
+import logging
 from datetime import datetime
 from zipfile import ZipFile, BadZipFile
+from .utils import perm, can_view_problem
+import functools
 
 __all__ = [*mongoengine.__all__]
 
@@ -126,6 +129,14 @@ class User(Document):
     submission = IntField(default=0)
     problem_submission = DictField(db_field='problemSubmission')
 
+    @property
+    def info(self):
+        return {
+            'username': self.username,
+            'displayedName': self.profile.displayed_name,
+            'md5': self.md5
+        }
+
 
 @escape_markdown.apply
 class Homework(Document):
@@ -234,7 +245,11 @@ def problem_desc_escape(sender, document):
 
 @problem_desc_escape.apply
 class Problem(Document):
-    problem_id = IntField(db_field='problemId', required=True, unique=True)
+    problem_id = IntField(
+        db_field='problemId',
+        required=True,
+        primary_key=True,
+    )
     courses = ListField(ReferenceField('Course'), default=list)
     problem_status = IntField(
         default=1,
@@ -312,7 +327,6 @@ class Submission(Document):
             'timestamp',
             'user',
             'language',
-            'problem',
             'status',
             'score',
         )]
@@ -334,6 +348,59 @@ class Submission(Document):
     code = ZipField(required=True, null=True, max_size=10**7)
     last_send = DateTimeField(db_field='lastSend', default=datetime.now)
     comment = FileField(default=None, null=True)
+
+    def permission(self, user):
+        '''
+        3: can rejudge & grade, 
+        2: can view upload & comment, 
+        1: can view basic info, 
+        0: can't view
+        '''
+        if not can_view_problem(user, self.problem):
+            return 0
+
+        return 3 - [
+            max(perm(course, user) for course in self.problem.courses) >= 2,
+            user.username == self.user.username,
+            True,
+        ].index(True)
+
+    @functools.lru_cache()
+    def to_dict(self, has_code=True, has_output=True):
+        _ret = {
+            'problemId': self.problem.problem_id,
+            'user': self.user.info,
+            'submissionId': str(self.id),
+            'timestamp': self.timestamp.timestamp()
+        }
+        if has_code:
+            _ret['code'] = bool(self.code)
+        ret = self.to_mongo()
+        old = [
+            '_id',
+            'problem',
+            'code',
+            'comment',
+        ]
+        # delete old keys
+        for o in old:
+            del ret[o]
+        # insert new keys
+        for n in _ret:
+            ret[n] = _ret[n]
+        if has_output:
+            for task in ret['tasks']:
+                for case in task['cases']:
+                    case['output'] = str(case['output'])
+        else:
+            for task in ret['tasks']:
+                for case in task['cases']:
+                    del case['output']
+        return ret
+
+    @property
+    def handwritten(self):
+        return self.language == 3
 
 
 @escape_markdown.apply

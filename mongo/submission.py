@@ -14,8 +14,9 @@ from zipfile import ZipFile, is_zipfile
 from . import engine
 from .base import MongoBase
 from .user import User
-from .problem import Problem, can_view, get_problem_list
-from .course import Course, perm
+from .problem import Problem, get_problem_list
+from .course import Course
+from .utils import can_view_problem
 
 __all__ = [
     'SubmissionConfig',
@@ -24,6 +25,7 @@ __all__ = [
     'assign_token',
     'verify_token',
     'JudgeQueueFullError',
+    'TestCaseNotFound',
 ]
 
 # TODO: save tokens in db
@@ -53,6 +55,19 @@ class JudgeQueueFullError(Exception):
     '''
     when sandbox task queue is full
     '''
+
+
+class TestCaseNotFound(Exception):
+    '''
+    when a problem's testcase havn't been uploaded
+    '''
+    __test__ = False
+
+    def __init__(self, problem_id):
+        self.problem_id = problem_id
+
+    def __str__(self):
+        return f'{Problem(self.problem_id)}\'s testcase is not found'
 
 
 class SubmissionConfig(MongoBase, engine=engine.SubmissionConfig):
@@ -94,29 +109,6 @@ class Submission(MongoBase, engine=engine.Submission):
     def username(self):
         return self.user.username
 
-    def to_dict(self):
-        _ret = {
-            'problemId': self.problem_id,
-            'user': User(self.username).info,
-            'submissionId': self.id,
-            'timestamp': self.timestamp.timestamp(),
-            'code': bool(self.code),
-        }
-        ret = self.to_mongo()
-        old = [
-            '_id',
-            'problem',
-            'code',
-            'comment',
-        ]
-        # delete old keys
-        for o in old:
-            del ret[o]
-        # insert new keys
-        for n in _ret:
-            ret[n] = _ret[n]
-        return ret
-
     @property
     def status2code(self):
         return {
@@ -129,10 +121,6 @@ class Submission(MongoBase, engine=engine.Submission):
             'JE': 6,
             'OLE': 7,
         }
-
-    @property
-    def handwritten(self):
-        return self.language == 3
 
     @property
     def tmp_dir(self) -> pathlib.Path:
@@ -204,22 +192,6 @@ class Submission(MongoBase, engine=engine.Submission):
         for d in drops:
             del_funcs.get(d, default_del_func)(d)
         self.obj.delete()
-
-    def permission(self, user):
-        '''
-        3: can rejudge & grade, 
-        2: can view upload & comment, 
-        1: can view basic info, 
-        0: can't view
-        '''
-        if not can_view(user, self.problem):
-            return 0
-
-        return 3 - [
-            max(perm(course, user) for course in self.problem.courses) >= 2,
-            user.username == self.username,
-            True,
-        ].index(True)
 
     def sandbox_resp_handler(self, resp):
         # judge queue is currently full
@@ -389,6 +361,8 @@ class Submission(MongoBase, engine=engine.Submission):
             ],
         }
         self.logger.debug(f'meta: {meta}')
+        if self.problem.test_case.case_zip is None:
+            raise TestCaseNotFound(self.problem.problem_id)
         # setup post body
         files = {
             'src': (
@@ -582,6 +556,7 @@ class Submission(MongoBase, engine=engine.Submission):
                 problem = Problem(int(problem)).obj
             except ValueError:
                 raise ValueError(f'can not convert {type(problem)} into int')
+            # problem does not exist
             if problem is None:
                 return []
         if isinstance(submission, (Submission, engine.Submission)):
@@ -594,15 +569,18 @@ class Submission(MongoBase, engine=engine.Submission):
             q_user = q_user.obj
         if isinstance(course, str):
             course = Course(course).obj
+            # course does not exist
             if course is None:
                 return []
+        # problem's query key
         p_k = 'problem'
-        # if problem not in course
         if course:
             problems = get_problem_list(user, course=course.course_name)
+            # use all problems under this course to filter
             if problem is None:
                 p_k = 'problem__in'
                 problem = problems
+            # if problem not in course
             elif problem not in problems:
                 return []
         # query args
@@ -626,11 +604,11 @@ class Submission(MongoBase, engine=engine.Submission):
 
     @classmethod
     def add(
-            cls,
-            problem_id: str,
-            username: str,
-            lang: int,
-            timestamp: date = None,
+        cls,
+        problem_id: str,
+        username: str,
+        lang: int,
+        timestamp: date = None,
     ) -> 'Submission':
         '''
         Insert a new submission into db
@@ -641,10 +619,12 @@ class Submission(MongoBase, engine=engine.Submission):
         # check existence
         user = User(username)
         if not user:
-            raise engine.DoesNotExist(f'user {username} does not exist')
+            raise engine.DoesNotExist(f'{user} does not exist')
         problem = Problem(problem_id)
-        if problem.obj is None:
-            raise engine.DoesNotExist(f'problem {problem_id} dose not exist')
+        if not problem:
+            raise engine.DoesNotExist(f'{problem} dose not exist')
+        if problem.test_case.case_zip is None:
+            raise TestCaseNotFound(problem_id)
         if timestamp is None:
             timestamp = datetime.now()
         # create a new submission

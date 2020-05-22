@@ -1,5 +1,5 @@
 from functools import wraps
-
+from . import engine
 from mongoengine.errors import *
 
 __all__ = ['MongoBase']
@@ -14,8 +14,11 @@ class MongoBase:
 
     def __new__(cls, pk, *args, **kwargs):
         new = super().__new__(cls)
-        new.obj = new.engine(pk=pk)
-        return new.reload()
+        try:
+            new.obj = new.engine.objects(pk=pk).get()
+        except engine.DoesNotExist:
+            new.obj = new.engine(pk=pk)
+        return new
 
     def __getattr__(self, name):
         return self.obj.__getattribute__(name)
@@ -34,6 +37,9 @@ class MongoBase:
             return self._qs.filter(pk=self.pk, **self.qs_filter).__bool__()
         except ValidationError:
             return False
+
+    def __str__(self):
+        return f'{self.__class__.__name__.lower()} [{self.pk}]'
 
     def __repr__(self):
         return self.obj.to_json() if self else '{}'

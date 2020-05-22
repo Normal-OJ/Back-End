@@ -13,7 +13,7 @@ ranking_api = Blueprint('ranking_api', __name__)
 @ranking_api.route('/', methods=['GET'])
 def get_ranking():
     data = list({
-        "user": User(user.username).info,
+        "user": user.info,
         "ACProblem": len(user.AC_problem_ids),
         "ACSubmission": user.AC_submission,
         "Submission": user.submission

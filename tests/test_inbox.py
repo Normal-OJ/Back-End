@@ -54,8 +54,8 @@ class TestInbox(BaseTester):
         # assert json['data'][0]['sender'] == 'student'
         # assert json['data'][0]['status'] == 0
 
-        # global message_id
-        # message_id = json['data'][0]['messageId']
+        global message_id
+        message_id = json['data'][0]['messageId']
 
     def test_read_without_owner(self, client_student):
         # read a inbox message when you are not the owner

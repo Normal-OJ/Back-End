@@ -13,6 +13,7 @@ from zipfile import ZipFile
 
 from mongo import *
 from mongo import engine
+from mongo.utils import can_view_problem
 from .utils import *
 from .auth import *
 
@@ -68,7 +69,7 @@ def create_submission(user, language_type, problem_id):
     if problem.obj is None:
         return HTTPError('Unexisted problem id.', 404)
     # problem permissoion
-    if not can_view(user, problem.obj):
+    if not can_view_problem(user, problem.obj):
         return HTTPError('problem permission denied!', 403)
     # check deadline
     for homework in problem.obj.homeworks:
@@ -116,6 +117,8 @@ def create_submission(user, language_type, problem_id):
         return HTTPError('invalid data!', 400)
     except engine.DoesNotExist as e:
         return HTTPError(str(e), 404)
+    except TestCaseNotFound as e:
+        return HTTPError(str(e), 403)
     # update user
     user.update(
         last_submit=now,
@@ -164,15 +167,12 @@ def get_submission_list(user, offset, count, problem_id, submission_id,
         )
     except ValueError as e:
         return HTTPError(str(e), 400)
-    submissions = [Submission(s.id) for s in submissions]
     submissions = [
-        s.to_dict() for s in submissions
-        if not s.handwritten or s.permission(user) > 1
+        s.to_dict(
+            has_code=False,
+            has_output=False,
+        ) for s in submissions if not s.handwritten or s.permission(user) > 1
     ]
-    # no need to display code and task results in list
-    for s in submissions:
-        del s['code']
-        del s['tasks']
     # unicorn gifs
     unicorns = [
         'https://media.giphy.com/media/xTiTnLmaxrlBHxsMMg/giphy.gif',
@@ -194,20 +194,18 @@ def get_submission_list(user, offset, count, problem_id, submission_id,
 @login_required
 @submission_required
 def get_submission(user, submission):
-    ret = submission.to_dict()
     # check permission
-    # rules about handwrittem submission
     if submission.handwritten and submission.permission(user) < 2:
         return HTTPError('forbidden.', 403)
-    # and handwritten submission doesn't have source code
-    if submission.permission(user) < 2 or submission.handwritten:
-        del ret['code']
+    # serialize submission
+    ret = submission.to_dict(
+        has_code=submission.permission(user) >= 2
+        and not submission.handwritten,
+        has_output=submission.problem.can_view_stdout,
+    )
     # check user's stdout/stderr
-    if not submission.problem.can_view_stdout:
-        for task in ret['tasks']:
-            for case in task['cases']:
-                del case['output']
-    else:
+    if submission.problem.can_view_stdout:
+        # etract zip file
         for task in ret['tasks']:
             for case in task['cases']:
                 output = GridFSProxy(case.pop('output'))
@@ -218,7 +216,6 @@ def get_submission(user, submission):
     if 'code' in ret:
         ext = ['.c', '.cpp', '.py'][submission.language]
         ret['code'] = submission.get_code(f'main{ext}')
-
     return HTTPResponse(data=ret)
 
 
@@ -331,6 +328,8 @@ def update_submission(user, submission, code):
         return HTTPResponse(str(e), 202)
     except ValidationError as e:
         return HTTPError(str(e), 400, data=e.to_dict())
+    except TestCaseNotFound as e:
+        return HTTPError(str(e), 403)
     if success:
         return HTTPResponse(
             f'{submission} {"is finished." if submission.handwritten else "send to judgement."}'

@@ -6,6 +6,7 @@ from pprint import pprint
 
 from mongo import *
 from mongo import engine
+from mongo.utils import can_view_problem
 from .base_tester import BaseTester, random_string
 from .test_homework import CourseData
 from .utils import *
@@ -211,8 +212,8 @@ class TestUserGetSubmission(SubmissionTester):
                 'get',
                 f'/submission/{_id}',
             )
-            assert rv.status_code == 200
             assert 'code' not in rv_data, Submission(_id).user.username
+            assert rv.status_code == 200
 
     def test_get_self_submission(self, client_student):
         ids = self.submissions['student']
@@ -803,7 +804,7 @@ class TestHandwrittenSubmission(SubmissionTester):
 
         pprint(f'post: {rv_json}')
 
-        assert rv.status_code == 200, can_view(
+        assert rv.status_code == 200, can_view_problem(
             User('stucent'),
             Problem(pid).obj,
         )
