@@ -1,4 +1,5 @@
 from . import engine
+from .base import MongoBase
 from .course import *
 from .utils import perm, can_view_problem
 from zipfile import ZipFile, is_zipfile
@@ -51,17 +52,9 @@ class Number:
         return obj
 
 
-class Problem:
+class Problem(MongoBase, engine=engine.Problem):
     def __init__(self, problem_id):
         self.problem_id = problem_id
-
-    @property
-    def obj(self):
-        try:
-            obj = engine.Problem.objects.get(problem_id=self.problem_id)
-        except engine.DoesNotExist:
-            return None
-        return obj
 
     def detailed_info(self, *ks, **kns):
         '''
@@ -78,17 +71,16 @@ class Problem:
         Return:
             a dict contains problem data
         '''
-        p_obj = self.obj
-        if p_obj is None:
-            return None
+        if not self:
+            return {}
         # problem -> dict
-        _ret = p_obj.to_mongo()
+        _ret = self.to_mongo()
         # preprocess fields
         # case zip can not be serialized
         if 'caseZip' in _ret['testCase']:
             del _ret['testCase']['caseZip']
         # convert couse document to course name
-        _ret['courses'] = [course.course_name for course in p_obj.courses]
+        _ret['courses'] = [course.course_name for course in self.courses]
         ret = {}
         for k in ks:
             kns[k] = k
@@ -107,11 +99,11 @@ class Problem:
         return ret
 
     def allowed(self, language):
-        if self.obj.problem_type == 2:
+        if self.problem_type == 2:
             return True
         if language >= 3 or language < 0:
             return False
-        return bool((1 << language) & self.obj.allowed_language)
+        return bool((1 << language) & self.allowed_language)
 
     def submit_count(self, user):
         # reset quota if it's a new day
