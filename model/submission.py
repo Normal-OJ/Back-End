@@ -166,8 +166,10 @@ def get_submission_list(user, offset, count, problem_id, submission_id,
     except ValueError as e:
         return HTTPError(str(e), 400)
     submissions = [
-        s.to_dict(has_code=False, has_result=False,) for s in submissions
-        if not s.handwritten or s.permission(user) > 1
+        s.to_dict(
+            has_code=False,
+            has_result=False,
+        ) for s in submissions if not s.handwritten or s.permission(user) > 1
     ]
     # unicorn gifs
     unicorns = [
