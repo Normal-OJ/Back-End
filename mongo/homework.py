@@ -113,7 +113,7 @@ class Homework:
         # add
         for pid in new_ids:
             if pid not in homework.problem_ids:
-                problem = Problem(problem_id=pid).obj
+                problem = Problem(pid).obj
                 if problem is None:
                     continue
                 homework.problem_ids.append(pid)
@@ -127,7 +127,7 @@ class Homework:
                     }
         # delete
         for pid in drop_ids:
-            problem = Problem(problem_id=pid).obj
+            problem = Problem(pid).obj
             if problem is None:
                 continue
             homework.problem_ids.remove(pid)
@@ -154,7 +154,7 @@ class Homework:
             raise PermissionError('user is not teacher or ta')
 
         for pid in homework.problem_ids:
-            problem = Problem(problem_id=pid).obj
+            problem = Problem(pid).obj
             if problem is None:
                 continue
             problem.homeworks.remove(homework)

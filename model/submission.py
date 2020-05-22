@@ -117,6 +117,8 @@ def create_submission(user, language_type, problem_id):
         return HTTPError('invalid data!', 400)
     except engine.DoesNotExist as e:
         return HTTPError(str(e), 404)
+    except TestCaseNotFound as e:
+        return HTTPError(str(e), 403)
     # update user
     user.update(
         last_submit=now,
@@ -331,6 +333,8 @@ def update_submission(user, submission, code):
         return HTTPResponse(str(e), 202)
     except ValidationError as e:
         return HTTPError(str(e), 400, data=e.to_dict())
+    except TestCaseNotFound as e:
+        return HTTPError(str(e), 403)
     if success:
         return HTTPResponse(
             f'{submission} {"is finished." if submission.handwritten else "send to judgement."}'

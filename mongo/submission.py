@@ -25,6 +25,7 @@ __all__ = [
     'assign_token',
     'verify_token',
     'JudgeQueueFullError',
+    'TestCaseNotFound',
 ]
 
 # TODO: save tokens in db
@@ -54,6 +55,19 @@ class JudgeQueueFullError(Exception):
     '''
     when sandbox task queue is full
     '''
+
+
+class TestCaseNotFound(Exception):
+    '''
+    when a problem's testcase havn't been uploaded
+    '''
+    __test__ = False
+
+    def __init__(self, problem_id):
+        self.problem_id = problem_id
+
+    def __str__(self):
+        return f'{Problem(self.problem_id)}\'s testcase is not found'
 
 
 class SubmissionConfig(MongoBase, engine=engine.SubmissionConfig):
@@ -342,6 +356,8 @@ class Submission(MongoBase, engine=engine.Submission):
             ],
         }
         self.logger.debug(f'meta: {meta}')
+        if self.problem.test_case.case_zip is None:
+            raise TestCaseNotFound(self.problem.problem_id)
         # setup post body
         files = {
             'src': (
@@ -598,10 +614,12 @@ class Submission(MongoBase, engine=engine.Submission):
         # check existence
         user = User(username)
         if not user:
-            raise engine.DoesNotExist(f'user {username} does not exist')
+            raise engine.DoesNotExist(f'{user} does not exist')
         problem = Problem(problem_id)
         if not problem:
-            raise engine.DoesNotExist(f'problem {problem_id} dose not exist')
+            raise engine.DoesNotExist(f'{problem} dose not exist')
+        if problem.test_case.case_zip is None:
+            raise TestCaseNotFound(problem_id)
         if timestamp is None:
             timestamp = datetime.now()
         # create a new submission
