@@ -69,11 +69,11 @@ def view_problem_list(user, offset, count, problem_id, tags, name, course):
     return HTTPResponse('Success.', data=data)
 
 
-@problem_api.route('/view/<problem_id>', methods=['GET'])
+@problem_api.route('/view/<int:problem_id>', methods=['GET'])
 @login_required
 def view_problem(user, problem_id):
     problem = Problem(problem_id)
-    if problem.obj is None:
+    if not problem:
         return HTTPError('Problem not exist.', 404)
     if not can_view_problem(user, problem.obj):
         return HTTPError('Problem cannot view.', 403)
