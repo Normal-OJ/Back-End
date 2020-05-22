@@ -192,30 +192,33 @@ def get_submission_list(user, offset, count, problem_id, submission_id,
 @login_required
 @submission_required
 def get_submission(user, submission):
-    ret = submission.to_dict(has_code=submission.permission(user) >= 2
-                             and not submission.handwritten,
-                             has_result=submission.problem.can_view_stdout)
     # check permission
-    # rules about handwrittem submission
     if submission.handwritten and submission.permission(user) < 2:
         return HTTPError('forbidden.', 403)
+    # serialize submission
+    ret = submission.to_dict(
+        has_code=submission.permission(user) >= 2
+        and not submission.handwritten,
+        has_result=submission.problem.can_view_stdout,
+    )
     # check user's stdout/stderr
-    if not submission.problem.can_view_stdout:
-        for task in ret['tasks']:
-            for case in task['cases']:
-                del case['output']
-    else:
+    if submission.problem.can_view_stdout:
+        # etract zip file
         for task in ret['tasks']:
             for case in task['cases']:
                 output = GridFSProxy(case.pop('output'))
                 with ZipFile(output) as zf:
                     case['stdout'] = zf.read('stdout').decode('utf-8')
                     case['stderr'] = zf.read('stderr').decode('utf-8')
+    else:
+        # delete fields
+        for task in ret['tasks']:
+            for case in task['cases']:
+                del case['output']
     # give user source code
     if 'code' in ret:
         ext = ['.c', '.cpp', '.py'][submission.language]
         ret['code'] = submission.get_code(f'main{ext}')
-
     return HTTPResponse(data=ret)
 
 
