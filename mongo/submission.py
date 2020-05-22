@@ -535,6 +535,7 @@ class Submission(MongoBase, engine=engine.Submission):
                 problem = Problem(int(problem)).obj
             except ValueError:
                 raise ValueError(f'can not convert {type(problem)} into int')
+            # problem does not exist
             if problem is None:
                 return []
         if isinstance(submission, (Submission, engine.Submission)):
@@ -547,15 +548,18 @@ class Submission(MongoBase, engine=engine.Submission):
             q_user = q_user.obj
         if isinstance(course, str):
             course = Course(course).obj
+            # course does not exist
             if course is None:
                 return []
+        # problem's query key
         p_k = 'problem'
-        # if problem not in course
         if course:
             problems = get_problem_list(user, course=course.course_name)
+            # use all problems under this course to filter
             if problem is None:
                 p_k = 'problem__in'
                 problem = problems
+            # if problem not in course
             elif problem not in problems:
                 return []
         # query args
@@ -596,7 +600,7 @@ class Submission(MongoBase, engine=engine.Submission):
         if not user:
             raise engine.DoesNotExist(f'user {username} does not exist')
         problem = Problem(problem_id)
-        if problem.obj is None:
+        if not problem:
             raise engine.DoesNotExist(f'problem {problem_id} dose not exist')
         if timestamp is None:
             timestamp = datetime.now()
