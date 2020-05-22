@@ -170,7 +170,7 @@ def get_submission_list(user, offset, count, problem_id, submission_id,
     submissions = [
         s.to_dict(
             has_code=False,
-            has_result=False,
+            has_output=False,
         ) for s in submissions if not s.handwritten or s.permission(user) > 1
     ]
     # unicorn gifs
@@ -201,7 +201,7 @@ def get_submission(user, submission):
     ret = submission.to_dict(
         has_code=submission.permission(user) >= 2
         and not submission.handwritten,
-        has_result=submission.problem.can_view_stdout,
+        has_output=submission.problem.can_view_stdout,
     )
     # check user's stdout/stderr
     if submission.problem.can_view_stdout:
@@ -212,11 +212,6 @@ def get_submission(user, submission):
                 with ZipFile(output) as zf:
                     case['stdout'] = zf.read('stdout').decode('utf-8')
                     case['stderr'] = zf.read('stderr').decode('utf-8')
-    else:
-        # delete fields
-        for task in ret['tasks']:
-            for case in task['cases']:
-                del case['output']
     # give user source code
     if 'code' in ret:
         ext = ['.c', '.cpp', '.py'][submission.language]

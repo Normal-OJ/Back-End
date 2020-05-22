@@ -366,7 +366,7 @@ class Submission(Document):
         ].index(True)
 
     @functools.lru_cache()
-    def to_dict(self, has_code=True, has_result=True):
+    def to_dict(self, has_code=True, has_output=True):
         _ret = {
             'problemId': self.problem.problem_id,
             'user': self.user.info,
@@ -388,12 +388,14 @@ class Submission(Document):
         # insert new keys
         for n in _ret:
             ret[n] = _ret[n]
-        if has_result:
+        if has_output:
             for task in ret['tasks']:
                 for case in task['cases']:
                     case['output'] = str(case['output'])
         else:
-            del ret['tasks']
+            for task in ret['tasks']:
+                for case in task['cases']:
+                    del case['output']
         return ret
 
     @property
