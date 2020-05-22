@@ -385,11 +385,12 @@ class Submission(Document):
         # insert new keys
         for n in _ret:
             ret[n] = _ret[n]
-        if not has_result:
-            del ret['tasks']
-        else:
+        if has_result:
             for task in ret['tasks']:
-                task['output'] = str(task['output'])
+                for case in task['cases']:
+                    case['output'] = str(case['output'])
+        else:
+            del ret['tasks']
         return ret
 
     @property
