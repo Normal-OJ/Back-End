@@ -207,12 +207,12 @@ class TestUserGetSubmission(SubmissionTester):
 
         client = forge_client('student')
         for _id in ids:
-            for i in range(2):
-                rv, rv_json, rv_data = BaseTester.request(
-                    client,
-                    'get',
-                    f'/submission/{_id}',
-                )
+            rv, rv_json, rv_data = BaseTester.request(
+                client,
+                'get',
+                f'/submission/{_id}',
+            )
+            assert 'code' not in rv_data, Submission(_id).user.username
             assert rv.status_code == 200
 
     def test_get_self_submission(self, client_student):

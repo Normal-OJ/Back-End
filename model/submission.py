@@ -192,9 +192,9 @@ def get_submission_list(user, offset, count, problem_id, submission_id,
 @login_required
 @submission_required
 def get_submission(user, submission):
-    ret = submission.to_dict(
-        submission.permission(user) >= 2 and not submission.handwritten,
-        submission.problem.can_view_stdout)
+    ret = submission.to_dict(has_code=submission.permission(user) >= 2
+                             and not submission.handwritten,
+                             has_result=submission.problem.can_view_stdout)
     # check permission
     # rules about handwrittem submission
     if submission.handwritten and submission.permission(user) < 2:
