@@ -245,7 +245,11 @@ def problem_desc_escape(sender, document):
 
 @problem_desc_escape.apply
 class Problem(Document):
-    problem_id = IntField(db_field='problemId', required=True, unique=True)
+    problem_id = IntField(
+        db_field='problemId',
+        required=True,
+        primary_key=True,
+    )
     courses = ListField(ReferenceField('Course'), default=list)
     problem_status = IntField(
         default=1,
@@ -323,7 +327,6 @@ class Submission(Document):
             'timestamp',
             'user',
             'language',
-            'problem',
             'status',
             'score',
         )]
