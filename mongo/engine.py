@@ -4,6 +4,7 @@ from flask import current_app
 import mongoengine
 import os
 import html
+import logging
 from datetime import datetime
 from zipfile import ZipFile, BadZipFile
 from .utils import perm, can_view_problem
@@ -362,7 +363,7 @@ class Submission(Document):
         ].index(True)
 
     @functools.lru_cache()
-    def to_dict(self, has_code=True, has_stdout=True):
+    def to_dict(self, has_code=True, has_result=True):
         _ret = {
             'problemId': self.problem.problem_id,
             'user': self.user.info,
@@ -371,7 +372,6 @@ class Submission(Document):
         }
         if has_code:
             _ret['code'] = bool(self.code)
-
         ret = self.to_mongo()
         old = [
             '_id',
@@ -385,6 +385,11 @@ class Submission(Document):
         # insert new keys
         for n in _ret:
             ret[n] = _ret[n]
+        if not has_result:
+            del ret['tasks']
+        else:
+            for task in ret['tasks']:
+                task['output'] = str(task['output'])
         return ret
 
     @property
