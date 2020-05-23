@@ -463,6 +463,7 @@ class Submission(MongoBase, engine=engine.Submission):
             memory_usage=memory_usage,
         )
         self.finish_judging()
+        self.to_dict.cache_clear()
 
         return True
 
