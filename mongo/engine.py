@@ -398,13 +398,12 @@ class Submission(Document):
         if has_output:
             for task in ret['tasks']:
                 for case in task['cases']:
-                    case['output'] = str(case['output'])
-
                     # etract zip file
                     output = GridFSProxy(case.pop('output'))
-                    with ZipFile(output) as zf:
-                        case['stdout'] = zf.read('stdout').decode('utf-8')
-                        case['stderr'] = zf.read('stderr').decode('utf-8')
+                    if output is not None:
+                        with ZipFile(output) as zf:
+                            case['stdout'] = zf.read('stdout').decode('utf-8')
+                            case['stderr'] = zf.read('stderr').decode('utf-8')
         else:
             for task in ret['tasks']:
                 for case in task['cases']:
