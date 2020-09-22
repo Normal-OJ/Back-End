@@ -9,6 +9,7 @@ from datetime import datetime
 from zipfile import ZipFile, BadZipFile
 from .utils import perm, can_view_problem
 import functools
+from typing import Union
 
 __all__ = [*mongoengine.__all__]
 
@@ -366,7 +367,7 @@ class Submission(Document):
         ].index(True)
 
     @functools.lru_cache()
-    def to_dict(self, has_code=True, has_output=True):
+    def to_dict(self, has_code=False, has_output=False, has_code_detail=False):
         _ret = {
             'problemId': self.problem.problem_id,
             'user': self.user.info,
@@ -374,7 +375,13 @@ class Submission(Document):
             'timestamp': self.timestamp.timestamp()
         }
         if has_code:
-            _ret['code'] = bool(self.code)
+            if has_code_detail:
+                # give user source code
+                ext = ['.c', '.cpp', '.py'][self.language]
+                _ret['code'] = self.get_code(f'main{ext}')
+            else:
+                _ret['code'] = False
+
         ret = self.to_mongo()
         old = [
             '_id',
@@ -391,7 +398,12 @@ class Submission(Document):
         if has_output:
             for task in ret['tasks']:
                 for case in task['cases']:
-                    case['output'] = str(case['output'])
+                    # etract zip file
+                    output = GridFSProxy(case.pop('output'))
+                    if output is not None:
+                        with ZipFile(output) as zf:
+                            case['stdout'] = zf.read('stdout').decode('utf-8')
+                            case['stderr'] = zf.read('stderr').decode('utf-8')
         else:
             for task in ret['tasks']:
                 for case in task['cases']:
@@ -401,6 +413,25 @@ class Submission(Document):
     @property
     def handwritten(self):
         return self.language == 3
+
+    def get_code(self, path: str, binary=False) -> Union[str, bytes]:
+        # read file
+        try:
+            with ZipFile(self.code) as zf:
+                data = zf.read(path)
+        except KeyError:
+            # file not exists in the zip
+            return None
+        except AttributeError:
+            # code haven't been uploaded
+            return None
+        # decode byte if need
+        if not binary:
+            try:
+                data = data.decode('utf-8')
+            except UnicodeDecodeError:
+                data = 'Unusual file content, decode fail'
+        return data
 
 
 @escape_markdown.apply

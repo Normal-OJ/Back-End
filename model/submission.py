@@ -168,10 +168,8 @@ def get_submission_list(user, offset, count, problem_id, submission_id,
     except ValueError as e:
         return HTTPError(str(e), 400)
     submissions = [
-        s.to_dict(
-            has_code=False,
-            has_output=False,
-        ) for s in submissions if not s.handwritten or s.permission(user) > 1
+        s.to_dict(has_code=False, has_output=False, has_code_detail=False)
+        for s in submissions if not s.handwritten or s.permission(user) > 1
     ]
     # unicorn gifs
     unicorns = [
@@ -198,24 +196,11 @@ def get_submission(user, submission):
     if submission.handwritten and submission.permission(user) < 2:
         return HTTPError('forbidden.', 403)
     # serialize submission
-    ret = submission.to_dict(
-        has_code=submission.permission(user) >= 2
-        and not submission.handwritten,
-        has_output=submission.problem.can_view_stdout,
-    )
-    # check user's stdout/stderr
-    if submission.problem.can_view_stdout:
-        # etract zip file
-        for task in ret['tasks']:
-            for case in task['cases']:
-                output = GridFSProxy(case.pop('output'))
-                with ZipFile(output) as zf:
-                    case['stdout'] = zf.read('stdout').decode('utf-8')
-                    case['stderr'] = zf.read('stderr').decode('utf-8')
-    # give user source code
-    if 'code' in ret:
-        ext = ['.c', '.cpp', '.py'][submission.language]
-        ret['code'] = submission.get_code(f'main{ext}')
+    ret = submission.to_dict(has_code=submission.permission(user) >= 2
+                             and not submission.handwritten,
+                             has_output=submission.problem.can_view_stdout,
+                             has_code_detail=bool(submission.code))
+
     return HTTPResponse(data=ret)
 
 
