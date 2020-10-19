@@ -1,5 +1,6 @@
+from model import submission
+from mongo.engine import Problem, Submission
 import pytest
-import os
 import itertools
 import pathlib
 from pprint import pprint
@@ -7,8 +8,7 @@ from pprint import pprint
 from mongo import *
 from mongo import engine
 from mongo.utils import can_view_problem
-from .base_tester import BaseTester, random_string
-from .test_homework import CourseData
+from .base_tester import BaseTester
 from .utils import *
 
 A_NAMES = [
@@ -26,7 +26,6 @@ S_NAMES = {
 def submission_testcase_setup(
     save_source,
     make_course,
-    tmp_path,
 ):
     BaseTester.setup_class()
     # save base source
@@ -367,6 +366,39 @@ class TestUserGetSubmission(SubmissionTester):
             )
             assert rv.status_code == 200, rv_json
             assert rv_data['score'] == score, [*engine.Submission.objects]
+
+    def test_user_get_submission_cache(
+        self,
+        submit_once,
+    ):
+        # get one pid that student can submit
+        pid = get_problem_list(User('student'))[0].problem_id
+        # create a submission and read the result
+        submission_id = submit_once(
+            name='student',
+            pid=pid,
+            filename='base.c',
+            lang=0,
+        )
+        submission_result = Submission(submission_id).to_dict()
+        assert submission_result['status'] == -1, submission_result
+        # forge fake submission result
+        problem = Problem(pid).obj
+        assert problem
+        case_result = {
+            'exitCode': 0,
+            'status': 'WA',
+            'stdout': '',
+            'stderr': '',
+            'execTime': 87,
+            'memoryUsage': 87,
+        }
+        fake_results = [[case_result] * task.case_count
+                        for task in problem.test_case.tasks]
+        # simulate judging and see whether the result is updated
+        Submission(submission_id).process_result(fake_results)
+        submission_result = Submission(submission_id).to_dict()
+        assert submission_result['status'] == 1, submission_result
 
 
 class TestTeacherGetSubmission(SubmissionTester):

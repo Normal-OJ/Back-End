@@ -398,7 +398,7 @@ class Submission(Document):
         if has_output:
             for task in ret['tasks']:
                 for case in task['cases']:
-                    # etract zip file
+                    # extract zip file
                     output = GridFSProxy(case.pop('output'))
                     if output is not None:
                         with ZipFile(output) as zf:
