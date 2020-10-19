@@ -102,11 +102,7 @@ def get_course(user, course_name):
 
             user_problems = {}
             for pid in homework.problem_ids:
-                user_problems[str(pid)] = {
-                    'score': 0,
-                    'problemStatus': None,
-                    'submissionIds': []
-                }
+                user_problems[str(pid)] = Homework.default_problem_status()
             for user in new_user:
                 homework.student_status[user] = user_problems
 
