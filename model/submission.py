@@ -72,8 +72,8 @@ def create_submission(user, language_type, problem_id):
         return HTTPError('problem permission denied!', 403)
     # check deadline
     for homework in problem.obj.homeworks:
-        if now > homework.duration.end:
-            return HTTPError('this homework is overdue', 403)
+        if now < homework.duration.start:
+            return HTTPError('this homework hasn\'t start.', 403)
     # handwritten problem doesn't need language type
     if language_type is None:
         if problem.problem_type != 2:
