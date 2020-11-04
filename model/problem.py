@@ -17,55 +17,62 @@ lock = threading.Lock()
 
 @problem_api.route('/', methods=['GET'])
 @login_required
-@Request.args('offset', 'count', 'problem_id', 'tags', 'name', 'course')
-def view_problem_list(user, offset, count, problem_id, tags, name, course):
-    if offset is None or count is None:
-        return HTTPError(
-            'offset and count are required!',
-            400,
-        )
-
+@Request.args(
+    'offset',
+    'count',
+    'problem_id',
+    'tags',
+    'name',
+    'course',
+)
+def view_problem_list(
+    user,
+    offset,
+    count,
+    tags,
+    problem_id,
+    name,
+    course,
+):
     # casting args
     try:
-        offset = int(offset)
-        count = int(count)
+        if offset is not None:
+            offset = int(offset)
+        if count is not None:
+            count = int(count)
     except ValueError:
         return HTTPError(
             'offset and count must be integer!',
             400,
         )
-
-    # check range
-    if offset < 0:
-        return HTTPError(
-            'offset must >= 0!',
-            400,
-        )
-    if count < -1:
-        return HTTPError('count must >=-1!', 400)
-
+    problem_id, name, tags, course = (parse.unquote(p or '') or None
+                                      for p in (problem_id, name, tags,
+                                                course))
     try:
-        problem_id, name, tags, course = (parse.unquote(
-            p or '') or None for p in [problem_id, name, tags, course])
-
-        data = get_problem_list(user, offset, count, problem_id, name, tags
-                                and tags.split(','), course)
-        data = [
-            *map(
-                lambda p: {
-                    'problemId': p.problem_id,
-                    'problemName': p.problem_name,
-                    'status': p.problem_status,
-                    'ACUser': p.ac_user,
-                    'submitter': p.submitter,
-                    'tags': p.tags,
-                    'type': p.problem_type,
-                    'quota': p.quota,
-                    'submitCount': Problem(p.problem_id).submit_count(user)
-                }, data)
-        ]
+        ks = {
+            'user': user,
+            'offset': offset,
+            'count': count,
+            'tags': tags and tags.split(','),
+            'problem_id': problem_id,
+            'name': name,
+            'course': course,
+        }
+        ks = {k: v for k, v in ks.items() if v is not None}
+        data = get_problem_list(**ks)
     except IndexError:
-        return HTTPError('offset out of range!', 403)
+        return HTTPError('invalid offset', 400)
+    data = [{
+        'problemId': p.problem_id,
+        'problemName': p.problem_name,
+        'status': p.problem_status,
+        'ACUser': p.ac_user,
+        'submitter': p.submitter,
+        'tags': p.tags,
+        'type': p.problem_type,
+        'quota': p.quota,
+        'submitCount': Problem(p.problem_id).submit_count(user)
+    } for p in data]
     return HTTPResponse('Success.', data=data)
 
 
@@ -251,7 +258,6 @@ def clone_problem(user, problem_id):
         return HTTPError('Problem not exist.', 404)
     if not can_view_problem(user, problem):
         return HTTPError('Problem can not view.', 403)
-
     lock.acquire()
     copy_problem(user, problem_id)
     lock.release()
@@ -267,6 +273,5 @@ def publish_problem(user, problem_id):
         return HTTPError('Problem not exist.', 404)
     if user.role == 1 and problem.owner != user.username:
         return HTTPError('Not the owner.', 403)
-
     release_problem(problem_id)
     return HTTPResponse('Success.')
