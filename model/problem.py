@@ -130,9 +130,8 @@ def manage_problem(user, problem_id=None):
 
     def modify_general_problem(**p_ks):
         if request.method == 'POST':
-            lock.acquire()
-            pid = add_problem(user=user, **p_ks)
-            lock.release()
+            with lock as _:
+                pid = add_problem(user=user, **p_ks)
             return HTTPResponse('Success.', data={'problemId': pid})
         elif request.method == 'PUT':
             edit_problem(
@@ -203,16 +202,12 @@ def manage_problem(user, problem_id=None):
                     data={'contentType': request.content_type},
                 )
         except ValidationError as ve:
-            if lock.locked():
-                lock.release()
             return HTTPError(
                 'Invalid or missing arguments.',
                 400,
                 data=ve.to_dict(),
             )
         except engine.DoesNotExist:
-            if lock.locked():
-                lock.release()
             return HTTPError('Course not found.', 404)
 
 
@@ -258,9 +253,8 @@ def clone_problem(user, problem_id):
         return HTTPError('Problem not exist.', 404)
     if not can_view_problem(user, problem):
         return HTTPError('Problem can not view.', 403)
-    lock.acquire()
-    copy_problem(user, problem_id)
-    lock.release()
+    with lock as _:
+        copy_problem(user, problem_id)
     return HTTPResponse('Success.')
 
 
