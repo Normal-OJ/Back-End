@@ -1,10 +1,8 @@
 from mongoengine import *
 from mongoengine import signals
-from flask import current_app
 import mongoengine
 import os
 import html
-import logging
 from datetime import datetime
 from zipfile import ZipFile, BadZipFile
 from .utils import perm, can_view_problem
@@ -167,12 +165,14 @@ class Contest(Document):
 
 
 class Course(Document):
+    course_name = StringField(
+        max_length=64,
+        required=True,
+        unique=True,
+        db_field='courseName',
+    )
     student_nicknames = DictField(db_field='studentNicknames')
     course_status = IntField(default=0, choices=[0, 1])
-    course_name = StringField(max_length=64,
-                              required=True,
-                              unique=True,
-                              db_field='courseName')
     teacher = ReferenceField('User')
     tas = ListField(ReferenceField('User'))
     contests = ListField(ReferenceField('Contest', reverse_delete_rule=PULL))
@@ -183,7 +183,10 @@ class Course(Document):
 
 
 class Number(Document):
-    name = StringField(max_length=64)
+    name = StringField(
+        max_length=64,
+        primary_key=True,
+    )
     number = IntField(default=1)
 
 
