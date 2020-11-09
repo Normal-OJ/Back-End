@@ -1,8 +1,6 @@
 import secrets
 from mongoengine import connect
 from mongo import *
-from mongo import engine
-from mongo import problem
 from .conftest import *
 
 
@@ -32,7 +30,6 @@ class BaseTester:
     def drop_db(cls):
         conn = connect(cls.DB, host=cls.MONGO_HOST)
         conn.drop_database(cls.DB)
-        problem.number = 1
 
     @classmethod
     def setup_class(cls):
@@ -49,8 +46,6 @@ class BaseTester:
                 tcls = tcls.__base__
             for name, role in users.items():
                 cls.add_user(name, role)
-        if Number('serial_number').obj is None:
-            engine.Number(name='serial_number').save()
 
     @classmethod
     def teardown_class(cls):

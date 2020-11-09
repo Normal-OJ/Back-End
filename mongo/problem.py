@@ -7,7 +7,6 @@ from datetime import datetime
 import json
 
 __all__ = [
-    'Number',
     'Problem',
     'BadTestCase',
     'get_problem_list',
@@ -19,7 +18,14 @@ __all__ = [
     'release_problem',
 ]
 
-number = 1
+
+def serial_number():
+    try:
+        number = engine.Number.objects(name='serial_number').get()
+    except engine.DoesNotExist:
+        number = engine.Number(name='serial_number')
+        number.save()
+    return number
 
 
 class BadTestCase(Exception):
@@ -35,19 +41,6 @@ class BadTestCase(Exception):
             'short': self.short,
             'ERR_TYPE': 'BAD_TEST_CASE',
         }
-
-
-class Number:
-    def __init__(self, name):
-        self.name = name
-
-    @property
-    def obj(self):
-        try:
-            obj = engine.Number.objects.get(name=self.name)
-        except engine.DoesNotExist:
-            return None
-        return obj
 
 
 class Problem(MongoBase, engine=engine.Problem):
@@ -112,12 +105,7 @@ class Problem(MongoBase, engine=engine.Problem):
 
 
 def increased_number():
-    global number
-    number += 1
-
-    serial_number = Number('serial_number').obj
-    serial_number.number = number
-    serial_number.save()
+    serial_number().update(inc__number=1)
 
 
 def get_problem_list(
@@ -147,9 +135,9 @@ def get_problem_list(
     problems = engine.Problem.objects(**ks).order_by('problemId')
     problems = [p for p in problems if can_view_problem(user, p)]
     # truncate
-    if offset >= len(problems) and len(problems):
+    if offset < 0 or (offset >= len(problems) and len(problems)):
         raise IndexError
-    right = len(problems) if count == -1 else offset + count
+    right = len(problems) if count < 0 else offset + count
     right = min(len(problems), right)
     return problems[offset:right]
 
@@ -167,7 +155,7 @@ def add_problem(
     allowed_language=7,
     quota=-1,
 ):
-    problem_id = number
+    problem_id = serial_number().number
     course_objs = []
     for name in courses:
         if Course(name).obj is None:
@@ -249,7 +237,7 @@ def edit_problem_test_case(problem_id, test_case):
     Exceptions:
         zipfile.BadZipFile: if `test_case` is not a zip file
         ValueError: if test case is None or problem_id is invalid
-        engine.DoesNotExists
+        engine.DoesNotExist
     Return:
         a bool denote whether the update is successful
     '''
@@ -304,7 +292,7 @@ def delete_problem(problem_id):
 def copy_problem(user, problem_id):
     problem = Problem(problem_id).obj
     engine.Problem(
-        problem_id=number,
+        problem_id=serial_number().number,
         problem_status=problem.problem_status,
         problem_type=problem.problem_type,
         problem_name=problem.problem_name,

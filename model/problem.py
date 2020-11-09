@@ -100,7 +100,6 @@ def view_problem(user, problem_id):
     if problem.obj.problem_type == 1:
         data.update({'fillInTemplate': problem.obj.test_case.fill_in_template})
     data.update({'submitCount': problem.submit_count(user)})
-
     return HTTPResponse('Problem can view.', data=data)
 
 
@@ -123,8 +122,8 @@ def manage_problem(user, problem_id=None):
         'allowed_language',
     )
     def modify_coding_problem(**p_ks):
-        if sum(case['taskScore']
-               for case in p_ks['test_case_info']['tasks']) != 100:
+        scores = (c['taskScore'] for c in p_ks['test_case_info']['tasks'])
+        if sum(scores) != 100:
             return HTTPError("Cases' scores should be 100 in total", 400)
         return modify_general_problem(**p_ks)
 
