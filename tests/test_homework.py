@@ -1,3 +1,4 @@
+from mongo.engine import Homework
 import pytest
 from tests.base_tester import BaseTester, random_string
 from datetime import datetime
@@ -174,9 +175,18 @@ class TestHomework(BaseTester):
         )
         assert rv.status_code == 200, rv_json
         rv, rv_json, rv_data = self.request(
-            client, 'get', f'/homework/{course_data.homework_ids[0]}')
-        assert 'Yin-Da-Chen' not in rv_data['studentStatus']
-        assert 'Bo-Chieh-Chuang' in rv_data['studentStatus']
+            client,
+            'get',
+            f'/homework/{course_data.homework_ids[0]}',
+        )
+        student_status = rv_data['studentStatus']
+        assert 'Yin-Da-Chen' not in student_status
+        assert 'Bo-Chieh-Chuang' in student_status
+        default_status = Homework.default_problem_status()
+        for name, single_student_status in student_status.items():
+            for problem_status in single_student_status.values():
+                assert problem_status == default_status, (
+                    name, single_student_status)
 
     def test_delete_homework(self, forge_client, course_data):
         client = forge_client(course_data.teacher)
