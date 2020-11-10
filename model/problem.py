@@ -40,7 +40,7 @@ def view_problem_list(
             offset = int(offset)
         if count is not None:
             count = int(count)
-    except ValueError:
+    except (TypeError, ValueError):
         return HTTPError(
             'offset and count must be integer!',
             400,
