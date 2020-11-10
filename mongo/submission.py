@@ -450,7 +450,6 @@ class Submission(MongoBase, engine=engine.Submission):
         )
         self.finish_judging()
         self.to_dict.cache_clear()
-
         return True
 
     def finish_judging(self):
@@ -459,7 +458,7 @@ class Submission(MongoBase, engine=engine.Submission):
         # update homework data
         for homework in self.problem.homeworks:
             # if the homework is overdue, skip it
-            if self.created > homework.duration.end:
+            if self.timestamp > homework.duration.end:
                 continue
             stat = homework.student_status[self.username][str(self.problem_id)]
             stat['submissionIds'].append(self.id)
