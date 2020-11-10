@@ -1,8 +1,6 @@
 import pytest
-
 from tests.base_tester import BaseTester, random_string
-from datetime import datetime, timedelta, time
-
+from datetime import datetime
 from mongo import *
 
 
@@ -30,22 +28,22 @@ class CourseData:
 }])
 def course_data(request, client_admin, problem_ids):
     BaseTester.setup_class()
-
     cd = CourseData(**request.param)
     # add course
     add_course(cd.name, cd.teacher)
     # add students and TA
-    rv = client_admin.put(f'/course/{cd.name}',
-                          json={
-                              'TAs': cd.tas,
-                              'studentNicknames': cd.students
-                          })
-
+    rv = client_admin.put(
+        f'/course/{cd.name}',
+        json={
+            'TAs': cd.tas,
+            'studentNicknames': cd.students
+        },
+    )
     # add homework
     hw = Homework.add_hw(
         user=User(cd.teacher).obj,
         course_name=cd.name,
-        markdown=f'# {cd.homework_name}',
+        markdown=f'# {cd.homework_name}\n\n{random_string()}',
         hw_name=cd.homework_name,
         start=int(datetime.now().timestamp()),
         end=int(datetime.now().timestamp()),
@@ -54,9 +52,7 @@ def course_data(request, client_admin, problem_ids):
     )
     # append hw id
     cd.homework_ids.append(str(hw.id))
-
     yield cd
-
     BaseTester.teardown_class()
 
 
@@ -81,33 +77,25 @@ class TestHomework(BaseTester):
         rv = client.get(f'/homework/{course_data.homework_ids[0]}')
         rv_json = rv.get_json()
         rv_data = rv_json['data']
-
-        assert rv.status_code == 200
-        for key in ['name', 'start', 'end', 'problemIds']:
+        assert rv.status_code == 200, rv_json
+        for key in ('name', 'start', 'end', 'problemIds'):
             assert key in rv_data
 
     def test_get_list_of_homewrok(self, forge_client, course_data):
         c_data = course_data
         client = forge_client(c_data.teacher)
-
         rv = client.get(f'/course/{c_data.name}/homework')
         rv_json = rv.get_json()
         rv_data = rv_json['data']
-
-        print(rv_json)
-
-        assert rv.status_code == 200
-        assert len(rv_data) == len(c_data.homework_ids)
+        assert rv.status_code == 200, rv_json
+        assert len(rv_data) == len(c_data.homework_ids), rv_data
 
     def test_create_homework(self, forge_client, course_data):
         client = forge_client(course_data.teacher)
-
         rv, rv_json, rv_data = self.request(
             client, 'get', f'/course/{course_data.name}/homework')
-        print(rv_json)
-        assert rv.status_code == 200
+        assert rv.status_code == 200, rv_json
         before_len = len(rv_data)
-
         # create homework
         rv, rv_json, rv_data = self.request(
             client,
@@ -146,68 +134,68 @@ class TestHomework(BaseTester):
             'put',
             f'/homework/{course_data.homework_ids[0]}',
             json=new_data)
-
-        print(rv_json)
-        assert rv.status_code == 200
-
+        assert rv.status_code == 200, rv_json
         # get it again
         rv, rv_json, rv_data = self.request(
             client, 'get', f'/homework/{course_data.homework_ids[0]}')
-        print(rv_json)
-        assert rv.status_code == 200
-
-        for key in ['name', 'markdown', 'start', 'end']:
+        assert rv.status_code == 200, rv_json
+        for key in ('name', 'markdown', 'start', 'end'):
             assert rv_data[key] == new_data[key]
-        assert sorted(rv_data['problemIds']) == sorted(new_data['problemIds'])
+        assert {*rv_data['problemIds']} == {*new_data['problemIds']}
 
-    def test_update_student_status(self, forge_client, course_data,
-                                   problem_ids):
+    def test_update_student_status(
+        self,
+        forge_client,
+        course_data,
+        problem_ids,
+    ):
         # get teacher client
         client = forge_client(course_data.teacher)
-
-        rv = client.put(f'/course/{course_data.name}',
-                        json={
-                            'TAs': [],
-                            'studentNicknames': {
-                                'Yin-Da-Chen': 'noobs'
-                            }
-                        })
-
+        rv = client.put(
+            f'/course/{course_data.name}',
+            json={
+                'TAs': [],
+                'studentNicknames': {
+                    'Yin-Da-Chen': 'noobs'
+                }
+            },
+        )
         assert rv.status_code == 200
-
-        rv, rv_json, rv_data = self.request(client,
-                                            'put',
-                                            f'/course/{course_data.name}',
-                                            json={
-                                                'TAs': course_data.tas,
-                                                'studentNicknames': {
-                                                    'Bo-Chieh-Chuang': 'genius'
-                                                }
-                                            })
-
-        assert rv.status_code == 200
-
+        rv, rv_json, rv_data = self.request(
+            client,
+            'put',
+            f'/course/{course_data.name}',
+            json={
+                'TAs': course_data.tas,
+                'studentNicknames': {
+                    'Bo-Chieh-Chuang': 'genius'
+                }
+            },
+        )
+        assert rv.status_code == 200, rv_json
         rv, rv_json, rv_data = self.request(
             client, 'get', f'/homework/{course_data.homework_ids[0]}')
-
         assert 'Yin-Da-Chen' not in rv_data['studentStatus']
         assert 'Bo-Chieh-Chuang' in rv_data['studentStatus']
 
     def test_delete_homework(self, forge_client, course_data):
         client = forge_client(course_data.teacher)
-
         rv, rv_json, rv_data = self.request(
-            client, 'get', f'/homework/{course_data.homework_ids[0]}')
-        print(rv_json)
-        assert rv.status_code == 200
-
+            client,
+            'get',
+            f'/homework/{course_data.homework_ids[0]}',
+        )
+        assert rv.status_code == 200, rv_json
         # delete the homework
         rv, rv_json, rv_data = self.request(
-            client, 'delete', f'/homework/{course_data.homework_ids[0]}')
-        print(rv_json)
-        assert rv.status_code == 200
-
+            client,
+            'delete',
+            f'/homework/{course_data.homework_ids[0]}',
+        )
+        assert rv.status_code == 200, rv_json
         rv, rv_json, rv_data = self.request(
-            client, 'get', f'/homework/{course_data.homework_ids[0]}')
-        print(rv_json)
-        assert rv.status_code == 404
+            client,
+            'get',
+            f'/homework/{course_data.homework_ids[0]}',
+        )
+        assert rv.status_code == 404, rv_json
