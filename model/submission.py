@@ -1,16 +1,15 @@
-import os
 import io
 import requests as rq
 import random
-import json
-import pathlib
-import string
 import secrets
-from flask import Blueprint, request, send_file, current_app
+from flask import (
+    Blueprint,
+    send_file,
+    request,
+    current_app,
+)
 from datetime import datetime, timedelta
 from functools import wraps
-from zipfile import ZipFile
-
 from mongo import *
 from mongo import engine
 from mongo.utils import can_view_problem
@@ -73,8 +72,8 @@ def create_submission(user, language_type, problem_id):
         return HTTPError('problem permission denied!', 403)
     # check deadline
     for homework in problem.obj.homeworks:
-        if now > homework.duration.end:
-            return HTTPError('this homework is overdue', 403)
+        if now < homework.duration.start:
+            return HTTPError('this homework hasn\'t start.', 403)
     # handwritten problem doesn't need language type
     if language_type is None:
         if problem.problem_type != 2:
@@ -168,15 +167,18 @@ def get_submission_list(user, offset, count, problem_id, submission_id,
     except ValueError as e:
         return HTTPError(str(e), 400)
     submissions = [
-        s.to_dict(has_code=False, has_output=False, has_code_detail=False)
-        for s in submissions if not s.handwritten or s.permission(user) > 1
+        s.to_dict(
+            has_code=False,
+            has_output=False,
+            has_code_detail=False,
+        ) for s in submissions if not s.handwritten or s.permission(user) > 1
     ]
     # unicorn gifs
     unicorns = [
         'https://media.giphy.com/media/xTiTnLmaxrlBHxsMMg/giphy.gif',
         'https://media.giphy.com/media/26AHG5KGFxSkUWw1i/giphy.gif',
         'https://media.giphy.com/media/g6i1lEax9Pa24/giphy.gif',
-        'https://media.giphy.com/media/tTyTbFF9uEbPW/giphy.gif'
+        'https://media.giphy.com/media/tTyTbFF9uEbPW/giphy.gif',
     ]
     ret = {
         'unicorn': random.choice(unicorns),
@@ -196,11 +198,12 @@ def get_submission(user, submission):
     if submission.handwritten and submission.permission(user) < 2:
         return HTTPError('forbidden.', 403)
     # serialize submission
-    ret = submission.to_dict(has_code=submission.permission(user) >= 2
-                             and not submission.handwritten,
-                             has_output=submission.problem.can_view_stdout,
-                             has_code_detail=bool(submission.code))
-
+    ret = submission.to_dict(
+        has_code=submission.permission(user) >= 2
+        and not submission.handwritten,
+        has_output=submission.problem.can_view_stdout,
+        has_code_detail=bool(submission.code),
+    )
     return HTTPResponse(data=ret)
 
 

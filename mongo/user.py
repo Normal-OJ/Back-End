@@ -5,10 +5,7 @@ from . import engine, course
 from .utils import *
 from .base import *
 
-import base64
 import hashlib
-import html
-import json as jsonlib
 import jwt
 import os
 import re
@@ -28,7 +25,6 @@ class User(MongoBase, engine=engine.User):
     def signup(cls, username, password, email):
         if re.match(r'^[a-zA-Z0-9_\-]+$', username) is None:
             raise ValueError
-
         user = cls(username)
         user_id = hash_id(user.username, password)
         email = email.lower().strip()

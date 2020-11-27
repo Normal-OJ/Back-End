@@ -60,11 +60,8 @@ class Homework:
         user_ids = {}
         user_problems = {}
         for problem in problems:
-            user_problems[str(problem.problem_id)] = {
-                'score': 0,
-                'problemStatus': None,
-                'submissionIds': []
-            }
+            problem_id = str(problem.problem_id)
+            user_problems[problem_id] = Homework.default_problem_status()
             problem.homeworks.append(homework)
             problem.save()
 
@@ -120,11 +117,8 @@ class Homework:
                 problem.homeworks.append(homework)
                 problem.save()
                 for key in students:
-                    homework.student_status[key][str(pid)] = {
-                        'score': 0,
-                        'problemStatus': 1,
-                        'submissionIds': []
-                    }
+                    homework.student_status[key][str(
+                        pid)] = Homework.default_problem_status()
         # delete
         for pid in drop_ids:
             problem = Problem(pid).obj
@@ -190,3 +184,11 @@ class Homework:
         except engine.DoesNotExist:
             raise engine.DoesNotExist('homework not exist')
         return homework
+
+    @staticmethod
+    def default_problem_status():
+        return {
+            'score': 0,
+            'problemStatus': None,
+            'submissionIds': [],
+        }

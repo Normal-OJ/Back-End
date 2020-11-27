@@ -1,15 +1,13 @@
+# TODO: use **ks to simplify function definition
 from . import engine
 from .base import MongoBase
 from .course import *
-from .utils import perm, can_view_problem
-from zipfile import ZipFile, is_zipfile
-from pathlib import Path
-from random import randint
+from .utils import can_view_problem
+from zipfile import ZipFile
 from datetime import datetime
 import json
 
 __all__ = [
-    'Number',
     'Problem',
     'BadTestCase',
     'get_problem_list',
@@ -21,7 +19,14 @@ __all__ = [
     'release_problem',
 ]
 
-number = 1
+
+def serial_number():
+    try:
+        number = engine.Number.objects(name='serial_number').get()
+    except engine.DoesNotExist:
+        number = engine.Number(name='serial_number')
+        number.save()
+    return number
 
 
 class BadTestCase(Exception):
@@ -39,37 +44,24 @@ class BadTestCase(Exception):
         }
 
 
-class Number:
-    def __init__(self, name):
-        self.name = name
-
-    @property
-    def obj(self):
-        try:
-            obj = engine.Number.objects.get(name=self.name)
-        except engine.DoesNotExist:
-            return None
-        return obj
-
-
 class Problem(MongoBase, engine=engine.Problem):
     def __init__(self, problem_id):
         self.problem_id = problem_id
 
     def detailed_info(self, *ks, **kns):
         '''
-        return detailed info about this problem notice
+        return detailed info about this problem. notice
         that the `input` and `output` of problem test
         case won't be sent to front end, need call other
         route to get this info.
 
         Args:
-            ks (str): the field name you want to get
-            kns (str):
+            ks (*str): the field name you want to get
+            kns (**[str, str]):
                 specify the dict key you want to store
                 the data get by field name
         Return:
-            a dict contains problem data
+            a dict contains problem's data
         '''
         if not self:
             return {}
@@ -114,12 +106,7 @@ class Problem(MongoBase, engine=engine.Problem):
 
 
 def increased_number():
-    global number
-    number += 1
-
-    serial_number = Number("serial_number").obj
-    serial_number.number = number
-    serial_number.save()
+    serial_number().update(inc__number=1)
 
 
 def get_problem_list(
@@ -149,77 +136,84 @@ def get_problem_list(
     problems = engine.Problem.objects(**ks).order_by('problemId')
     problems = [p for p in problems if can_view_problem(user, p)]
     # truncate
-    if offset >= len(problems) and len(problems):
+    if offset < 0 or (offset >= len(problems) and len(problems)):
         raise IndexError
-    right = len(problems) if count == -1 else offset + count
+    right = len(problems) if count < 0 else offset + count
     right = min(len(problems), right)
     return problems[offset:right]
 
 
-def add_problem(user,
-                courses,
-                status,
-                problem_name,
-                description,
-                tags,
-                type,
-                test_case_info=None,
-                can_view_stdout=False,
-                allowed_language=7,
-                quota=-1):
-    problem_id = number
+def add_problem(
+    user,
+    courses,
+    status,
+    problem_name,
+    description,
+    tags,
+    type,
+    test_case_info=None,
+    can_view_stdout=False,
+    allowed_language=7,
+    quota=-1,
+):
+    problem_id = serial_number().number
     course_objs = []
     for name in courses:
         if Course(name).obj is None:
             raise engine.DoesNotExist
         course_objs.append(Course(name).obj)
-
-    problem = engine.Problem(problem_id=problem_id,
-                             courses=course_objs,
-                             problem_status=status,
-                             problem_type=type,
-                             problem_name=problem_name,
-                             description=description,
-                             owner=user.username,
-                             tags=tags,
-                             quota=quota)
+    problem = engine.Problem(
+        problem_id=problem_id,
+        courses=course_objs,
+        problem_status=status,
+        problem_type=type,
+        problem_name=problem_name,
+        description=description,
+        owner=user.username,
+        tags=tags,
+        quota=quota,
+    )
     problem.save()
     if type != 2:
-        problem.update(test_case=test_case_info,
-                       can_view_stdout=can_view_stdout,
-                       allowed_language=allowed_language)
-
+        problem.update(
+            test_case=test_case_info,
+            can_view_stdout=can_view_stdout,
+            allowed_language=allowed_language,
+        )
     increased_number()
-
     return problem_id
 
 
-def edit_problem(user,
-                 problem_id,
-                 courses,
-                 status,
-                 problem_name,
-                 description,
-                 tags,
-                 type,
-                 test_case_info=None,
-                 allowed_language=7,
-                 can_view_stdout=False,
-                 quota=-1):
+def edit_problem(
+    user,
+    problem_id,
+    courses,
+    status,
+    problem_name,
+    description,
+    tags,
+    type,
+    test_case_info=None,
+    allowed_language=7,
+    can_view_stdout=False,
+    quota=-1,
+):
     problem = Problem(problem_id).obj
     course_objs = []
     for name in courses:
-        if Course(name).obj is None:
+        if (course := Course(name).obj) is None:
             raise engine.DoesNotExist
-        course_objs.append(Course(name).obj)
-    problem.update(courses=course_objs,
-                   problem_status=status,
-                   problem_type=type,
-                   problem_name=problem_name,
-                   description=description,
-                   owner=user.username,
-                   tags=tags,
-                   quota=quota)
+        course_objs.append(course)
+    problem.update(
+        courses=course_objs,
+        problem_status=status,
+        problem_type=type,
+        problem_name=problem_name,
+        description=description,
+        owner=user.username,
+        tags=tags,
+        quota=quota,
+    )
     if type != 2:
         # preprocess test case
         test_case = problem.test_case
@@ -244,7 +238,7 @@ def edit_problem_test_case(problem_id, test_case):
     Exceptions:
         zipfile.BadZipFile: if `test_case` is not a zip file
         ValueError: if test case is None or problem_id is invalid
-        engine.DoesNotExists
+        engine.DoesNotExist
     Return:
         a bool denote whether the update is successful
     '''
@@ -267,8 +261,12 @@ def edit_problem_test_case(problem_id, test_case):
     # check diff
     ex = in_out - excepted_names
     sh = excepted_names - in_out
-    if len(ex) != 0 or len(sh) != 0:
-        raise BadTestCase('io data not equal to meta provided', [*ex], [*sh])
+    if len(ex) or len(sh):
+        raise BadTestCase(
+            'io data not equal to meta provided',
+            [*ex],
+            [*sh],
+        )
     # save zip file
     test_case.seek(0)
     # check whether the test case exists
@@ -294,20 +292,22 @@ def delete_problem(problem_id):
 
 def copy_problem(user, problem_id):
     problem = Problem(problem_id).obj
-    engine.Problem(problem_id=number,
-                   problem_status=problem.problem_status,
-                   problem_type=problem.problem_type,
-                   problem_name=problem.problem_name,
-                   description=problem.description,
-                   owner=user.username,
-                   tags=problem.tags,
-                   test_case=problem.test_case).save()
+    engine.Problem(
+        problem_id=serial_number().number,
+        problem_status=problem.problem_status,
+        problem_type=problem.problem_type,
+        problem_name=problem.problem_name,
+        description=problem.description,
+        owner=user.username,
+        tags=problem.tags,
+        test_case=problem.test_case,
+    ).save()
     increased_number()
 
 
 def release_problem(problem_id):
-    course = Course("Public").obj
+    course = Course('Public').obj
     problem = Problem(problem_id).obj
     problem.courses = [course]
-    problem.owner = "first_admin"
+    problem.owner = 'first_admin'
     problem.save()

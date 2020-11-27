@@ -450,7 +450,6 @@ class Submission(MongoBase, engine=engine.Submission):
         )
         self.finish_judging()
         self.to_dict.cache_clear()
-
         return True
 
     def finish_judging(self):
@@ -458,10 +457,15 @@ class Submission(MongoBase, engine=engine.Submission):
         User(self.username).add_submission(self.reload())
         # update homework data
         for homework in self.problem.homeworks:
+            # if the homework is overdue, skip it
+            if self.timestamp > homework.duration.end:
+                continue
             stat = homework.student_status[self.username][str(self.problem_id)]
             stat['submissionIds'].append(self.id)
+            # handwritten problem will only keep the last submission
             if self.handwritten:
                 stat['submissionIds'] = stat['submissionIds'][-1:]
+            # update high score / handwritten problem is judged by teacher
             if self.score >= stat['score'] or self.handwritten:
                 stat['score'] = self.score
                 stat['problemStatus'] = self.status
