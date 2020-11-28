@@ -46,19 +46,19 @@ class ZipField(FileField):
         # skip check
         if not value:
             return
+        # no limit
+        if self.max_size <= 0:
+            return
         try:
-            # no limit
-            if self.max_size <= 0:
-                return
             with ZipFile(value) as zf:
                 # the size of original files
                 size = sum(info.file_size for info in zf.infolist())
-                if size > self.max_size:
-                    self.error(
-                        f'{size} bytes exceed the max size limit ({self.max_size} bytes)'
-                    )
         except BadZipFile:
             self.error('Only accept zip file.')
+        if size > self.max_size:
+            self.error(
+                f'{size} bytes exceed the max size limit ({self.max_size} bytes)'
+            )
 
 
 class Profile(EmbeddedDocument):
@@ -139,13 +139,17 @@ class User(Document):
 
 @escape_markdown.apply
 class Homework(Document):
-    homework_name = StringField(max_length=64,
-                                required=True,
-                                db_field='homeworkName')
+    homework_name = StringField(
+        max_length=64,
+        required=True,
+        db_field='homeworkName',
+    )
     markdown = StringField(max_length=10000, default='')
-    scoreboard_status = IntField(default=0,
-                                 choices=[0, 1],
-                                 db_field='scoreboardStatus')
+    scoreboard_status = IntField(
+        default=0,
+        choices=[0, 1],
+        db_field='scoreboardStatus',
+    )
     course_id = StringField(required=True, db_field='courseId')
     duration = EmbeddedDocumentField(Duration, default=Duration)
     problem_ids = ListField(IntField(), db_field='problemIds')
@@ -422,11 +426,8 @@ class Submission(Document):
         try:
             with ZipFile(self.code) as zf:
                 data = zf.read(path)
-        except KeyError:
-            # file not exists in the zip
-            return None
-        except AttributeError:
-            # code haven't been uploaded
+        # file not exists in the zip or code haven't been uploaded
+        except (KeyError, AttributeError):
             return None
         # decode byte if need
         if not binary:
