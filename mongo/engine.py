@@ -143,6 +143,7 @@ class Homework(Document):
         max_length=64,
         required=True,
         db_field='homeworkName',
+        unique_with='course_id',
     )
     markdown = StringField(max_length=10000, default='')
     scoreboard_status = IntField(
