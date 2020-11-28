@@ -309,6 +309,11 @@ class Problem(Document):
     # Dict[username, score]
     high_scores = DictField(db_field='highScore', default={})
     quota = IntField(default=-1)
+    default_code = StringField(
+        db_field='defaultCode',
+        max_length=10**4,
+        default='',
+    )
 
 
 class CaseResult(EmbeddedDocument):
