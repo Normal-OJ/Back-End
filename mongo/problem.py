@@ -266,7 +266,11 @@ def edit_problem_test_case(problem_id, test_case):
     if chaos_path.exists() and chaos_path.is_file():
         raise BadTestCase('find chaos, but it\'s not a directory')
     # input/output filenames
-    in_out = {*ZipFile(test_case).namelist()} - {'chaos'}
+    in_out = {
+        name
+        for name in ZipFile(test_case).namelist()
+        if not name.startswith('chaos')
+    }
     # check diff
     ex = in_out - excepted_names
     sh = excepted_names - in_out
