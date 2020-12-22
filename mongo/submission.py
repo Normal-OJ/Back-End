@@ -8,7 +8,6 @@ import requests as rq
 from flask import current_app
 from tempfile import NamedTemporaryFile
 from datetime import date, datetime
-from typing import List
 from zipfile import ZipFile, is_zipfile
 
 from . import engine
@@ -124,8 +123,8 @@ class Submission(MongoBase, engine=engine.Submission):
 
     @property
     def tmp_dir(self) -> pathlib.Path:
-        tmp_dir = self.config().TMP_DIR / self.id
-        tmp_dir.mkdir(exist_ok=True)
+        tmp_dir = self.config().TMP_DIR / self.username / self.id
+        tmp_dir.mkdir(exist_ok=True, parents=True)
         return tmp_dir
 
     @property
@@ -159,6 +158,21 @@ class Submission(MongoBase, engine=engine.Submission):
             cls._config.save()
         cls._config.reload()
         return cls._config
+
+    def get_output(self, task_no, case_no, text=True):
+        try:
+            case = self.tasks[task_no].cases[case_no]
+        except IndexError:
+            raise FileNotFoundError('task not exist')
+        ret = {}
+        try:
+            with ZipFile(case.output) as zf:
+                ret = {k: zf.read(k) for k in ('stdout', 'stderr')}
+                if text:
+                    ret = {k: v.decode('utf-8') for k, v in ret.items()}
+        except AttributeError as e:
+            raise AttributeError('The submission is still in pending')
+        return ret
 
     def delete_output(self, *args):
         '''
