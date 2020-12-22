@@ -208,7 +208,7 @@ def get_submission(user, submission):
 
 
 @submission_api.route(
-    '/<submission_id>/output/<task_no:int>/<case_no:int>',
+    '/<submission_id>/output/<int:task_no>/<int:case_no>',
     methods=['GET'],
 )
 @Request.args('text')
