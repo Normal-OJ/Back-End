@@ -86,7 +86,7 @@ class User(MongoBase, engine=engine.User):
             'secret': secret,
             'data': data
         }
-        return jwt.encode(payload, JWT_SECRET, algorithm='HS256').decode()
+        return jwt.encode(payload, JWT_SECRET, algorithm='HS256')
 
     def change_password(self, password):
         user_id = hash_id(self.username, password)
