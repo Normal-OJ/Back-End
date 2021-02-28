@@ -46,15 +46,15 @@ class ZipField(FileField):
         # skip check
         if not value:
             return
-        # no limit
-        if self.max_size <= 0:
-            return
         try:
             with ZipFile(value) as zf:
                 # the size of original files
                 size = sum(info.file_size for info in zf.infolist())
         except BadZipFile:
             self.error('Only accept zip file.')
+        # no limit
+        if self.max_size <= 0:
+            return
         if size > self.max_size:
             self.error(
                 f'{size} bytes exceed the max size limit ({self.max_size} bytes)'

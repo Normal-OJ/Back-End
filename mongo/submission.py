@@ -101,11 +101,11 @@ class Submission(MongoBase, engine=engine.Submission):
         return str(self.obj.id)
 
     @property
-    def problem_id(self):
+    def problem_id(self) -> int:
         return self.problem.problem_id
 
     @property
-    def username(self):
+    def username(self) -> str:
         return self.user.username
 
     @property
