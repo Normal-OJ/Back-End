@@ -3,6 +3,7 @@ from mongoengine import signals
 import mongoengine
 import os
 import html
+from enum import Enum, IntEnum
 from datetime import datetime
 from zipfile import ZipFile, BadZipFile
 from .utils import perm, can_view_problem
@@ -61,6 +62,17 @@ class ZipField(FileField):
             )
 
 
+class IntEnumField(IntField):
+    def __init__(self, enum: IntEnum, **ks):
+        super().__init__(**ks)
+        self.enum = enum
+
+    def validate(self, value):
+        choices = (*self.enum.__members__.values(), )
+        if value not in choices:
+            self.error(f'Value must be one of {choices}')
+
+
 class Profile(EmbeddedDocument):
     displayed_name = StringField(
         db_field='displayedName',
@@ -105,13 +117,18 @@ class Duration(EmbeddedDocument):
 
 
 class User(Document):
+    class Role(IntEnum):
+        ADMIN = 0
+        TEACHER = 1
+        STUDENT = 2
+
     username = StringField(max_length=16, required=True, primary_key=True)
     user_id = StringField(db_field='userId', max_length=24, required=True)
     user_id2 = StringField(db_field='userId2', max_length=24, default='')
     email = EmailField(required=True, unique=True, max_length=128)
     md5 = StringField(required=True, max_length=32)
     active = BooleanField(default=False)
-    role = IntField(default=2, choices=[0, 1, 2])
+    role = IntEnumField(default=Role.STUDENT, enum=Role)
     profile = EmbeddedDocumentField(Profile, default=Profile)
     editor_config = EmbeddedDocumentField(
         EditorConfig,
@@ -133,7 +150,7 @@ class User(Document):
         return {
             'username': self.username,
             'displayedName': self.profile.displayed_name,
-            'md5': self.md5
+            'md5': self.md5,
         }
 
 
