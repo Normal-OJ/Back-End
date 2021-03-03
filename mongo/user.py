@@ -86,14 +86,14 @@ class User(MongoBase, engine=engine.User):
             'secret': secret,
             'data': data
         }
-        return jwt.encode(payload, JWT_SECRET, algorithm='HS256').decode()
+        return jwt.encode(payload, JWT_SECRET, algorithm='HS256')
 
     def change_password(self, password):
         user_id = hash_id(self.username, password)
         self.update(user_id=user_id, user_id2=user_id)
         self.reload()
 
-    def activate(self, profile):
+    def activate(self, profile={}) -> 'User':
         '''
         activate a user
 
@@ -118,8 +118,7 @@ class User(MongoBase, engine=engine.User):
         pub_course.student_nicknames.update({
             self.username: self.username,
         })
-        pub_course.save()
-        return True
+        return self.reload()
 
     def add_submission(self, submission: engine.Submission):
         if submission.score == 100:

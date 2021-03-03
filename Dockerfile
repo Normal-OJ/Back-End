@@ -2,7 +2,7 @@ FROM python:alpine
 
 WORKDIR /app
 
-COPY ./requirements.txt ./requirements.txt
+COPY ./requirements/prod.txt ./requirements.txt
 
 RUN apk add --update --no-cache g++ gcc libxslt-dev
 

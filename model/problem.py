@@ -93,6 +93,7 @@ def view_problem(user, problem_id):
         'allowedLanguage',
         'courses',
         'quota',
+        defaultCode='defaultCode',
         status='problemStatus',
         type='problemType',
         testCase='testCase__tasks',
@@ -120,6 +121,7 @@ def manage_problem(user, problem_id=None):
         'test_case_info',
         'can_view_stdout',
         'allowed_language',
+        'default_code',
     )
     def modify_coding_problem(**p_ks):
         scores = (c['taskScore'] for c in p_ks['test_case_info']['tasks'])

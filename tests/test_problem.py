@@ -342,7 +342,9 @@ class TestProblem(BaseTester):
             'quota':
             -1,
             'submitCount':
-            0
+            0,
+            'defaultCode':
+            '',
         }
 
     # student view offline problem (GET /problem/view/<problem_id>)
@@ -386,7 +388,9 @@ class TestProblem(BaseTester):
             'quota':
             -1,
             'submitCount':
-            0
+            0,
+            'defaultCode':
+            '',
         }
 
     # student view problem not exist (GET /problem/view/<problem_id>)

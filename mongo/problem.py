@@ -6,6 +6,7 @@ from .utils import can_view_problem
 from zipfile import ZipFile
 from datetime import datetime
 import json
+import zipfile
 
 __all__ = [
     'Problem',
@@ -155,6 +156,7 @@ def add_problem(
     can_view_stdout=False,
     allowed_language=7,
     quota=-1,
+    default_code='',
 ):
     problem_id = serial_number().number
     course_objs = []
@@ -172,6 +174,7 @@ def add_problem(
         owner=user.username,
         tags=tags,
         quota=quota,
+        default_code=default_code,
     )
     problem.save()
     if type != 2:
@@ -197,6 +200,7 @@ def edit_problem(
     allowed_language=7,
     can_view_stdout=False,
     quota=-1,
+    default_code='',
 ):
     problem = Problem(problem_id).obj
     course_objs = []
@@ -213,6 +217,7 @@ def edit_problem(
         owner=user.username,
         tags=tags,
         quota=quota,
+        default_code=default_code,
     )
     if type != 2:
         # preprocess test case
@@ -256,8 +261,16 @@ def edit_problem_test_case(problem_id, test_case):
         for j in range(task.case_count):
             excepted_names.add(f'{i:02d}{j:02d}.in')
             excepted_names.add(f'{i:02d}{j:02d}.out')
+    # check chaos folder
+    chaos_path = zipfile.Path(test_case, at='chaos')
+    if chaos_path.exists() and chaos_path.is_file():
+        raise BadTestCase('find chaos, but it\'s not a directory')
     # input/output filenames
-    in_out = {*ZipFile(test_case).namelist()}
+    in_out = {
+        name
+        for name in ZipFile(test_case).namelist()
+        if not name.startswith('chaos')
+    }
     # check diff
     ex = in_out - excepted_names
     sh = excepted_names - in_out

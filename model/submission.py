@@ -207,6 +207,42 @@ def get_submission(user, submission):
     return HTTPResponse(data=ret)
 
 
+@submission_api.route(
+    '/<submission_id>/output/<int:task_no>/<int:case_no>',
+    methods=['GET'],
+)
+@Request.args('text')
+@login_required
+@submission_required
+def get_submission_output(
+    user,
+    submission,
+    task_no,
+    case_no,
+    text,
+):
+    if submission.permission(user) < 2:
+        return HTTPError('permission denied', 403)
+    if text is None:
+        text = True
+    else:
+        try:
+            text = {'true': True, 'false': False}[text]
+        except KeyError:
+            return HTTPError('Invalid `text` value.', 400)
+    try:
+        output = submission.get_output(
+            task_no,
+            case_no,
+            text=text,
+        )
+    except FileNotFoundError as e:
+        return HTTPError(str(e), 400)
+    except AttributeError as e:
+        return HTTPError(str(e), 102)
+    return HTTPResponse('ok', data=output)
+
+
 @submission_api.route('/<submission_id>/pdf/<item>', methods=['GET'])
 @login_required
 @submission_required

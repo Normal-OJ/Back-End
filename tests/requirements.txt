@@ -1,2 +1,0 @@
-mongomock
-pytest

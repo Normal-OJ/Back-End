@@ -180,7 +180,9 @@ class Homework:
     def get_by_name(course_name, homework_name):
         try:
             homework = engine.Homework.objects.get(
-                course_id=Course(course_name).id, homework_name=homework_name)
+                course_id=Course(course_name).id,
+                homework_name=homework_name,
+            )
         except engine.DoesNotExist:
             raise engine.DoesNotExist('homework not exist')
         return homework
