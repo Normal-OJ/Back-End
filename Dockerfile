@@ -1,11 +1,9 @@
-FROM python:alpine
+FROM python:3.7-slim
 
 WORKDIR /app
 
-COPY ./requirements/prod.txt ./requirements.txt
+COPY ./requirements ./requirements
 
-RUN apk add --update --no-cache g++ gcc libxslt-dev
-
-RUN pip install -r requirements.txt
+RUN pip install -r requirements/dev.txt
 
 CMD gunicorn app:app -c gunicorn.conf.py
