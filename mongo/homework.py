@@ -25,7 +25,7 @@ class Homework(MongoBase, engine=engine.Homework):
         # query db check the hw doesn't exist
         course = Course(course_name).obj
         if course is None:
-            raise DoesNotExist('course not exist')
+            raise engine.DoesNotExist('course not exist')
         # check user is teacher or ta
         if perm(course, user) <= 1:
             raise PermissionError('user is not teacher or ta')
@@ -34,11 +34,11 @@ class Homework(MongoBase, engine=engine.Homework):
                 course_id=str(course_id),
                 homework_name=hw_name,
         ):
-            raise NotUniqueError('homework exist')
+            raise engine.NotUniqueError('homework exist')
         # check problems exist
         problems = [*map(Problem, problem_ids)]
         if not all(problems):
-            raise DoesNotExist(f'some problems not found!')
+            raise engine.DoesNotExist(f'some problems not found!')
         homework = cls.engine(
             homework_name=hw_name,
             course_id=str(course_id),
@@ -77,7 +77,7 @@ class Homework(MongoBase, engine=engine.Homework):
         end: Optional[datetime] = None,
         scoreboard_status: Optional[int] = None,
     ):
-        homework = engine.Homework.objects.get(id=homework_id)
+        homework = cls.engine.objects.get(id=homework_id)
         course = engine.Course.objects.get(id=homework.course_id)
         # check user is teacher or ta
         if perm(course, user) <= 1:
@@ -88,7 +88,7 @@ class Homework(MongoBase, engine=engine.Homework):
                     course_id=str(course.id),
                     homework_name=new_hw_name,
             ):
-                raise NotUniqueError('homework exist')
+                raise engine.NotUniqueError('homework exist')
             else:
                 homework.update(homework_name=new_hw_name)
         # update fields
@@ -124,28 +124,26 @@ class Homework(MongoBase, engine=engine.Homework):
                 del status[str(pid)]
         return homework
 
-    # delete  problems/paticipants in hw
-    @staticmethod
-    def delete_problems(user, homework_id):
-        homework = engine.Homework.objects.get(id=homework_id)
+    # delete problems/paticipants in hw
+    @classmethod
+    def delete_problems(
+        cls,
+        user,
+        homework_id,
+    ):
+        homework = cls.engine.objects.get(id=homework_id)
         if homework is None:
             raise engine.DoesNotExist('homework not exist')
-
         course = engine.Course.objects.get(id=homework.course_id)
         # check user is teacher or ta
         if perm(course, user) <= 1:
             raise PermissionError('user is not teacher or ta')
-
         for pid in homework.problem_ids:
             problem = Problem(pid).obj
             if problem is None:
                 continue
-            problem.homeworks.remove(homework)
-            problem.save()
-
+            problem.update(pull__homeworks=homework)
         homework.delete()
-        course.save()
-
         return homework
 
     @staticmethod
@@ -157,18 +155,18 @@ class Homework(MongoBase, engine=engine.Homework):
         homeworks = sorted(homeworks, key=lambda h: h.duration.start)
         return homeworks
 
-    @staticmethod
-    def get_by_id(homework_id):
+    @classmethod
+    def get_by_id(cls, homework_id):
         try:
-            homework = engine.Homework.objects.get(id=homework_id)
+            homework = cls.engine.objects.get(id=homework_id)
         except engine.DoesNotExist:
             raise engine.DoesNotExist('homework not exist')
         return homework
 
-    @staticmethod
-    def get_by_name(course_name, homework_name):
+    @classmethod
+    def get_by_name(cls, course_name, homework_name):
         try:
-            homework = engine.Homework.objects.get(
+            homework = cls.engine.objects.get(
                 course_id=Course(course_name).id,
                 homework_name=homework_name,
             )
