@@ -41,7 +41,7 @@ def course_data(request, client_admin, problem_ids):
         },
     )
     # add homework
-    hw = Homework.add_hw(
+    hw = Homework.add(
         user=User(cd.teacher).obj,
         course_name=cd.name,
         markdown=f'# {cd.homework_name}\n\n{random_string()}',

@@ -10,7 +10,7 @@ __all__ = ['Homework']
 
 class Homework:
     @staticmethod
-    def add_hw(
+    def add(
         user,
         course_name,
         hw_name,

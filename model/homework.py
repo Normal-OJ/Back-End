@@ -24,7 +24,7 @@ def homework_entry(user, homework_id=None):
     def add_homework(course_name, name, markdown, start, end, problem_ids,
                      scoreboard_status):
         try:
-            homework = Homework.add_hw(
+            homework = Homework.add(
                 user=user,
                 course_name=course_name,
                 markdown=markdown,
