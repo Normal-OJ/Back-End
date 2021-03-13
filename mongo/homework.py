@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from . import engine
 from .base import MongoBase
 from .course import Course
@@ -65,28 +65,32 @@ class Homework(MongoBase, engine=engine.Homework):
         course.update(push__homeworks=homework.id)
         return homework
 
-    @staticmethod
-    def update(user, homework_id, markdown, new_hw_name, start, end,
-               problem_ids, scoreboard_status):
+    @classmethod
+    def update(
+        cls,
+        user,
+        homework_id: str,
+        markdown: str,
+        new_hw_name: str,
+        problem_ids: List[int],
+        start: Optional[datetime] = None,
+        end: Optional[datetime] = None,
+        scoreboard_status: Optional[int] = None,
+    ):
         homework = engine.Homework.objects.get(id=homework_id)
         course = engine.Course.objects.get(id=homework.course_id)
-
         # check user is teacher or ta
         if perm(course, user) <= 1:
             raise PermissionError('user is not tacher or ta')
-
-        course_id = course.id
-        students = course.student_nicknames
         # check the new_name hasn't been use in this course
         if new_hw_name is not None:
-            result = engine.Homework.objects(course_id=str(course_id),
-                                             homework_name=new_hw_name)
-            if len(result) != 0:
-                raise engine.NotUniqueError('homework exist')
+            if cls.engine.objects(
+                    course_id=str(course.id),
+                    homework_name=new_hw_name,
+            ):
+                raise NotUniqueError('homework exist')
             else:
-                homework.homework_name = new_hw_name
-                homework.save()
-
+                homework.update(homework_name=new_hw_name)
         # update fields
         if start is not None:
             homework.duration.start = datetime.fromtimestamp(start)
@@ -94,34 +98,30 @@ class Homework(MongoBase, engine=engine.Homework):
             homework.duration.end = datetime.fromtimestamp(end)
         if scoreboard_status is not None:
             homework.scoreboard_status = scoreboard_status
+        if markdown is not None:
+            homework.markdown = markdown
+        homework.save()
         drop_ids = set(homework.problem_ids) - set(problem_ids)
         new_ids = set(problem_ids) - set(homework.problem_ids)
         # add
         for pid in new_ids:
-            if pid not in homework.problem_ids:
-                problem = Problem(pid).obj
-                if problem is None:
-                    continue
-                homework.problem_ids.append(pid)
-                problem.homeworks.append(homework)
-                problem.save()
-                for key in students:
-                    homework.student_status[key][str(
-                        pid)] = Homework.default_problem_status()
+            problem = Problem(pid).obj
+            if problem is None:
+                continue
+            homework.update(push__problem_ids=pid)
+            problem.update(push__homeworks=homework)
+            for key in course.student_nicknames:
+                homework.student_status[key][str(
+                    pid)] = Homework.default_problem_status()
         # delete
         for pid in drop_ids:
             problem = Problem(pid).obj
             if problem is None:
                 continue
-            homework.problem_ids.remove(pid)
-            problem.homeworks.remove(homework)
-            problem.save()
+            homework.update(pull__problem_ids=pid)
+            problem.update(pull__homeworks=homework)
             for status in homework.student_status.values():
                 del status[str(pid)]
-        if markdown is not None:
-            homework.markdown = markdown
-
-        homework.save()
         return homework
 
     # delete  problems/paticipants in hw
