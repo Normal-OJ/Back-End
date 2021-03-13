@@ -2,6 +2,7 @@ from . import engine
 from .user import *
 from .utils import *
 import re
+from typing import Optional
 
 __all__ = [
     'Course',
@@ -21,7 +22,7 @@ class Course:
         self.course_name = course_name
 
     @property
-    def obj(self):
+    def obj(self) -> Optional[engine.Course]:
         try:
             obj = engine.Course.objects.get(course_name=self.course_name)
         except:

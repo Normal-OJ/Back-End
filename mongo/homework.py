@@ -1,42 +1,45 @@
-from mongo import *
-from mongo import engine
-from mongo.course import Course
-from mongo.utils import perm
-from mongo.problem import Problem
+from typing import List
+from . import engine
+from .base import MongoBase
+from .course import Course
+from .utils import perm
+from .problem import Problem
 from datetime import datetime
 
 __all__ = ['Homework']
 
 
-class Homework:
-    @staticmethod
+class Homework(MongoBase, engine=engine.Homework):
+    @classmethod
     def add(
+        cls,
         user,
-        course_name,
-        hw_name,
-        problem_ids=[],
-        markdown='',
-        scoreboard_status=0,
+        course_name: str,
+        hw_name: str,
+        problem_ids: List[int] = [],
+        markdown: str = '',
+        scoreboard_status: int = 0,
         start=None,
         end=None,
     ):
         # query db check the hw doesn't exist
         course = Course(course_name).obj
         if course is None:
-            raise engine.DoesNotExist('course not exist')
-        course_id = course.id
-        students = course.student_nicknames
-        homework = engine.Homework.objects(
-            course_id=str(course_id),
-            homework_name=hw_name,
-        )
+            raise DoesNotExist('course not exist')
         # check user is teacher or ta
         if perm(course, user) <= 1:
             raise PermissionError('user is not teacher or ta')
-        if len(homework) != 0:
-            raise engine.NotUniqueError('homework exist')
-
-        homework = engine.Homework(
+        course_id = course.id
+        if cls.engine.objects(
+                course_id=str(course_id),
+                homework_name=hw_name,
+        ):
+            raise NotUniqueError('homework exist')
+        # check problems exist
+        problems = [*map(Problem, problem_ids)]
+        if not all(problems):
+            raise DoesNotExist(f'some problems not found!')
+        homework = cls.engine(
             homework_name=hw_name,
             course_id=str(course_id),
             problem_ids=problem_ids,
@@ -47,33 +50,19 @@ class Homework:
             homework.duration.start = datetime.fromtimestamp(start)
         if end:
             homework.duration.end = datetime.fromtimestamp(end)
-
-        problems = []
-        for problem_id in problem_ids:
-            problem = Problem(problem_id).obj
-            if problem is None:
-                raise engine.DoesNotExist(f'problem {problem_id} not found!')
-            problems.append(problem)
         homework.save()
-
         # init student status
-        user_ids = {}
         user_problems = {}
         for problem in problems:
             problem_id = str(problem.problem_id)
-            user_problems[problem_id] = Homework.default_problem_status()
-            problem.homeworks.append(homework)
-            problem.save()
-
-        for key in students:
-            user_ids[key] = user_problems
-        homework.student_status = user_ids
-        homework.save()
-
-        # get homeworkId then store in the correspond course
-        course.homeworks.append(homework.id)
-        course.save()
-
+            user_problems[problem_id] = cls.default_problem_status()
+            problem.update(push__homeworks=homework)
+        homework.update(student_status={
+            s: user_problems
+            for s in course.student_nicknames
+        })
+        # add homework to course
+        course.update(push__homeworks=homework.id)
         return homework
 
     @staticmethod
