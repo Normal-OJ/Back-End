@@ -203,7 +203,7 @@ def get_submission(user, submission):
         return HTTPError('forbidden.', 403)
     # ip validation
     ip = request.headers.get('X-Forwarded-For', '').split(',')[-1].strip()
-    if not Problem(submission.problem.pid).is_valid_ip(ip):
+    if not Problem(submission.problem.problem_id).is_valid_ip(ip):
         return HTTPError('Invalid IP address.', 403)
     # serialize submission
     ret = submission.to_dict(
