@@ -5,6 +5,7 @@ from .course import *
 from .utils import can_view_problem
 from zipfile import ZipFile
 from datetime import datetime
+from typing import List
 import json
 import zipfile
 
@@ -104,6 +105,11 @@ class Problem(MongoBase, engine=engine.Problem):
             user.update(problem_submission={})
             return 0
         return user.problem_submission.get(str(self.problem_id), 0)
+
+    def running_homeworks(self) -> List:
+        from .homework import Homework
+        now = datetime.now()
+        return [Homework(hw.id) for hw in self.homeworks if now in hw.dutaion]
 
 
 def increased_number():

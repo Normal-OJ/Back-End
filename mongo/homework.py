@@ -4,12 +4,20 @@ from .base import MongoBase
 from .course import Course
 from .utils import perm
 from .problem import Problem
+from .ip_filter import IPFilter
 from datetime import datetime
 
 __all__ = ['Homework']
 
 
 class Homework(MongoBase, engine=engine.Homework):
+    def is_valid_ip(self, ip: str) -> bool:
+        # no restriction, always valid
+        if not self.ip_filters:
+            return True
+        ip_filters = map(IPFilter, self.ip_filters)
+        return any(_filter.match(ip) for _filter in ip_filters)
+
     @classmethod
     def add(
         cls,
@@ -19,8 +27,8 @@ class Homework(MongoBase, engine=engine.Homework):
         problem_ids: List[int] = [],
         markdown: str = '',
         scoreboard_status: int = 0,
-        start=None,
-        end=None,
+        start: Optional[float] = None,
+        end: Optional[float] = None,
     ):
         # query db check the hw doesn't exist
         course = Course(course_name).obj

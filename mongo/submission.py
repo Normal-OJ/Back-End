@@ -15,7 +15,6 @@ from .base import MongoBase
 from .user import User
 from .problem import Problem, get_problem_list
 from .course import Course
-from .utils import can_view_problem
 
 __all__ = [
     'SubmissionConfig',
@@ -156,8 +155,7 @@ class Submission(MongoBase, engine=engine.Submission):
             cls._config = SubmissionConfig('submission')
         if not cls._config:
             cls._config.save()
-        cls._config.reload()
-        return cls._config
+        return cls._config.reload()
 
     def get_output(self, task_no, case_no, text=True):
         try:

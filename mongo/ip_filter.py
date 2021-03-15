@@ -1,10 +1,7 @@
 import re
 from typing import Union
 
-__all__ = (
-    'OctetMatcher',
-    'IPFilter',
-)
+__all__ = ('IPFilter', )
 
 
 class OctetMatcher:
