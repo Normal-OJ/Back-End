@@ -11,11 +11,14 @@ class OctetMatcher:
             if not 0 <= num < 256:
                 raise ValueError(f'A octet must in range [0, 255], got {num}.')
             self.ranges = ((num, num), )
+        elif pattern == '*':
+            self.ranges = ((0, 255), )
         else:
             pattern = pattern.replace(' ', '').split(',')
             if any(not re.match(r'\d+-\d+', r) for r in pattern):
                 raise ValueError(f'Invalid range pattern.')
-            ranges = ((*sorted(map(int, r.split('-'))), ) for r in pattern)
+            ranges = tuple(
+                (*sorted(map(int, r.split('-'))), ) for r in pattern)
             if any(l < 0 or h > 255 for l, h in ranges):
                 raise ValueError(f'Invalid number range.')
             self.ranges = ranges
