@@ -39,11 +39,11 @@ class IPFilter:
             raise False
         if not all(x.isdecimal() for x in ip):
             raise False
-        if not all(0 <= x <= 255 for x in ip):
+        if not all(0 <= int(x) <= 255 for x in ip):
             return False
         return True
 
     def match(self, ip: str) -> bool:
         if not self.is_valid_ip(ip):
             return False
-        return all(m.match(i) for i, m in zip(ip.split(','), self.matchers))
+        return all(m.match(i) for i, m in zip(ip.split('.'), self.matchers))

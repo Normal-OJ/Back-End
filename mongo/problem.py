@@ -109,7 +109,7 @@ class Problem(MongoBase, engine=engine.Problem):
     def running_homeworks(self) -> List:
         from .homework import Homework
         now = datetime.now()
-        return [Homework(hw.id) for hw in self.homeworks if now in hw.dutaion]
+        return [Homework(hw.id) for hw in self.homeworks if now in hw.duration]
 
     def is_valid_ip(self, ip: str):
         return all(hw.is_valid_ip(ip) for hw in self.running_homeworks())
