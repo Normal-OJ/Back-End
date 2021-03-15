@@ -87,7 +87,7 @@ def view_problem(user, problem_id):
         return HTTPError('Problem cannot view.', 403)
     # ip validation
     ip = request.headers.get('X-Forwarded-For', '').split(',')[-1].strip()
-    if not all(hw.is_valid_ip(ip) for hw in problem.running_homeworks()):
+    if not problem.is_valid_ip(ip):
         return HTTPError('Invalid IP address.', 403)
     # filter data
     data = problem.detailed_info(

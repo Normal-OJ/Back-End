@@ -111,6 +111,9 @@ class Problem(MongoBase, engine=engine.Problem):
         now = datetime.now()
         return [Homework(hw.id) for hw in self.homeworks if now in hw.dutaion]
 
+    def is_valid_ip(self, ip: str):
+        return all(hw.is_valid_ip(ip) for hw in self.running_homeworks())
+
 
 def increased_number():
     serial_number().update(inc__number=1)
