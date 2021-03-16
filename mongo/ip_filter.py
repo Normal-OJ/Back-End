@@ -23,6 +23,9 @@ class OctetMatcher:
                 raise ValueError(f'Invalid number range.')
             self.ranges = ranges
 
+    def __repr__(self) -> str:
+        return f'OctetMatcher({self.ranges})'
+
     def match(self, num: Union[int, str]) -> bool:
         if type(num) == str:
             num = int(num)
@@ -35,6 +38,9 @@ class IPFilter:
         if len(pattern) != 4:
             raise ValueError('Invalid filter pattern.')
         self.matchers = [OctetMatcher(p) for p in pattern]
+
+    def __repr__(self) -> str:
+        return f'IPFilter({self.matchers})'
 
     def is_valid_ip(self, ip: str) -> bool:
         ip = ip.split('.')
