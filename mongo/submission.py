@@ -463,7 +463,10 @@ class Submission(MongoBase, engine=engine.Submission):
             memory_usage=memory_usage,
         )
         self.finish_judging()
-        self.to_dict.cache_clear()
+        for i in range(8):
+            # iterate through True and False
+            key = f'{self.id}_{i%2==1}_{(i>>1)%2==1}_{(i>>2)%2==1}'
+            engine.REDIS_CLIENT.delete(key)
         return True
 
     def finish_judging(self):
@@ -604,11 +607,11 @@ class Submission(MongoBase, engine=engine.Submission):
 
     @classmethod
     def add(
-        cls,
-        problem_id: str,
-        username: str,
-        lang: int,
-        timestamp: date = None,
+            cls,
+            problem_id: str,
+            username: str,
+            lang: int,
+            timestamp: date = None,
     ) -> 'Submission':
         '''
         Insert a new submission into db

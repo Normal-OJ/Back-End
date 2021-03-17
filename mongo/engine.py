@@ -414,7 +414,8 @@ class Submission(Document):
             'problemId': self.problem.problem_id,
             'user': self.user.info,
             'submissionId': str(self.id),
-            'timestamp': self.timestamp.timestamp()
+            'timestamp': self.timestamp.timestamp(),
+            'lastSend': self.last_send.timestamp()
         }
         if has_code:
             if has_code_detail:
