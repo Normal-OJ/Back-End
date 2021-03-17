@@ -408,7 +408,7 @@ class Submission(Document):
         key = f'{self.id}_{has_code}_{has_output}_{has_code_detail}'
         if REDIS_CLIENT.exists(key):
             return json.loads(REDIS_CLIENT.get(key))
-        
+
         _ret = {
             'problemId': self.problem.problem_id,
             'user': self.user.info,

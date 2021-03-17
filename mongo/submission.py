@@ -607,11 +607,11 @@ class Submission(MongoBase, engine=engine.Submission):
 
     @classmethod
     def add(
-            cls,
-            problem_id: str,
-            username: str,
-            lang: int,
-            timestamp: date = None,
+        cls,
+        problem_id: str,
+        username: str,
+        lang: int,
+        timestamp: date = None,
     ) -> 'Submission':
         '''
         Insert a new submission into db
