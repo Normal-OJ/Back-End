@@ -404,7 +404,6 @@ class Submission(Document):
             True,
         ].index(True)
 
-    @functools.lru_cache()
     def to_dict(self, has_code=False, has_output=False, has_code_detail=False):
         key = f'{self.id}_{has_code}_{has_output}_{has_code_detail}'
         if REDIS_CLIENT.exists(key):
