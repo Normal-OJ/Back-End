@@ -10,6 +10,7 @@ from .utils import perm, can_view_problem
 import functools
 from typing import Union
 import redis
+import fakeredis
 import json
 
 __all__ = [*mongoengine.__all__]
@@ -22,6 +23,8 @@ REDIS_POOL = redis.ConnectionPool(
 )
 connect('normal-oj', host=MONGO_HOST)
 REDIS_CLIENT = redis.Redis(connection_pool=REDIS_POOL)
+if os.getenv('REDIS_HOST') is None:
+    REDIS_CLIENT = fakeredis.FakeStrictRedis()
 
 
 def handler(event):
