@@ -5,6 +5,7 @@ import pathlib
 import secrets
 import logging
 import requests as rq
+import itertools
 from flask import current_app
 from tempfile import NamedTemporaryFile
 from datetime import date, datetime
@@ -463,9 +464,10 @@ class Submission(MongoBase, engine=engine.Submission):
             memory_usage=memory_usage,
         )
         self.finish_judging()
-        for i in range(8):
+        for has_code, has_output, has_code_detail in itertools.product(
+            [True, False], repeat=3):
             # iterate through True and False
-            key = f'{self.id}_{i%2==1}_{(i>>1)%2==1}_{(i>>2)%2==1}'
+            key = f'{self.id}_{has_code}_{has_output}_{has_code_detail}'
             engine.REDIS_CLIENT.delete(key)
         return True
 

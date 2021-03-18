@@ -7,7 +7,6 @@ from enum import Enum, IntEnum
 from datetime import datetime
 from zipfile import ZipFile, BadZipFile
 from .utils import perm, can_view_problem
-import functools
 from typing import Union
 import redis
 import fakeredis
