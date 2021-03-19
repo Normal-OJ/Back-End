@@ -10,6 +10,7 @@ from datetime import datetime
 __all__ = ['Homework']
 
 
+# TODO: unittest for class `Homework`
 class Homework(MongoBase, engine=engine.Homework):
     def is_valid_ip(self, ip: str) -> bool:
         # no restriction, always valid
@@ -175,7 +176,7 @@ class Homework(MongoBase, engine=engine.Homework):
     def get_by_name(cls, course_name, homework_name):
         try:
             homework = cls.engine.objects.get(
-                course_id=Course(course_name).obj.id,
+                course_id=str(Course(course_name).obj.id),
                 homework_name=homework_name,
             )
         except engine.DoesNotExist:
