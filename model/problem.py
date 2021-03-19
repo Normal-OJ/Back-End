@@ -86,8 +86,7 @@ def view_problem(user, problem_id):
     if not can_view_problem(user, problem.obj):
         return HTTPError('Problem cannot view.', 403)
     # ip validation
-    ip = request.headers.get('X-Forwarded-For', '').split(',')[-1].strip()
-    if not problem.is_valid_ip(ip):
+    if not problem.is_valid_ip(get_ip()):
         return HTTPError('Invalid IP address.', 403)
     # filter data
     data = problem.detailed_info(
