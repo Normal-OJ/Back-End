@@ -175,7 +175,7 @@ class Homework(MongoBase, engine=engine.Homework):
     def get_by_name(cls, course_name, homework_name):
         try:
             homework = cls.engine.objects.get(
-                course_id=Course(course_name).id,
+                course_id=Course(course_name).obj.id,
                 homework_name=homework_name,
             )
         except engine.DoesNotExist:
