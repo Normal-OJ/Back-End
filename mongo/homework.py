@@ -112,6 +112,7 @@ class Homework(MongoBase, engine=engine.Homework):
         homework.save()
         drop_ids = set(homework.problem_ids) - set(problem_ids)
         new_ids = set(problem_ids) - set(homework.problem_ids)
+        student_status = homework.student_status
         # add
         for pid in new_ids:
             problem = Problem(pid).obj
@@ -120,8 +121,7 @@ class Homework(MongoBase, engine=engine.Homework):
             homework.update(push__problem_ids=pid)
             problem.update(push__homeworks=homework)
             for key in course.student_nicknames:
-                homework.student_status[key][str(
-                    pid)] = Homework.default_problem_status()
+                student_status[key][str(pid)] = cls.default_problem_status()
         # delete
         for pid in drop_ids:
             problem = Problem(pid).obj
@@ -129,8 +129,9 @@ class Homework(MongoBase, engine=engine.Homework):
                 continue
             homework.update(pull__problem_ids=pid)
             problem.update(pull__homeworks=homework)
-            for status in homework.student_status.values():
+            for status in student_status.values():
                 del status[str(pid)]
+        homework.update(student_status=student_status)
         return homework
 
     # delete problems/paticipants in hw

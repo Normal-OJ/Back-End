@@ -150,11 +150,15 @@ class TestHomework(BaseTester):
             client,
             'put',
             f'/homework/{course_data.homework_ids[0]}',
-            json=new_data)
+            json=new_data,
+        )
         assert rv.status_code == 200, rv_json
         # get it again
         rv, rv_json, rv_data = self.request(
-            client, 'get', f'/homework/{course_data.homework_ids[0]}')
+            client,
+            'get',
+            f'/homework/{course_data.homework_ids[0]}',
+        )
         assert rv.status_code == 200, rv_json
         for key in ('name', 'markdown', 'start', 'end'):
             assert rv_data[key] == new_data[key]
