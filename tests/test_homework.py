@@ -1,4 +1,4 @@
-from mongo.engine import Homework
+from flask.testing import FlaskClient
 import pytest
 from tests.base_tester import BaseTester, random_string
 from datetime import datetime
@@ -27,12 +27,21 @@ class CourseData:
     },
     'tas': ['Tzu-Wei-Yu']
 }])
-def course_data(request, client_admin, problem_ids):
+def course_data(
+    request,
+    client_admin: FlaskClient,
+    problem_ids,
+):
     BaseTester.setup_class()
     cd = CourseData(**request.param)
     # add course
     add_course(cd.name, cd.teacher)
     # add students and TA
+    client_admin.set_cookie(
+        'test.test',
+        'piann',
+        User('admin').secret,
+    )
     rv = client_admin.put(
         f'/course/{cd.name}',
         json={
@@ -40,6 +49,8 @@ def course_data(request, client_admin, problem_ids):
             'studentNicknames': cd.students
         },
     )
+    client_admin.delete_cookie('test.test', 'piann')
+    assert rv.status_code == 200, rv.get_json()
     # add homework
     hw = Homework.add(
         user=User(cd.teacher).obj,
@@ -118,7 +129,12 @@ class TestHomework(BaseTester):
         assert rv.status_code == 200
         assert after_len == before_len + 1
 
-    def test_update_homework(self, forge_client, course_data, problem_ids):
+    def test_update_homework(
+        self,
+        forge_client,
+        course_data: CourseData,
+        problem_ids,
+    ):
         pids = problem_ids(course_data.teacher, 2)
         client = forge_client(course_data.teacher)
         # update
@@ -143,6 +159,13 @@ class TestHomework(BaseTester):
         for key in ('name', 'markdown', 'start', 'end'):
             assert rv_data[key] == new_data[key]
         assert {*rv_data['problemIds']} == {*new_data['problemIds']}
+        # ensure that student status also updated
+        hw_id = course_data.homework_ids[0]
+        homework = Homework.get_by_id(hw_id)
+        course = Course(course_data.name)
+        print(course.obj.student_nicknames)
+        status = next(iter(homework.student_status.values()))
+        assert sorted(status.keys()) == sorted(map(str, pids))
 
     def test_update_student_status(
         self,
