@@ -19,7 +19,7 @@ pre-commit==2.9.3
 py==1.10.0
 pyparsing==2.4.7
 pytest==6.2.1
-PyYAML==5.3.1
+PyYAML==5.4
 sentinels==1.0.0
 toml==0.10.2
 virtualenv==20.2.2
