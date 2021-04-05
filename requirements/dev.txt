@@ -25,3 +25,5 @@ toml==0.10.2
 virtualenv==20.2.2
 yapf==0.30.0
 fakeredis==1.4.4
+pytest-cov==2.11.1
+coverage==5.5

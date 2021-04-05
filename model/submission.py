@@ -74,6 +74,9 @@ def create_submission(user, language_type, problem_id):
     for homework in problem.obj.homeworks:
         if now < homework.duration.start:
             return HTTPError('this homework hasn\'t start.', 403)
+    # ip validation
+    if not problem.is_valid_ip(get_ip()):
+        return HTTPError('Invalid IP address.', 403)
     # handwritten problem doesn't need language type
     if language_type is None:
         if problem.problem_type != 2:
@@ -197,6 +200,13 @@ def get_submission(user, submission):
     # check permission
     if submission.handwritten and submission.permission(user) < 2:
         return HTTPError('forbidden.', 403)
+    # ip validation
+    problem = Problem(submission.problem_id)
+    if not problem.is_valid_ip(get_ip()):
+        return HTTPError('Invalid IP address.', 403)
+    if not all(submission.timestamp in hw.duration
+               for hw in problem.running_homeworks() if hw.ip_filters):
+        return HTTPError('You can not view this submission during quiz.', 403)
     # serialize submission
     ret = submission.to_dict(
         has_code=submission.permission(user) >= 2

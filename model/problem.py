@@ -76,6 +76,7 @@ def view_problem_list(
     return HTTPResponse('Success.', data=data)
 
 
+# TODO: remove "view" from route rule
 @problem_api.route('/view/<int:problem_id>', methods=['GET'])
 @login_required
 def view_problem(user, problem_id):
@@ -84,6 +85,9 @@ def view_problem(user, problem_id):
         return HTTPError('Problem not exist.', 404)
     if not can_view_problem(user, problem.obj):
         return HTTPError('Problem cannot view.', 403)
+    # ip validation
+    if not problem.is_valid_ip(get_ip()):
+        return HTTPError('Invalid IP address.', 403)
     # filter data
     data = problem.detailed_info(
         'problemName',

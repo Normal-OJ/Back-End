@@ -125,6 +125,11 @@ class Duration(EmbeddedDocument):
     start = DateTimeField(default=datetime.now)
     end = DateTimeField(default=datetime.max)
 
+    def __contains__(self, other) -> bool:
+        if not isinstance(other, datetime):
+            return False
+        return self.start <= other <= self.end
+
 
 class User(Document):
     class Role(IntEnum):
@@ -182,6 +187,7 @@ class Homework(Document):
     duration = EmbeddedDocumentField(Duration, default=Duration)
     problem_ids = ListField(IntField(), db_field='problemIds')
     student_status = DictField(db_field='studentStatus')
+    ip_filters = ListField(StringField(max_length=64), default=list)
 
 
 class Contest(Document):
