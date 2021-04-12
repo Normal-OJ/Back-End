@@ -158,5 +158,6 @@ def update_ip_filters(
     except DoesNotExist:
         return HTTPError('Homework does not exist', 404)
     ip_filters = ip_filters.split(',')
+    ip_filters = [f for f in ip_filters if f]
     hw.update(ip_filters=ip_filters)
     return HTTPResponse('success')
