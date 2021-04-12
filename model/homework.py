@@ -1,6 +1,4 @@
-import os
 from flask import Blueprint, request
-
 from mongo import *
 from mongo import engine
 from .utils import *
@@ -142,3 +140,23 @@ def check(user, homework_name, course_name):
         return HTTPResponse('homework name can be used', data={'valid': 1})
     else:
         return HTTPResponse('homework name exist', data={'valid': 0})
+
+
+@homework_api.route('/<course>/<homework_name>/ip-filters', methods=['GET'])
+@login_required
+@Request.args('ip_filters')
+def update_ip_filters(
+    user,
+    course: str,
+    homework_name: str,
+    ip_filters: str,
+):
+    if user.role != 0:
+        return HTTPError('Not admin!', 403)
+    try:
+        hw = Homework.get_by_name(course, homework_name)
+    except DoesNotExist:
+        return HTTPError('Homework does not exist', 404)
+    ip_filters = ip_filters.split(',')
+    hw.update(ip_filters=ip_filters)
+    return HTTPResponse('success')
