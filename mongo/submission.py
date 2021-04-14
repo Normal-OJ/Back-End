@@ -16,6 +16,7 @@ from .base import MongoBase
 from .user import User
 from .problem import Problem, get_problem_list
 from .course import Course
+from .utils import RedisCache
 
 __all__ = [
     'SubmissionConfig',
@@ -466,7 +467,7 @@ class Submission(MongoBase, engine=engine.Submission):
             [True, False], repeat=3):
             # iterate through True and False
             key = f'{self.id}_{has_code}_{has_output}_{has_code_detail}'
-            engine.REDIS_CLIENT.delete(key)
+            RedisCache().delete(key)
         return True
 
     def finish_judging(self):

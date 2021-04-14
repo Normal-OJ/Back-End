@@ -1,6 +1,15 @@
+import abc
 import hashlib
+import os
+import redis
+from typing import Optional, Any
 
-__all__ = ['hash_id', 'perm', 'can_view_problem']
+__all__ = (
+    'hash_id',
+    'perm',
+    'can_view_problem',
+    'RedisCache',
+)
 
 
 def hash_id(salt, text):
@@ -34,3 +43,74 @@ def can_view_problem(user, problem):
         if permission and (problem.problem_status == 0 or permission >= 2):
             return True
     return False
+
+
+class Cache(abc.ABC):
+    @abc.abstractmethod
+    def exists(self, key: str) -> bool:
+        '''
+        check whether a value exists
+        '''
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def get(self, key: str):
+        '''
+        get value by key
+        '''
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def set(self, key: str, value, ex: Optional[int] = None):
+        '''
+        set a value and set expire time in seconds
+        '''
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def delete(self, key: str):
+        '''
+        delete a value by key
+        '''
+        raise NotImplementedError
+
+
+class RedisCache(Cache):
+    POOL = None
+
+    def __new__(cls) -> Any:
+        if cls.POOL is None:
+            cls.HOST = os.getenv('REDIS_HOST')
+            cls.PORT = os.getenv('REDIS_PORT')
+            cls.POOL = redis.ConnectionPool(
+                host=cls.HOST,
+                port=cls.PORT,
+                db=0,
+            )
+
+        return super().__new__(cls)
+
+    def __init__(self) -> None:
+        self._client = None
+
+    @property
+    def client(self):
+        if self._client is None:
+            if self.PORT is None:
+                import fakeredis
+                self._client = fakeredis.FakeStrictRedis()
+            else:
+                self._client = redis.Redis(connection_pool=self.POOL)
+        return self._client
+
+    def exists(self, key: str) -> bool:
+        return self.client.exists(key)
+
+    def get(self, key: str):
+        return self.client.get(key)
+
+    def delete(self, key: str):
+        return self.client.delete(key)
+
+    def set(self, key: str, value, ex: Optional[int] = None):
+        return self.client.set(key, value, ex=ex)
