@@ -28,8 +28,11 @@ __all__ = [
     'TestCaseNotFound',
 ]
 
-# TODO: save tokens in db
-tokens = {}
+# TODO: modular token function
+
+
+def gen_key(_id):
+    return f'stoekn_{_id}'
 
 
 def gen_token():
@@ -40,14 +43,23 @@ def assign_token(submission_id, token=None):
     '''
     generate a token for the submission
     '''
-    tokens[submission_id] = token or gen_token()
+    if token is None:
+        token = gen_token()
+    RedisCache().set(gen_key(submission_id), token)
     return token
 
 
 def verify_token(submission_id, token):
-    if submission_id not in tokens:
+    cache = RedisCache()
+    key = gen_key(submission_id)
+    s_token = cache.get(key)
+    if s_token is None:
         return False
-    return secrets.compare_digest(tokens[submission_id], token)
+    s_token = s_token.decode('ascii')
+    valid = secrets.compare_digest(s_token, token)
+    if valid:
+        cache.delete(key)
+    return valid
 
 
 # Errors
