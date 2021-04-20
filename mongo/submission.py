@@ -546,8 +546,8 @@ class Submission(MongoBase, engine=engine.Submission):
     @staticmethod
     def filter(
         user,
-        offset,
-        count,
+        offset: int,
+        count: int,
         problem=None,
         submission=None,
         q_user=None,
@@ -555,18 +555,6 @@ class Submission(MongoBase, engine=engine.Submission):
         language_type=None,
         course=None,
     ):
-        # convert args
-        if offset is None or count is None:
-            raise ValueError('offset and count are required!')
-        try:
-            offset = int(offset)
-            count = int(count)
-        except ValueError:
-            raise ValueError('offset and count must be integer!')
-        if offset < 0:
-            raise ValueError(f'offset must >= 0! get {offset}')
-        if count < -1:
-            raise ValueError(f'count must >=-1! get {count}')
         if not isinstance(problem, engine.Problem) and problem is not None:
             try:
                 problem = Problem(int(problem)).obj
@@ -611,8 +599,6 @@ class Submission(MongoBase, engine=engine.Submission):
         # sort by upload time
         submissions = engine.Submission.objects(**q).order_by('-timestamp')
         # truncate
-        if offset >= len(submissions) and len(submissions):
-            raise ValueError(f'offset ({offset}) is out of range!')
         right = min(offset + count, len(submissions))
         if count == -1:
             right = len(submissions)
