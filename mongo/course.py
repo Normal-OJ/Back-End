@@ -2,10 +2,18 @@ from . import engine
 from .user import *
 from .utils import *
 import re
+from typing import Optional
 
 __all__ = [
-    'Course', 'get_all_courses', 'delete_course', 'add_course', 'edit_course',
-    'perm', 'add_user', 'remove_user', 'get_user_courses'
+    'Course',
+    'get_all_courses',
+    'delete_course',
+    'add_course',
+    'edit_course',
+    'perm',
+    'add_user',
+    'remove_user',
+    'get_user_courses',
 ]
 
 
@@ -14,21 +22,35 @@ class Course:
         self.course_name = course_name
 
     @property
-    def obj(self):
+    def obj(self) -> Optional[engine.Course]:
         try:
             obj = engine.Course.objects.get(course_name=self.course_name)
         except:
             return None
         return obj
 
+    @classmethod
+    def get_all():
+        return engine.Course.objects
 
-def perm(course, user):
-    '''4: admin, 3: teacher, 2: TA, 1: student, 0: not found
-    '''
-    return 4 - [
-        user.role == 0, user == course.teacher, user in course.tas,
-        user.username in course.student_nicknames.keys(), True
-    ].index(True)
+    @classmethod
+    def get_user_courses(cls, user):
+        if user.role != 0:
+            return user.courses
+        else:
+            return cls.get_all()
+
+    def add_user(self, user):
+        obj = self.obj
+        if obj is None:
+            raise engine.DoesNotExist(f'Course [{self.course_name}]')
+        if obj not in user.courses:
+            user.courses.append(obj)
+            user.save()
+
+    def remove_user(self, user):
+        user.courses.remove(self.obj)
+        user.save()
 
 
 def get_all_courses():
@@ -67,13 +89,17 @@ def delete_course(user, course):
 def add_course(course, teacher):
     if re.match(r'^[a-zA-Z0-9._\- ]+$', course) is None:
         raise ValueError
-    te = User(teacher)
-    if not te:
+    teacher = User(teacher)
+    if not teacher:
         raise engine.DoesNotExist('User')
-
-    co = engine.Course(course_name=course, teacher=te.obj)
+    if teacher.role >= 2:
+        raise PermissionError(f'{teacher} is not permitted to create a course')
+    co = engine.Course(
+        course_name=course,
+        teacher=teacher.obj,
+    )
     co.save()
-    add_user(te.obj, co)
+    add_user(teacher.obj, co)
     return True
 
 

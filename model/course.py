@@ -21,7 +21,6 @@ def get_courses(user):
         r = None
         if user.role == 1:
             teacher = user.username
-
         try:
             if request.method == 'POST':
                 r = add_course(course, teacher)
@@ -37,17 +36,13 @@ def get_courses(user):
             return HTTPError('Forbidden.', 403)
         except engine.DoesNotExist as e:
             return HTTPError(f'{e} not found.', 404)
-
         return HTTPResponse('Success.')
 
     if request.method == 'GET':
-        data = []
-        for co in get_user_courses(user):
-            data.append({
-                'course': co.course_name,
-                'teacher': User(co.teacher.username).info
-            })
-
+        data = [{
+            'course': c.course_name,
+            'teacher': c.teacher.info,
+        } for c in get_user_courses(user)]
         return HTTPResponse('Success.', data=data)
     else:
         return modify_courses()
@@ -105,11 +100,7 @@ def get_course(user, course_name):
 
             user_problems = {}
             for pid in homework.problem_ids:
-                user_problems[str(pid)] = {
-                    'score': 0,
-                    'problemStatus': None,
-                    'submissionIds': []
-                }
+                user_problems[str(pid)] = Homework.default_problem_status()
             for user in new_user:
                 homework.student_status[user] = user_problems
 
@@ -119,20 +110,17 @@ def get_course(user, course_name):
         return HTTPResponse('Success.')
 
     if request.method == 'GET':
-        tas = []
-        for ta in course.tas:
-            tas.append(ta.username)
-
         student_dict = {}
         for student, nickname in course.student_nicknames.items():
             student_dict[student] = nickname
-
-        return HTTPResponse('Success.',
-                            data={
-                                "teacher": User(course.teacher.username).info,
-                                "TAs": [User(t).info for t in tas],
-                                "studentNicknames": student_dict
-                            })
+        return HTTPResponse(
+            'Success.',
+            data={
+                "teacher": course.teacher.info,
+                "TAs": [ta.info for ta in course.tas],
+                "studentNicknames": student_dict
+            },
+        )
     else:
         return modify_course()
 
@@ -144,14 +132,11 @@ def grading(user, course_name, student):
     course = Course(course_name).obj
     if course is None:
         return HTTPError('Course not found.', 404)
-
     permission = perm(course, user)
     if not permission:
         return HTTPError('You are not in this course.', 403)
-
-    if not User(student) or not student in course.student_nicknames.keys():
+    if student not in course.student_nicknames.keys():
         return HTTPError('The student is not in the course.', 404)
-
     if permission == 1 and (user.username != student
                             or request.method != 'GET'):
         return HTTPError('You can only view your score.', 403)
@@ -171,14 +156,12 @@ def grading(user, course_name, student):
         score_list = course.student_scores.get(student, [])
         if title in [score['title'] for score in score_list]:
             return HTTPError('This title is taken.', 400)
-
         score_list.append({
             'title': title,
             'content': content,
             'score': score,
             'timestamp': datetime.now()
         })
-
         course.student_scores[student] = score_list
         course.save()
         return HTTPResponse('Success.')
@@ -189,21 +172,17 @@ def grading(user, course_name, student):
         title_list = [score['title'] for score in score_list]
         if title not in title_list:
             return HTTPError('Score not found.', 404)
-
         index = title_list.index(title)
-
         if new_title is not None:
             if new_title in title_list:
                 return HTTPError('This title is taken.', 400)
             title = new_title
-
         score_list[index] = {
             'title': title,
             'content': content,
             'score': score,
             'timestamp': datetime.now()
         }
-
         course.student_scores[student] = score_list
         course.save()
         return HTTPResponse('Success.')
@@ -214,10 +193,8 @@ def grading(user, course_name, student):
         title_list = [score['title'] for score in score_list]
         if title not in title_list:
             return HTTPError('Score not found.', 404)
-
         index = title_list.index(title)
         del score_list[index]
-
         course.student_scores[student] = score_list
         course.save()
         return HTTPResponse('Success.')

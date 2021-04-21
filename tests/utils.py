@@ -37,7 +37,7 @@ def problem_result(pid):
     if problem is None:
         raise engine.DoesNotExist(f'Unexited problem {pid}')
     ret = []
-    status2code = [*Submission('').status2code.keys()]
+    status2code = [*Submission('aaaaaaaaaaaaaaaaaaaaaaaa').status2code.keys()]
     for task in problem.test_case.tasks:
         ret.append([])
         for case in range(task.case_count):

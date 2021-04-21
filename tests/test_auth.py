@@ -1,4 +1,7 @@
 import pytest
+import secrets
+from mongo import *
+from mongo import engine
 
 
 class TestSignup:
@@ -115,18 +118,42 @@ class TestActive:
     def test_update(self, client, test_token):
         # Update
         client.set_cookie('test.test', 'piann', test_token)
-        rv = client.post(f'/auth/active',
-                         json={
-                             'profile': {
-                                 'displayedName': 'Test',
-                                 'bio': 'Hi',
-                             },
-                             'agreement': True
-                         })
+        rv = client.post(
+            f'/auth/active',
+            json={
+                'profile': {
+                    'displayedName': 'Test',
+                    'bio': 'Hi',
+                },
+                'agreement': True
+            },
+        )
         json = rv.get_json()
         assert rv.status_code == 200
         assert json['status'] == 'ok'
         assert json['message'] == 'User Is Now Active'
+
+    @pytest.mark.parametrize(
+        'role',
+        [
+            engine.User.Role.TEACHER,
+            engine.User.Role.ADMIN,
+            engine.User.Role.STUDENT,
+            pytest.param(
+                10086,
+                marks=pytest.mark.xfail,
+            ),
+        ],
+    )
+    def test_update_user_role(self, role):
+        u = User.signup(
+            username=secrets.token_hex(8),
+            password=secrets.token_hex(16),
+            email=f'{secrets.token_hex(16)}@noj.tw',
+        ).activate()
+        u.update(role=role)
+        u.reload()
+        assert u.role == role
 
 
 class TestLogin:

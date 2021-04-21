@@ -1,18 +1,19 @@
-import os
 import io
 import requests as rq
 import random
-import json
-import pathlib
-import string
 import secrets
-from flask import Blueprint, request, send_file, current_app
+import json
+from flask import (
+    Blueprint,
+    send_file,
+    request,
+    current_app,
+)
 from datetime import datetime, timedelta
 from functools import wraps
-from zipfile import ZipFile
-
 from mongo import *
 from mongo import engine
+from mongo.utils import can_view_problem, RedisCache
 from .utils import *
 from .auth import *
 
@@ -68,12 +69,15 @@ def create_submission(user, language_type, problem_id):
     if problem.obj is None:
         return HTTPError('Unexisted problem id.', 404)
     # problem permissoion
-    if not can_view(user, problem.obj):
+    if not can_view_problem(user, problem.obj):
         return HTTPError('problem permission denied!', 403)
     # check deadline
     for homework in problem.obj.homeworks:
-        if now > homework.duration.end:
-            return HTTPError('this homework is overdue', 403)
+        if now < homework.duration.start:
+            return HTTPError('this homework hasn\'t start.', 403)
+    # ip validation
+    if not problem.is_valid_ip(get_ip()):
+        return HTTPError('Invalid IP address.', 403)
     # handwritten problem doesn't need language type
     if language_type is None:
         if problem.problem_type != 2:
@@ -116,6 +120,8 @@ def create_submission(user, language_type, problem_id):
         return HTTPError('invalid data!', 400)
     except engine.DoesNotExist as e:
         return HTTPError(str(e), 404)
+    except TestCaseNotFound as e:
+        return HTTPError(str(e), 403)
     # update user
     user.update(
         last_submit=now,
@@ -150,35 +156,64 @@ def get_submission_list(user, offset, count, problem_id, submission_id,
         - language
         - course
     '''
+    cache_key = f'submissions_{user}_{problem_id}_{submission_id}_{username}_{status}_{language_type}_{course}'
+    cache = RedisCache()
     try:
-        submissions = Submission.filter(
-            user=user,
-            offset=offset,
-            count=count,
-            problem=problem_id,
-            submission=submission_id,
-            q_user=username,
-            status=status,
-            language_type=language_type,
-            course=course,
-        )
+        # convert args
+        if offset is None or count is None:
+            raise ValueError('offset and count are required!')
+        try:
+            offset = int(offset)
+            count = int(count)
+        except ValueError:
+            raise ValueError('offset and count must be integer!')
+        if offset < 0:
+            raise ValueError(f'offset must >= 0! get {offset}')
+        if count < -1:
+            raise ValueError(f'count must >=-1! get {count}')
+
+        # check cache
+        if cache.exists(cache_key):
+            submissions = json.loads(cache.get(cache_key))
+        else:
+            submissions = Submission.filter(
+                user=user,
+                offset=0,
+                count=-1,
+                problem=problem_id,
+                submission=submission_id,
+                q_user=username,
+                status=status,
+                language_type=language_type,
+                course=course,
+            )
+
+            submissions = [
+                s.to_dict(
+                    has_code=False,
+                    has_output=False,
+                    has_code_detail=False,
+                ) for s in submissions
+                if not s.handwritten or s.permission(user) > 1
+            ]
+            cache.set(cache_key, json.dumps(submissions), 15)
+
+        # truncate
+        if offset >= len(submissions) and len(submissions):
+            raise ValueError(f'offset ({offset}) is out of range!')
+        right = min(offset + count, len(submissions))
+        if count == -1:
+            right = len(submissions)
+        submissions = submissions[offset:right]
     except ValueError as e:
         return HTTPError(str(e), 400)
-    submissions = [Submission(s.id) for s in submissions]
-    submissions = [
-        s.to_dict() for s in submissions
-        if not s.handwritten or s.permission(user) > 1
-    ]
-    # no need to display code and task results in list
-    for s in submissions:
-        del s['code']
-        del s['tasks']
+
     # unicorn gifs
     unicorns = [
         'https://media.giphy.com/media/xTiTnLmaxrlBHxsMMg/giphy.gif',
         'https://media.giphy.com/media/26AHG5KGFxSkUWw1i/giphy.gif',
         'https://media.giphy.com/media/g6i1lEax9Pa24/giphy.gif',
-        'https://media.giphy.com/media/tTyTbFF9uEbPW/giphy.gif'
+        'https://media.giphy.com/media/tTyTbFF9uEbPW/giphy.gif',
     ]
     ret = {
         'unicorn': random.choice(unicorns),
@@ -194,32 +229,60 @@ def get_submission_list(user, offset, count, problem_id, submission_id,
 @login_required
 @submission_required
 def get_submission(user, submission):
-    ret = submission.to_dict()
     # check permission
-    # rules about handwrittem submission
     if submission.handwritten and submission.permission(user) < 2:
         return HTTPError('forbidden.', 403)
-    # and handwritten submission doesn't have source code
-    if submission.permission(user) < 2 or submission.handwritten:
-        del ret['code']
-    # check user's stdout/stderr
-    if not submission.problem.can_view_stdout:
-        for task in ret['tasks']:
-            for case in task['cases']:
-                del case['output']
-    else:
-        for task in ret['tasks']:
-            for case in task['cases']:
-                output = GridFSProxy(case.pop('output'))
-                with ZipFile(output) as zf:
-                    case['stdout'] = zf.read('stdout').decode('utf-8')
-                    case['stderr'] = zf.read('stderr').decode('utf-8')
-    # give user source code
-    if 'code' in ret:
-        ext = ['.c', '.cpp', '.py'][submission.language]
-        ret['code'] = submission.get_code(f'main{ext}')
-
+    # ip validation
+    problem = Problem(submission.problem_id)
+    if not problem.is_valid_ip(get_ip()):
+        return HTTPError('Invalid IP address.', 403)
+    if not all(submission.timestamp in hw.duration
+               for hw in problem.running_homeworks() if hw.ip_filters):
+        return HTTPError('You can not view this submission during quiz.', 403)
+    # serialize submission
+    ret = submission.to_dict(
+        has_code=submission.permission(user) >= 2
+        and not submission.handwritten,
+        has_output=submission.problem.can_view_stdout,
+        has_code_detail=bool(submission.code),
+    )
     return HTTPResponse(data=ret)
+
+
+@submission_api.route(
+    '/<submission_id>/output/<int:task_no>/<int:case_no>',
+    methods=['GET'],
+)
+@Request.args('text')
+@login_required
+@submission_required
+def get_submission_output(
+    user,
+    submission,
+    task_no,
+    case_no,
+    text,
+):
+    if submission.permission(user) < 2:
+        return HTTPError('permission denied', 403)
+    if text is None:
+        text = True
+    else:
+        try:
+            text = {'true': True, 'false': False}[text]
+        except KeyError:
+            return HTTPError('Invalid `text` value.', 400)
+    try:
+        output = submission.get_output(
+            task_no,
+            case_no,
+            text=text,
+        )
+    except FileNotFoundError as e:
+        return HTTPError(str(e), 400)
+    except AttributeError as e:
+        return HTTPError(str(e), 102)
+    return HTTPResponse('ok', data=output)
 
 
 @submission_api.route('/<submission_id>/pdf/<item>', methods=['GET'])
@@ -331,6 +394,8 @@ def update_submission(user, submission, code):
         return HTTPResponse(str(e), 202)
     except ValidationError as e:
         return HTTPError(str(e), 400, data=e.to_dict())
+    except TestCaseNotFound as e:
+        return HTTPError(str(e), 403)
     if success:
         return HTTPResponse(
             f'{submission} {"is finished." if submission.handwritten else "send to judgement."}'

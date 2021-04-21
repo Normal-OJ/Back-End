@@ -1,13 +1,15 @@
+# TODO: use **ks to simplify function definition
 from . import engine
+from .base import MongoBase
 from .course import *
-from zipfile import ZipFile, is_zipfile
-from pathlib import Path
-from random import randint
+from .utils import can_view_problem
+from zipfile import ZipFile
 from datetime import datetime
+from typing import List
 import json
+import zipfile
 
 __all__ = [
-    'Number',
     'Problem',
     'BadTestCase',
     'get_problem_list',
@@ -17,10 +19,16 @@ __all__ = [
     'delete_problem',
     'copy_problem',
     'release_problem',
-    'can_view',
 ]
 
-number = 1
+
+def serial_number():
+    try:
+        number = engine.Number.objects(name='serial_number').get()
+    except engine.DoesNotExist:
+        number = engine.Number(name='serial_number')
+        number.save()
+    return number
 
 
 class BadTestCase(Exception):
@@ -38,57 +46,35 @@ class BadTestCase(Exception):
         }
 
 
-class Number:
-    def __init__(self, name):
-        self.name = name
-
-    @property
-    def obj(self):
-        try:
-            obj = engine.Number.objects.get(name=self.name)
-        except engine.DoesNotExist:
-            return None
-        return obj
-
-
-class Problem:
+class Problem(MongoBase, engine=engine.Problem):
     def __init__(self, problem_id):
         self.problem_id = problem_id
 
-    @property
-    def obj(self):
-        try:
-            obj = engine.Problem.objects.get(problem_id=self.problem_id)
-        except engine.DoesNotExist:
-            return None
-        return obj
-
     def detailed_info(self, *ks, **kns):
         '''
-        return detailed info about this problem notice
+        return detailed info about this problem. notice
         that the `input` and `output` of problem test
         case won't be sent to front end, need call other
         route to get this info.
 
         Args:
-            ks (str): the field name you want to get
-            kns (str):
+            ks (*str): the field name you want to get
+            kns (**[str, str]):
                 specify the dict key you want to store
                 the data get by field name
         Return:
-            a dict contains problem data
+            a dict contains problem's data
         '''
-        p_obj = self.obj
-        if p_obj is None:
-            return None
+        if not self:
+            return {}
         # problem -> dict
-        _ret = p_obj.to_mongo()
+        _ret = self.to_mongo()
         # preprocess fields
         # case zip can not be serialized
         if 'caseZip' in _ret['testCase']:
             del _ret['testCase']['caseZip']
         # convert couse document to course name
-        _ret['courses'] = [course.course_name for course in p_obj.courses]
+        _ret['courses'] = [course.course_name for course in self.courses]
         ret = {}
         for k in ks:
             kns[k] = k
@@ -107,11 +93,11 @@ class Problem:
         return ret
 
     def allowed(self, language):
-        if self.obj.problem_type == 2:
+        if self.problem_type == 2:
             return True
         if language >= 3 or language < 0:
             return False
-        return bool((1 << language) & self.obj.allowed_language)
+        return bool((1 << language) & self.allowed_language)
 
     def submit_count(self, user):
         # reset quota if it's a new day
@@ -120,32 +106,17 @@ class Problem:
             return 0
         return user.problem_submission.get(str(self.problem_id), 0)
 
+    def running_homeworks(self) -> List:
+        from .homework import Homework
+        now = datetime.now()
+        return [Homework(hw.id) for hw in self.homeworks if now in hw.duration]
+
+    def is_valid_ip(self, ip: str):
+        return all(hw.is_valid_ip(ip) for hw in self.running_homeworks())
+
 
 def increased_number():
-    global number
-    number += 1
-
-    serial_number = Number("serial_number").obj
-    serial_number.number = number
-    serial_number.save()
-
-
-def can_view(user, problem):
-    '''cheeck if a user can view the problem'''
-    if user.role == 0:
-        return True
-    if user.contest:
-        if user.contest in problem.contests:
-            return True
-        return False
-    if user.username == problem.owner:
-        return True
-    for course in problem.courses:
-        permission = 1 if course.course_name == "Public" else perm(
-            course, user)
-        if permission and (problem.problem_status == 0 or permission >= 2):
-            return True
-    return False
+    serial_number().update(inc__number=1)
 
 
 def get_problem_list(
@@ -173,79 +144,90 @@ def get_problem_list(
     }
     ks = {k: v for k, v in ks.items() if v is not None}
     problems = engine.Problem.objects(**ks).order_by('problemId')
-    problems = [p for p in problems if can_view(user, p)]
+    problems = [p for p in problems if can_view_problem(user, p)]
     # truncate
-    if offset >= len(problems) and len(problems):
+    if offset < 0 or (offset >= len(problems) and len(problems)):
         raise IndexError
-    right = len(problems) if count == -1 else offset + count
+    right = len(problems) if count < 0 else offset + count
     right = min(len(problems), right)
     return problems[offset:right]
 
 
-def add_problem(user,
-                courses,
-                status,
-                problem_name,
-                description,
-                tags,
-                type,
-                test_case_info=None,
-                can_view_stdout=False,
-                allowed_language=7,
-                quota=-1):
-    problem_id = number
+def add_problem(
+    user,
+    courses,
+    status,
+    problem_name,
+    description,
+    tags,
+    type,
+    test_case_info=None,
+    can_view_stdout=False,
+    allowed_language=7,
+    quota=-1,
+    default_code='',
+):
+    problem_id = serial_number().number
     course_objs = []
     for name in courses:
         if Course(name).obj is None:
             raise engine.DoesNotExist
         course_objs.append(Course(name).obj)
-
-    problem = engine.Problem(problem_id=problem_id,
-                             courses=course_objs,
-                             problem_status=status,
-                             problem_type=type,
-                             problem_name=problem_name,
-                             description=description,
-                             owner=user.username,
-                             tags=tags,
-                             quota=quota)
+    problem = engine.Problem(
+        problem_id=problem_id,
+        courses=course_objs,
+        problem_status=status,
+        problem_type=type,
+        problem_name=problem_name,
+        description=description,
+        owner=user.username,
+        tags=tags,
+        quota=quota,
+        default_code=default_code,
+    )
     problem.save()
     if type != 2:
-        problem.update(test_case=test_case_info,
-                       can_view_stdout=can_view_stdout,
-                       allowed_language=allowed_language)
-
+        problem.update(
+            test_case=test_case_info,
+            can_view_stdout=can_view_stdout,
+            allowed_language=allowed_language,
+        )
     increased_number()
-
     return problem_id
 
 
-def edit_problem(user,
-                 problem_id,
-                 courses,
-                 status,
-                 problem_name,
-                 description,
-                 tags,
-                 type,
-                 test_case_info=None,
-                 allowed_language=7,
-                 can_view_stdout=False,
-                 quota=-1):
+def edit_problem(
+    user,
+    problem_id,
+    courses,
+    status,
+    problem_name,
+    description,
+    tags,
+    type,
+    test_case_info=None,
+    allowed_language=7,
+    can_view_stdout=False,
+    quota=-1,
+    default_code='',
+):
     problem = Problem(problem_id).obj
     course_objs = []
     for name in courses:
-        if Course(name).obj is None:
+        if (course := Course(name).obj) is None:
             raise engine.DoesNotExist
-        course_objs.append(Course(name).obj)
-    problem.update(courses=course_objs,
-                   problem_status=status,
-                   problem_type=type,
-                   problem_name=problem_name,
-                   description=description,
-                   owner=user.username,
-                   tags=tags,
-                   quota=quota)
+        course_objs.append(course)
+    problem.update(
+        courses=course_objs,
+        problem_status=status,
+        problem_type=type,
+        problem_name=problem_name,
+        description=description,
+        owner=user.username,
+        tags=tags,
+        quota=quota,
+        default_code=default_code,
+    )
     if type != 2:
         # preprocess test case
         test_case = problem.test_case
@@ -270,7 +252,7 @@ def edit_problem_test_case(problem_id, test_case):
     Exceptions:
         zipfile.BadZipFile: if `test_case` is not a zip file
         ValueError: if test case is None or problem_id is invalid
-        engine.DoesNotExists
+        engine.DoesNotExist
     Return:
         a bool denote whether the update is successful
     '''
@@ -288,13 +270,25 @@ def edit_problem_test_case(problem_id, test_case):
         for j in range(task.case_count):
             excepted_names.add(f'{i:02d}{j:02d}.in')
             excepted_names.add(f'{i:02d}{j:02d}.out')
+    # check chaos folder
+    chaos_path = zipfile.Path(test_case, at='chaos')
+    if chaos_path.exists() and chaos_path.is_file():
+        raise BadTestCase('find chaos, but it\'s not a directory')
     # input/output filenames
-    in_out = {*ZipFile(test_case).namelist()}
+    in_out = {
+        name
+        for name in ZipFile(test_case).namelist()
+        if not name.startswith('chaos')
+    }
     # check diff
     ex = in_out - excepted_names
     sh = excepted_names - in_out
-    if len(ex) != 0 or len(sh) != 0:
-        raise BadTestCase('io data not equal to meta provided', [*ex], [*sh])
+    if len(ex) or len(sh):
+        raise BadTestCase(
+            'io data not equal to meta provided',
+            [*ex],
+            [*sh],
+        )
     # save zip file
     test_case.seek(0)
     # check whether the test case exists
@@ -320,20 +314,22 @@ def delete_problem(problem_id):
 
 def copy_problem(user, problem_id):
     problem = Problem(problem_id).obj
-    engine.Problem(problem_id=number,
-                   problem_status=problem.problem_status,
-                   problem_type=problem.problem_type,
-                   problem_name=problem.problem_name,
-                   description=problem.description,
-                   owner=user.username,
-                   tags=problem.tags,
-                   test_case=problem.test_case).save()
+    engine.Problem(
+        problem_id=serial_number().number,
+        problem_status=problem.problem_status,
+        problem_type=problem.problem_type,
+        problem_name=problem.problem_name,
+        description=problem.description,
+        owner=user.username,
+        tags=problem.tags,
+        test_case=problem.test_case,
+    ).save()
     increased_number()
 
 
 def release_problem(problem_id):
-    course = Course("Public").obj
+    course = Course('Public').obj
     problem = Problem(problem_id).obj
     problem.courses = [course]
-    problem.owner = "first_admin"
+    problem.owner = 'first_admin'
     problem.save()

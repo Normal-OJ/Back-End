@@ -5,17 +5,18 @@ import pathlib
 import secrets
 import logging
 import requests as rq
+import itertools
 from flask import current_app
 from tempfile import NamedTemporaryFile
 from datetime import date, datetime
-from typing import List, Union
 from zipfile import ZipFile, is_zipfile
 
 from . import engine
 from .base import MongoBase
 from .user import User
-from .problem import Problem, can_view, get_problem_list
-from .course import Course, perm
+from .problem import Problem, get_problem_list
+from .course import Course
+from .utils import RedisCache
 
 __all__ = [
     'SubmissionConfig',
@@ -24,10 +25,14 @@ __all__ = [
     'assign_token',
     'verify_token',
     'JudgeQueueFullError',
+    'TestCaseNotFound',
 ]
 
-# TODO: save tokens in db
-tokens = {}
+# TODO: modular token function
+
+
+def gen_key(_id):
+    return f'stoekn_{_id}'
 
 
 def gen_token():
@@ -38,14 +43,23 @@ def assign_token(submission_id, token=None):
     '''
     generate a token for the submission
     '''
-    tokens[submission_id] = token or gen_token()
+    if token is None:
+        token = gen_token()
+    RedisCache().set(gen_key(submission_id), token)
     return token
 
 
 def verify_token(submission_id, token):
-    if submission_id not in tokens:
+    cache = RedisCache()
+    key = gen_key(submission_id)
+    s_token = cache.get(key)
+    if s_token is None:
         return False
-    return secrets.compare_digest(tokens[submission_id], token)
+    s_token = s_token.decode('ascii')
+    valid = secrets.compare_digest(s_token, token)
+    if valid:
+        cache.delete(key)
+    return valid
 
 
 # Errors
@@ -53,6 +67,19 @@ class JudgeQueueFullError(Exception):
     '''
     when sandbox task queue is full
     '''
+
+
+class TestCaseNotFound(Exception):
+    '''
+    when a problem's testcase havn't been uploaded
+    '''
+    __test__ = False
+
+    def __init__(self, problem_id):
+        self.problem_id = problem_id
+
+    def __str__(self):
+        return f'{Problem(self.problem_id)}\'s testcase is not found'
 
 
 class SubmissionConfig(MongoBase, engine=engine.SubmissionConfig):
@@ -87,35 +114,12 @@ class Submission(MongoBase, engine=engine.Submission):
         return str(self.obj.id)
 
     @property
-    def problem_id(self):
+    def problem_id(self) -> int:
         return self.problem.problem_id
 
     @property
-    def username(self):
+    def username(self) -> str:
         return self.user.username
-
-    def to_dict(self):
-        _ret = {
-            'problemId': self.problem_id,
-            'user': User(self.username).info,
-            'submissionId': self.id,
-            'timestamp': self.timestamp.timestamp(),
-            'code': bool(self.code),
-        }
-        ret = self.to_mongo()
-        old = [
-            '_id',
-            'problem',
-            'code',
-            'comment',
-        ]
-        # delete old keys
-        for o in old:
-            del ret[o]
-        # insert new keys
-        for n in _ret:
-            ret[n] = _ret[n]
-        return ret
 
     @property
     def status2code(self):
@@ -131,15 +135,16 @@ class Submission(MongoBase, engine=engine.Submission):
         }
 
     @property
-    def handwritten(self):
-        return self.language == 3
-
-    @property
     def tmp_dir(self) -> pathlib.Path:
-        return self.config().TMP_DIR / self.id
+        tmp_dir = self.config().TMP_DIR / self.username / self.id
+        tmp_dir.mkdir(exist_ok=True, parents=True)
+        return tmp_dir
 
     @property
     def main_code_path(self) -> str:
+        # handwritten submission didn't provide this function
+        if self.handwritten:
+            return
         # get excepted code name & temp path
         lang2ext = {0: '.c', 1: '.cpp', 2: '.py'}
         ext = lang2ext[self.language]
@@ -164,8 +169,22 @@ class Submission(MongoBase, engine=engine.Submission):
             cls._config = SubmissionConfig('submission')
         if not cls._config:
             cls._config.save()
-        cls._config.reload()
-        return cls._config
+        return cls._config.reload()
+
+    def get_output(self, task_no, case_no, text=True):
+        try:
+            case = self.tasks[task_no].cases[case_no]
+        except IndexError:
+            raise FileNotFoundError('task not exist')
+        ret = {}
+        try:
+            with ZipFile(case.output) as zf:
+                ret = {k: zf.read(k) for k in ('stdout', 'stderr')}
+                if text:
+                    ret = {k: v.decode('utf-8') for k, v in ret.items()}
+        except AttributeError as e:
+            raise AttributeError('The submission is still in pending')
+        return ret
 
     def delete_output(self, *args):
         '''
@@ -199,22 +218,6 @@ class Submission(MongoBase, engine=engine.Submission):
         for d in drops:
             del_funcs.get(d, default_del_func)(d)
         self.obj.delete()
-
-    def permission(self, user):
-        '''
-        3: can rejudge & grade, 
-        2: can view upload & comment, 
-        1: can view basic info, 
-        0: can't view
-        '''
-        if not can_view(user, self.problem):
-            return 0
-
-        return 3 - [
-            max(perm(course, user) for course in self.problem.courses) >= 2,
-            user.username == self.username,
-            True,
-        ].index(True)
 
     def sandbox_resp_handler(self, resp):
         # judge queue is currently full
@@ -261,25 +264,6 @@ class Submission(MongoBase, engine=engine.Submission):
                 load = resp['load']
                 tar = sb
         return tar
-
-    def get_code(self, path: str, binary=False) -> Union[str, bytes]:
-        # read file
-        try:
-            with ZipFile(self.code) as zf:
-                data = zf.read(path)
-        except KeyError:
-            # file not exists in the zip
-            return None
-        except AttributeError:
-            # code haven't been uploaded
-            return None
-        # decode byte if need
-        if not binary:
-            try:
-                data = data.decode('utf-8')
-            except UnicodeDecodeError:
-                data = 'Unusual file content, decode fail'
-        return data
 
     def get_comment(self) -> bytes:
         '''
@@ -384,6 +368,8 @@ class Submission(MongoBase, engine=engine.Submission):
             ],
         }
         self.logger.debug(f'meta: {meta}')
+        if self.problem.test_case.case_zip is None:
+            raise TestCaseNotFound(self.problem.problem_id)
         # setup post body
         files = {
             'src': (
@@ -489,7 +475,11 @@ class Submission(MongoBase, engine=engine.Submission):
             memory_usage=memory_usage,
         )
         self.finish_judging()
-
+        for has_code, has_output, has_code_detail in itertools.product(
+            [True, False], repeat=3):
+            # iterate through True and False
+            key = f'{self.id}_{has_code}_{has_output}_{has_code_detail}'
+            RedisCache().delete(key)
         return True
 
     def finish_judging(self):
@@ -497,10 +487,15 @@ class Submission(MongoBase, engine=engine.Submission):
         User(self.username).add_submission(self.reload())
         # update homework data
         for homework in self.problem.homeworks:
+            # if the homework is overdue, skip it
+            if self.timestamp > homework.duration.end:
+                continue
             stat = homework.student_status[self.username][str(self.problem_id)]
             stat['submissionIds'].append(self.id)
+            # handwritten problem will only keep the last submission
             if self.handwritten:
                 stat['submissionIds'] = stat['submissionIds'][-1:]
+            # update high score / handwritten problem is judged by teacher
             if self.score >= stat['score'] or self.handwritten:
                 stat['score'] = self.score
                 stat['problemStatus'] = self.status
@@ -551,8 +546,8 @@ class Submission(MongoBase, engine=engine.Submission):
     @staticmethod
     def filter(
         user,
-        offset,
-        count,
+        offset: int = 0,
+        count: int = -1,
         problem=None,
         submission=None,
         q_user=None,
@@ -560,23 +555,12 @@ class Submission(MongoBase, engine=engine.Submission):
         language_type=None,
         course=None,
     ):
-        # convert args
-        if offset is None or count is None:
-            raise ValueError('offset and count are required!')
-        try:
-            offset = int(offset)
-            count = int(count)
-        except ValueError:
-            raise ValueError('offset and count must be integer!')
-        if offset < 0:
-            raise ValueError(f'offset must >= 0! get {offset}')
-        if count < -1:
-            raise ValueError(f'count must >=-1! get {count}')
         if not isinstance(problem, engine.Problem) and problem is not None:
             try:
                 problem = Problem(int(problem)).obj
             except ValueError:
                 raise ValueError(f'can not convert {type(problem)} into int')
+            # problem does not exist
             if problem is None:
                 return []
         if isinstance(submission, (Submission, engine.Submission)):
@@ -589,15 +573,18 @@ class Submission(MongoBase, engine=engine.Submission):
             q_user = q_user.obj
         if isinstance(course, str):
             course = Course(course).obj
+            # course does not exist
             if course is None:
                 return []
+        # problem's query key
         p_k = 'problem'
-        # if problem not in course
         if course:
             problems = get_problem_list(user, course=course.course_name)
+            # use all problems under this course to filter
             if problem is None:
                 p_k = 'problem__in'
                 problem = problems
+            # if problem not in course
             elif problem not in problems:
                 return []
         # query args
@@ -612,8 +599,6 @@ class Submission(MongoBase, engine=engine.Submission):
         # sort by upload time
         submissions = engine.Submission.objects(**q).order_by('-timestamp')
         # truncate
-        if offset >= len(submissions) and len(submissions):
-            raise ValueError(f'offset ({offset}) is out of range!')
         right = min(offset + count, len(submissions))
         if count == -1:
             right = len(submissions)
@@ -621,11 +606,11 @@ class Submission(MongoBase, engine=engine.Submission):
 
     @classmethod
     def add(
-            cls,
-            problem_id: str,
-            username: str,
-            lang: int,
-            timestamp: date = None,
+        cls,
+        problem_id: str,
+        username: str,
+        lang: int,
+        timestamp: date = None,
     ) -> 'Submission':
         '''
         Insert a new submission into db
@@ -636,10 +621,12 @@ class Submission(MongoBase, engine=engine.Submission):
         # check existence
         user = User(username)
         if not user:
-            raise engine.DoesNotExist(f'user {username} does not exist')
+            raise engine.DoesNotExist(f'{user} does not exist')
         problem = Problem(problem_id)
-        if problem.obj is None:
-            raise engine.DoesNotExist(f'problem {problem_id} dose not exist')
+        if not problem:
+            raise engine.DoesNotExist(f'{problem} dose not exist')
+        if problem.test_case.case_zip is None:
+            raise TestCaseNotFound(problem_id)
         if timestamp is None:
             timestamp = datetime.now()
         # create a new submission
