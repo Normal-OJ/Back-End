@@ -546,8 +546,8 @@ class Submission(MongoBase, engine=engine.Submission):
     @staticmethod
     def filter(
         user,
-        offset: int,
-        count: int,
+        offset: int = 0,
+        count: int = -1,
         problem=None,
         submission=None,
         q_user=None,

@@ -208,7 +208,7 @@ def get_submission_list(user, offset, count, problem_id, submission_id,
     except ValueError as e:
         return HTTPError(str(e), 400)
 
-        # unicorn gifs
+    # unicorn gifs
     unicorns = [
         'https://media.giphy.com/media/xTiTnLmaxrlBHxsMMg/giphy.gif',
         'https://media.giphy.com/media/26AHG5KGFxSkUWw1i/giphy.gif',
