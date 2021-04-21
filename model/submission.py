@@ -2,6 +2,7 @@ import io
 import requests as rq
 import random
 import secrets
+import json
 from flask import (
     Blueprint,
     send_file,
@@ -12,7 +13,7 @@ from datetime import datetime, timedelta
 from functools import wraps
 from mongo import *
 from mongo import engine
-from mongo.utils import can_view_problem
+from mongo.utils import can_view_problem, RedisCache
 from .utils import *
 from .auth import *
 
@@ -155,27 +156,58 @@ def get_submission_list(user, offset, count, problem_id, submission_id,
         - language
         - course
     '''
+    cache_key = f'submissions_{user}_{problem_id}_{submission_id}_{username}_{status}_{language_type}_{course}'
+    cache = RedisCache()
     try:
-        submissions = Submission.filter(
-            user=user,
-            offset=offset,
-            count=count,
-            problem=problem_id,
-            submission=submission_id,
-            q_user=username,
-            status=status,
-            language_type=language_type,
-            course=course,
-        )
+        # convert args
+        if offset is None or count is None:
+            raise ValueError('offset and count are required!')
+        try:
+            offset = int(offset)
+            count = int(count)
+        except ValueError:
+            raise ValueError('offset and count must be integer!')
+        if offset < 0:
+            raise ValueError(f'offset must >= 0! get {offset}')
+        if count < -1:
+            raise ValueError(f'count must >=-1! get {count}')
+
+        # check cache
+        if cache.exists(cache_key):
+            submissions = json.loads(cache.get(cache_key))
+        else:
+            submissions = Submission.filter(
+                user=user,
+                offset=0,
+                count=-1,
+                problem=problem_id,
+                submission=submission_id,
+                q_user=username,
+                status=status,
+                language_type=language_type,
+                course=course,
+            )
+
+            submissions = [
+                s.to_dict(
+                    has_code=False,
+                    has_output=False,
+                    has_code_detail=False,
+                ) for s in submissions
+                if not s.handwritten or s.permission(user) > 1
+            ]
+            cache.set(cache_key, json.dumps(submissions), 15)
+
+        # truncate
+        if offset >= len(submissions) and len(submissions):
+            raise ValueError(f'offset ({offset}) is out of range!')
+        right = min(offset + count, len(submissions))
+        if count == -1:
+            right = len(submissions)
+        submissions = submissions[offset:right]
     except ValueError as e:
         return HTTPError(str(e), 400)
-    submissions = [
-        s.to_dict(
-            has_code=False,
-            has_output=False,
-            has_code_detail=False,
-        ) for s in submissions if not s.handwritten or s.permission(user) > 1
-    ]
+
     # unicorn gifs
     unicorns = [
         'https://media.giphy.com/media/xTiTnLmaxrlBHxsMMg/giphy.gif',
