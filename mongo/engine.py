@@ -281,7 +281,7 @@ def problem_desc_escape(sender, document):
 
 @problem_desc_escape.apply
 class Problem(Document):
-    problem_id = IntField(
+    problem_id = SequenceField(
         db_field='problemId',
         required=True,
         primary_key=True,

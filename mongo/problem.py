@@ -21,15 +21,6 @@ __all__ = [
 ]
 
 
-def serial_number():
-    try:
-        number = engine.Number.objects(name='serial_number').get()
-    except engine.DoesNotExist:
-        number = engine.Number(name='serial_number')
-        number.save()
-    return number
-
-
 class BadTestCase(Exception):
     def __init__(self, expression, extra, short):
         super().__init__(expression)
@@ -106,10 +97,6 @@ class Problem(MongoBase, engine=engine.Problem):
         return user.problem_submission.get(str(self.problem_id), 0)
 
 
-def increased_number():
-    serial_number().update(inc__number=1)
-
-
 def get_problem_list(
     user,
     offset: int = 0,
@@ -158,14 +145,12 @@ def add_problem(
     quota=-1,
     default_code='',
 ):
-    problem_id = serial_number().number
     course_objs = []
     for name in courses:
         if Course(name).obj is None:
             raise engine.DoesNotExist
         course_objs.append(Course(name).obj)
     problem = engine.Problem(
-        problem_id=problem_id,
         courses=course_objs,
         problem_status=status,
         problem_type=type,
@@ -183,8 +168,7 @@ def add_problem(
             can_view_stdout=can_view_stdout,
             allowed_language=allowed_language,
         )
-    increased_number()
-    return problem_id
+    return problem.problem_id
 
 
 def edit_problem(
@@ -306,7 +290,6 @@ def delete_problem(problem_id):
 def copy_problem(user, problem_id):
     problem = Problem(problem_id).obj
     engine.Problem(
-        problem_id=serial_number().number,
         problem_status=problem.problem_status,
         problem_type=problem.problem_type,
         problem_name=problem.problem_name,
@@ -315,7 +298,6 @@ def copy_problem(user, problem_id):
         tags=problem.tags,
         test_case=problem.test_case,
     ).save()
-    increased_number()
 
 
 def release_problem(problem_id):

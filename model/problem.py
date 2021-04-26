@@ -12,7 +12,6 @@ import threading
 __all__ = ['problem_api']
 
 problem_api = Blueprint('problem_api', __name__)
-lock = threading.Lock()
 
 
 @problem_api.route('/', methods=['GET'])
@@ -131,8 +130,7 @@ def manage_problem(user, problem_id=None):
 
     def modify_general_problem(**p_ks):
         if request.method == 'POST':
-            with lock as _:
-                pid = add_problem(user=user, **p_ks)
+            pid = add_problem(user=user, **p_ks)
             return HTTPResponse('Success.', data={'problemId': pid})
         elif request.method == 'PUT':
             edit_problem(
@@ -254,8 +252,7 @@ def clone_problem(user, problem_id):
         return HTTPError('Problem not exist.', 404)
     if not can_view_problem(user, problem):
         return HTTPError('Problem can not view.', 403)
-    with lock as _:
-        copy_problem(user, problem_id)
+    copy_problem(user, problem_id)
     return HTTPResponse('Success.')
 
 
