@@ -12,12 +12,6 @@ import zipfile
 __all__ = [
     'Problem',
     'BadTestCase',
-    'add_problem',
-    'edit_problem',
-    'edit_problem_test_case',
-    'delete_problem',
-    'copy_problem',
-    'release_problem',
 ]
 
 
@@ -103,8 +97,10 @@ class Problem(MongoBase, engine=engine.Problem):
 
     def is_valid_ip(self, ip: str):
         return all(hw.is_valid_ip(ip) for hw in self.running_homeworks())
+
     @classmethod
     def get_problem_list(
+        cls,
         user,
         offset: int = 0,
         count: int = -1,
@@ -137,182 +133,181 @@ class Problem(MongoBase, engine=engine.Problem):
         right = min(len(problems), right)
         return problems[offset:right]
 
+    @classmethod
+    def add_problem(
+        cls,
+        user,
+        courses,
+        status,
+        problem_name,
+        description,
+        tags,
+        type,
+        test_case_info=None,
+        can_view_stdout=False,
+        allowed_language=7,
+        quota=-1,
+        default_code='',
+    ):
+        course_objs = []
+        for name in courses:
+            if Course(name).obj is None:
+                raise engine.DoesNotExist
+            course_objs.append(Course(name).obj)
+        problem = engine.Problem(
+            courses=course_objs,
+            problem_status=status,
+            problem_type=type,
+            problem_name=problem_name,
+            description=description,
+            owner=user.username,
+            tags=tags,
+            quota=quota,
+            default_code=default_code,
+        )
+        problem.save()
+        if type != 2:
+            problem.update(
+                test_case=test_case_info,
+                can_view_stdout=can_view_stdout,
+                allowed_language=allowed_language,
+            )
+        return problem.problem_id
 
-
-
-
-def add_problem(
-    user,
-    courses,
-    status,
-    problem_name,
-    description,
-    tags,
-    type,
-    test_case_info=None,
-    can_view_stdout=False,
-    allowed_language=7,
-    quota=-1,
-    default_code='',
-):
-    course_objs = []
-    for name in courses:
-        if Course(name).obj is None:
-            raise engine.DoesNotExist
-        course_objs.append(Course(name).obj)
-    problem = engine.Problem(
-        courses=course_objs,
-        problem_status=status,
-        problem_type=type,
-        problem_name=problem_name,
-        description=description,
-        owner=user.username,
-        tags=tags,
-        quota=quota,
-        default_code=default_code,
-    )
-    problem.save()
-    if type != 2:
+    @classmethod
+    def edit_problem(
+        cls,
+        user,
+        problem_id,
+        courses,
+        status,
+        problem_name,
+        description,
+        tags,
+        type,
+        test_case_info=None,
+        allowed_language=7,
+        can_view_stdout=False,
+        quota=-1,
+        default_code='',
+    ):
+        problem = Problem(problem_id).obj
+        course_objs = []
+        for name in courses:
+            if (course := Course(name).obj) is None:
+                raise engine.DoesNotExist
+            course_objs.append(course)
         problem.update(
-            test_case=test_case_info,
-            can_view_stdout=can_view_stdout,
-            allowed_language=allowed_language,
+            courses=course_objs,
+            problem_status=status,
+            problem_type=type,
+            problem_name=problem_name,
+            description=description,
+            owner=user.username,
+            tags=tags,
+            quota=quota,
+            default_code=default_code,
         )
-    return problem.problem_id
+        if type != 2:
+            # preprocess test case
+            test_case = problem.test_case
+            if test_case_info:
+                test_case = engine.ProblemTestCase.from_json(
+                    json.dumps(test_case_info))
+                test_case.case_zip = problem.test_case.case_zip
+            problem.update(
+                allowed_language=allowed_language,
+                can_view_stdout=can_view_stdout,
+                test_case=test_case,
+            )
 
+    @classmethod
+    def edit_problem_test_case(cls, problem_id, test_case):
+        '''
+        edit problem's testcase
 
-def edit_problem(
-    user,
-    problem_id,
-    courses,
-    status,
-    problem_name,
-    description,
-    tags,
-    type,
-    test_case_info=None,
-    allowed_language=7,
-    can_view_stdout=False,
-    quota=-1,
-    default_code='',
-):
-    problem = Problem(problem_id).obj
-    course_objs = []
-    for name in courses:
-        if (course := Course(name).obj) is None:
-            raise engine.DoesNotExist
-        course_objs.append(course)
-    problem.update(
-        courses=course_objs,
-        problem_status=status,
-        problem_type=type,
-        problem_name=problem_name,
-        description=description,
-        owner=user.username,
-        tags=tags,
-        quota=quota,
-        default_code=default_code,
-    )
-    if type != 2:
-        # preprocess test case
-        test_case = problem.test_case
-        if test_case_info:
-            test_case = engine.ProblemTestCase.from_json(
-                json.dumps(test_case_info))
-            test_case.case_zip = problem.test_case.case_zip
-        problem.update(
-            allowed_language=allowed_language,
-            can_view_stdout=can_view_stdout,
-            test_case=test_case,
+        Args:
+            problem_id: target problem's id
+            test_case: testcase zip file
+        Exceptions:
+            zipfile.BadZipFile: if `test_case` is not a zip file
+            ValueError: if test case is None or problem_id is invalid
+            engine.DoesNotExist
+        Return:
+            a bool denote whether the update is successful
+        '''
+        # query problem document
+        problem = Problem(problem_id).obj
+        if problem is None:
+            raise engine.DoesNotExist(f'problem [{problem_id}] not exists.')
+        # test case must not be None
+        if test_case is None:
+            raise ValueError('test case is None')
+        # check file structure
+        # create set of excepted filenames
+        excepted_names = set()
+        for i, task in enumerate(problem.test_case.tasks):
+            for j in range(task.case_count):
+                excepted_names.add(f'{i:02d}{j:02d}.in')
+                excepted_names.add(f'{i:02d}{j:02d}.out')
+        # check chaos folder
+        chaos_path = zipfile.Path(test_case, at='chaos')
+        if chaos_path.exists() and chaos_path.is_file():
+            raise BadTestCase('find chaos, but it\'s not a directory')
+        # input/output filenames
+        in_out = {
+            name
+            for name in ZipFile(test_case).namelist()
+            if not name.startswith('chaos')
+        }
+        # check diff
+        ex = in_out - excepted_names
+        sh = excepted_names - in_out
+        if len(ex) or len(sh):
+            raise BadTestCase(
+                'io data not equal to meta provided',
+                [*ex],
+                [*sh],
+            )
+        # save zip file
+        test_case.seek(0)
+        # check whether the test case exists
+        if problem.test_case.case_zip.grid_id is None:
+            # if no, put data to a new file
+            write_func = problem.test_case.case_zip.put
+        else:
+            # else, replace original file with a new one
+            write_func = problem.test_case.case_zip.replace
+        write_func(
+            test_case,
+            content_type='application/zip',
         )
+        # update problem obj
+        problem.save()
+        return True
 
+    @classmethod
+    def delete_problem(cls, problem_id):
+        problem = Problem(problem_id).obj
+        problem.delete()
 
-def edit_problem_test_case(problem_id, test_case):
-    '''
-    edit problem's testcase
+    @classmethod
+    def copy_problem(cls, user, problem_id):
+        problem = Problem(problem_id).obj
+        engine.Problem(
+            problem_status=problem.problem_status,
+            problem_type=problem.problem_type,
+            problem_name=problem.problem_name,
+            description=problem.description,
+            owner=user.username,
+            tags=problem.tags,
+            test_case=problem.test_case,
+        ).save()
 
-    Args:
-        problem_id: target problem's id
-        test_case: testcase zip file
-    Exceptions:
-        zipfile.BadZipFile: if `test_case` is not a zip file
-        ValueError: if test case is None or problem_id is invalid
-        engine.DoesNotExist
-    Return:
-        a bool denote whether the update is successful
-    '''
-    # query problem document
-    problem = Problem(problem_id).obj
-    if problem is None:
-        raise engine.DoesNotExist(f'problem [{problem_id}] not exists.')
-    # test case must not be None
-    if test_case is None:
-        raise ValueError('test case is None')
-    # check file structure
-    # create set of excepted filenames
-    excepted_names = set()
-    for i, task in enumerate(problem.test_case.tasks):
-        for j in range(task.case_count):
-            excepted_names.add(f'{i:02d}{j:02d}.in')
-            excepted_names.add(f'{i:02d}{j:02d}.out')
-    # check chaos folder
-    chaos_path = zipfile.Path(test_case, at='chaos')
-    if chaos_path.exists() and chaos_path.is_file():
-        raise BadTestCase('find chaos, but it\'s not a directory')
-    # input/output filenames
-    in_out = {
-        name
-        for name in ZipFile(test_case).namelist()
-        if not name.startswith('chaos')
-    }
-    # check diff
-    ex = in_out - excepted_names
-    sh = excepted_names - in_out
-    if len(ex) or len(sh):
-        raise BadTestCase(
-            'io data not equal to meta provided',
-            [*ex],
-            [*sh],
-        )
-    # save zip file
-    test_case.seek(0)
-    # check whether the test case exists
-    if problem.test_case.case_zip.grid_id is None:
-        # if no, put data to a new file
-        write_func = problem.test_case.case_zip.put
-    else:
-        # else, replace original file with a new one
-        write_func = problem.test_case.case_zip.replace
-    write_func(
-        test_case,
-        content_type='application/zip',
-    )
-    # update problem obj
-    problem.save()
-    return True
-
-
-def delete_problem(problem_id):
-    problem = Problem(problem_id).obj
-    problem.delete()
-
-
-def copy_problem(user, problem_id):
-    problem = Problem(problem_id).obj
-    engine.Problem(
-        problem_status=problem.problem_status,
-        problem_type=problem.problem_type,
-        problem_name=problem.problem_name,
-        description=problem.description,
-        owner=user.username,
-        tags=problem.tags,
-        test_case=problem.test_case,
-    ).save()
-
-
-def release_problem(problem_id):
-    course = Course('Public').obj
-    problem = Problem(problem_id).obj
-    problem.courses = [course]
-    problem.owner = 'first_admin'
-    problem.save()
+    @classmethod
+    def release_problem(cls, problem_id):
+        course = Course('Public').obj
+        problem = Problem(problem_id).obj
+        problem.courses = [course]
+        problem.owner = 'first_admin'
+        problem.save()
