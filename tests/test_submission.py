@@ -331,7 +331,9 @@ class TestUserGetSubmission(SubmissionTester):
         submit_once,
     ):
         # get all problems that user can view
-        pids = [p.problem_id for p in Problem.get_problem_list(User('student'))]
+        pids = [
+            p.problem_id for p in Problem.get_problem_list(User('student'))
+        ]
         assert len(pids) != 0
         pid = pids[0]
         # get current high score

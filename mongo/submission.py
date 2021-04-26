@@ -579,7 +579,8 @@ class Submission(MongoBase, engine=engine.Submission):
         # problem's query key
         p_k = 'problem'
         if course:
-            problems = Problem.get_problem_list(user, course=course.course_name)
+            problems = Problem.get_problem_list(user,
+                                                course=course.course_name)
             # use all problems under this course to filter
             if problem is None:
                 p_k = 'problem__in'
