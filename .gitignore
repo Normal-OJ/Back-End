@@ -18,6 +18,8 @@ venv
 .vs
 .vscode
 
-# default data path
-/submissions/
-/comments/
+# coverage
+.coverage
+.coverage.*
+coverage.html
+htmlcov

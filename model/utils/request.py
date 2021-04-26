@@ -5,7 +5,11 @@ from flask import request
 
 from .response import *
 
-__all__ = ['Request', 'timing_request']
+__all__ = (
+    'Request',
+    'timing_request',
+    'get_ip',
+)
 
 type_map = {
     'int': int,
@@ -83,3 +87,8 @@ def timing_request(func):
         return resp, status_code
 
     return wrapper
+
+
+def get_ip() -> str:
+    ip = request.headers.get('X-Forwarded-For', '').split(',')[-1].strip()
+    return ip

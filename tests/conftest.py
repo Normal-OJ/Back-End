@@ -1,3 +1,4 @@
+from flask import Flask
 from app import app as flask_app
 from mongo import *
 from mongo import engine
@@ -27,8 +28,9 @@ def app(tmp_path):
     return flask_app
 
 
+# TODO: share client may cause auth problem
 @pytest.fixture
-def client(app):
+def client(app: Flask):
     return app.test_client()
 
 
