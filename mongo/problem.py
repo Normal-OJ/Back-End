@@ -12,7 +12,6 @@ import zipfile
 __all__ = [
     'Problem',
     'BadTestCase',
-    'get_problem_list',
     'add_problem',
     'edit_problem',
     'edit_problem_test_case',
@@ -104,40 +103,42 @@ class Problem(MongoBase, engine=engine.Problem):
 
     def is_valid_ip(self, ip: str):
         return all(hw.is_valid_ip(ip) for hw in self.running_homeworks())
+    @classmethod
+    def get_problem_list(
+        user,
+        offset: int = 0,
+        count: int = -1,
+        problem_id: int = None,
+        name: str = None,
+        tags: list = None,
+        course: str = None,
+    ):
+        '''
+        get a list of problems
+        '''
+        if course is not None:
+            course = Course(course).obj
+            if course is None:
+                return []
+        # qurey args
+        ks = {
+            'problem_id': problem_id,
+            'problem_name': name,
+            'courses': course,
+            'tags__in': tags,
+        }
+        ks = {k: v for k, v in ks.items() if v is not None}
+        problems = engine.Problem.objects(**ks).order_by('problemId')
+        problems = [p for p in problems if can_view_problem(user, p)]
+        # truncate
+        if offset < 0 or (offset >= len(problems) and len(problems)):
+            raise IndexError
+        right = len(problems) if count < 0 else offset + count
+        right = min(len(problems), right)
+        return problems[offset:right]
 
 
-def get_problem_list(
-    user,
-    offset: int = 0,
-    count: int = -1,
-    problem_id: int = None,
-    name: str = None,
-    tags: list = None,
-    course: str = None,
-):
-    '''
-    get a list of problems
-    '''
-    if course is not None:
-        course = Course(course).obj
-        if course is None:
-            return []
-    # qurey args
-    ks = {
-        'problem_id': problem_id,
-        'problem_name': name,
-        'courses': course,
-        'tags__in': tags,
-    }
-    ks = {k: v for k, v in ks.items() if v is not None}
-    problems = engine.Problem.objects(**ks).order_by('problemId')
-    problems = [p for p in problems if can_view_problem(user, p)]
-    # truncate
-    if offset < 0 or (offset >= len(problems) and len(problems)):
-        raise IndexError
-    right = len(problems) if count < 0 else offset + count
-    right = min(len(problems), right)
-    return problems[offset:right]
+
 
 
 def add_problem(

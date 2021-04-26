@@ -58,7 +58,7 @@ def view_problem_list(
             'course': course,
         }
         ks = {k: v for k, v in ks.items() if v is not None}
-        data = get_problem_list(**ks)
+        data = Problem.get_problem_list(**ks)
     except IndexError:
         return HTTPError('invalid offset', 400)
     data = [{

@@ -14,7 +14,7 @@ from zipfile import ZipFile, is_zipfile
 from . import engine
 from .base import MongoBase
 from .user import User
-from .problem import Problem, get_problem_list
+from .problem import Problem
 from .course import Course
 from .utils import RedisCache
 
@@ -579,7 +579,7 @@ class Submission(MongoBase, engine=engine.Submission):
         # problem's query key
         p_k = 'problem'
         if course:
-            problems = get_problem_list(user, course=course.course_name)
+            problems = Problem.get_problem_list(user, course=course.course_name)
             # use all problems under this course to filter
             if problem is None:
                 p_k = 'problem__in'
