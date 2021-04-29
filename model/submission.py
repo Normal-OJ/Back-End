@@ -340,7 +340,7 @@ def get_submission_count(user, problem_id, submission_id, username, status,
 @Request.json('tasks: list', 'token: str')
 @submission_required
 def on_submission_complete(submission, tasks, token):
-    if not verify_token(submission.id, token):
+    if not Submission.verify_token(submission.id, token):
         return HTTPError('i don\'t know you', 403)
     try:
         submission.process_result(tasks)

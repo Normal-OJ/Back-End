@@ -21,9 +21,6 @@ from .utils import RedisCache
 __all__ = [
     'SubmissionConfig',
     'Submission',
-    'gen_token',
-    'assign_token',
-    'verify_token',
     'JudgeQueueFullError',
     'TestCaseNotFound',
 ]
@@ -39,27 +36,6 @@ def gen_token():
     return secrets.token_urlsafe()
 
 
-def assign_token(submission_id, token=None):
-    '''
-    generate a token for the submission
-    '''
-    if token is None:
-        token = gen_token()
-    RedisCache().set(gen_key(submission_id), token)
-    return token
-
-
-def verify_token(submission_id, token):
-    cache = RedisCache()
-    key = gen_key(submission_id)
-    s_token = cache.get(key)
-    if s_token is None:
-        return False
-    s_token = s_token.decode('ascii')
-    valid = secrets.compare_digest(s_token, token)
-    if valid:
-        cache.delete(key)
-    return valid
 
 
 # Errors
@@ -391,7 +367,7 @@ class Submission(MongoBase, engine=engine.Submission):
             self.logger.error(f'can not target a sandbox for {repr(self)}')
             return False
         # save token for validation
-        assign_token(self.id, tar.token)
+        Submission.assign_token(self.id, tar.token)
         post_data = {
             'token': tar.token,
             'checker': 'print("not implement yet. qaq")',
@@ -639,3 +615,28 @@ class Submission(MongoBase, engine=engine.Submission):
         )
         submission.save()
         return cls(submission.id)
+
+    #submission
+    @classmethod
+    def assign_token(cls, submission_id, token=None):
+        '''
+        generate a token for the submission
+        '''
+        if token is None:
+            token = gen_token()
+        RedisCache().set(gen_key(submission_id), token)
+        return token
+
+    #submission
+    @classmethod
+    def verify_token(cls, submission_id, token):
+        cache = RedisCache()
+        key = gen_key(submission_id)
+        s_token = cache.get(key)
+        if s_token is None:
+            return False
+        s_token = s_token.decode('ascii')
+        valid = secrets.compare_digest(s_token, token)
+        if valid:
+            cache.delete(key)
+        return valid
