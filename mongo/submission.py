@@ -36,8 +36,6 @@ def gen_token():
     return secrets.token_urlsafe()
 
 
-
-
 # Errors
 class JudgeQueueFullError(Exception):
     '''
