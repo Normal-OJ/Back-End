@@ -9,8 +9,8 @@ class Inbox(MongoBase, engine=engine.Inbox):
     def __init__(self, message_id):
         self.message_id = message_id
 
-    @staticmethod
-    def send(sender, receivers, title, message):
+    @classmethod
+    def send(cls, sender, receivers, title, message):
         receivers = [*filter(lambda n: User(n), receivers)]
         message = engine.Message(sender=sender,
                                  receivers=receivers,
@@ -18,13 +18,12 @@ class Inbox(MongoBase, engine=engine.Inbox):
                                  markdown=message)
         message.save()
         for r in receivers:
-            engine.Inbox(receiver=r, message=message).save()
+            cls.engine(receiver=r, message=message).save()
         return message
 
-    @staticmethod
-    def messages(username):
-        messages = sorted(engine.Inbox.objects(receiver=username,
-                                               status__ne=2),
+    @classmethod
+    def messages(cls, username):
+        messages = sorted(cls.engine.objects(receiver=username, status__ne=2),
                           key=lambda x: x.message.timestamp,
                           reverse=True)
         return [{
@@ -36,8 +35,8 @@ class Inbox(MongoBase, engine=engine.Inbox):
             'timestamp': int(m.message.timestamp.timestamp())
         } for m in messages]
 
-    @staticmethod
-    def sents(username):
+    @classmethod
+    def sents(cls, username):
         sents = engine.Message.objects(sender=username,
                                        status=0).order_by('-timestamp')
         return [{
@@ -48,8 +47,8 @@ class Inbox(MongoBase, engine=engine.Inbox):
             'timestamp': int(s.timestamp.timestamp())
         } for s in sents]
 
-    @staticmethod
-    def sent(message_id):
+    @classmethod
+    def sent(cls, message_id):
         return engine.Message.objects.get(id=message_id, status=0)
 
     def change_status(self):
