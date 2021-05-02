@@ -6,6 +6,7 @@ from .auth import *
 import mosspy
 import threading
 import logging
+import requests
 
 __all__ = ['copycat_api']
 
@@ -58,6 +59,11 @@ def get_report_task(user, problem_id):
     )
 
 
+def get_report_by_url(url: string):
+    response = requests.get(url)
+    return response.text
+
+
 @copycat_api.route('/', methods=['GET'])
 @login_required
 @Request.args('course', 'problem_id')
@@ -87,14 +93,10 @@ def get_report(user, course, problem_id):
 
     cpp_report_url = problem.cpp_report_url
     python_report_url = problem.python_report_url
+    cpp_report = get_report_by_url(cpp_report_url)
+    python_report = get_report_by_url(python_report_url)
 
-    return HTTPResponse(
-        'Success.',
-        data={
-            "cppReport": cpp_report_url,
-            "pythonReport": python_report_url
-        },
-    )
+    return cpp_report + python_report
 
 
 @copycat_api.route('/', methods=['POST'])
