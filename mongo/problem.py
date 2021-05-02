@@ -151,7 +151,7 @@ class Problem(MongoBase, engine=engine.Problem):
     ):
         course_objs = []
         for name in courses:
-            if Course(name).obj is None:
+            if not Course(name):
                 raise engine.DoesNotExist
             course_objs.append(Course(name).obj)
         problem = engine.Problem(
@@ -194,9 +194,9 @@ class Problem(MongoBase, engine=engine.Problem):
         problem = Problem(problem_id).obj
         course_objs = []
         for name in courses:
-            if (course := Course(name).obj) is None:
+            if not (course := Course(name)):
                 raise engine.DoesNotExist
-            course_objs.append(course)
+            course_objs.append(course.obj)
         problem.update(
             courses=course_objs,
             problem_status=status,

@@ -546,9 +546,9 @@ class Submission(MongoBase, engine=engine.Submission):
                 return []
             q_user = q_user.obj
         if isinstance(course, str):
-            course = Course(course).obj
+            course = Course(course)
             # course does not exist
-            if course is None:
+            if not course:
                 return []
         # problem's query key
         p_k = 'problem'

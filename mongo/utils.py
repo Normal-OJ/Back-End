@@ -2,9 +2,16 @@ import abc
 import hashlib
 import os
 import redis
+from functools import wraps
 from typing import Optional, Any
 
-__all__ = ('hash_id', 'perm', 'can_view_problem', 'RedisCache', 'doc_required')
+__all__ = (
+    'hash_id',
+    'perm',
+    'can_view_problem',
+    'RedisCache',
+    'doc_required',
+)
 
 
 def hash_id(salt, text):

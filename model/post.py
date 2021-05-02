@@ -3,6 +3,7 @@ from mongo import *
 from mongo import engine
 from .auth import *
 from .utils import *
+from mongo.utils import *
 from mongo.post import *
 from mongo.course import *
 
@@ -51,8 +52,8 @@ def modify_post(user, course, title, content, target_thread_id):
         return HTTPError(
             'Request is fail,course or target_thread_id must be none.', 400)
     elif course:
-        course_obj = Course(course).obj
-        if course_obj is None:
+        course_obj = Course(course)
+        if not course_obj:
             return HTTPError('Course not exist.', 404)
         permission = perm(course_obj, user)
     elif target_thread_id:

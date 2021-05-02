@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 from functools import wraps
 from mongo import *
 from mongo import engine
-from mongo.utils import can_view_problem, RedisCache
+from mongo.utils import can_view_problem, RedisCache, perm
 from .utils import *
 from .auth import *
 

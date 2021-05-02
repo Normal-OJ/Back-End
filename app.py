@@ -49,7 +49,7 @@ if not User('first_admin'):
         profile=PROFILE,
     )
 if Course('Public').obj is None:
-    add_course('Public', 'first_admin')
+    Course.add_course('Public', 'first_admin')
 
 if __name__ != '__main__':
     logger = logging.getLogger('gunicorn.error')
