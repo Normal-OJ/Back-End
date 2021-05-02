@@ -59,7 +59,7 @@ def get_report_task(user, problem_id):
     )
 
 
-def get_report_by_url(url: string):
+def get_report_by_url(url: str):
     response = requests.get(url)
     return response.text
 
