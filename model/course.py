@@ -23,13 +23,14 @@ def get_courses(user):
         if user.role == 1:
             teacher = user.username
         try:
-            co = Course(course)
             if request.method == 'POST':
                 r = Course.add_course(course, teacher)
             if request.method == 'PUT':
-                co.edit_course(user, course, new_course, teacher)
+                co = Course(course)
+                co.edit_course(user, new_course, teacher)
             if request.method == 'DELETE':
-                co.delete_course(user, course)
+                co = Course(course)
+                co.delete_course(user)
         except ValueError:
             return HTTPError('Not allowed name.', 400)
         except NotUniqueError:

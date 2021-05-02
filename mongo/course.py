@@ -45,38 +45,36 @@ class Course(MongoBase, engine=engine.Course):
         else:
             return cls.get_all()
 
-    def edit_course(self, user, course, new_course, teacher):
+    def edit_course(self, user, new_course, teacher):
         if re.match(r'^[a-zA-Z0-9._\- ]+$', new_course) is None:
             raise ValueError
 
-        co = Course(course)
-        if not co:
+        if not self:
             raise engine.DoesNotExist('Course')
-        if not perm(co, user):
+        if not perm(self, user):
             raise PermissionError
         te = User(teacher)
         if not te:
             raise engine.DoesNotExist('User')
 
-        co.course_name = new_course
-        if te.obj != co.teacher:
-            co.remove_user(co.teacher)
-            co.add_user(te.obj)
-        co.teacher = te.obj
-        co.save()
+        self.course_name = new_course
+        if te.obj != self.teacher:
+            self.remove_user(self.teacher)
+            self.add_user(te.obj)
+        self.teacher = te.obj
+        self.save()
         return True
 
-    def delete_course(self, user, course):
-        co = Course(course)
-        if not co:
+    def delete_course(self, user):
+        if not self:
             # course not found
             raise engine.DoesNotExist('Course')
-        if not perm(co, user):
+        if not perm(self, user):
             # user is not the TA or teacher in course
             raise PermissionError
 
-        co.remove_user(co.teacher)
-        co.delete()
+        self.remove_user(self.teacher)
+        self.delete()
         return True
 
     @classmethod
