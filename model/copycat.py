@@ -63,7 +63,7 @@ def get_report_by_url(url: str):
     try:
         response = requests.get(url)
         return response.text
-    except requests.exceptions.MissingSchema:
+    except(requests.exceptions.MissingSchema, requests.exceptions.InvalidSchema):
         return 'No report.'
 
 
