@@ -60,8 +60,11 @@ def get_report_task(user, problem_id):
 
 
 def get_report_by_url(url: str):
-    response = requests.get(url)
-    return response.text
+    if url != '':
+        response = requests.get(url)
+        return response.text
+    else:
+        return ''
 
 
 @copycat_api.route('/', methods=['GET'])
@@ -96,8 +99,19 @@ def get_report(user, course, problem_id):
     cpp_report = get_report_by_url(cpp_report_url)
     python_report = get_report_by_url(python_report_url)
 
-    return cpp_report + python_report
-
+    if cpp_report == "" and python_report == "":
+        return HTTPResponse(
+            "No report found",
+            data={}
+        )
+    else:
+        return HTTPResponse(
+            "Success.",
+            data={
+                "cpp_report": cpp_report,
+                "python_report": python_report
+            }
+        )
 
 @copycat_api.route('/', methods=['POST'])
 @login_required
