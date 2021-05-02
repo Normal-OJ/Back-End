@@ -20,9 +20,14 @@ def contest(user, course_name, name, new_name, start, end, problem_ids,
             scoreboard_status, contest_mode):
     if request.method == 'POST':
         try:
-            contest = Contest.add_contest(user, course_name, name, problem_ids,
-                                          scoreboard_status, contest_mode,
-                                          start, end)
+            contest = Contest.add_contest(user=user,
+                                          contest_name=name,
+                                          problem_ids=problem_ids,
+                                          scoreboard_status=scoreboard_status,
+                                          contest_mode=contest_mode,
+                                          course_name=course_name,
+                                          start=start,
+                                          end=end)
         except ProblemNotExist:
             return HTTPError('there is problem does not exist', 404)
         except CourseNotExist:
@@ -36,8 +41,15 @@ def contest(user, course_name, name, new_name, start, end, problem_ids,
         return HTTPResponse('Add contest Success')
     if request.method == 'PUT':
         try:
-            Contest.update(user, course_name, name, new_name, start, end,
-                           problem_ids, scoreboard_status, contest_mode)
+            Contest.update(user=user,
+                           contest_name=name,
+                           new_contest_name=new_name,
+                           start=start,
+                           end=end,
+                           problem_ids=problem_ids,
+                           scoreboard_status=scoreboard_status,
+                           contest_mode=contest_mode,
+                           course_name=course_name)
         except ProblemNotExist:
             return HTTPError('there is problem does not exist', 404)
         except CourseNotExist:
@@ -52,7 +64,9 @@ def contest(user, course_name, name, new_name, start, end, problem_ids,
         return HTTPResponse('update contest Success')
     if request.method == 'DELETE':
         try:
-            Contest.delete(user, course_name, name)
+            Contest.delete(user=user,
+                           contest_name=name,
+                           course_name=course_name)
         except DoesNotExist:
             return HTTPError('the contest does not exist', 404)
         except CourseNotExist:
@@ -63,7 +77,7 @@ def contest(user, course_name, name, new_name, start, end, problem_ids,
         return HTTPResponse('delete contest Success')
     if request.method == 'GET':
         try:
-            contests = Contest.get_course_contests(course_name)
+            contests = Contest.get_course_contests(course_name=course_name)
             data = []
             for x in contests:
                 contest = {
@@ -86,7 +100,8 @@ def contest(user, course_name, name, new_name, start, end, problem_ids,
 @login_required
 def get_single_contest(user, id):
     try:
-        data = Contest.get_single_contest(user, id)
+        contest = Contest(id)
+        data = contest.get_single_contest(user=user)
     except DoesNotExist:
         return HTTPError('unable to find contest', 404)
     except CourseNotExist:
@@ -112,7 +127,9 @@ def check_user_is_in_contest(user):
 @login_required
 def join_contest(user, id):
     try:
-        Contest.add_user_in_contest(user, id)
+        contest = Contest(id)
+        contest.add_user_in_contest(user=user)
+        #Contest.add_user_in_contest(contest_id=id, user=user)
     except CourseNotExist:
         return HTTPError('the course of this contest does not exist', 404)
     except DoesNotExist:
@@ -128,7 +145,8 @@ def join_contest(user, id):
 @login_required
 def leave_contest(user):
     try:
-        Contest.user_leave_contest(user)
+        contest = Contest(user.contest.id)
+        contest.user_leave_contest(user)
     except UserIsNotInCourse:
         return HTTPError("user not in the contest", 400)
     return HTTPResponse('user leave contest success')
