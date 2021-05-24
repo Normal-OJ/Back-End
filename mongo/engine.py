@@ -6,24 +6,14 @@ import html
 from enum import Enum, IntEnum
 from datetime import datetime
 from zipfile import ZipFile, BadZipFile
-from .utils import perm, can_view_problem
+from .utils import perm, can_view_problem, RedisCache
 from typing import Union
-import redis
-import fakeredis
 import json
 
 __all__ = [*mongoengine.__all__]
 
 MONGO_HOST = os.environ.get('MONGO_HOST', 'mongomock://localhost')
-REDIS_POOL = redis.ConnectionPool(
-    host=os.getenv('REDIS_HOST'),
-    port=os.getenv('REDIS_PORT'),
-    db=0,
-)
 connect('normal-oj', host=MONGO_HOST)
-REDIS_CLIENT = redis.Redis(connection_pool=REDIS_POOL)
-if os.getenv('REDIS_HOST') is None:
-    REDIS_CLIENT = fakeredis.FakeStrictRedis()
 
 
 def handler(event):
@@ -414,8 +404,9 @@ class Submission(Document):
 
     def to_dict(self, has_code=False, has_output=False, has_code_detail=False):
         key = f'{self.id}_{has_code}_{has_output}_{has_code_detail}'
-        if REDIS_CLIENT.exists(key):
-            return json.loads(REDIS_CLIENT.get(key))
+        cache = RedisCache()
+        if cache.exists(key):
+            return json.loads(cache.get(key))
 
         _ret = {
             'problemId': self.problem.problem_id,
@@ -459,7 +450,7 @@ class Submission(Document):
                 for case in task['cases']:
                     del case['output']
 
-        REDIS_CLIENT.set(key, json.dumps(ret), 60)
+        cache.set(key, json.dumps(ret), 60)
         return ret
 
     @property
