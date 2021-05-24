@@ -1,3 +1,4 @@
+from typing import List
 from flask import Blueprint, request
 from mongo import *
 from mongo import engine
@@ -145,7 +146,7 @@ def check(user, homework_name, course_name):
 @homework_api.route('/<course>/<homework_name>/ip-filters', methods=['GET'])
 @login_required
 @Request.args('ip_filters')
-def update_ip_filters(
+def set_ip_filters(
     user,
     course: str,
     homework_name: str,
@@ -157,7 +158,55 @@ def update_ip_filters(
         hw = Homework.get_by_name(course, homework_name)
     except DoesNotExist:
         return HTTPError('Homework does not exist', 404)
-    ip_filters = ip_filters.split(',')
+    # Split and strip space characters
+    ip_filters = [s.strip() for s in ip_filters.split(',')]
+    # Ignore empty strings
     ip_filters = [f for f in ip_filters if f]
-    hw.update(ip_filters=ip_filters)
+    try:
+        hw.update(ip_filters=ip_filters)
+    except ValidationError as e:
+        return HTTPError(e, 400)
     return HTTPResponse('success')
+
+
+@homework_api.route('/<course>/<homework_name>/ip-filters', methods=['PATCH'])
+@login_required
+@Request.json('patches:list')
+def patch_ip_filters(
+    user,
+    course: str,
+    homework_name: str,
+    patches: List,
+):
+    if user.role != 0:
+        return HTTPError('Not admin!', 403)
+    try:
+        hw = Homework.get_by_name(course, homework_name)
+    except DoesNotExist:
+        return HTTPError('Homework does not exist', 404)
+    adds = []
+    dels = []
+    for patch in patches:
+        op = patch.get('op')
+        if op not in {'add', 'del'}:
+            return HTTPError('Invalid operation', 400, data={'op': op})
+        value = patch.get('value')
+        if value is None:
+            return HTTPError('Value not found', 400)
+        if op == 'add':
+            adds.append(value)
+        else:
+            dels.append(value)
+        # Validate filter format
+        try:
+            IPFilter(value)
+        except ValueError as e:
+            return HTTPError(str(e), 400)
+    try:
+        hw.update(
+            push_all__ip_filters=adds,
+            pull_all__ip_filters=dels,
+        )
+    except ValidationError as e:
+        return HTTPError(str(e), 400)
+    return HTTPResponse()
