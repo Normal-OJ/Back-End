@@ -145,7 +145,6 @@ def check(user, homework_name, course_name):
 
 @homework_api.route('/<course>/<homework_name>/ip-filters', methods=['GET'])
 @login_required
-@Request.args('ip_filters')
 def set_ip_filters(
     user,
     course: str,
@@ -158,15 +157,7 @@ def set_ip_filters(
         hw = Homework.get_by_name(course, homework_name)
     except DoesNotExist:
         return HTTPError('Homework does not exist', 404)
-    # Split and strip space characters
-    ip_filters = [s.strip() for s in ip_filters.split(',')]
-    # Ignore empty strings
-    ip_filters = [f for f in ip_filters if f]
-    try:
-        hw.update(ip_filters=ip_filters)
-    except ValidationError as e:
-        return HTTPError(e, 400)
-    return HTTPResponse('success')
+    return HTTPResponse(data={'ipFilters': hw.ip_filters})
 
 
 @homework_api.route('/<course>/<homework_name>/ip-filters', methods=['PATCH'])
