@@ -145,11 +145,10 @@ def check(user, homework_name, course_name):
 
 @homework_api.route('/<course>/<homework_name>/ip-filters', methods=['GET'])
 @login_required
-def set_ip_filters(
+def get_ip_filters(
     user,
     course: str,
     homework_name: str,
-    ip_filters: str,
 ):
     if user.role != 0:
         return HTTPError('Not admin!', 403)
