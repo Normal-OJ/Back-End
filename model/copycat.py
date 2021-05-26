@@ -13,7 +13,7 @@ __all__ = ['copycat_api']
 copycat_api = Blueprint('copycat_api', __name__)
 
 
-def get_report_task(user, problem_id):
+def get_report_task(user, problem_id, student_dict):
     # select all ac code
     submissions = Submission.filter(
         user=user,
@@ -21,6 +21,7 @@ def get_report_task(user, problem_id):
         count=-1,
         status=0,
         problem=problem_id,
+        q_user=student_dict.keys()
     )
 
     last_cc_submission = {}
@@ -114,12 +115,21 @@ def get_report(user, course, problem_id):
 
 @copycat_api.route('/', methods=['POST'])
 @login_required
-@Request.json('course', 'problem_id')
-def detect(user, course, problem_id):
+@Request.json('course', 'problem_id', 'student_nicknames')
+def detect(user, course, problem_id, student_nicknames):
     course = Course(course).obj
     problem = Problem(problem_id).obj
     permission = perm(course, user)
-
+    
+    # Check if student is in course
+    student_dict = {}
+    for student, nickname in student_nicknames.items():
+        if not User(student):
+            return HTTPResponse(f'User: {student} not found.', 404)
+        student_dict[student] = nickname
+    # Check student_dict
+    if not student_dict:
+        return HTTPResponse('Empty student list.', 404)
     # some privilege or exist check
     if permission < 2:
         return HTTPError('Forbidden.', 403)
@@ -134,6 +144,7 @@ def detect(user, course, problem_id):
             args=(
                 user,
                 problem_id,
+                student_dict,
             ),
         ).start()
 
