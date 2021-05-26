@@ -20,7 +20,7 @@ def get_report_task(user, problem_id, student_dict):
                                     count=-1,
                                     status=0,
                                     problem=problem_id,
-                                    q_user=student_dict.keys())
+                                    q_user=list(student_dict.keys()))
 
     last_cc_submission = {}
     last_python_submission = {}
