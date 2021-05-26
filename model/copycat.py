@@ -15,14 +15,12 @@ copycat_api = Blueprint('copycat_api', __name__)
 
 def get_report_task(user, problem_id, student_dict):
     # select all ac code
-    submissions = Submission.filter(
-        user=user,
-        offset=0,
-        count=-1,
-        status=0,
-        problem=problem_id,
-        q_user=student_dict.keys()
-    )
+    submissions = Submission.filter(user=user,
+                                    offset=0,
+                                    count=-1,
+                                    status=0,
+                                    problem=problem_id,
+                                    q_user=student_dict.keys())
 
     last_cc_submission = {}
     last_python_submission = {}
@@ -98,12 +96,12 @@ def get_report(user, course, problem_id):
 
     cpp_report_url = problem.cpp_report_url
     python_report_url = problem.python_report_url
-    cpp_report = get_report_by_url(cpp_report_url)
-    python_report = get_report_by_url(python_report_url)
 
-    if cpp_report == "" and python_report == "":
+    if cpp_report_url == "" and python_report_url == "":
         return HTTPResponse("No report found", data={})
     else:
+        cpp_report = get_report_by_url(cpp_report_url)
+        python_report = get_report_by_url(python_report_url)
         return HTTPResponse(
             "Success.",
             data={
@@ -117,10 +115,19 @@ def get_report(user, course, problem_id):
 @login_required
 @Request.json('course', 'problem_id', 'student_nicknames')
 def detect(user, course, problem_id, student_nicknames):
+    if not (problem_id and course and student_nicknames):
+        return HTTPError(
+            'missing arguments!',
+            400,
+            data={
+                'need': ['course', 'problemId', 'student_nicknames'],
+            },
+        )
+
     course = Course(course).obj
     problem = Problem(problem_id).obj
     permission = perm(course, user)
-    
+
     # Check if student is in course
     student_dict = {}
     for student, nickname in student_nicknames.items():
