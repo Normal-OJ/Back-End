@@ -63,7 +63,8 @@ def get_report_by_url(url: str):
     try:
         response = requests.get(url)
         return response.text
-    except(requests.exceptions.MissingSchema, requests.exceptions.InvalidSchema):
+    except (requests.exceptions.MissingSchema,
+            requests.exceptions.InvalidSchema):
         return 'No report.'
 
 
@@ -100,18 +101,16 @@ def get_report(user, course, problem_id):
     python_report = get_report_by_url(python_report_url)
 
     if cpp_report == "" and python_report == "":
-        return HTTPResponse(
-            "No report found",
-            data={}
-        )
+        return HTTPResponse("No report found", data={})
     else:
         return HTTPResponse(
             "Success.",
             data={
                 "cpp_report": cpp_report,
                 "python_report": python_report
-            }
+            },
         )
+
 
 @copycat_api.route('/', methods=['POST'])
 @login_required
