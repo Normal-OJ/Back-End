@@ -120,7 +120,7 @@ def detect(user, course, problem_id, student_nicknames):
             'missing arguments!',
             400,
             data={
-                'need': ['course', 'problemId', 'student_nicknames'],
+                'need': ['course', 'problemId', 'studentNicknames'],
             },
         )
 
