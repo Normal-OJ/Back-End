@@ -15,12 +15,14 @@ copycat_api = Blueprint('copycat_api', __name__)
 
 def get_report_task(user, problem_id, student_dict):
     # select all ac code
-    submissions = Submission.filter(user=user,
-                                    offset=0,
-                                    count=-1,
-                                    status=0,
-                                    problem=problem_id,
-                                    q_user=list(student_dict.keys()))
+    submissions = Submission.filter(
+        user=user,
+        offset=0,
+        count=-1,
+        status=0,
+        problem=problem_id,
+        q_user=list(student_dict.keys()),
+    )
 
     last_cc_submission = {}
     last_python_submission = {}
