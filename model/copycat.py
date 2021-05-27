@@ -100,8 +100,10 @@ def get_report(user, course, problem_id):
     cpp_report_url = problem.cpp_report_url
     python_report_url = problem.python_report_url
 
-    if cpp_report_url == "" and python_report_url == "":
-        return HTTPResponse("No report found", data={})
+    if problem.moss_status == 0:
+        return HTTPResponse("No report found. Please make a post request to copycat api to generate a report", data={})
+    elif problem.moss_status == 1:
+        return HTTPResponse("Report generating...", data={})
     else:
         cpp_report = get_report_by_url(cpp_report_url)
         python_report = get_report_by_url(python_report_url)
