@@ -57,6 +57,7 @@ def get_report_task(user, problem_id, student_dict):
     problem.obj.update(
         cpp_report_url=cpp_report_url,
         python_report_url=python_report_url,
+        moss_status=2,
     )
 
 
@@ -148,6 +149,12 @@ def detect(user, course, problem_id, student_nicknames):
         return HTTPError('Course not found.', 404)
 
     if not current_app.config['TESTING']:
+        problem = Problem(problem_id)
+        problem.obj.update(
+            cpp_report_url="",
+            python_report_url="",
+            moss_status=1
+        )
         threading.Thread(
             target=get_report_task,
             args=(

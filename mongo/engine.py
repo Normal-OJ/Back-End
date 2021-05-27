@@ -330,6 +330,12 @@ class Problem(Document):
         default='',
         max_length=128,
     )
+    # moss_status (not started: 0, processing: 1, done: 2)
+    moss_status = IntField(
+        default=0,
+        choices=[0, 1, 2],
+        db_field='mossStatus',
+    )
     # bitmask of allowed languages (c: 1, cpp: 2, py3: 4)
     allowed_language = IntField(db_field='allowedLanguage', default=7)
     # high score for each student
