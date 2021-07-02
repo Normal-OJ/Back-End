@@ -58,14 +58,12 @@ def get_report_task(user, problem_id, student_dict):
         "submissions_report/",
         connections=8,
         log_level=10,
-        on_read=lambda url: print('*', end='', flush=True),
     )
     mosspy.download_report(
         python_report_url,
         "submissions_report/",
         connections=8,
         log_level=10,
-        on_read=lambda url: print('*', end='', flush=True),
     )
 
     # insert report url into DB
