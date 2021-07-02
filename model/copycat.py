@@ -52,6 +52,22 @@ def get_report_task(user, problem_id, student_dict):
         m2.addFile(code_path)
     python_report_url = m2.send()
 
+    # download report from moss
+    mosspy.download_report(
+        cpp_report_url,
+        "submissions_report/",
+        connections=8,
+        log_level=10,
+        on_read=lambda url: print('*', end='', flush=True),
+    )
+    mosspy.download_report(
+        python_report_url,
+        "submissions_report/",
+        connections=8,
+        log_level=10,
+        on_read=lambda url: print('*', end='', flush=True),
+    )
+
     # insert report url into DB
     problem = Problem(problem_id)
     problem.obj.update(
@@ -101,7 +117,9 @@ def get_report(user, course, problem_id):
     python_report_url = problem.python_report_url
 
     if problem.moss_status == 0:
-        return HTTPResponse("No report found. Please make a post request to copycat api to generate a report", data={})
+        return HTTPResponse(
+            "No report found. Please make a post request to copycat api to generate a report",
+            data={})
     elif problem.moss_status == 1:
         return HTTPResponse("Report generating...", data={})
     else:
@@ -155,7 +173,7 @@ def detect(user, course, problem_id, student_nicknames):
         problem.obj.update(
             cpp_report_url="",
             python_report_url="",
-            moss_status=1
+            moss_status=1,
         )
         threading.Thread(
             target=get_report_task,
