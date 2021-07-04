@@ -2,6 +2,7 @@ from . import engine
 from .user import *
 from .course import *
 from .base import *
+from .utils import *
 
 __all__ = ['Announcement']
 
@@ -12,36 +13,35 @@ class Announcement(MongoBase, engine=engine.Announcement):
     def __init__(self, ann_id):
         self.ann_id = ann_id
 
-    @staticmethod
-    def ann_list(user, course_name):
+    @classmethod
+    def ann_list(cls, user, course_name):
         if course_name == 'Public':
             return engine.Announcement.objects(
-                course=Course('Public').obj, status=0).order_by('-createTime')
-        course = Course(course_name).obj
-        if course is None:
+                course=Course('Public'), status=0).order_by('-createTime')
+        course = Course(course_name)
+        if not course:
             return None
         if not perm(course, user):
             return None
-        anns = engine.Announcement.objects(course=course,
+        anns = engine.Announcement.objects(course=course.obj,
                                            status=0).order_by('-createTime')
         return anns
 
-    @staticmethod
+    @classmethod
+    @doc_required('course', 'course', Course)
     def new_ann(
-        course_name,
+        cls,
         title,
         creator,
         markdown,
         pinned,
+        course: Course,
     ):
-        course = Course(course_name).obj
-        if course is None:
-            return None
         if perm(course, creator) < 2:
             return None
         ann = engine.Announcement(
             title=title,
-            course=course,
+            course=course.obj,
             creator=creator,
             updater=creator,
             markdown=markdown,

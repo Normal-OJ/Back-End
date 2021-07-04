@@ -2,98 +2,94 @@ from . import engine
 from .user import *
 from .utils import *
 import re
+from typing import Optional
+from .base import MongoBase
 
 __all__ = [
-    'Course', 'get_all_courses', 'delete_course', 'add_course', 'edit_course',
-    'perm', 'add_user', 'remove_user', 'get_user_courses'
+    'Course',
 ]
 
 
-class Course:
-    def __init__(self, course_name):
-        self.course_name = course_name
-
-    @property
-    def obj(self):
+class Course(MongoBase, engine=engine.Course):
+    def __new__(cls, course_name, *args, **kwargs):
         try:
-            obj = engine.Course.objects.get(course_name=self.course_name)
-        except:
-            return None
-        return obj
+            new = super().__new__(cls, course_name)
+        except engine.ValidationError:
+            try:
+                pk = Course.engine.objects(course_name=course_name).get()
+                new = super().__new__(cls, pk)
+            except engine.DoesNotExist:
+                new = super().__new__(cls, '0' * 24)
+        return new
 
+    def add_user(self, user):
+        obj = self.obj
+        if obj is None:
+            raise engine.DoesNotExist(f'Course [{self.course_name}]')
+        if obj not in user.courses:
+            user.courses.append(obj)
+            user.save()
 
-def perm(course, user):
-    '''4: admin, 3: teacher, 2: TA, 1: student, 0: not found
-    '''
-    return 4 - [
-        user.role == 0, user == course.teacher, user in course.tas,
-        user.username in course.student_nicknames.keys(), True
-    ].index(True)
-
-
-def get_all_courses():
-    return engine.Course.objects
-
-
-def get_user_courses(user):
-    return user.courses if user.role != 0 else get_all_courses()
-
-
-def add_user(user, course):
-    if course not in user.courses:
-        user.courses.append(course)
+    def remove_user(self, user):
+        user.courses.remove(self.obj)
         user.save()
 
+    @classmethod
+    def get_all(cls):
+        return engine.Course.objects
 
-def remove_user(user, course):
-    user.courses.remove(course)
-    user.save()
+    @classmethod
+    def get_user_courses(cls, user):
+        if user.role != 0:
+            return user.courses
+        else:
+            return cls.get_all()
 
+    def edit_course(self, user, new_course, teacher):
+        if re.match(r'^[a-zA-Z0-9._\- ]+$', new_course) is None:
+            raise ValueError
 
-def delete_course(user, course):
-    co = Course(course).obj
-    if co is None:
-        # course not found
-        raise engine.DoesNotExist('Course')
-    if not perm(co, user):
-        # user is not the TA or teacher in course
-        raise PermissionError
+        if not self:
+            raise engine.DoesNotExist('Course')
+        if not perm(self, user):
+            raise PermissionError
+        te = User(teacher)
+        if not te:
+            raise engine.DoesNotExist('User')
 
-    remove_user(co.teacher, co)
-    co.delete()
-    return True
+        self.course_name = new_course
+        if te.obj != self.teacher:
+            self.remove_user(self.teacher)
+            self.add_user(te.obj)
+        self.teacher = te.obj
+        self.save()
+        return True
 
+    def delete_course(self, user):
+        if not self:
+            # course not found
+            raise engine.DoesNotExist('Course')
+        if not perm(self, user):
+            # user is not the TA or teacher in course
+            raise PermissionError
 
-def add_course(course, teacher):
-    if re.match(r'^[a-zA-Z0-9._\- ]+$', course) is None:
-        raise ValueError
-    te = User(teacher)
-    if not te:
-        raise engine.DoesNotExist('User')
+        self.remove_user(self.teacher)
+        self.delete()
+        return True
 
-    co = engine.Course(course_name=course, teacher=te.obj)
-    co.save()
-    add_user(te.obj, co)
-    return True
-
-
-def edit_course(user, course, new_course, teacher):
-    if re.match(r'^[a-zA-Z0-9._\- ]+$', new_course) is None:
-        raise ValueError
-
-    co = Course(course).obj
-    if co is None:
-        raise engine.DoesNotExist('Course')
-    if not perm(co, user):
-        raise PermissionError
-    te = User(teacher)
-    if not te:
-        raise engine.DoesNotExist('User')
-
-    co.course_name = new_course
-    if te.obj != co.teacher:
-        remove_user(co.teacher, co)
-        add_user(te.obj, co)
-    co.teacher = te.obj
-    co.save()
-    return True
+    @classmethod
+    def add_course(cls, course, teacher):
+        if re.match(r'^[a-zA-Z0-9._\- ]+$', course) is None:
+            raise ValueError
+        teacher = User(teacher)
+        if not teacher:
+            raise engine.DoesNotExist('User')
+        if teacher.role >= 2:
+            raise PermissionError(
+                f'{teacher} is not permitted to create a course')
+        co = cls.engine(
+            course_name=course,
+            teacher=teacher.obj,
+        ).save()
+        cls(co).add_user(teacher.obj)
+        return True

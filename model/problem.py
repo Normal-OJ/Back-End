@@ -5,77 +5,87 @@ from mongo import *
 from mongo import engine
 from .auth import *
 from .utils import *
+from mongo.utils import can_view_problem
 from mongo.problem import *
-import threading
 
 __all__ = ['problem_api']
 
 problem_api = Blueprint('problem_api', __name__)
-lock = threading.Lock()
 
 
 @problem_api.route('/', methods=['GET'])
 @login_required
-@Request.args('offset', 'count', 'problem_id', 'tags', 'name', 'course')
-def view_problem_list(user, offset, count, problem_id, tags, name, course):
-    if offset is None or count is None:
-        return HTTPError(
-            'offset and count are required!',
-            400,
-        )
-
+@Request.args(
+    'offset',
+    'count',
+    'problem_id',
+    'tags',
+    'name',
+    'course',
+)
+def view_problem_list(
+    user,
+    offset,
+    count,
+    tags,
+    problem_id,
+    name,
+    course,
+):
     # casting args
     try:
-        offset = int(offset)
-        count = int(count)
-    except ValueError:
+        if offset is not None:
+            offset = int(offset)
+        if count is not None:
+            count = int(count)
+    except (TypeError, ValueError):
         return HTTPError(
             'offset and count must be integer!',
             400,
         )
-
-    # check range
-    if offset < 0:
-        return HTTPError(
-            'offset must >= 0!',
-            400,
-        )
-    if count < -1:
-        return HTTPError('count must >=-1!', 400)
-
+    problem_id, name, tags, course = (parse.unquote(p or '') or None
+                                      for p in (problem_id, name, tags,
+                                                course))
     try:
-        problem_id, name, tags, course = (parse.unquote(
-            p or '') or None for p in [problem_id, name, tags, course])
-
-        data = get_problem_list(user, offset, count, problem_id, name, tags
-                                and tags.split(','), course)
-        data = [
-            *map(
-                lambda p: {
-                    'problemId': p.problem_id,
-                    'problemName': p.problem_name,
-                    'status': p.problem_status,
-                    'ACUser': p.ac_user,
-                    'submitter': p.submitter,
-                    'tags': p.tags,
-                    'type': p.problem_type,
-                    'quota': p.quota,
-                    'submitCount': Problem(p.problem_id).submit_count(user)
-                }, data)
-        ]
+        ks = {
+            'user': user,
+            'offset': offset,
+            'count': count,
+            'tags': tags and tags.split(','),
+            'problem_id': problem_id,
+            'name': name,
+            'course': course,
+        }
+        ks = {k: v for k, v in ks.items() if v is not None}
+        data = Problem.get_problem_list(**ks)
     except IndexError:
-        return HTTPError('offset out of range!', 403)
+        return HTTPError('invalid offset', 400)
+    data = [{
+        'problemId': p.problem_id,
+        'problemName': p.problem_name,
+        'status': p.problem_status,
+        'ACUser': p.ac_user,
+        'submitter': p.submitter,
+        'tags': p.tags,
+        'type': p.problem_type,
+        'quota': p.quota,
+        'submitCount': Problem(p.problem_id).submit_count(user)
+    } for p in data]
     return HTTPResponse('Success.', data=data)
 
 
-@problem_api.route('/view/<problem_id>', methods=['GET'])
+# TODO: remove "view" from route rule
+@problem_api.route('/view/<int:problem_id>', methods=['GET'])
 @login_required
 def view_problem(user, problem_id):
     problem = Problem(problem_id)
-    if problem.obj is None:
+    if not problem:
         return HTTPError('Problem not exist.', 404)
-    if not can_view(user, problem.obj):
+    if not can_view_problem(user, problem.obj):
         return HTTPError('Problem cannot view.', 403)
+    # ip validation
+    if not problem.is_valid_ip(get_ip()):
+        return HTTPError('Invalid IP address.', 403)
     # filter data
     data = problem.detailed_info(
         'problemName',
@@ -85,6 +95,7 @@ def view_problem(user, problem_id):
         'allowedLanguage',
         'courses',
         'quota',
+        defaultCode='defaultCode',
         status='problemStatus',
         type='problemType',
         testCase='testCase__tasks',
@@ -92,7 +103,6 @@ def view_problem(user, problem_id):
     if problem.obj.problem_type == 1:
         data.update({'fillInTemplate': problem.obj.test_case.fill_in_template})
     data.update({'submitCount': problem.submit_count(user)})
-
     return HTTPResponse('Problem can view.', data=data)
 
 
@@ -113,21 +123,20 @@ def manage_problem(user, problem_id=None):
         'test_case_info',
         'can_view_stdout',
         'allowed_language',
+        'default_code',
     )
     def modify_coding_problem(**p_ks):
-        if sum(case['taskScore']
-               for case in p_ks['test_case_info']['tasks']) != 100:
+        scores = (c['taskScore'] for c in p_ks['test_case_info']['tasks'])
+        if sum(scores) != 100:
             return HTTPError("Cases' scores should be 100 in total", 400)
         return modify_general_problem(**p_ks)
 
     def modify_general_problem(**p_ks):
         if request.method == 'POST':
-            lock.acquire()
-            pid = add_problem(user=user, **p_ks)
-            lock.release()
+            pid = Problem.add_problem(user=user, **p_ks)
             return HTTPResponse('Success.', data={'problemId': pid})
         elif request.method == 'PUT':
-            edit_problem(
+            Problem.edit_problem(
                 user=user,
                 problem_id=problem_id,
                 **p_ks,
@@ -137,7 +146,7 @@ def manage_problem(user, problem_id=None):
     @Request.files('case')
     def modify_problem_test_case(case):
         try:
-            result = edit_problem_test_case(problem_id, case)
+            result = Problem.edit_problem_test_case(problem_id, case)
         except engine.DoesNotExist as e:
             return HTTPError(str(e), 404)
         except (ValueError, BadZipFile) as e:
@@ -177,7 +186,7 @@ def manage_problem(user, problem_id=None):
         )
     # delete problem
     elif request.method == 'DELETE':
-        delete_problem(problem_id)
+        Problem.delete_problem(problem_id)
         return HTTPResponse('Success.')
     # edit problem
     else:
@@ -195,16 +204,12 @@ def manage_problem(user, problem_id=None):
                     data={'contentType': request.content_type},
                 )
         except ValidationError as ve:
-            if lock.locked():
-                lock.release()
             return HTTPError(
                 'Invalid or missing arguments.',
                 400,
                 data=ve.to_dict(),
             )
         except engine.DoesNotExist:
-            if lock.locked():
-                lock.release()
             return HTTPError('Course not found.', 404)
 
 
@@ -248,12 +253,9 @@ def clone_problem(user, problem_id):
     problem = Problem(problem_id).obj
     if problem is None:
         return HTTPError('Problem not exist.', 404)
-    if not can_view(user, problem):
+    if not can_view_problem(user, problem):
         return HTTPError('Problem can not view.', 403)
-
-    lock.acquire()
-    copy_problem(user, problem_id)
-    lock.release()
+    Problem.copy_problem(user, problem_id)
     return HTTPResponse('Success.')
 
 
@@ -266,6 +268,5 @@ def publish_problem(user, problem_id):
         return HTTPError('Problem not exist.', 404)
     if user.role == 1 and problem.owner != user.username:
         return HTTPError('Not the owner.', 403)
-
-    release_problem(problem_id)
+    Problem.release_problem(problem_id)
     return HTTPResponse('Success.')

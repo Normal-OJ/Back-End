@@ -1,3 +1,4 @@
+from flask import Flask
 from app import app as flask_app
 from mongo import *
 from mongo import engine
@@ -27,8 +28,9 @@ def app(tmp_path):
     return flask_app
 
 
+# TODO: share client may cause auth problem
 @pytest.fixture
-def client(app):
+def client(app: Flask):
     return app.test_client()
 
 
@@ -141,7 +143,7 @@ def make_course(forge_client):
             tas=tas,
         )
         # add course
-        assert add_course(
+        assert Course.add_course(
             c_data.name,
             c_data.teacher,
         ) == True, f'course name: {c_data.name}\nteacher: {c_data.teacher}\n'

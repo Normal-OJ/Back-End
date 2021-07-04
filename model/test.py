@@ -1,4 +1,4 @@
-from flask import Blueprint, current_app
+from flask import Blueprint, current_app, request
 
 from .auth import *
 from .utils import *
@@ -27,5 +27,10 @@ def log():
     current_app.logger.warning('this is a WARNING log')
     current_app.logger.error('this is a ERROR log')
     current_app.logger.critical('this is a CRITICAL log')
-
     return HTTPResponse('check the log')
+
+
+@test_api.route('/header')
+def check_header():
+    current_app.logger.debug(f'{request.headers}')
+    return HTTPResponse('ok')

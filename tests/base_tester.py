@@ -1,25 +1,24 @@
+import secrets
 from mongoengine import connect
 from mongo import *
-from mongo import engine
-from mongo import problem
 from .conftest import *
 
-import random
-import string
 
-
-def random_string(k=32):
+def random_string(k=None):
     '''
-    return a random string contains only lower and upper letter wieh length k
+    return a random string 
 
     Args:
-        k: the return string's length, default is 32
+        k:
+            the return string's byte length, if None,
+            then use the `secrets` module's default 
+            value. notice that the byte length will 
+            not equal string length
 
     Returns:
         a random-generated string with length k
     '''
-    char_set = string.ascii_lowercase + string.ascii_uppercase
-    return ''.join(random.choices(char_set, k=k))
+    return secrets.token_urlsafe(k)
 
 
 class BaseTester:
@@ -31,12 +30,10 @@ class BaseTester:
     def drop_db(cls):
         conn = connect(cls.DB, host=cls.MONGO_HOST)
         conn.drop_database(cls.DB)
-        problem.number = 1
 
     @classmethod
     def setup_class(cls):
         cls.drop_db()
-
         with open(cls.USER_CONFIG) as f:
             import json
             config = json.load(f)
@@ -47,32 +44,29 @@ class BaseTester:
                 if tcls.__name__ == 'BaseTester':
                     break
                 tcls = tcls.__base__
-
             for name, role in users.items():
-                cls.new_user(name, role)
-
-        if Number("serial_number").obj is None:
-            engine.Number(name="serial_number").save()
+                cls.add_user(name, role)
 
     @classmethod
     def teardown_class(cls):
         cls.drop_db()
 
     @classmethod
-    def new_user(cls, username, role):
+    def add_user(cls, username, role=2):
+        '''
+        quickly add a new user (default role is student) and return it
+        '''
         USER = {
             'username': username,
             'password': f'{username}_password',
             'email': f'i.am.{username}@noj.tw'
         }
-
         user = User.signup(**USER)
-        user.update(active=True,
-                    role=role,
-                    profile={
-                        'displayedName': '',
-                        'bio': ''
-                    })
+        user.update(
+            active=True,
+            role=role,
+        )
+        return user
 
     @staticmethod
     def request(client, method, url, **ks):

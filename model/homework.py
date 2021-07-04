@@ -24,15 +24,15 @@ def homework_entry(user, homework_id=None):
     def add_homework(course_name, name, markdown, start, end, problem_ids,
                      scoreboard_status):
         try:
-            homework = Homework.add_hw(
+            homework = Homework.add(
                 user=user,
-                course_name=course_name,
-                markdown=markdown,
                 hw_name=name,
+                markdown=markdown,
+                scoreboard_status=scoreboard_status,
+                course_name=course_name,
+                problem_ids=problem_ids or [],
                 start=start,
                 end=end,
-                problem_ids=problem_ids or [],
-                scoreboard_status=scoreboard_status,
             )
         except NameError:
             return HTTPError('user must be the teacher or ta of this course',
@@ -58,7 +58,9 @@ def homework_entry(user, homework_id=None):
         return HTTPResponse('Update homework Success')
 
     def delete_homework():
-        homework = Homework.delete_problems(user, homework_id)
+        homework = Homework(homework_id)
+        homework = homework.delete_problems(user=user,
+                                            course=homework.course_id)
         return HTTPResponse('Delete homework Success')
 
     def get_homework():
@@ -102,7 +104,7 @@ def get_homework_list(user, course_name):
     get a list of homework
     '''
     try:
-        homeworks = Homework.get_homeworks(course_name)
+        homeworks = Homework.get_homeworks(course_name=course_name)
         data = []
         for homework in homeworks:
             new = {

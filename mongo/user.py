@@ -5,10 +5,7 @@ from . import engine, course
 from .utils import *
 from .base import *
 
-import base64
 import hashlib
-import html
-import json as jsonlib
 import jwt
 import os
 import re
@@ -28,7 +25,6 @@ class User(MongoBase, engine=engine.User):
     def signup(cls, username, password, email):
         if re.match(r'^[a-zA-Z0-9_\-]+$', username) is None:
             raise ValueError
-
         user = cls(username)
         user_id = hash_id(user.username, password)
         email = email.lower().strip()
@@ -77,14 +73,6 @@ class User(MongoBase, engine=engine.User):
         keys = ['username', 'userId']
         return self.jwt(*keys, secret=True)
 
-    @property
-    def info(self):
-        return {
-            'username': self.username,
-            'displayedName': self.profile.displayed_name,
-            'md5': self.md5
-        }
-
     def jwt(self, *keys, secret=False, **kwargs):
         if not self:
             return ''
@@ -98,14 +86,14 @@ class User(MongoBase, engine=engine.User):
             'secret': secret,
             'data': data
         }
-        return jwt.encode(payload, JWT_SECRET, algorithm='HS256').decode()
+        return jwt.encode(payload, JWT_SECRET, algorithm='HS256')
 
     def change_password(self, password):
         user_id = hash_id(self.username, password)
         self.update(user_id=user_id, user_id2=user_id)
         self.reload()
 
-    def activate(self, profile):
+    def activate(self, profile={}) -> 'User':
         '''
         activate a user
 
@@ -130,8 +118,7 @@ class User(MongoBase, engine=engine.User):
         pub_course.student_nicknames.update({
             self.username: self.username,
         })
-        pub_course.save()
-        return True
+        return self.reload()
 
     def add_submission(self, submission: engine.Submission):
         if submission.score == 100:

@@ -1,11 +1,14 @@
 from mongoengine import *
 from mongoengine import signals
-from flask import current_app
 import mongoengine
 import os
 import html
+from enum import Enum, IntEnum
 from datetime import datetime
 from zipfile import ZipFile, BadZipFile
+from .utils import perm, can_view_problem, RedisCache
+from typing import Union
+import json
 
 __all__ = [*mongoengine.__all__]
 
@@ -45,18 +48,29 @@ class ZipField(FileField):
         if not value:
             return
         try:
-            # no limit
-            if self.max_size <= 0:
-                return
             with ZipFile(value) as zf:
                 # the size of original files
                 size = sum(info.file_size for info in zf.infolist())
-                if size > self.max_size:
-                    self.error(
-                        f'{size} bytes exceed the max size limit ({self.max_size} bytes)'
-                    )
         except BadZipFile:
             self.error('Only accept zip file.')
+        # no limit
+        if self.max_size <= 0:
+            return
+        if size > self.max_size:
+            self.error(
+                f'{size} bytes exceed the max size limit ({self.max_size} bytes)'
+            )
+
+
+class IntEnumField(IntField):
+    def __init__(self, enum: IntEnum, **ks):
+        super().__init__(**ks)
+        self.enum = enum
+
+    def validate(self, value):
+        choices = (*self.enum.__members__.values(), )
+        if value not in choices:
+            self.error(f'Value must be one of {choices}')
 
 
 class Profile(EmbeddedDocument):
@@ -101,15 +115,25 @@ class Duration(EmbeddedDocument):
     start = DateTimeField(default=datetime.now)
     end = DateTimeField(default=datetime.max)
 
+    def __contains__(self, other) -> bool:
+        if not isinstance(other, datetime):
+            return False
+        return self.start <= other <= self.end
+
 
 class User(Document):
+    class Role(IntEnum):
+        ADMIN = 0
+        TEACHER = 1
+        STUDENT = 2
+
     username = StringField(max_length=16, required=True, primary_key=True)
     user_id = StringField(db_field='userId', max_length=24, required=True)
     user_id2 = StringField(db_field='userId2', max_length=24, default='')
     email = EmailField(required=True, unique=True, max_length=128)
     md5 = StringField(required=True, max_length=32)
     active = BooleanField(default=False)
-    role = IntField(default=2, choices=[0, 1, 2])
+    role = IntEnumField(default=Role.STUDENT, enum=Role)
     profile = EmbeddedDocumentField(Profile, default=Profile)
     editor_config = EmbeddedDocumentField(
         EditorConfig,
@@ -126,20 +150,34 @@ class User(Document):
     submission = IntField(default=0)
     problem_submission = DictField(db_field='problemSubmission')
 
+    @property
+    def info(self):
+        return {
+            'username': self.username,
+            'displayedName': self.profile.displayed_name,
+            'md5': self.md5,
+        }
+
 
 @escape_markdown.apply
 class Homework(Document):
-    homework_name = StringField(max_length=64,
-                                required=True,
-                                db_field='homeworkName')
+    homework_name = StringField(
+        max_length=64,
+        required=True,
+        db_field='homeworkName',
+        unique_with='course_id',
+    )
     markdown = StringField(max_length=10000, default='')
-    scoreboard_status = IntField(default=0,
-                                 choices=[0, 1],
-                                 db_field='scoreboardStatus')
+    scoreboard_status = IntField(
+        default=0,
+        choices=[0, 1],
+        db_field='scoreboardStatus',
+    )
     course_id = StringField(required=True, db_field='courseId')
     duration = EmbeddedDocumentField(Duration, default=Duration)
     problem_ids = ListField(IntField(), db_field='problemIds')
     student_status = DictField(db_field='studentStatus')
+    ip_filters = ListField(StringField(max_length=64), default=list)
 
 
 class Contest(Document):
@@ -155,12 +193,14 @@ class Contest(Document):
 
 
 class Course(Document):
+    course_name = StringField(
+        max_length=64,
+        required=True,
+        unique=True,
+        db_field='courseName',
+    )
     student_nicknames = DictField(db_field='studentNicknames')
     course_status = IntField(default=0, choices=[0, 1])
-    course_name = StringField(max_length=64,
-                              required=True,
-                              unique=True,
-                              db_field='courseName')
     teacher = ReferenceField('User')
     tas = ListField(ReferenceField('User'))
     contests = ListField(ReferenceField('Contest', reverse_delete_rule=PULL))
@@ -171,7 +211,10 @@ class Course(Document):
 
 
 class Number(Document):
-    name = StringField(max_length=64)
+    name = StringField(
+        max_length=64,
+        primary_key=True,
+    )
     number = IntField(default=1)
 
 
@@ -234,7 +277,11 @@ def problem_desc_escape(sender, document):
 
 @problem_desc_escape.apply
 class Problem(Document):
-    problem_id = IntField(db_field='problemId', required=True, unique=True)
+    problem_id = SequenceField(
+        db_field='problemId',
+        required=True,
+        primary_key=True,
+    )
     courses = ListField(ReferenceField('Course'), default=list)
     problem_status = IntField(
         default=1,
@@ -285,6 +332,11 @@ class Problem(Document):
     # Dict[username, score]
     high_scores = DictField(db_field='highScore', default={})
     quota = IntField(default=-1)
+    default_code = StringField(
+        db_field='defaultCode',
+        max_length=10**4,
+        default='',
+    )
 
 
 class CaseResult(EmbeddedDocument):
@@ -312,7 +364,6 @@ class Submission(Document):
             'timestamp',
             'user',
             'language',
-            'problem',
             'status',
             'score',
         )]
@@ -334,6 +385,93 @@ class Submission(Document):
     code = ZipField(required=True, null=True, max_size=10**7)
     last_send = DateTimeField(db_field='lastSend', default=datetime.now)
     comment = FileField(default=None, null=True)
+
+    def permission(self, user):
+        '''
+        3: can rejudge & grade, 
+        2: can view upload & comment, 
+        1: can view basic info, 
+        0: can't view
+        '''
+        if not can_view_problem(user, self.problem):
+            return 0
+
+        return 3 - [
+            max(perm(course, user) for course in self.problem.courses) >= 2,
+            user.username == self.user.username,
+            True,
+        ].index(True)
+
+    def to_dict(self, has_code=False, has_output=False, has_code_detail=False):
+        key = f'{self.id}_{has_code}_{has_output}_{has_code_detail}'
+        cache = RedisCache()
+        if cache.exists(key):
+            return json.loads(cache.get(key))
+
+        _ret = {
+            'problemId': self.problem.problem_id,
+            'user': self.user.info,
+            'submissionId': str(self.id),
+            'timestamp': self.timestamp.timestamp(),
+            'lastSend': self.last_send.timestamp()
+        }
+        if has_code:
+            if has_code_detail:
+                # give user source code
+                ext = ['.c', '.cpp', '.py'][self.language]
+                _ret['code'] = self.get_code(f'main{ext}')
+            else:
+                _ret['code'] = False
+
+        ret = self.to_mongo()
+        old = [
+            '_id',
+            'problem',
+            'code',
+            'comment',
+        ]
+        # delete old keys
+        for o in old:
+            del ret[o]
+        # insert new keys
+        for n in _ret:
+            ret[n] = _ret[n]
+        if has_output:
+            for task in ret['tasks']:
+                for case in task['cases']:
+                    # extract zip file
+                    output = GridFSProxy(case.pop('output'))
+                    if output is not None:
+                        with ZipFile(output) as zf:
+                            case['stdout'] = zf.read('stdout').decode('utf-8')
+                            case['stderr'] = zf.read('stderr').decode('utf-8')
+        else:
+            for task in ret['tasks']:
+                for case in task['cases']:
+                    del case['output']
+
+        cache.set(key, json.dumps(ret), 60)
+        return ret
+
+    @property
+    def handwritten(self):
+        return self.language == 3
+
+    def get_code(self, path: str, binary=False) -> Union[str, bytes]:
+        # read file
+        try:
+            with ZipFile(self.code) as zf:
+                data = zf.read(path)
+        # file not exists in the zip or code haven't been uploaded
+        except (KeyError, AttributeError):
+            return None
+        # decode byte if need
+        if not binary:
+            try:
+                data = data.decode('utf-8')
+            except UnicodeDecodeError:
+                data = 'Unusual file content, decode fail'
+        return data
 
 
 @escape_markdown.apply

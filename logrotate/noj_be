@@ -1,0 +1,7 @@
+/app/logs/*.log {
+    daily
+    dateext
+    notifempty
+    rotate 30
+    size 1024k
+}

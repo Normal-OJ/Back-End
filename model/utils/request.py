@@ -1,14 +1,15 @@
 import time
 import json
-
 from functools import wraps
-
 from flask import request
 
-from model import *
 from .response import *
 
-__all__ = ['Request', 'timing_request']
+__all__ = (
+    'Request',
+    'timing_request',
+    'get_ip',
+)
 
 type_map = {
     'int': int,
@@ -61,7 +62,32 @@ class _Request(type):
 
 
 class Request(metaclass=_Request):
-    pass
+    @staticmethod
+    def doc(src, des, cls=None, null=False):
+        '''
+        a warpper to `doc_required` for flask route
+        '''
+        def deco(func):
+            @doc_required(src, des, cls, null)
+            def inner_wrapper(*args, **ks):
+                return func(*args, **ks)
+
+            @wraps(func)
+            def real_wrapper(*args, **ks):
+                try:
+                    return inner_wrapper(*args, **ks)
+                # if document not exists in db
+                except DoesNotExist as e:
+                    return HTTPError(e, 404)
+                # if args missing
+                except TypeError as e:
+                    return HTTPError(e, 500)
+                except ValidationError as e:
+                    return HTTPError('Invalid parameter', 400)
+
+            return real_wrapper
+
+        return deco
 
 
 def timing_request(func):
@@ -71,23 +97,23 @@ def timing_request(func):
     '''
     @wraps(func)
     def wrapper(*args, **kwargs):
-        # calculate execution time
-        # and get the response
+        # calculate execution time and get the response
         start = time.time()
         resp, status_code = func(*args, **kwargs)
         exec_time = f'{time.time() - start:.2f}s'
-
         # load response data
         data = resp.data
         data = json.loads(data)
-
         # inject execution time into response
         if data['data'] is None:
             data['data'] = {}
         data['data'].update({'__execTime': exec_time})
-
         resp.data = json.dumps(data)
-
         return resp, status_code
 
     return wrapper
+
+
+def get_ip() -> str:
+    ip = request.headers.get('X-Forwarded-For', '').split(',')[-1].strip()
+    return ip

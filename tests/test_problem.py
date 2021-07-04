@@ -232,7 +232,7 @@ class TestProblem(BaseTester):
         assert json['status'] == 'ok'
         assert json['message'] == 'Success.'
         assert json['data'] == [{
-            'problemId': 1,
+            'problemId': 3,
             'type': 0,
             'problemName': 'Offline problem',
             'status': 1,
@@ -242,7 +242,7 @@ class TestProblem(BaseTester):
             'quota': -1,
             'submitCount': 0
         }, {
-            'problemId': 2,
+            'problemId': 4,
             'type': 0,
             'problemName': 'Online problem',
             'status': 0,
@@ -261,7 +261,7 @@ class TestProblem(BaseTester):
         assert json['status'] == 'ok'
         assert json['message'] == 'Success.'
         assert json['data'] == [{
-            'problemId': 1,
+            'problemId': 3,
             'type': 0,
             'problemName': 'Offline problem',
             'status': 1,
@@ -298,7 +298,7 @@ class TestProblem(BaseTester):
         assert json['status'] == 'ok'
         assert json['message'] == 'Success.'
         assert json['data'] == [{
-            'problemId': 2,
+            'problemId': 4,
             'type': 0,
             'problemName': 'Online problem',
             'status': 0,
@@ -311,7 +311,7 @@ class TestProblem(BaseTester):
 
     # admin view offline problem (GET /problem/view/<problem_id>)
     def test_admin_view_offline_problem(self, client_admin):
-        rv = client_admin.get('/problem/view/1')
+        rv = client_admin.get('/problem/view/3')
         json = rv.get_json()
         assert rv.status_code == 200
         assert json['status'] == 'ok'
@@ -342,12 +342,14 @@ class TestProblem(BaseTester):
             'quota':
             -1,
             'submitCount':
-            0
+            0,
+            'defaultCode':
+            '',
         }
 
     # student view offline problem (GET /problem/view/<problem_id>)
     def test_student_view_offline_problem(self, client_student):
-        rv = client_student.get('/problem/view/1')
+        rv = client_student.get('/problem/view/3')
         json = rv.get_json()
         assert rv.status_code == 403
         assert json['status'] == 'err'
@@ -355,7 +357,7 @@ class TestProblem(BaseTester):
 
     # student view online problem (GET /problem/view/<problem_id>)
     def test_student_view_online_problem(self, client_student):
-        rv = client_student.get('/problem/view/2')
+        rv = client_student.get('/problem/view/4')
         json = rv.get_json()
         assert rv.status_code == 200
         assert json['status'] == 'ok'
@@ -386,7 +388,9 @@ class TestProblem(BaseTester):
             'quota':
             -1,
             'submitCount':
-            0
+            0,
+            'defaultCode':
+            '',
         }
 
     # student view problem not exist (GET /problem/view/<problem_id>)
@@ -502,7 +506,7 @@ class TestProblem(BaseTester):
                 }]
             }
         }
-        rv = client_admin.put('/problem/manage/1', json=request_json)
+        rv = client_admin.put('/problem/manage/3', json=request_json)
         json = rv.get_json()
         print(json)
         assert rv.status_code == 200
@@ -511,7 +515,7 @@ class TestProblem(BaseTester):
 
     # admin get information of a problem (GET /problem/manage/<problem_id>)
     def test_admin_manage_problem(self, client_admin):
-        rv = client_admin.get('/problem/manage/1')
+        rv = client_admin.get('/problem/manage/3')
         json = rv.get_json()
         assert rv.status_code == 200
         assert json['status'] == 'ok'
@@ -548,7 +552,7 @@ class TestProblem(BaseTester):
         rv, rv_json, rv_data = BaseTester.request(
             client_admin,
             'put',
-            '/problem/manage/1',
+            '/problem/manage/3',
             data=get_file('bogay/test_case.zip'),
         )
         assert rv.status_code == 200, rv_json
@@ -556,7 +560,7 @@ class TestProblem(BaseTester):
         rv, rv_json, rv_data = BaseTester.request(
             client_admin,
             'get',
-            '/problem/1/testcase',
+            '/problem/3/testcase',
         )
         assert rv.status_code == 200
         with ZipFile(io.BytesIO(rv.data)) as zf:

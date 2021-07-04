@@ -2,8 +2,6 @@ import logging
 from flask import Flask
 from model import *
 from mongo import *
-from mongo import engine
-from mongo import problem
 
 # Create a flask app
 app = Flask(__name__)
@@ -28,7 +26,7 @@ api2prefix = [
 for api, prefix in api2prefix:
     app.register_blueprint(api, url_prefix=prefix)
 
-if not User("first_admin"):
+if not User('first_admin'):
     ADMIN = {
         'username': 'first_admin',
         'password': 'firstpasswordforadmin',
@@ -38,19 +36,22 @@ if not User("first_admin"):
         'displayed_name': 'the first admin',
         'bio': 'I am super good!!!!!'
     }
-
     admin = User.signup(**ADMIN)
-    admin.update(active=True, role=0, profile=PROFILE)
+    # TODO: use a single method to active.
+    #       we won't call `activate` here because it required the
+    #       course 'Public' should exist, but create a course
+    #       also need a teacher.
+    #       but at least make it can work now...
+    # admin.activate(PROFILE)
+    admin.update(
+        active=True,
+        role=0,
+        profile=PROFILE,
+    )
+if Course('Public').obj is None:
+    Course.add_course('Public', 'first_admin')
 
-if Course("Public").obj is None:
-    add_course("Public", "first_admin")
-
-if Number("serial_number").obj is None:
-    engine.Number(name="serial_number").save()
-
-problem.number = Number("serial_number").obj.number
-
-if __name__ != "__main__":
+if __name__ != '__main__':
     logger = logging.getLogger('gunicorn.error')
     app.logger.handlers = logger.handlers
     app.logger.setLevel(logger.level)
