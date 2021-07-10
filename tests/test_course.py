@@ -220,7 +220,7 @@ class TestTeacherCourse(BaseTester):
         assert rv.status_code == 200
         assert json['data']['TAs'][0]['username'] == 'teacher'
         assert json['data']['teacher']['username'] == 'teacher'
-        assert json['data']['studentNicknames'] == {'student': 'noobs'}
+        assert json['data']['students'][0]['username'] == 'student'
 
 
 class TestCourseGrade(BaseTester):
