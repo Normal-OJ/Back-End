@@ -47,7 +47,7 @@ def get_report_task(user, problem_id, student_dict):
 
     moss_userid = 97089070
 
-    problem = Problem(problem_id=problem_id)
+    problem = Problem(problem_id)
     # check for c or cpp code
     if problem.allowed_language != 4:
         m1 = mosspy.Moss(moss_userid, "cc")
@@ -59,7 +59,8 @@ def get_report_task(user, problem_id, student_dict):
         if is_valid_url(response):
             cpp_report_url = response
         else:
-            current_app.logger.info("[copycat] {response}")
+            with current_app.app_context():
+                current_app.logger.info("[copycat] {response}")
             cpp_report_url = ''
 
 
@@ -75,7 +76,8 @@ def get_report_task(user, problem_id, student_dict):
         if is_valid_url(response):
             python_report_url = response
         else:
-            current_app.logger.info("[copycat] {response}")
+            with current_app.app_context():
+                current_app.logger.info("[copycat] {response}")
             python_report_url = ''
 
     # download report from moss
