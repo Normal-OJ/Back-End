@@ -42,11 +42,13 @@ def get_report_task(user, problem_id, student_dict):
     for submission in submissions:
         s = Submission(submission.id)
         if s.user.username in list(student_dict.keys()):
-            if s.language in [0, 1] and s.user.username not in last_cc_submission:
+            if s.language in [0, 1] \
+                and s.user.username not in last_cc_submission:
                 last_cc_submission[submission.user.username] = s.main_code_path
             elif s.language in [2] \
                 and s.user.username not in last_python_submission:
-                last_python_submission[submission.user.username] = s.main_code_path
+                last_python_submission[
+                    submission.user.username] = s.main_code_path
 
     moss_userid = 97089070
 
