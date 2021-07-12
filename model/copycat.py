@@ -53,18 +53,20 @@ def get_report_task(user, problem_id, student_dict):
     python_report_url = m2.send()
 
     # download report from moss
-    mosspy.download_report(
-        cpp_report_url,
-        "submissions_report/",
-        connections=8,
-        log_level=10,
-    )
-    mosspy.download_report(
-        python_report_url,
-        "submissions_report/",
-        connections=8,
-        log_level=10,
-    )
+    if cpp_report_url != '':
+        mosspy.download_report(
+            cpp_report_url,
+            "submissions_report/",
+            connections=8,
+            log_level=10,
+        )
+    if python_report_url != '':
+        mosspy.download_report(
+            python_report_url,
+            "submissions_report/",
+            connections=8,
+            log_level=10,
+        )
 
     # insert report url into DB
     problem = Problem(problem_id)
