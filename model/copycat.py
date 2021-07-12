@@ -122,7 +122,7 @@ def get_report_by_url(url: str):
 def get_report(user, course, problem_id):
     if not (problem_id and course):
         return HTTPError(
-            'missing arguments!',
+            'missing arguments! (In HTTP GET argument format)',
             400,
             data={
                 'need': ['course', 'problemId'],
@@ -170,7 +170,7 @@ def get_report(user, course, problem_id):
 def detect(user, course, problem_id, student_nicknames):
     if not (problem_id and course and student_nicknames):
         return HTTPError(
-            'missing arguments!',
+            'missing arguments! (In Json format)',
             400,
             data={
                 'need': ['course', 'problemId', 'studentNicknames'],
