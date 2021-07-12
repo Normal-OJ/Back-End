@@ -13,16 +13,19 @@ __all__ = ['copycat_api']
 
 copycat_api = Blueprint('copycat_api', __name__)
 
+
 def is_valid_url(url):
     import re
     regex = re.compile(
         r'^https?://'  # http:// or https://
         r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|'  # domain...
         r'localhost|'  # localhost...
-        r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})' # ...or ip
+        r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'  # ...or ip
         r'(?::\d+)?'  # optional port
-        r'(?:/?|[/?]\S+)$', re.IGNORECASE)
+        r'(?:/?|[/?]\S+)$',
+        re.IGNORECASE)
     return url is not None and regex.search(url)
+
 
 def get_report_task(user, problem_id, student_dict):
     # select all ac code
@@ -47,7 +50,9 @@ def get_report_task(user, problem_id, student_dict):
 
     moss_userid = 97089070
 
+    # Get problem object
     problem = Problem(problem_id)
+
     # check for c or cpp code
     if problem.allowed_language != 4:
         m1 = mosspy.Moss(moss_userid, "cc")
@@ -55,15 +60,13 @@ def get_report_task(user, problem_id, student_dict):
         for user, code_path in last_cc_submission.items():
             logging.info(f'send {user} {code_path}')
             m1.addFile(code_path)
+
         response = m1.send()
         if is_valid_url(response):
             cpp_report_url = response
         else:
-            with current_app.app_context():
-                current_app.logger.info("[copycat] {response}")
+            logging.info(f"[copycat] {response}")
             cpp_report_url = ''
-
-
 
     # check for python code
     if problem.allowed_language >= 4:
@@ -72,32 +75,31 @@ def get_report_task(user, problem_id, student_dict):
         for user, code_path in last_python_submission.items():
             logging.info(f'send {user} {code_path}')
             m2.addFile(code_path)
+
         response = m2.send()
         if is_valid_url(response):
             python_report_url = response
         else:
-            with current_app.app_context():
-                current_app.logger.info("[copycat] {response}")
+            logging.info(f"[copycat] {response}")
             python_report_url = ''
 
     # download report from moss
     if cpp_report_url != '':
         mosspy.download_report(
             cpp_report_url,
-            "submissions_report/{problem_id}/cpp_report/",
+            f"submissions_report/{problem_id}/cpp_report/",
             connections=8,
             log_level=10,
         )
     if python_report_url != '':
         mosspy.download_report(
             python_report_url,
-            "submissions_report/{problem_id}/python_report/",
+            f"submissions_report/{problem_id}/python_report/",
             connections=8,
             log_level=10,
         )
 
-    # insert report url into DB
-    problem = Problem(problem_id)
+    # insert report url into DB & update status
     problem.obj.update(
         cpp_report_url=cpp_report_url,
         python_report_url=python_report_url,
