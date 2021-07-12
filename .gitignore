@@ -21,3 +21,6 @@ venv
 # default data path
 /submissions/
 /comments/
+
+# copycat reports
+/submissions_report/
