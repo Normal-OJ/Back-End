@@ -18,9 +18,5 @@ venv
 .vs
 .vscode
 
-# default data path
-/submissions/
-/comments/
-
 # copycat reports
 /submissions_report/
