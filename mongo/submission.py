@@ -16,7 +16,7 @@ from .base import MongoBase
 from .user import User
 from .problem import Problem, get_problem_list
 from .course import Course
-from .utils import can_view_problem
+from .utils import RedisCache
 
 __all__ = [
     'SubmissionConfig',
@@ -28,8 +28,11 @@ __all__ = [
     'TestCaseNotFound',
 ]
 
-# TODO: save tokens in db
-tokens = {}
+# TODO: modular token function
+
+
+def gen_key(_id):
+    return f'stoekn_{_id}'
 
 
 def gen_token():
@@ -40,14 +43,23 @@ def assign_token(submission_id, token=None):
     '''
     generate a token for the submission
     '''
-    tokens[submission_id] = token or gen_token()
+    if token is None:
+        token = gen_token()
+    RedisCache().set(gen_key(submission_id), token)
     return token
 
 
 def verify_token(submission_id, token):
-    if submission_id not in tokens:
+    cache = RedisCache()
+    key = gen_key(submission_id)
+    s_token = cache.get(key)
+    if s_token is None:
         return False
-    return secrets.compare_digest(tokens[submission_id], token)
+    s_token = s_token.decode('ascii')
+    valid = secrets.compare_digest(s_token, token)
+    if valid:
+        cache.delete(key)
+    return valid
 
 
 # Errors
@@ -157,8 +169,7 @@ class Submission(MongoBase, engine=engine.Submission):
             cls._config = SubmissionConfig('submission')
         if not cls._config:
             cls._config.save()
-        cls._config.reload()
-        return cls._config
+        return cls._config.reload()
 
     def get_output(self, task_no, case_no, text=True):
         try:
@@ -468,7 +479,7 @@ class Submission(MongoBase, engine=engine.Submission):
             [True, False], repeat=3):
             # iterate through True and False
             key = f'{self.id}_{has_code}_{has_output}_{has_code_detail}'
-            engine.REDIS_CLIENT.delete(key)
+            RedisCache().delete(key)
         return True
 
     def finish_judging(self):
@@ -535,8 +546,8 @@ class Submission(MongoBase, engine=engine.Submission):
     @staticmethod
     def filter(
         user,
-        offset,
-        count,
+        offset: int = 0,
+        count: int = -1,
         problem=None,
         submission=None,
         q_user=None,
@@ -544,18 +555,6 @@ class Submission(MongoBase, engine=engine.Submission):
         language_type=None,
         course=None,
     ):
-        # convert args
-        if offset is None or count is None:
-            raise ValueError('offset and count are required!')
-        try:
-            offset = int(offset)
-            count = int(count)
-        except ValueError:
-            raise ValueError('offset and count must be integer!')
-        if offset < 0:
-            raise ValueError(f'offset must >= 0! get {offset}')
-        if count < -1:
-            raise ValueError(f'count must >=-1! get {count}')
         if not isinstance(problem, engine.Problem) and problem is not None:
             try:
                 problem = Problem(int(problem)).obj
@@ -600,8 +599,6 @@ class Submission(MongoBase, engine=engine.Submission):
         # sort by upload time
         submissions = engine.Submission.objects(**q).order_by('-timestamp')
         # truncate
-        if offset >= len(submissions) and len(submissions):
-            raise ValueError(f'offset ({offset}) is out of range!')
         right = min(offset + count, len(submissions))
         if count == -1:
             right = len(submissions)

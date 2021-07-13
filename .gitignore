@@ -20,3 +20,10 @@ venv
 
 # copycat reports
 /submissions_report/
+
+# coverage
+.coverage
+.coverage.*
+coverage.html
+htmlcov
+
