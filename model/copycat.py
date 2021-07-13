@@ -52,6 +52,9 @@ def get_report_task(user, problem_id, student_dict):
 
     moss_userid = 97089070
 
+    # get logger
+    logger = logging.getLogger('guincorn.error')
+
     # Get problem object
     problem = Problem(problem_id)
 
@@ -60,14 +63,14 @@ def get_report_task(user, problem_id, student_dict):
         m1 = mosspy.Moss(moss_userid, "cc")
 
         for user, code_path in last_cc_submission.items():
-            logging.info(f'send {user} {code_path}')
+            logger.info(f'send {user} {code_path}')
             m1.addFile(code_path)
 
         response = m1.send()
         if is_valid_url(response):
             cpp_report_url = response
         else:
-            logging.info(f"[copycat] {response}")
+            logger.info(f"[copycat] {response}")
             cpp_report_url = ''
 
     # check for python code
@@ -75,14 +78,14 @@ def get_report_task(user, problem_id, student_dict):
         m2 = mosspy.Moss(moss_userid, "python")
 
         for user, code_path in last_python_submission.items():
-            logging.info(f'send {user} {code_path}')
+            logger.info(f'send {user} {code_path}')
             m2.addFile(code_path)
 
         response = m2.send()
         if is_valid_url(response):
             python_report_url = response
         else:
-            logging.info(f"[copycat] {response}")
+            logger.info(f"[copycat] {response}")
             python_report_url = ''
 
     # download report from moss
