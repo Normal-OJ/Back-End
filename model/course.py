@@ -117,15 +117,13 @@ def get_course(user, course_name):
         return HTTPResponse('Success.')
 
     if request.method == 'GET':
-        student_dict = {}
-        for student, nickname in course.student_nicknames.items():
-            student_dict[student] = nickname
         return HTTPResponse(
             'Success.',
             data={
                 "teacher": course.teacher.info,
                 "TAs": [ta.info for ta in course.tas],
-                "studentNicknames": student_dict
+                "students":
+                [User(name).info for name in course.student_nicknames]
             },
         )
     else:

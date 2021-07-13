@@ -156,6 +156,7 @@ class User(Document):
             'username': self.username,
             'displayedName': self.profile.displayed_name,
             'md5': self.md5,
+            'role': self.role,
         }
 
 
