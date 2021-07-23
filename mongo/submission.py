@@ -14,16 +14,13 @@ from zipfile import ZipFile, is_zipfile
 from . import engine
 from .base import MongoBase
 from .user import User
-from .problem import Problem, get_problem_list
+from .problem import Problem
 from .course import Course
 from .utils import RedisCache
 
 __all__ = [
     'SubmissionConfig',
     'Submission',
-    'gen_token',
-    'assign_token',
-    'verify_token',
     'JudgeQueueFullError',
     'TestCaseNotFound',
 ]
@@ -37,29 +34,6 @@ def gen_key(_id):
 
 def gen_token():
     return secrets.token_urlsafe()
-
-
-def assign_token(submission_id, token=None):
-    '''
-    generate a token for the submission
-    '''
-    if token is None:
-        token = gen_token()
-    RedisCache().set(gen_key(submission_id), token)
-    return token
-
-
-def verify_token(submission_id, token):
-    cache = RedisCache()
-    key = gen_key(submission_id)
-    s_token = cache.get(key)
-    if s_token is None:
-        return False
-    s_token = s_token.decode('ascii')
-    valid = secrets.compare_digest(s_token, token)
-    if valid:
-        cache.delete(key)
-    return valid
 
 
 # Errors
@@ -391,7 +365,7 @@ class Submission(MongoBase, engine=engine.Submission):
             self.logger.error(f'can not target a sandbox for {repr(self)}')
             return False
         # save token for validation
-        assign_token(self.id, tar.token)
+        Submission.assign_token(self.id, tar.token)
         post_data = {
             'token': tar.token,
             'checker': 'print("not implement yet. qaq")',
@@ -572,14 +546,15 @@ class Submission(MongoBase, engine=engine.Submission):
                 return []
             q_user = q_user.obj
         if isinstance(course, str):
-            course = Course(course).obj
+            course = Course(course)
             # course does not exist
-            if course is None:
+            if not course:
                 return []
         # problem's query key
         p_k = 'problem'
         if course:
-            problems = get_problem_list(user, course=course.course_name)
+            problems = Problem.get_problem_list(user,
+                                                course=course.course_name)
             # use all problems under this course to filter
             if problem is None:
                 p_k = 'problem__in'
@@ -638,3 +613,28 @@ class Submission(MongoBase, engine=engine.Submission):
         )
         submission.save()
         return cls(submission.id)
+
+    #submission
+    @classmethod
+    def assign_token(cls, submission_id, token=None):
+        '''
+        generate a token for the submission
+        '''
+        if token is None:
+            token = gen_token()
+        RedisCache().set(gen_key(submission_id), token)
+        return token
+
+    #submission
+    @classmethod
+    def verify_token(cls, submission_id, token):
+        cache = RedisCache()
+        key = gen_key(submission_id)
+        s_token = cache.get(key)
+        if s_token is None:
+            return False
+        s_token = s_token.decode('ascii')
+        valid = secrets.compare_digest(s_token, token)
+        if valid:
+            cache.delete(key)
+        return valid

@@ -62,7 +62,32 @@ class _Request(type):
 
 
 class Request(metaclass=_Request):
-    pass
+    @staticmethod
+    def doc(src, des, cls=None, null=False):
+        '''
+        a warpper to `doc_required` for flask route
+        '''
+        def deco(func):
+            @doc_required(src, des, cls, null)
+            def inner_wrapper(*args, **ks):
+                return func(*args, **ks)
+
+            @wraps(func)
+            def real_wrapper(*args, **ks):
+                try:
+                    return inner_wrapper(*args, **ks)
+                # if document not exists in db
+                except DoesNotExist as e:
+                    return HTTPError(e, 404)
+                # if args missing
+                except TypeError as e:
+                    return HTTPError(e, 500)
+                except ValidationError as e:
+                    return HTTPError('Invalid parameter', 400)
+
+            return real_wrapper
+
+        return deco
 
 
 def timing_request(func):

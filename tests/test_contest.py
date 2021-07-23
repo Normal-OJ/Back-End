@@ -2,9 +2,10 @@ import pytest
 from tests.base_tester import BaseTester
 from datetime import datetime, timedelta, time
 from mongo import *
+from mongo import engine
 
 
-class CourseData(Course):
+class CourseData():
     def __init__(self, student_nicknames, course_status, name, teacher, tas):
         self.student_nicknames = student_nicknames
         self.course_status = course_status
@@ -28,7 +29,7 @@ class CourseData(Course):
 def course_data(request, client_teacher):
     BaseTester.setup_class()
     cd = CourseData(**request.param)
-    add_course(cd.name, cd.teacher)
+    Course.add_course(cd.name, cd.teacher)
     #add tas and teacher
     client_teacher.put(f'/course/{cd.name}',
                        json={

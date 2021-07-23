@@ -2,7 +2,7 @@ from typing import List, Optional
 from . import engine
 from .base import MongoBase
 from .course import Course
-from .utils import perm
+from .utils import perm, doc_required
 from .problem import Problem
 from .ip_filter import IPFilter
 from datetime import datetime
@@ -20,10 +20,11 @@ class Homework(MongoBase, engine=engine.Homework):
         return any(_filter.match(ip) for _filter in ip_filters)
 
     @classmethod
+    @doc_required('course_name', 'course', Course)
     def add(
         cls,
         user,
-        course_name: str,
+        course: Course,
         hw_name: str,
         problem_ids: List[int] = [],
         markdown: str = '',
@@ -31,10 +32,6 @@ class Homework(MongoBase, engine=engine.Homework):
         start: Optional[float] = None,
         end: Optional[float] = None,
     ):
-        # query db check the hw doesn't exist
-        course = Course(course_name).obj
-        if course is None:
-            raise engine.DoesNotExist('course not exist')
         # check user is teacher or ta
         if perm(course, user) <= 1:
             raise PermissionError('user is not teacher or ta')
@@ -135,32 +132,26 @@ class Homework(MongoBase, engine=engine.Homework):
         return homework
 
     # delete problems/paticipants in hw
-    @classmethod
+    @doc_required('course', 'course', Course)
     def delete_problems(
-        cls,
+        self,
         user,
-        homework_id,
+        course: Course,
     ):
-        homework = cls.engine.objects.get(id=homework_id)
-        if homework is None:
-            raise engine.DoesNotExist('homework not exist')
-        course = engine.Course.objects.get(id=homework.course_id)
         # check user is teacher or ta
         if perm(course, user) <= 1:
             raise PermissionError('user is not teacher or ta')
-        for pid in homework.problem_ids:
+        for pid in self.problem_ids:
             problem = Problem(pid).obj
             if problem is None:
                 continue
-            problem.update(pull__homeworks=homework)
-        homework.delete()
-        return homework
+            problem.update(pull__homeworks=self.obj)
+        self.delete()
+        return self
 
-    @staticmethod
-    def get_homeworks(course_name):
-        course = Course(course_name).obj
-        if course is None:
-            raise engine.DoesNotExist('course not exist')
+    @classmethod
+    @doc_required('course_name', 'course', Course)
+    def get_homeworks(cls, course: Course):
         homeworks = course.homeworks or []
         homeworks = sorted(homeworks, key=lambda h: h.duration.start)
         return homeworks
@@ -184,8 +175,8 @@ class Homework(MongoBase, engine=engine.Homework):
             raise engine.DoesNotExist('homework not exist')
         return homework
 
-    @staticmethod
-    def default_problem_status():
+    @classmethod
+    def default_problem_status(cls):
         return {
             'score': 0,
             'problemStatus': None,

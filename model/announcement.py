@@ -2,6 +2,7 @@ from datetime import datetime
 from flask import Blueprint, request
 
 from mongo import *
+from mongo.utils import *
 from .auth import *
 from .utils import *
 from .course import *
@@ -58,11 +59,11 @@ def anncmnt(user, course_name=None, ann_id=None):
         # Create a new announcement
         try:
             ann = Announcement.new_ann(
-                course_name or 'Public',
-                title,
-                user.obj,
-                markdown,
-                pinned,
+                title=title,
+                creator=user.obj,
+                markdown=markdown,
+                pinned=pinned,
+                course=course_name or 'Public',
             )
         except ValidationError as ve:
             return HTTPError('Failed to Create Announcement',

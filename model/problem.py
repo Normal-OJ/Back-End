@@ -7,12 +7,10 @@ from .auth import *
 from .utils import *
 from mongo.utils import can_view_problem
 from mongo.problem import *
-import threading
 
 __all__ = ['problem_api']
 
 problem_api = Blueprint('problem_api', __name__)
-lock = threading.Lock()
 
 
 @problem_api.route('/', methods=['GET'])
@@ -59,7 +57,7 @@ def view_problem_list(
             'course': course,
         }
         ks = {k: v for k, v in ks.items() if v is not None}
-        data = get_problem_list(**ks)
+        data = Problem.get_problem_list(**ks)
     except IndexError:
         return HTTPError('invalid offset', 400)
     data = [{
@@ -135,11 +133,10 @@ def manage_problem(user, problem_id=None):
 
     def modify_general_problem(**p_ks):
         if request.method == 'POST':
-            with lock as _:
-                pid = add_problem(user=user, **p_ks)
+            pid = Problem.add_problem(user=user, **p_ks)
             return HTTPResponse('Success.', data={'problemId': pid})
         elif request.method == 'PUT':
-            edit_problem(
+            Problem.edit_problem(
                 user=user,
                 problem_id=problem_id,
                 **p_ks,
@@ -149,7 +146,7 @@ def manage_problem(user, problem_id=None):
     @Request.files('case')
     def modify_problem_test_case(case):
         try:
-            result = edit_problem_test_case(problem_id, case)
+            result = Problem.edit_problem_test_case(problem_id, case)
         except engine.DoesNotExist as e:
             return HTTPError(str(e), 404)
         except (ValueError, BadZipFile) as e:
@@ -189,7 +186,7 @@ def manage_problem(user, problem_id=None):
         )
     # delete problem
     elif request.method == 'DELETE':
-        delete_problem(problem_id)
+        Problem.delete_problem(problem_id)
         return HTTPResponse('Success.')
     # edit problem
     else:
@@ -258,8 +255,7 @@ def clone_problem(user, problem_id):
         return HTTPError('Problem not exist.', 404)
     if not can_view_problem(user, problem):
         return HTTPError('Problem can not view.', 403)
-    with lock as _:
-        copy_problem(user, problem_id)
+    Problem.copy_problem(user, problem_id)
     return HTTPResponse('Success.')
 
 
@@ -272,5 +268,5 @@ def publish_problem(user, problem_id):
         return HTTPError('Problem not exist.', 404)
     if user.role == 1 and problem.owner != user.username:
         return HTTPError('Not the owner.', 403)
-    release_problem(problem_id)
+    Problem.release_problem(problem_id)
     return HTTPResponse('Success.')

@@ -143,7 +143,7 @@ def make_course(forge_client):
             tas=tas,
         )
         # add course
-        assert add_course(
+        assert Course.add_course(
             c_data.name,
             c_data.teacher,
         ) == True, f'course name: {c_data.name}\nteacher: {c_data.teacher}\n'

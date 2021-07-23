@@ -35,7 +35,7 @@ def course_data(
     BaseTester.setup_class()
     cd = CourseData(**request.param)
     # add course
-    add_course(cd.name, cd.teacher)
+    Course.add_course(cd.name, cd.teacher)
     # add students and TA
     client_admin.set_cookie(
         'test.test',

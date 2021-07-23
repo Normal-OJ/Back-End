@@ -3,6 +3,7 @@ from flask import Blueprint, request
 from mongo import *
 from .auth import *
 from .utils import *
+from mongo.utils import *
 from mongo.course import *
 from mongo import engine
 from datetime import datetime
@@ -23,11 +24,13 @@ def get_courses(user):
             teacher = user.username
         try:
             if request.method == 'POST':
-                r = add_course(course, teacher)
+                r = Course.add_course(course, teacher)
             if request.method == 'PUT':
-                r = edit_course(user, course, new_course, teacher)
+                co = Course(course)
+                co.edit_course(user, new_course, teacher)
             if request.method == 'DELETE':
-                r = delete_course(user, course)
+                co = Course(course)
+                co.delete_course(user)
         except ValueError:
             return HTTPError('Not allowed name.', 400)
         except NotUniqueError:
@@ -42,7 +45,7 @@ def get_courses(user):
         data = [{
             'course': c.course_name,
             'teacher': c.teacher.info,
-        } for c in get_user_courses(user)]
+        } for c in Course.get_user_courses(user)]
         return HTTPResponse('Success.', data=data)
     else:
         return modify_courses()
@@ -51,8 +54,8 @@ def get_courses(user):
 @course_api.route('/<course_name>', methods=['GET', 'PUT'])
 @login_required
 def get_course(user, course_name):
-    course = Course(course_name).obj
-    if course is None:
+    course = Course(course_name)
+    if not course:
         return HTTPError('Course not found.', 404)
 
     permission = perm(course, user)
@@ -73,9 +76,11 @@ def get_course(user, course_name):
                 tas.append(user)
 
             for user in set(course.tas) - set(tas):
-                remove_user(user, course)
+                #remove_user(user, course)
+                course.remove_user(user)
             for user in set(tas) - set(course.tas):
-                add_user(user, course)
+                #add_user(user, course)
+                course.add_user(user)
             course.tas = tas
 
         student_dict = {}
@@ -89,9 +94,11 @@ def get_course(user, course_name):
         new_user = set(student_dict) - set(course.student_nicknames)
 
         for user in drop_user:
-            remove_user(User(user).obj, course)
+            #remove_user(User(user).obj, course)
+            course.remove_user(User(user).obj)
         for user in new_user:
-            add_user(User(user).obj, course)
+            #add_user(User(user).obj, course)
+            course.add_user(User(user).obj)
         course.student_nicknames = student_dict
 
         for homework in course.homeworks:
@@ -128,7 +135,7 @@ def get_course(user, course_name):
 @login_required
 def grading(user, course_name, student):
     course = Course(course_name).obj
-    if course is None:
+    if not course:
         return HTTPError('Course not found.', 404)
     permission = perm(course, user)
     if not permission:
