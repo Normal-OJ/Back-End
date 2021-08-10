@@ -6,4 +6,4 @@ COPY ./requirements ./requirements
 
 RUN pip install -r requirements/dev.txt
 
-CMD gunicorn app:app -c gunicorn.conf.py
+CMD gunicorn app:app() -c gunicorn.conf.py

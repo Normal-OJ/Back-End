@@ -93,3 +93,9 @@ class Course(MongoBase, engine=engine.Course):
         ).save()
         cls(co).add_user(teacher.obj)
         return True
+
+    @classmethod
+    def get_public(cls):
+        if not cls('Public'):
+            cls.add_course('Public', 'first_admin')
+        return cls('Public')

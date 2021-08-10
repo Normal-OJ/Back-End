@@ -1,4 +1,5 @@
 import pytest
+from mongo import engine
 from tests.base_tester import BaseTester
 
 
@@ -78,3 +79,7 @@ class TestAnnouncement(BaseTester):
         json = rv.get_json()
         assert rv.status_code == 200
         assert len(json['data']) == 0
+
+    def test_get_public_announcement(self, client_admin):
+        rv = client_admin.get('/ann')
+        assert rv.status_code == 200

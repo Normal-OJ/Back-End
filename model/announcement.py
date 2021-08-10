@@ -15,7 +15,8 @@ ann_api = Blueprint('ann_api', __name__)
 @ann_api.route('/', methods=['GET'])
 @ann_api.route('/<ann_id>', methods=['GET'])
 def get_sys_ann(ann_id=None):
-    anns = Announcement.ann_list(None, 'Public')
+    public_name = Course.get_public().course_name
+    anns = Announcement.ann_list(None, public_name)
     data = [{
         'annId': str(an.id),
         'title': an.title,

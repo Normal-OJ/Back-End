@@ -1,10 +1,8 @@
 from flask import Flask
-from app import app as flask_app
 from mongo import *
 from mongo import engine
 import mongomock.gridfs
 
-import os
 import pytest
 import random
 from datetime import datetime
@@ -13,19 +11,20 @@ from collections import defaultdict
 from tests.base_tester import random_string
 from tests.test_homework import CourseData
 from tests.test_problem import get_file
-from tests.base_tester import BaseTester
 
 
 @pytest.fixture
 def app(tmp_path):
-    flask_app.config['TESTING'] = True
+    from app import app as flask_app
+    app = flask_app()
+    app.config['TESTING'] = True
     mongomock.gridfs.enable_gridfs_integration()
     # modify submission config for testing
     # use tmp dir to save user source code
-    Submission.config().TMP_DIR = (tmp_path /
-                                   Submission.config().TMP_DIR).absolute()
-    Submission.config().TMP_DIR.mkdir(exist_ok=True)
-    return flask_app
+    submission_tmp_dir = (tmp_path / Submission.config().TMP_DIR).absolute()
+    submission_tmp_dir.mkdir(exist_ok=True)
+    Submission.config().TMP_DIR = submission_tmp_dir
+    return app
 
 
 # TODO: share client may cause auth problem

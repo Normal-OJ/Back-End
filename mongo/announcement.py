@@ -14,17 +14,21 @@ class Announcement(MongoBase, engine=engine.Announcement):
         self.ann_id = ann_id
 
     @classmethod
-    def ann_list(cls, user, course_name):
+    def ann_list(cls, user: User, course_name: str):
         if course_name == 'Public':
             return engine.Announcement.objects(
-                course=Course('Public'), status=0).order_by('-createTime')
+                course=Course('Public').obj,
+                status=0,
+            ).order_by('-createTime')
         course = Course(course_name)
         if not course:
-            return None
+            return []
         if not perm(course, user):
-            return None
-        anns = engine.Announcement.objects(course=course.obj,
-                                           status=0).order_by('-createTime')
+            return []
+        anns = engine.Announcement.objects(
+            course=course.obj,
+            status=0,
+        ).order_by('-createTime')
         return anns
 
     @classmethod
