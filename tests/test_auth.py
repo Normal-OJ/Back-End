@@ -101,6 +101,19 @@ class TestSignup:
         )
         assert rv.status_code == 200, rv.get_json()
 
+    @pytest.mark.parametrize('username', ('teacher', 'student'))
+    def test_non_admin_cannot_add_user(self, forge_client, username: str):
+        client = forge_client(username)
+        rv = client.post(
+            '/auth/user',
+            json={
+                'username': secrets.token_hex()[:12],
+                'password': secrets.token_hex(),
+                'email': secrets.token_hex()[:12] + '@noj.tw',
+            },
+        )
+        assert rv.status_code == 403, rv.get_json()
+
 
 class TestActive:
     '''Test Active
