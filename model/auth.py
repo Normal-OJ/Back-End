@@ -237,3 +237,31 @@ def password_recovery(email):
         f'Your alternative password is {new_password}.\nPlease login and change your password.'
     )
     return HTTPResponse('Recovery Email Has Been Sent')
+
+
+@auth_api.route('/user', methods=['POST'])
+@Request.json('username: str', 'password: str', 'email: str')
+@identity_verify(0)
+def add_user(
+    user,
+    username: str,
+    password: str,
+    email: str,
+):
+    '''
+    Directly add a user without activation required.
+    This operation only allow admin to use.
+    '''
+    try:
+        User.signup(
+            username,
+            password,
+            email,
+        ).activate()
+    except ValidationError as ve:
+        return HTTPError('Signup Failed', 400, data=ve.to_dict())
+    except NotUniqueError:
+        return HTTPError('User Exists', 400)
+    except ValueError as ve:
+        return HTTPError('Not Allowed Name', 400)
+    return HTTPResponse()

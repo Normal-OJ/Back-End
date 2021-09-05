@@ -132,10 +132,12 @@ class User(MongoBase, engine=engine.User):
 
 def jwt_decode(token):
     try:
-        json = jwt.decode(token,
-                          JWT_SECRET,
-                          issuer=JWT_ISS,
-                          algorithms='HS256')
+        json = jwt.decode(
+            token,
+            JWT_SECRET,
+            issuer=JWT_ISS,
+            algorithms='HS256',
+        )
     except jwt.exceptions.PyJWTError:
         return None
     return json

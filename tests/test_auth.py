@@ -73,6 +73,34 @@ class TestSignup:
         assert json['status'] == 'err'
         assert json['message'] == 'User Exists'
 
+    def test_directly_add_user_by_admin(self, client):
+        client.set_cookie(
+            'test.test',
+            'piann',
+            User('first_admin').secret,
+        )
+        name = secrets.token_hex()[:12]
+        assert not User(name), name
+        password = secrets.token_hex()
+        rv = client.post(
+            '/auth/user',
+            json={
+                'username': name,
+                'password': password,
+                'email': f'{name}@noj.tw',
+            },
+        )
+        assert rv.status_code == 200, rv.get_json()
+        client.delete_cookie('test.test', 'piann')
+        rv = client.post(
+            '/auth/session',
+            json={
+                'username': name,
+                'password': password,
+            },
+        )
+        assert rv.status_code == 200, rv.get_json()
+
 
 class TestActive:
     '''Test Active
