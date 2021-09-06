@@ -233,6 +233,14 @@ class TestLogout:
 class TestRole(BaseTester):
     '''Test Role
     '''
+    def test_change_role_with_non_exist_name(self, client_admin):
+        rv = client_admin.put('/auth/role',
+                              json={
+                                  'username': 'nobody',
+                                  'role': 0
+                              })
+        assert rv.status_code == 404
+
     def test_change_role(self, client_admin):
         rv = client_admin.put('/auth/role',
                               json={
