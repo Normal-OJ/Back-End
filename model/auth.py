@@ -237,3 +237,15 @@ def password_recovery(email):
         f'Your alternative password is {new_password}.\nPlease login and change your password.'
     )
     return HTTPResponse('Recovery Email Has Been Sent')
+
+
+@auth_api.route('/role', methods=['PUT'])
+@identity_verify(0)
+@Request.json('username: str', 'role: int')
+def change_role(user, username, role):
+    try:
+        user = User.get_by_username(username)
+        user.update(role=role)
+    except ValidationError as ve:
+        return HTTPError('Changing fail', 400, data=ve.to_dict())
+    return HTTPResponse('The role has been changed')

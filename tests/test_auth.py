@@ -2,6 +2,7 @@ import pytest
 import secrets
 from mongo import *
 from mongo import engine
+from tests.base_tester import BaseTester
 
 
 class TestSignup:
@@ -227,3 +228,25 @@ class TestLogout:
         assert rv.status_code == 200
         assert json['status'] == 'ok'
         assert json['message'] == 'Goodbye'
+
+
+class TestRole(BaseTester):
+    '''Test Role
+    '''
+    def test_change_role(self, client_admin):
+        rv = client_admin.put('/auth/role',
+                              json={
+                                  'username': 'teacher',
+                                  'role': 0
+                              })
+        json = rv.get_json()
+        assert rv.status_code == 200, json
+        assert User('teacher').role == 0
+
+        rv = client_admin.put('/auth/role',
+                              json={
+                                  'username': 'teacher',
+                                  'role': 1
+                              })
+        assert rv.status_code == 200, json
+        assert User('teacher').role == 1
