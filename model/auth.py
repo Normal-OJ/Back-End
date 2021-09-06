@@ -248,4 +248,6 @@ def change_role(user, username, role):
         user.update(role=role)
     except ValidationError as ve:
         return HTTPError('Changing fail', 400, data=ve.to_dict())
+    except DoesNotExist as e:
+        return HTTPError('The user does not exist', 404)
     return HTTPResponse('The role has been changed')
