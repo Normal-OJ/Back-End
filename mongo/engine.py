@@ -113,7 +113,7 @@ class EditorConfig(EmbeddedDocument):
 
 class Duration(EmbeddedDocument):
     start = DateTimeField(default=datetime.now)
-    end = DateTimeField(default=datetime.max)
+    end = DateTimeField(default=datetime(2111, 10, 10))
 
     def __contains__(self, other) -> bool:
         if not isinstance(other, datetime):
