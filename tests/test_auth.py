@@ -73,6 +73,47 @@ class TestSignup:
         assert json['status'] == 'err'
         assert json['message'] == 'User Exists'
 
+    def test_directly_add_user_by_admin(self, client):
+        client.set_cookie(
+            'test.test',
+            'piann',
+            User('first_admin').secret,
+        )
+        name = secrets.token_hex()[:12]
+        assert not User(name), name
+        password = secrets.token_hex()
+        rv = client.post(
+            '/auth/user',
+            json={
+                'username': name,
+                'password': password,
+                'email': f'{name}@noj.tw',
+            },
+        )
+        assert rv.status_code == 200, rv.get_json()
+        client.delete_cookie('test.test', 'piann')
+        rv = client.post(
+            '/auth/session',
+            json={
+                'username': name,
+                'password': password,
+            },
+        )
+        assert rv.status_code == 200, rv.get_json()
+
+    @pytest.mark.parametrize('username', ('teacher', 'student'))
+    def test_non_admin_cannot_add_user(self, forge_client, username: str):
+        client = forge_client(username)
+        rv = client.post(
+            '/auth/user',
+            json={
+                'username': secrets.token_hex()[:12],
+                'password': secrets.token_hex(),
+                'email': secrets.token_hex()[:12] + '@noj.tw',
+            },
+        )
+        assert rv.status_code == 403, rv.get_json()
+
 
 class TestActive:
     '''Test Active
