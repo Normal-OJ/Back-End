@@ -1,0 +1,21 @@
+workflow:
+  rules:
+    - if: "$CI_COMMIT_BRANCH"
+
+test:
+  image: $IMAGE
+  stage: test
+  script:
+    - pip install -r requirements/dev.txt
+    - yapf -pqr .
+    - pytest --cov=./ --cov-config=.coveragerc --junitxml=$IMAGE-report.xml
+  artifacts:
+    when: always
+    reports:
+      junit: $IMAGE-report.xml
+  parallel:
+    matrix:
+      - IMAGE:
+          - "python:3.7-slim"
+          - "python:3.8-slim"
+          - "python:3.9-slim"
