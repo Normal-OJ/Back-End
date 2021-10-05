@@ -153,9 +153,11 @@ def get_report(user, course, problem_id):
     python_report_url = problem.python_report_url
 
     if problem.moss_status == 0:
-        return HTTPResponse(
+        return HTTPError(
+            404,
             "No report found. Please make a post request to copycat api to generate a report",
-            data={})
+            data={},
+        )
     elif problem.moss_status == 1:
         return HTTPResponse("Report generating...", data={})
     else:
@@ -204,13 +206,13 @@ def detect(user, course, problem_id, student_nicknames):
     if course is None:
         return HTTPError('Course not found.', 404)
 
+    problem = Problem(problem_id)
+    problem.update(
+        cpp_report_url="",
+        python_report_url="",
+        moss_status=1,
+    )
     if not current_app.config['TESTING']:
-        problem = Problem(problem_id)
-        problem.obj.update(
-            cpp_report_url="",
-            python_report_url="",
-            moss_status=1,
-        )
         threading.Thread(
             target=get_report_task,
             args=(
