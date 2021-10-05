@@ -7,6 +7,8 @@ stages:
   - build
 
 test:
+  tags:
+    - docker
   image: python:3.8-slim
   stage: test
   script:
@@ -19,6 +21,8 @@ test:
       junit: pytest-report.xml
 
 build:
+  tags:
+    - docker
   image: docker:19.03.12
   stage: build
   variables:
