@@ -7,10 +7,9 @@ stages:
   - build
 
 test:
-  tags:
-    - docker
-  image: python:3.8-slim
   stage: test
+  tags: [docker]
+  image: python:3.8-slim
   script:
     - pip install -r requirements/dev.txt
     - yapf -pqr .
@@ -21,10 +20,11 @@ test:
       junit: pytest-report.xml
 
 build:
-  tags:
-    - docker
-  image: docker:19.03.12
   stage: build
+  tags: [docker]
+  image: docker:20.10.9
+  services:
+    - docker:20.10.9-dind
   variables:
     IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
   script:
