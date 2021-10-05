@@ -1,3 +1,4 @@
+from typing import Dict
 from flask import Blueprint, request, current_app
 from mongo import *
 from mongo.utils import *
@@ -28,7 +29,7 @@ def is_valid_url(url):
     return url is not None and regex.search(url)
 
 
-def get_report_task(user, problem_id, student_dict):
+def get_report_task(user, problem_id, student_dict: Dict):
     # select all ac code
     submissions = Submission.filter(
         user=user,
@@ -42,7 +43,7 @@ def get_report_task(user, problem_id, student_dict):
     last_python_submission = {}
     for submission in submissions:
         s = Submission(submission.id)
-        if s.user.username in list(student_dict.keys()):
+        if s.user.username in student_dict:
             if s.language in [0, 1] \
                 and s.user.username not in last_cc_submission:
                 last_cc_submission[submission.user.username] = s.main_code_path
