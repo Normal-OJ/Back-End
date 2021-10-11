@@ -1,6 +1,5 @@
-import os
+from typing import List
 from flask import Blueprint, request
-
 from mongo import *
 from mongo import engine
 from .utils import *
@@ -144,3 +143,62 @@ def check(user, homework_name, course_name):
         return HTTPResponse('homework name can be used', data={'valid': 1})
     else:
         return HTTPResponse('homework name exist', data={'valid': 0})
+
+
+@homework_api.route('/<course>/<homework_name>/ip-filters', methods=['GET'])
+@login_required
+def get_ip_filters(
+    user,
+    course: str,
+    homework_name: str,
+):
+    if user.role != 0:
+        return HTTPError('Not admin!', 403)
+    try:
+        hw = Homework.get_by_name(course, homework_name)
+    except DoesNotExist:
+        return HTTPError('Homework does not exist', 404)
+    return HTTPResponse(data={'ipFilters': hw.ip_filters})
+
+
+@homework_api.route('/<course>/<homework_name>/ip-filters', methods=['PATCH'])
+@login_required
+@Request.json('patches:list')
+def patch_ip_filters(
+    user,
+    course: str,
+    homework_name: str,
+    patches: List,
+):
+    if user.role != 0:
+        return HTTPError('Not admin!', 403)
+    try:
+        hw = Homework.get_by_name(course, homework_name)
+    except DoesNotExist:
+        return HTTPError('Homework does not exist', 404)
+    adds = []
+    dels = []
+    for patch in patches:
+        op = patch.get('op')
+        if op not in {'add', 'del'}:
+            return HTTPError('Invalid operation', 400, data={'op': op})
+        value = patch.get('value')
+        if value is None:
+            return HTTPError('Value not found', 400)
+        if op == 'add':
+            adds.append(value)
+        else:
+            dels.append(value)
+        # Validate filter format
+        try:
+            IPFilter(value)
+        except ValueError as e:
+            return HTTPError(str(e), 400)
+    try:
+        hw.update(
+            push_all__ip_filters=adds,
+            pull_all__ip_filters=dels,
+        )
+    except ValidationError as e:
+        return HTTPError(str(e), 400)
+    return HTTPResponse()

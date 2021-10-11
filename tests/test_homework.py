@@ -1,3 +1,4 @@
+from typing import Callable
 from flask.testing import FlaskClient
 import pytest
 from tests.base_tester import BaseTester, random_string
@@ -80,6 +81,70 @@ def course_data(
     })
 def another_course(request, course_data, client_admin):
     return course_data(request, client_admin)
+
+
+class TestIPFilter(BaseTester):
+    @pytest.mark.parametrize(
+        '_filter',
+        [
+            '127.0.0.1',
+            '127.0.0.*',
+            '192.168.10-13.*',
+        ],
+    )
+    def test_valid_filter(
+        self,
+        forge_client: Callable[[str], FlaskClient],
+        course_data: CourseData,
+        _filter: str,
+    ):
+        hw = Homework.get_by_id(course_data.homework_ids[0])
+        # get admin client
+        client = forge_client('admin')
+        # add new ip filter
+        rv = client.patch(
+            f'/homework/{course_data.name}/{hw.homework_name}/ip-filters',
+            json={'patches': [
+                {
+                    'op': 'add',
+                    'value': _filter,
+                },
+            ]},
+        )
+        assert rv.status_code == 200, rv.data
+        hw.reload()
+        assert hw.ip_filters == [_filter]
+
+    @pytest.mark.parametrize(
+        '_filter',
+        [
+            '1.2.3.4.5',
+            'noj.tw',
+            '1.2.3.4-*',
+        ],
+    )
+    def test_invalid_filter(
+        self,
+        forge_client: Callable[[str], FlaskClient],
+        course_data: CourseData,
+        _filter: str,
+    ):
+        hw = Homework.get_by_id(course_data.homework_ids[0])
+        # get admin client
+        client = forge_client('admin')
+        # add new ip filter
+        rv = client.patch(
+            f'/homework/{course_data.name}/{hw.homework_name}/ip-filters',
+            json={'patches': [
+                {
+                    'op': 'add',
+                    'value': _filter,
+                },
+            ]},
+        )
+        assert rv.status_code == 400, rv.data
+        hw.reload()
+        assert hw.ip_filters == []
 
 
 class TestHomework(BaseTester):
