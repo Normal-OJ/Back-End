@@ -1,4 +1,3 @@
-from model import submission
 from mongo.engine import Problem, Submission
 import pytest
 import itertools

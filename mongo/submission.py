@@ -1,9 +1,11 @@
+from __future__ import annotations
 import json
 import os
 import io
 import pathlib
 import secrets
 import logging
+from typing import Optional, Union
 import requests as rq
 import itertools
 from flask import current_app
@@ -522,22 +524,19 @@ class Submission(MongoBase, engine=engine.Submission):
         user,
         offset: int = 0,
         count: int = -1,
-        problem=None,
-        submission=None,
-        q_user=None,
-        status=None,
-        language_type=None,
-        course=None,
+        problem: Optional[Union[Problem, int]] = None,
+        submission: Optional[Union[Submission, str]] = None,
+        q_user: Optional[Union[User, str]] = None,
+        status: Optional[int] = None,
+        language_type: Optional[int] = None,
+        course: Optional[Union[Course, str]] = None,
     ):
-        if not isinstance(problem, engine.Problem) and problem is not None:
-            try:
-                problem = Problem(int(problem)).obj
-            except ValueError:
-                raise ValueError(f'can not convert {type(problem)} into int')
+        if isinstance(problem, int):
+            problem = Problem(problem).obj
             # problem does not exist
             if problem is None:
                 return []
-        if isinstance(submission, (Submission, engine.Submission)):
+        if not isinstance(submission, (str, type(None))):
             submission = submission.id
         if isinstance(q_user, str):
             q_user = User(q_user)
@@ -553,8 +552,10 @@ class Submission(MongoBase, engine=engine.Submission):
         # problem's query key
         p_k = 'problem'
         if course:
-            problems = Problem.get_problem_list(user,
-                                                course=course.course_name)
+            problems = Problem.get_problem_list(
+                user,
+                course=course.course_name,
+            )
             # use all problems under this course to filter
             if problem is None:
                 p_k = 'problem__in'

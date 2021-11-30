@@ -140,14 +140,28 @@ def create_submission(user, language_type, problem_id):
 
 @submission_api.route('/', methods=['GET'])
 @login_required
-@Request.args('offset', 'count', 'problem_id', 'submission_id', 'username',
-              'status', 'language_type', 'course')
-def get_submission_list(user, offset, count, problem_id, submission_id,
-                        username, status, language_type, course):
+@Request.args(
+    'offset',
+    'count',
+    'problem_id',
+    'username',
+    'status',
+    'language_type',
+    'course',
+)
+def get_submission_list(
+    user,
+    offset,
+    count,
+    problem_id,
+    username,
+    status,
+    language_type,
+    course,
+):
     '''
     get the list of submission data
     avaliable filter:
-        - submission id
         - problem id
         - timestamp
         - status
@@ -156,7 +170,7 @@ def get_submission_list(user, offset, count, problem_id, submission_id,
         - language
         - course
     '''
-    cache_key = f'submissions_{user}_{problem_id}_{submission_id}_{username}_{status}_{language_type}_{course}'
+    cache_key = f'submissions_{user}_{problem_id}_{username}_{status}_{language_type}_{course}'
     cache = RedisCache()
     try:
         # convert args
@@ -181,7 +195,6 @@ def get_submission_list(user, offset, count, problem_id, submission_id,
                 offset=0,
                 count=-1,
                 problem=problem_id,
-                submission=submission_id,
                 q_user=username,
                 status=status,
                 language_type=language_type,
@@ -197,7 +210,6 @@ def get_submission_list(user, offset, count, problem_id, submission_id,
                 if not s.handwritten or s.permission(user) > 1
             ]
             cache.set(cache_key, json.dumps(submissions), 15)
-
         # truncate
         if offset >= len(submissions) and len(submissions):
             raise ValueError(f'offset ({offset}) is out of range!')
