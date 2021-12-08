@@ -118,9 +118,10 @@ class TestAdminCourse(BaseTester):
         rv = client_admin.get('/course')
         json = rv.get_json()
         assert rv.status_code == 200
-        assert len(json['data']) == 1
-        assert json['data'][0]['course'] == 'PE'
-        assert json['data'][0]['teacher']['username'] == 'teacher'
+        # The first one is 'Public'
+        assert len(json['data']) == 2
+        assert json['data'][-1]['course'] == 'PE'
+        assert json['data'][-1]['teacher']['username'] == 'teacher'
 
     def test_view_with_non_member(self, client_student):
         # Get all courses with a user that is not a member

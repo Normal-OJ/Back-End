@@ -49,7 +49,7 @@ def app():
             role=0,
             profile=PROFILE,
         )
-    if Course('Public').obj is None:
+    if not Course('Public'):
         Course.add_course('Public', 'first_admin')
 
     if __name__ != '__main__':
