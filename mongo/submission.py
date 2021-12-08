@@ -534,6 +534,9 @@ class Submission(MongoBase, engine=engine.Submission):
         before: Optional[datetime] = None,
         after: Optional[datetime] = None,
     ):
+        if before is not None and after is not None:
+            if after > before:
+                raise ValueError('the query period is empty')
         if offset < 0:
             raise ValueError(f'offset must >= 0!')
         if count < -1:
@@ -574,6 +577,8 @@ class Submission(MongoBase, engine=engine.Submission):
             'status': status,
             'language': language_type,
             'user': q_user,
+            'timestamp__lte': before,
+            'timestamp__gte': after,
         }
         q = {k: v for k, v in q.items() if v is not None}
         # sort by upload time
@@ -619,7 +624,6 @@ class Submission(MongoBase, engine=engine.Submission):
         submission.save()
         return cls(submission.id)
 
-    #submission
     @classmethod
     def assign_token(cls, submission_id, token=None):
         '''
@@ -630,7 +634,6 @@ class Submission(MongoBase, engine=engine.Submission):
         RedisCache().set(gen_key(submission_id), token)
         return token
 
-    #submission
     @classmethod
     def verify_token(cls, submission_id, token):
         cache = RedisCache()

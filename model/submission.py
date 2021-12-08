@@ -149,6 +149,8 @@ def create_submission(user, language_type, problem_id):
     'status',
     'language_type',
     'course',
+    'before',
+    'after',
 )
 def get_submission_list(
     user,
@@ -159,6 +161,8 @@ def get_submission_list(
     status,
     language_type,
     course,
+    before,
+    after,
 ):
     '''
     get the list of submission data
@@ -190,6 +194,12 @@ def get_submission_list(
         count = parse_int(count, 'count')
         problem_id = parse_int(problem_id, 'problemId')
         status = parse_int(status, 'status')
+        before = parse_int(before, 'before')
+        if before is not None:
+            before = datetime.fromtimestamp(before)
+        after = parse_int(after, 'after')
+        if after is not None:
+            after = datetime.fromtimestamp(after)
         try:
             params = dict(
                 user=user,
@@ -200,6 +210,8 @@ def get_submission_list(
                 status=status,
                 language_type=language_type,
                 course=course,
+                before=before,
+                after=after,
             )
             params = {k: v for k, v in params.items() if v is not None}
             submissions = [

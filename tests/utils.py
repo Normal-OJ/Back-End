@@ -47,3 +47,11 @@ def problem_result(pid):
                 task,
             ))
     return ret
+
+
+def drop_db(
+    host: str = 'mongomock://localhost',
+    db: str = 'normal-oj',
+):
+    conn = connect(db, host=host)
+    conn.drop_database(db)
