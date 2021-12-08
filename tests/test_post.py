@@ -14,13 +14,13 @@ class TestPost(BaseTester):
                               'course': 'math',
                               'teacher': 'admin'
                           })
-        #create an other course
+        # create an other course
         client_admin.post('/course',
                           json={
                               'course': 'english',
                               'teacher': 'admin'
                           })
-        #let student add math
+        # let student add math
         client_admin.put('/course/math',
                          json={
                              'TAs': ['admin'],
