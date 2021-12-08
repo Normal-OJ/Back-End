@@ -489,8 +489,9 @@ class Submission(MongoBase, engine=engine.Submission):
         # self.problem.ac_user = len(ac_users)
         # update high score
         self.problem.high_scores[self.username] = engine.Submission.objects(
-            user=self.user, problem=self.problem).only('score').order_by(
-                '-score').first().score
+            user=self.user,
+            problem=self.problem,
+        ).only('score').order_by('-score').first().score
         self.problem.save()
 
     def add_comment(self, file):
@@ -530,23 +531,26 @@ class Submission(MongoBase, engine=engine.Submission):
         status: Optional[int] = None,
         language_type: Optional[int] = None,
         course: Optional[Union[Course, str]] = None,
+        before: Optional[datetime] = None,
+        after: Optional[datetime] = None,
     ):
+        if offset < 0:
+            raise ValueError(f'offset must >= 0!')
+        if count < -1:
+            raise ValueError(f'count must >=-1!')
         if isinstance(problem, int):
             problem = Problem(problem).obj
-            # problem does not exist
             if problem is None:
                 return []
         if not isinstance(submission, (str, type(None))):
             submission = submission.id
         if isinstance(q_user, str):
             q_user = User(q_user)
-            # if not exist
             if not q_user:
                 return []
             q_user = q_user.obj
         if isinstance(course, str):
             course = Course(course)
-            # course does not exist
             if not course:
                 return []
         # problem's query key
@@ -583,10 +587,10 @@ class Submission(MongoBase, engine=engine.Submission):
     @classmethod
     def add(
         cls,
-        problem_id: str,
+        problem_id: int,
         username: str,
         lang: int,
-        timestamp: date = None,
+        timestamp: Optional[date] = None,
     ) -> 'Submission':
         '''
         Insert a new submission into db

@@ -1,9 +1,8 @@
-from mongo.engine import Problem, Submission
+from typing import Optional
 import pytest
 import itertools
 import pathlib
 from pprint import pprint
-
 from mongo import *
 from mongo import engine
 from mongo.utils import can_view_problem
@@ -131,12 +130,9 @@ class TestUserGetSubmission(SubmissionTester):
         rv, rv_json, rv_data = BaseTester.request(
             client,
             'get',
-            f'/submission/?offset={SubmissionTester.init_submission_count}&count=1',
+            f'/submission/?offset={self.init_submission_count}&count=1',
         )
-
-        print(rv_json)
-
-        assert rv.status_code == 400
+        assert rv.status_code == 400, rv_data
 
     def test_get_all_submission(self, forge_client):
         client = forge_client('student')
@@ -215,7 +211,7 @@ class TestUserGetSubmission(SubmissionTester):
 
     def test_get_self_submission(self, client_student):
         ids = self.submissions['student']
-        pprint(ids)
+        assert len(ids) != 0, ids
 
         for _id in ids:
             rv, rv_json, rv_data = BaseTester.request(
@@ -226,8 +222,6 @@ class TestUserGetSubmission(SubmissionTester):
             assert rv.status_code == 200
             # user can view self code
             assert 'code' in rv_data
-
-        pprint(rv_data)
 
         # check for fields
         except_fields = {
@@ -242,20 +236,7 @@ class TestUserGetSubmission(SubmissionTester):
             'code',
         }
         missing_field = except_fields - set(rv_data.keys())
-        print(missing_field)
-        assert len(missing_field) == 0
-
-    @pytest.mark.parametrize('offset, count', [(None, 1), (0, None),
-                                               (None, None)])
-    def test_get_submission_list_with_missing_args(self, forge_client, offset,
-                                                   count):
-        client = forge_client('student')
-        rv, rv_json, rv_data = BaseTester.request(
-            client,
-            'get',
-            f'/submission/?offset={offset}&count={count}',
-        )
-        assert rv.status_code == 400
+        assert len(missing_field) == 0, missing_field
 
     @pytest.mark.parametrize('offset, count', [(-1, 2), (2, -2)])
     def test_get_submission_list_with_out_ranged_negative_arg(

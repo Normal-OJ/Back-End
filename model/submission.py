@@ -1,4 +1,5 @@
 import io
+from typing import Optional
 import requests as rq
 import random
 import secrets
@@ -170,56 +171,54 @@ def get_submission_list(
         - language
         - course
     '''
+    def parse_int(val: Optional[int], name: str):
+        if val is None:
+            return None
+        try:
+            return int(val)
+        except ValueError:
+            raise ValueError(f'can not convert {name} to integer')
+
     cache_key = f'submissions_{user}_{problem_id}_{username}_{status}_{language_type}_{course}'
     cache = RedisCache()
-    try:
+    # check cache
+    if cache.exists(cache_key):
+        submissions = json.loads(cache.get(cache_key))
+    else:
         # convert args
-        if offset is None or count is None:
-            raise ValueError('offset and count are required!')
+        offset = parse_int(offset, 'offset')
+        count = parse_int(count, 'count')
+        problem_id = parse_int(problem_id, 'problemId')
+        status = parse_int(status, 'status')
         try:
-            offset = int(offset)
-            count = int(count)
-        except ValueError:
-            raise ValueError('offset and count must be integer!')
-        if offset < 0:
-            raise ValueError(f'offset must >= 0! get {offset}')
-        if count < -1:
-            raise ValueError(f'count must >=-1! get {count}')
-
-        # check cache
-        if cache.exists(cache_key):
-            submissions = json.loads(cache.get(cache_key))
-        else:
-            submissions = Submission.filter(
+            params = dict(
                 user=user,
-                offset=0,
-                count=-1,
+                offset=offset,
+                count=count,
                 problem=problem_id,
                 q_user=username,
                 status=status,
                 language_type=language_type,
                 course=course,
             )
-
+            params = {k: v for k, v in params.items() if v is not None}
             submissions = [
                 s.to_dict(
                     has_code=False,
                     has_output=False,
                     has_code_detail=False,
-                ) for s in submissions
+                ) for s in Submission.filter(**params)
                 if not s.handwritten or s.permission(user) > 1
             ]
             cache.set(cache_key, json.dumps(submissions), 15)
-        # truncate
-        if offset >= len(submissions) and len(submissions):
-            raise ValueError(f'offset ({offset}) is out of range!')
-        right = min(offset + count, len(submissions))
-        if count == -1:
-            right = len(submissions)
-        submissions = submissions[offset:right]
-    except ValueError as e:
-        return HTTPError(str(e), 400)
+        except ValueError as e:
+            return HTTPError(str(e), 400)
 
+    if len(submissions) == 0:
+        return HTTPError(
+            'Can no find submissions with this filter',
+            404,
+        )
     # unicorn gifs
     unicorns = [
         'https://media.giphy.com/media/xTiTnLmaxrlBHxsMMg/giphy.gif',
@@ -370,7 +369,6 @@ def on_submission_complete(submission, tasks, token):
 @submission_required
 @Request.files('code')
 def update_submission(user, submission, code):
-    # put handler
     # validate this reques
     if submission.status >= 0:
         return HTTPError(
