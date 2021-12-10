@@ -225,12 +225,6 @@ def get_submission_list(
             cache.set(cache_key, json.dumps(submissions), 15)
         except ValueError as e:
             return HTTPError(str(e), 400)
-
-    if len(submissions) == 0:
-        return HTTPError(
-            'Can no find submissions with this filter',
-            404,
-        )
     # unicorn gifs
     unicorns = [
         'https://media.giphy.com/media/xTiTnLmaxrlBHxsMMg/giphy.gif',

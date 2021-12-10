@@ -85,13 +85,9 @@ class TestUserGetSubmission(SubmissionTester):
             'get',
             f'/submission?offset=0&count={self.init_submission_count}',
         )
-
-        pprint(rv_json)
-
-        assert rv.status_code == 200
+        assert rv.status_code == 200, rv_json
         assert 'unicorn' in rv_data
         assert len(rv_data['submissions']) == self.init_submission_count
-
         excepted_field_names = {
             'submissionId',
             'problemId',
@@ -103,7 +99,6 @@ class TestUserGetSubmission(SubmissionTester):
             'languageType',
             'timestamp',
         }
-
         for s in rv_data['submissions']:
             assert len(excepted_field_names - set(s.keys())) == 0
 
@@ -118,10 +113,7 @@ class TestUserGetSubmission(SubmissionTester):
             'get',
             f'/submission/?offset={offset}&count={count}',
         )
-
-        pprint(rv_json)
-
-        assert rv.status_code == 200
+        assert rv.status_code == 200, rv_json
         assert len(rv_data['submissions']) == 1
 
     def test_get_submission_list_with_maximun_offset(self, forge_client):
@@ -131,7 +123,8 @@ class TestUserGetSubmission(SubmissionTester):
             'get',
             f'/submission/?offset={self.init_submission_count}&count=1',
         )
-        assert rv.status_code == 404, rv_data
+        assert rv.status_code == 200, rv_json
+        assert len(rv_data['submissions']) == 0, rv_data
 
     def test_get_all_submission(self, forge_client):
         client = forge_client('student')
@@ -291,7 +284,8 @@ class TestUserGetSubmission(SubmissionTester):
             f'/submission/?offset=0&count=-1&course=aaa',
         )
         # No submissions found cause "aaa" doesn't exist
-        assert rv.status_code == 404
+        assert rv.status_code == 200
+        assert len(rv_data['submissions']) == 0
         rv, rv_json, rv_data = BaseTester.request(
             client,
             'get',
