@@ -1,4 +1,3 @@
-import pytest
 import pathlib
 from model import *
 from mongo import engine
@@ -49,21 +48,23 @@ class TestCopyCat(BaseTester):
         engine.Submission.objects.update(status=0)
         # 'post' to send report request /copycat course:course_name problemId: problem_id
         client = forge_client('teacher')
-        rv, rv_json, rv_data = self.request(client,
-                                            'post',
-                                            '/copycat',
-                                            json={
-                                                'course': course_name,
-                                                'problemId': pid
-                                            })
+        rv, rv_json, rv_data = self.request(
+            client,
+            'post',
+            '/copycat',
+            json={
+                'course': course_name,
+                'problemId': pid,
+                'studentNicknames': {
+                    'student': 'student',
+                    'student-2': 'student-2',
+                },
+            },
+        )
         assert rv.status_code == 200, rv_json
         # 'get' to get the report url /copycat course:course_name problemId: problem_id
         client = forge_client('teacher')
         rv, rv_json, rv_data = self.request(
             client, 'get', f'/copycat?course={course_name}&problemId={pid}')
         assert rv.status_code == 200, rv_json
-        assert type(rv_data) == type({}), rv_data
-
-        excepted_keys = {'cppReport', 'pythonReport'}
-        for k in excepted_keys:
-            assert k in rv_data, f'{k} not found!'
+        assert isinstance(rv_data, dict), rv_data

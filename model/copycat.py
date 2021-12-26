@@ -1,3 +1,4 @@
+from typing import Dict
 from flask import Blueprint, request, current_app
 from mongo import *
 from mongo.utils import *
@@ -28,7 +29,7 @@ def is_valid_url(url):
     return url is not None and regex.search(url)
 
 
-def get_report_task(user, problem_id, student_dict):
+def get_report_task(user, problem_id, student_dict: Dict):
     # select all ac code
     submissions = Submission.filter(
         user=user,
@@ -42,7 +43,7 @@ def get_report_task(user, problem_id, student_dict):
     last_python_submission = {}
     for submission in submissions:
         s = Submission(submission.id)
-        if s.user.username in list(student_dict.keys()):
+        if s.user.username in student_dict:
             if s.language in [0, 1] \
                 and s.user.username not in last_cc_submission:
                 last_cc_submission[submission.user.username] = s.main_code_path
@@ -153,9 +154,11 @@ def get_report(user, course, problem_id):
     python_report_url = problem.python_report_url
 
     if problem.moss_status == 0:
-        return HTTPResponse(
+        return HTTPError(
+            404,
             "No report found. Please make a post request to copycat api to generate a report",
-            data={})
+            data={},
+        )
     elif problem.moss_status == 1:
         return HTTPResponse("Report generating...", data={})
     else:
@@ -204,13 +207,13 @@ def detect(user, course, problem_id, student_nicknames):
     if course is None:
         return HTTPError('Course not found.', 404)
 
+    problem = Problem(problem_id)
+    problem.update(
+        cpp_report_url="",
+        python_report_url="",
+        moss_status=1,
+    )
     if not current_app.config['TESTING']:
-        problem = Problem(problem_id)
-        problem.obj.update(
-            cpp_report_url="",
-            python_report_url="",
-            moss_status=1,
-        )
         threading.Thread(
             target=get_report_task,
             args=(
