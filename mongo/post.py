@@ -87,12 +87,12 @@ class Post():
         # Authority check (use by edit or delete)
         if delete == 1:  # deete
             if permission == 1 and user != author:  # teacher,ta,author can delete
-                return 'Forbidden, you don\'t have enough Authority to delete it.'
+                return 'Forbidden, you don\'t have enough permission to delete it.'
             target_thread.status = 1
         else:  #  edit
             author = target_thread.author
             if user != author and permission < 4:  # only author or admin can edit
-                return 'Forbidden, you don\'t have enough Authority to edit it.'
+                return 'Forbidden, you don\'t have enough permission to edit it.'
         # update thread
         updated_time = datetime.now()
         updated_time.timestamp()
