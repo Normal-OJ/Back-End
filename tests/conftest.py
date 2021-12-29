@@ -1,3 +1,4 @@
+from typing import Dict, List
 from flask import Flask
 from mongo import *
 from mongo import engine
@@ -295,7 +296,13 @@ def submit_once(app, get_source):
 
 @pytest.fixture
 def submit(submit_once):
-    def submit(names, pids, count, filename='base.c', lang=0):
+    def submit(
+        names,
+        pids,
+        count,
+        filename='base.c',
+        lang=0,
+    ) -> Dict[str, List[Submission]]:
         n2p = defaultdict(list)  # name to pid
         for n, p, _ in zip(names, pids, 'x' * count):
             n2p[n].append(p)

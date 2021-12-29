@@ -1,9 +1,11 @@
+from __future__ import annotations
 import json
 import os
 import io
 import pathlib
 import secrets
 import logging
+from typing import Optional, Union
 import requests as rq
 import itertools
 from flask import current_app
@@ -487,8 +489,9 @@ class Submission(MongoBase, engine=engine.Submission):
         # self.problem.ac_user = len(ac_users)
         # update high score
         self.problem.high_scores[self.username] = engine.Submission.objects(
-            user=self.user, problem=self.problem).only('score').order_by(
-                '-score').first().score
+            user=self.user,
+            problem=self.problem,
+        ).only('score').order_by('-score').first().score
         self.problem.save()
 
     def add_comment(self, file):
@@ -522,39 +525,44 @@ class Submission(MongoBase, engine=engine.Submission):
         user,
         offset: int = 0,
         count: int = -1,
-        problem=None,
-        submission=None,
-        q_user=None,
-        status=None,
-        language_type=None,
-        course=None,
+        problem: Optional[Union[Problem, int]] = None,
+        submission: Optional[Union[Submission, str]] = None,
+        q_user: Optional[Union[User, str]] = None,
+        status: Optional[int] = None,
+        language_type: Optional[int] = None,
+        course: Optional[Union[Course, str]] = None,
+        before: Optional[datetime] = None,
+        after: Optional[datetime] = None,
     ):
-        if not isinstance(problem, engine.Problem) and problem is not None:
-            try:
-                problem = Problem(int(problem)).obj
-            except ValueError:
-                raise ValueError(f'can not convert {type(problem)} into int')
-            # problem does not exist
+        if before is not None and after is not None:
+            if after > before:
+                raise ValueError('the query period is empty')
+        if offset < 0:
+            raise ValueError(f'offset must >= 0!')
+        if count < -1:
+            raise ValueError(f'count must >=-1!')
+        if isinstance(problem, int):
+            problem = Problem(problem).obj
             if problem is None:
                 return []
-        if isinstance(submission, (Submission, engine.Submission)):
+        if not isinstance(submission, (str, type(None))):
             submission = submission.id
         if isinstance(q_user, str):
             q_user = User(q_user)
-            # if not exist
             if not q_user:
                 return []
             q_user = q_user.obj
         if isinstance(course, str):
             course = Course(course)
-            # course does not exist
             if not course:
                 return []
         # problem's query key
         p_k = 'problem'
         if course:
-            problems = Problem.get_problem_list(user,
-                                                course=course.course_name)
+            problems = Problem.get_problem_list(
+                user,
+                course=course.course_name,
+            )
             # use all problems under this course to filter
             if problem is None:
                 p_k = 'problem__in'
@@ -569,6 +577,8 @@ class Submission(MongoBase, engine=engine.Submission):
             'status': status,
             'language': language_type,
             'user': q_user,
+            'timestamp__lte': before,
+            'timestamp__gte': after,
         }
         q = {k: v for k, v in q.items() if v is not None}
         # sort by upload time
@@ -582,10 +592,10 @@ class Submission(MongoBase, engine=engine.Submission):
     @classmethod
     def add(
         cls,
-        problem_id: str,
+        problem_id: int,
         username: str,
         lang: int,
-        timestamp: date = None,
+        timestamp: Optional[date] = None,
     ) -> 'Submission':
         '''
         Insert a new submission into db
@@ -614,7 +624,6 @@ class Submission(MongoBase, engine=engine.Submission):
         submission.save()
         return cls(submission.id)
 
-    #submission
     @classmethod
     def assign_token(cls, submission_id, token=None):
         '''
@@ -625,7 +634,6 @@ class Submission(MongoBase, engine=engine.Submission):
         RedisCache().set(gen_key(submission_id), token)
         return token
 
-    #submission
     @classmethod
     def verify_token(cls, submission_id, token):
         cache = RedisCache()

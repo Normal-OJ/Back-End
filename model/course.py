@@ -76,10 +76,8 @@ def get_course(user, course_name):
                 tas.append(user)
 
             for user in set(course.tas) - set(tas):
-                #remove_user(user, course)
                 course.remove_user(user)
             for user in set(tas) - set(course.tas):
-                #add_user(user, course)
                 course.add_user(user)
             course.tas = tas
 
@@ -94,10 +92,8 @@ def get_course(user, course_name):
         new_user = set(student_dict) - set(course.student_nicknames)
 
         for user in drop_user:
-            #remove_user(User(user).obj, course)
             course.remove_user(User(user).obj)
         for user in new_user:
-            #add_user(User(user).obj, course)
             course.add_user(User(user).obj)
         course.student_nicknames = student_dict
 

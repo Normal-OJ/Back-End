@@ -129,7 +129,6 @@ def join_contest(user, id):
     try:
         contest = Contest(id)
         contest.add_user_in_contest(user=user)
-        #Contest.add_user_in_contest(contest_id=id, user=user)
     except CourseNotExist:
         return HTTPError('the course of this contest does not exist', 404)
     except DoesNotExist:

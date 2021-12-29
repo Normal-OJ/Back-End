@@ -27,7 +27,7 @@ class Post():
     @classmethod
     def found_post(cls, course_obj, target_id=None):
         data = []
-        for x in course_obj.posts:  #target_threads
+        for x in course_obj.posts:  # target_threads
             if (target_id is not None and str(x.thread.id) != target_id):
                 continue
             post = {
@@ -84,22 +84,22 @@ class Post():
                   delete=0):
         # permission
         author = target_thread.author
-        ''' Authority check (use by edit or delete) '''
+        # Permission check (use by edit or delete)
         if delete == 1:  # deete
             if permission == 1 and user != author:  # teacher,ta,author can delete
-                return 'Forbidden,you donˊt have enough Authority to delete it.'
+                return 'Forbidden, you don\'t have enough permission to delete it.'
             target_thread.status = 1
         else:  #  edit
             author = target_thread.author
-            if user != author and permission < 4:  #only author or admin can edit
-                return 'Forbidden,you donˊt have enough Authority to edit it.'
-        ''' update thread '''
+            if user != author and permission < 4:  # only author or admin can edit
+                return 'Forbidden, you don\'t have enough permission to edit it.'
+        # update thread
         updated_time = datetime.now()
         updated_time.timestamp()
         target_thread.updated = updated_time
         target_thread.markdown = content
         target_thread.save()
-        ''' check it is post,true to update'''
+        # check it is post, true to update
         try:
             target_post = engine.Post.objects.get(thread=target_thread)
         except engine.DoesNotExist:

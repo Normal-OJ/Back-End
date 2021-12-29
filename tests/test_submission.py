@@ -1,10 +1,7 @@
-from model import submission
-from mongo.engine import Problem, Submission
 import pytest
 import itertools
 import pathlib
 from pprint import pprint
-
 from mongo import *
 from mongo import engine
 from mongo.utils import can_view_problem
@@ -88,13 +85,9 @@ class TestUserGetSubmission(SubmissionTester):
             'get',
             f'/submission?offset=0&count={self.init_submission_count}',
         )
-
-        pprint(rv_json)
-
-        assert rv.status_code == 200
+        assert rv.status_code == 200, rv_json
         assert 'unicorn' in rv_data
         assert len(rv_data['submissions']) == self.init_submission_count
-
         excepted_field_names = {
             'submissionId',
             'problemId',
@@ -106,7 +99,6 @@ class TestUserGetSubmission(SubmissionTester):
             'languageType',
             'timestamp',
         }
-
         for s in rv_data['submissions']:
             assert len(excepted_field_names - set(s.keys())) == 0
 
@@ -121,10 +113,7 @@ class TestUserGetSubmission(SubmissionTester):
             'get',
             f'/submission/?offset={offset}&count={count}',
         )
-
-        pprint(rv_json)
-
-        assert rv.status_code == 200
+        assert rv.status_code == 200, rv_json
         assert len(rv_data['submissions']) == 1
 
     def test_get_submission_list_with_maximun_offset(self, forge_client):
@@ -132,12 +121,10 @@ class TestUserGetSubmission(SubmissionTester):
         rv, rv_json, rv_data = BaseTester.request(
             client,
             'get',
-            f'/submission/?offset={SubmissionTester.init_submission_count}&count=1',
+            f'/submission/?offset={self.init_submission_count}&count=1',
         )
-
-        print(rv_json)
-
-        assert rv.status_code == 400
+        assert rv.status_code == 200, rv_json
+        assert len(rv_data['submissions']) == 0, rv_data
 
     def test_get_all_submission(self, forge_client):
         client = forge_client('student')
@@ -216,7 +203,7 @@ class TestUserGetSubmission(SubmissionTester):
 
     def test_get_self_submission(self, client_student):
         ids = self.submissions['student']
-        pprint(ids)
+        assert len(ids) != 0, ids
 
         for _id in ids:
             rv, rv_json, rv_data = BaseTester.request(
@@ -227,8 +214,6 @@ class TestUserGetSubmission(SubmissionTester):
             assert rv.status_code == 200
             # user can view self code
             assert 'code' in rv_data
-
-        pprint(rv_data)
 
         # check for fields
         except_fields = {
@@ -243,20 +228,7 @@ class TestUserGetSubmission(SubmissionTester):
             'code',
         }
         missing_field = except_fields - set(rv_data.keys())
-        print(missing_field)
-        assert len(missing_field) == 0
-
-    @pytest.mark.parametrize('offset, count', [(None, 1), (0, None),
-                                               (None, None)])
-    def test_get_submission_list_with_missing_args(self, forge_client, offset,
-                                                   count):
-        client = forge_client('student')
-        rv, rv_json, rv_data = BaseTester.request(
-            client,
-            'get',
-            f'/submission/?offset={offset}&count={count}',
-        )
-        assert rv.status_code == 400
+        assert len(missing_field) == 0, missing_field
 
     @pytest.mark.parametrize('offset, count', [(-1, 2), (2, -2)])
     def test_get_submission_list_with_out_ranged_negative_arg(
@@ -279,7 +251,6 @@ class TestUserGetSubmission(SubmissionTester):
             ('status', -1),
             ('languageType', 0),
             # TODO: need special test for username field
-            # TODO: test for submission id filter
             # TODO: test for problem id filter
         ])
     def test_get_submission_list_by_filter(
@@ -312,16 +283,14 @@ class TestUserGetSubmission(SubmissionTester):
             'get',
             f'/submission/?offset=0&count=-1&course=aaa',
         )
-
+        # No submissions found cause "aaa" doesn't exist
         assert rv.status_code == 200
         assert len(rv_data['submissions']) == 0
-
         rv, rv_json, rv_data = BaseTester.request(
             client,
             'get',
             f'/submission/?offset=0&count=-1&course={self.courses[0]}',
         )
-
         assert rv.status_code == 200
         assert len(rv_data['submissions']) == 4
 
@@ -1081,7 +1050,7 @@ class TestSubmissionConfig(SubmissionTester):
         )
         json = rv.get_json()
         assert rv.status_code == 200, json
-        rv = client_admin.get(f'/submission/config', )
+        rv = client_admin.get(f'/submission/config')
         json = rv.get_json()
         assert rv.status_code == 200, json
         assert json['data'] == {
