@@ -84,7 +84,7 @@ class Post():
                   delete=0):
         # permission
         author = target_thread.author
-        # Authority check (use by edit or delete)
+        # Permission check (use by edit or delete)
         if delete == 1:  # deete
             if permission == 1 and user != author:  # teacher,ta,author can delete
                 return 'Forbidden, you don\'t have enough permission to delete it.'
