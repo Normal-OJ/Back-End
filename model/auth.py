@@ -265,3 +265,10 @@ def add_user(
     except ValueError as ve:
         return HTTPError('Not Allowed Name', 400)
     return HTTPResponse()
+
+
+@auth_api.route('/me', methods=['GET'])
+@Request.args('field')
+@login_required
+def get_me(user: User, field: str):
+    pass

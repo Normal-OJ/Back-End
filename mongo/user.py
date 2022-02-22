@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from hmac import compare_digest
+from typing import Any, Dict
 
 from . import engine, course
 from .utils import *
@@ -62,23 +63,29 @@ class User(MongoBase, engine=engine.User):
 
     @property
     def cookie(self):
-        keys = [
-            'username', 'email', 'md5', 'active', 'role', 'profile',
-            'editorConfig'
-        ]
+        keys = (
+            'username',
+            'email',
+            'md5',
+            'active',
+            'role',
+            'profile',
+            'editorConfig',
+        )
         return self.jwt(*keys)
 
     @property
     def secret(self):
-        keys = ['username', 'userId']
+        keys = (
+            'username',
+            'userId',
+        )
         return self.jwt(*keys, secret=True)
 
     def jwt(self, *keys, secret=False, **kwargs):
         if not self:
             return ''
-        user = self.reload().to_mongo()
-        user['username'] = user.get('_id')
-        data = {k: user.get(k) for k in keys}
+        data = self.properties(*keys)
         data.update(kwargs)
         payload = {
             'iss': JWT_ISS,
@@ -87,6 +94,26 @@ class User(MongoBase, engine=engine.User):
             'data': data
         }
         return jwt.encode(payload, JWT_SECRET, algorithm='HS256')
+
+    def properties(self, *keys) -> Dict[str, Any]:
+        '''
+        Extract proeprties from user and serialize it to a dictionary
+        '''
+        whiltelists = {
+            'username',
+            'userId',
+            'email',
+            'md5',
+            'active',
+            'role',
+            'profile',
+            'editorConfig',
+        }
+        if any((k not in whiltelists) for k in keys):
+            raise ValueError('Found unallowed key')
+        user = self.reload().to_mongo()
+        user['username'] = user.get('_id')
+        return {k: user.get(k) for k in keys}
 
     def change_password(self, password):
         user_id = hash_id(self.username, password)
