@@ -1,6 +1,7 @@
 # Standard library
 from functools import wraps
 from random import SystemRandom
+from typing import Optional
 # Related third party imports
 from flask import Blueprint, request
 # Local application
@@ -9,8 +10,6 @@ from mongo.utils import hash_id
 from .utils import *
 
 import string
-import jwt
-import os
 
 __all__ = ['auth_api', 'login_required', 'identity_verify']
 
@@ -268,7 +267,21 @@ def add_user(
 
 
 @auth_api.route('/me', methods=['GET'])
-@Request.args('field')
+@Request.args('fields')
 @login_required
-def get_me(user: User, field: str):
-    pass
+def get_me(user: User, fields: Optional[str]):
+    default = [
+        'username',
+        'email',
+        'md5',
+        'active',
+        'role',
+        'editorConfig',
+        'displayedName',
+        'bio',
+    ]
+    if fields is None:
+        fields = default
+    else:
+        fields = fields.split(',')
+    return HTTPResponse(data=user.properties(*fields))

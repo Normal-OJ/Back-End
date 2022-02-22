@@ -268,3 +268,18 @@ class TestLogout:
         assert rv.status_code == 200
         assert json['status'] == 'ok'
         assert json['message'] == 'Goodbye'
+
+
+def test_get_self_data(client):
+    rv = client.get('/auth/me')
+    assert rv.status_code == 403
+    test_user = User('test')
+    client.set_cookie('test.test', 'piann', test_user.secret)
+    rv = client.get(
+        '/auth/me',
+        query_string='fields=username,displayedName',
+    )
+    assert rv.status_code == 200, rv.get_json()
+    rv_data = rv.get_json()['data']
+    assert rv_data['username'] == test_user.username
+    assert rv_data['displayedName'] == test_user.profile.displayed_name

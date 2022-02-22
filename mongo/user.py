@@ -19,9 +19,6 @@ JWT_SECRET = os.environ.get('JWT_SECRET', 'SuperSecretString')
 
 
 class User(MongoBase, engine=engine.User):
-    def __init__(self, username):
-        self.username = username
-
     @classmethod
     def signup(cls, username, password, email):
         if re.match(r'^[a-zA-Z0-9_\-]+$', username) is None:
@@ -46,20 +43,28 @@ class User(MongoBase, engine=engine.User):
         except engine.DoesNotExist:
             user = cls.get_by_email(username)
         user_id = hash_id(user.username, password)
-        if compare_digest(user.user_id, user_id) or compare_digest(
-                user.user_id2, user_id):
+        if (compare_digest(user.user_id, user_id)
+                or compare_digest(user.user_id2, user_id)):
             return user
         raise engine.DoesNotExist
 
     @classmethod
     def get_by_username(cls, username):
         obj = cls.engine.objects.get(username=username)
-        return cls(obj.username)
+        return cls(obj)
 
     @classmethod
     def get_by_email(cls, email):
         obj = cls.engine.objects.get(email=email.lower())
-        return cls(obj.username)
+        return cls(obj)
+
+    @property
+    def displayedName(self):
+        return self.profile.displayed_name
+
+    @property
+    def bio(self):
+        return self.profile.bio
 
     @property
     def cookie(self):
@@ -108,12 +113,14 @@ class User(MongoBase, engine=engine.User):
             'role',
             'profile',
             'editorConfig',
+            'bio',
+            'displayedName',
         }
         if any((k not in whiltelists) for k in keys):
             raise ValueError('Found unallowed key')
         user = self.reload().to_mongo()
         user['username'] = user.get('_id')
-        return {k: user.get(k) for k in keys}
+        return {k: user.get(k, getattr(self, k, None)) for k in keys}
 
     def change_password(self, password):
         user_id = hash_id(self.username, password)
