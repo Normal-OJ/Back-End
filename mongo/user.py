@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from hmac import compare_digest
+from typing import Any, Dict
 
 from . import engine, course
 from .utils import *
@@ -18,9 +19,6 @@ JWT_SECRET = os.environ.get('JWT_SECRET', 'SuperSecretString')
 
 
 class User(MongoBase, engine=engine.User):
-    def __init__(self, username):
-        self.username = username
-
     @classmethod
     def signup(cls, username, password, email):
         if re.match(r'^[a-zA-Z0-9_\-]+$', username) is None:
@@ -45,40 +43,54 @@ class User(MongoBase, engine=engine.User):
         except engine.DoesNotExist:
             user = cls.get_by_email(username)
         user_id = hash_id(user.username, password)
-        if compare_digest(user.user_id, user_id) or compare_digest(
-                user.user_id2, user_id):
+        if (compare_digest(user.user_id, user_id)
+                or compare_digest(user.user_id2, user_id)):
             return user
         raise engine.DoesNotExist
 
     @classmethod
     def get_by_username(cls, username):
         obj = cls.engine.objects.get(username=username)
-        return cls(obj.username)
+        return cls(obj)
 
     @classmethod
     def get_by_email(cls, email):
         obj = cls.engine.objects.get(email=email.lower())
-        return cls(obj.username)
+        return cls(obj)
+
+    @property
+    def displayedName(self):
+        return self.profile.displayed_name
+
+    @property
+    def bio(self):
+        return self.profile.bio
 
     @property
     def cookie(self):
-        keys = [
-            'username', 'email', 'md5', 'active', 'role', 'profile',
-            'editorConfig'
-        ]
+        keys = (
+            'username',
+            'email',
+            'md5',
+            'active',
+            'role',
+            'profile',
+            'editorConfig',
+        )
         return self.jwt(*keys)
 
     @property
     def secret(self):
-        keys = ['username', 'userId']
+        keys = (
+            'username',
+            'userId',
+        )
         return self.jwt(*keys, secret=True)
 
     def jwt(self, *keys, secret=False, **kwargs):
         if not self:
             return ''
-        user = self.reload().to_mongo()
-        user['username'] = user.get('_id')
-        data = {k: user.get(k) for k in keys}
+        data = self.properties(*keys)
         data.update(kwargs)
         payload = {
             'iss': JWT_ISS,
@@ -87,6 +99,28 @@ class User(MongoBase, engine=engine.User):
             'data': data
         }
         return jwt.encode(payload, JWT_SECRET, algorithm='HS256')
+
+    def properties(self, *keys) -> Dict[str, Any]:
+        '''
+        Extract proeprties from user and serialize it to a dictionary
+        '''
+        whiltelists = {
+            'username',
+            'userId',
+            'email',
+            'md5',
+            'active',
+            'role',
+            'profile',
+            'editorConfig',
+            'bio',
+            'displayedName',
+        }
+        if any((k not in whiltelists) for k in keys):
+            raise ValueError('Found unallowed key')
+        user = self.reload().to_mongo()
+        user['username'] = user.get('_id')
+        return {k: user.get(k, getattr(self, k, None)) for k in keys}
 
     def change_password(self, password):
         user_id = hash_id(self.username, password)
