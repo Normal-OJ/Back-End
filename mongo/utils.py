@@ -40,7 +40,7 @@ def can_view_problem(user, problem):
     if user.username == problem.owner:
         return True
     for course in problem.courses:
-        permission = 1 if course.course_name == "Public" else perm(
+        permission = 1 if course.course_name == 'Public' else perm(
             course, user)
         if permission and (problem.problem_status == 0 or permission >= 2):
             return True
@@ -148,7 +148,7 @@ def doc_required(
             # convert it to document
             # TODO: add type checking, whether the cls is a subclass of `MongoBase`
             #       or maybe it is not need
-            if type(cls) != type(int):
+            if type(cls) != type:
                 raise TypeError('cls must be a type')
             # process `None`
             if src_param is None:

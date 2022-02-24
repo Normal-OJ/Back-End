@@ -2,8 +2,10 @@
 from functools import wraps
 from random import SystemRandom
 from typing import Optional
+import csv
+import io
 # Related third party imports
-from flask import Blueprint, request
+from flask import Blueprint, request, current_app
 # Local application
 from mongo import *
 from mongo.utils import hash_id
@@ -263,6 +265,30 @@ def add_user(
         return HTTPError('User Exists', 400)
     except ValueError as ve:
         return HTTPError('Not Allowed Name', 400)
+    return HTTPResponse()
+
+
+@auth_api.route('/batch-signup', methods=['POST'])
+@Request.json('new_users: str', 'course')
+@Request.doc('course', 'course', Course, null=True)
+@identity_verify(0)
+def batch_signup(
+    user,
+    new_users: str,
+    course: Optional[Course],
+):
+    try:
+        new_users = [*csv.DictReader(io.StringIO(new_users))]
+    except csv.Error as e:
+        current_app.logger.info(f'Error parse csv file [err={e}]')
+        return HTTPError('Invalid file content', 400)
+    try:
+        new_users = User.batch_signup(
+            new_users=new_users,
+            course=course,
+        )
+    except ValueError as e:
+        return HTTPError(e, 400)
     return HTTPResponse()
 
 

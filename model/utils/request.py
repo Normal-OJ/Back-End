@@ -1,8 +1,9 @@
 import time
 import json
 from functools import wraps
-from flask import request
-
+from flask import request, current_app
+from mongo import engine
+from mongo.utils import doc_required
 from .response import *
 
 __all__ = (
@@ -77,12 +78,14 @@ class Request(metaclass=_Request):
                 try:
                     return inner_wrapper(*args, **ks)
                 # if document not exists in db
-                except DoesNotExist as e:
+                except engine.DoesNotExist as e:
                     return HTTPError(e, 404)
                 # if args missing
                 except TypeError as e:
                     return HTTPError(e, 500)
-                except ValidationError as e:
+                except engine.ValidationError as e:
+                    current_app.logger.info(
+                        f'Validation error [err={e.to_dict()}]')
                     return HTTPError('Invalid parameter', 400)
 
             return real_wrapper

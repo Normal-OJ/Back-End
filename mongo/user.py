@@ -1,6 +1,7 @@
+from __future__ import annotations
 from datetime import datetime, timedelta
 from hmac import compare_digest
-from typing import Any, Dict
+from typing import Any, Dict, List, TYPE_CHECKING, Optional
 
 from . import engine, course
 from .utils import *
@@ -10,6 +11,9 @@ import hashlib
 import jwt
 import os
 import re
+
+if TYPE_CHECKING:
+    from .course import Course
 
 __all__ = ['User', 'jwt_decode']
 
@@ -22,7 +26,7 @@ class User(MongoBase, engine=engine.User):
     @classmethod
     def signup(cls, username, password, email):
         if re.match(r'^[a-zA-Z0-9_\-]+$', username) is None:
-            raise ValueError
+            raise ValueError(f'Invalid username [username={username}]')
         user = cls(username)
         user_id = hash_id(user.username, password)
         email = email.lower().strip()
@@ -35,6 +39,38 @@ class User(MongoBase, engine=engine.User):
             active=False,
         ).save(force_insert=True)
         return user.reload()
+
+    @classmethod
+    def batch_signup(
+        cls,
+        new_users: List[Dict[str, str]],
+        course: Optional['Course'] = None,
+    ):
+        '''
+        Register multiple students with course
+        '''
+        keys = {'username', 'password', 'email'}
+        if any(({*u.keys()} != keys) for u in new_users):
+            raise ValueError('The input of batch_signup has invalid keys')
+        registered_users = []
+        for u in new_users:
+            try:
+                new_user = cls.signup(**u)
+                new_user.activate({})
+            except engine.NotUniqueError:
+                try:
+                    new_user = cls.get_by_username(u['username'])
+                except engine.DoesNotExist:
+                    new_user = cls.get_by_email(u['email'])
+            registered_users.append(new_user)
+        if course is not None:
+            new_student_nicknames = {
+                **course.student_nicknames,
+                **{u.username: u.username
+                   for u in registered_users}
+            }
+            course.update_student_namelist(new_student_nicknames)
+        return new_users
 
     @classmethod
     def login(cls, username, password):
