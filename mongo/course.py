@@ -37,20 +37,15 @@ class Course(MongoBase, engine=engine.Course):
             self.add_user(User(user).obj)
         self.student_nicknames = student_nicknames
         # TODO: use event to update homework data
-        for homework in self.homeworks:
-            for user in drop_user:
-                del homework.student_status[user]
-            user_problems = {}
-            for pid in homework.problem_ids:
-                user_problems[str(pid)] = Homework.default_problem_status()
-            for user in new_user:
-                homework.student_status[user] = user_problems
-            homework.save()
+        drop_user = [*map(User, drop_user)]
+        new_user = [*map(User, new_user)]
+        for homework in map(Homework, self.homeworks):
+            homework.remove_student(drop_user)
+            homework.add_student(new_user)
         self.save()
 
     def add_user(self, user: User):
-        obj = self.obj
-        if obj is None:
+        if not self:
             raise engine.DoesNotExist(f'Course [{self.course_name}]')
         user.update(add_to_set__courses=self.id)
         user.reload()
