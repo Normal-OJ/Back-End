@@ -17,7 +17,7 @@ class MongoBase:
         new = super().__new__(cls)
         # got a engine instance
         if isinstance(pk, new.engine):
-            new.obj = pk.reload()
+            new.obj = pk
         else:
             try:
                 new.obj = new.engine.objects(pk=pk).get()

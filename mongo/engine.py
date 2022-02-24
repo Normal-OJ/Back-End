@@ -367,13 +367,17 @@ class TaskResult(EmbeddedDocument):
 
 class Submission(Document):
     meta = {
-        'indexes': [(
-            'timestamp',
-            'user',
-            'language',
-            'status',
-            'score',
-        )]
+        'indexes': [
+            (
+                'id',
+                'user',
+                'score',
+                'status',
+                'problem',
+                'language',
+                'timestamp',
+            ),
+        ]
     }
     problem = ReferenceField(Problem, required=True)
     user = ReferenceField(User, required=True)
@@ -400,49 +404,37 @@ class Submission(Document):
         1: can view basic info, 
         0: can't view
         '''
+        key = f'SUBMISSION_PERMISSION_{self.id}_{user.id}_{self.problem.id}'
+        # Check cache
+        cache = RedisCache()
+        if (v := cache.get(key)) is not None:
+            return int(v)
+        # Calculate
         if not can_view_problem(user, self.problem):
-            return 0
+            ret = 0
+        else:
+            ret = 3 - [
+                max(perm(course, user)
+                    for course in self.problem.courses) >= 2,
+                user.username == self.user.username,
+                True,
+            ].index(True)
+        cache.set(key, ret, 60)
+        return ret
 
-        return 3 - [
-            max(perm(course, user) for course in self.problem.courses) >= 2,
-            user.username == self.user.username,
-            True,
-        ].index(True)
-
-    def to_dict(self, has_code=False, has_output=False, has_code_detail=False):
+    def to_dict(self, has_code=False, has_output=False, has_code_detail=False,):
         key = f'{self.id}_{has_code}_{has_output}_{has_code_detail}'
         cache = RedisCache()
         if cache.exists(key):
             return json.loads(cache.get(key))
-
-        _ret = {
-            'problemId': self.problem.problem_id,
-            'user': self.user.info,
-            'submissionId': str(self.id),
-            'timestamp': self.timestamp.timestamp(),
-            'lastSend': self.last_send.timestamp()
-        }
+        ret = self._to_dict()
         if has_code:
             if has_code_detail:
                 # give user source code
                 ext = ['.c', '.cpp', '.py'][self.language]
-                _ret['code'] = self.get_code(f'main{ext}')
+                ret['code'] = self.get_code(f'main{ext}')
             else:
-                _ret['code'] = False
-
-        ret = self.to_mongo()
-        old = [
-            '_id',
-            'problem',
-            'code',
-            'comment',
-        ]
-        # delete old keys
-        for o in old:
-            del ret[o]
-        # insert new keys
-        for n in _ret:
-            ret[n] = _ret[n]
+                ret['code'] = False
         if has_output:
             for task in ret['tasks']:
                 for case in task['cases']:
@@ -458,6 +450,29 @@ class Submission(Document):
                     del case['output']
 
         cache.set(key, json.dumps(ret), 60)
+        return ret
+
+    def _to_dict(self):
+        ret = self.to_mongo()
+        _ret = {
+            'problemId': ret['problem'],
+            'user': self.user.info,
+            'submissionId': str(self.id),
+            'timestamp': self.timestamp.timestamp(),
+            'lastSend': self.last_send.timestamp()
+        }
+        old = [
+            '_id',
+            'problem',
+            'code',
+            'comment',
+        ]
+        # delete old keys
+        for o in old:
+            del ret[o]
+        # insert new keys
+        for n in _ret:
+            ret[n] = _ret[n]
         return ret
 
     @property

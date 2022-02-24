@@ -520,8 +520,9 @@ class Submission(MongoBase, engine=engine.Submission):
     def count():
         return len(engine.Submission.objects)
 
-    @staticmethod
+    @classmethod
     def filter(
+        cls,
         user,
         offset: int = 0,
         count: int = -1,
@@ -584,10 +585,11 @@ class Submission(MongoBase, engine=engine.Submission):
         # sort by upload time
         submissions = engine.Submission.objects(**q).order_by('-timestamp')
         # truncate
-        right = min(offset + count, len(submissions))
         if count == -1:
-            right = len(submissions)
-        return submissions[offset:right]
+            submissions = submissions[offset:]
+        else:
+            submissions = submissions[offset:offset + count]
+        return list(cls(s) for s in submissions)
 
     @classmethod
     def add(
