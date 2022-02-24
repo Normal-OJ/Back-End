@@ -87,7 +87,7 @@ class TestUserGetSubmission(SubmissionTester):
         )
         assert rv.status_code == 200, rv_json
         assert 'unicorn' in rv_data
-        assert len(rv_data['submissions']) == self.init_submission_count
+        assert len(rv_data['submissions']) == self.init_submission_count // 2
         excepted_field_names = {
             'submissionId',
             'problemId',
@@ -104,7 +104,7 @@ class TestUserGetSubmission(SubmissionTester):
 
     @pytest.mark.parametrize('offset, count', [
         (0, 1),
-        (SubmissionTester.init_submission_count // 2, 1),
+        (SubmissionTester.init_submission_count // 4, 1),
     ])
     def test_get_truncated_submission_list(self, forge_client, offset, count):
         client = forge_client('student')
@@ -134,11 +134,9 @@ class TestUserGetSubmission(SubmissionTester):
             '/submission/?offset=0&count=-1',
         )
 
-        pprint(rv_json)
-
-        assert rv.status_code == 200
+        assert rv.status_code == 200, rv_json
         # only get online submissions
-        assert len(rv_data['submissions']) == self.init_submission_count
+        assert len(rv_data['submissions']) == self.init_submission_count // 2
 
         offset = self.init_submission_count // 2
         rv, rv_json, rv_data = BaseTester.request(
@@ -147,11 +145,10 @@ class TestUserGetSubmission(SubmissionTester):
             f'/submission/?offset={offset}&count=-1',
         )
 
-        pprint(rv_json)
-
-        assert rv.status_code == 200
-        assert len(rv_data['submissions']) == (self.init_submission_count -
-                                               offset)
+        assert rv.status_code == 200, rv_json
+        assert len(
+            rv_data['submissions']) == (self.init_submission_count // 2 -
+                                        offset)
 
     def test_get_submission_count(self, forge_client):
         client = forge_client('student')
@@ -172,10 +169,8 @@ class TestUserGetSubmission(SubmissionTester):
             f'/submission/?offset=0&count={self.init_submission_count ** 2}',
         )
 
-        pprint(rv_json)
-
-        assert rv.status_code == 200
-        assert len(rv_data['submissions']) == self.init_submission_count
+        assert rv.status_code == 200, rv_json
+        assert len(rv_data['submissions']) == self.init_submission_count // 2
 
     def test_get_submission_without_login(self, client):
         for _id in self.submissions.values():
@@ -266,10 +261,9 @@ class TestUserGetSubmission(SubmissionTester):
             f'/submission/?offset=0&count=-1&{key}={except_val}',
         )
 
-        pprint(rv_json)
-
-        assert rv.status_code == 200
-        assert len(rv_data['submissions']) != 0
+        assert rv.status_code == 200, rv_json
+        assert len(
+            rv_data['submissions']) != 0, engine.Submission.objects.to_json()
         assert all(map(lambda x: x[key] == except_val,
                        rv_data['submissions'])) == True
 
@@ -284,7 +278,7 @@ class TestUserGetSubmission(SubmissionTester):
             f'/submission/?offset=0&count=-1&course=aaa',
         )
         # No submissions found cause "aaa" doesn't exist
-        assert rv.status_code == 200
+        assert rv.status_code == 200, rv.get_json()
         assert len(rv_data['submissions']) == 0
         rv, rv_json, rv_data = BaseTester.request(
             client,
@@ -292,7 +286,7 @@ class TestUserGetSubmission(SubmissionTester):
             f'/submission/?offset=0&count=-1&course={self.courses[0]}',
         )
         assert rv.status_code == 200
-        assert len(rv_data['submissions']) == 4
+        assert len(rv_data['submissions']) == 2
 
     def test_user_get_high_score(
         self,

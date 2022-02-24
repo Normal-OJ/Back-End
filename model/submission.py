@@ -158,10 +158,10 @@ def get_submission_list(
     problem_id,
     username,
     status,
-    language_type,
     course,
     before,
     after,
+    language_type,
 ):
     '''
     get the list of submission data
@@ -187,6 +187,8 @@ def get_submission_list(
     # check cache
     if cache.exists(cache_key):
         submissions = json.loads(cache.get(cache_key))
+        submission_count = submissions['submission_count']
+        submissions = submissions['submissions']
     else:
         # convert args
         offset = parse_int(offset, 'offset')
@@ -199,6 +201,15 @@ def get_submission_list(
         after = parse_int(after, 'after')
         if after is not None:
             after = datetime.fromtimestamp(after)
+        # if language_type is None:
+        #     language_type = '1,2,3'
+        # try:
+        #     language_type = list(map(int, language_type.split(',')))
+        # except ValueError as e:
+        #     return HTTPError('cannot parse integers from languageType', 400)
+        # students can only get their own submissions
+        if user.role == User.engine.Role.STUDENT:
+            username = user.username
         try:
             params = dict(
                 user=user,
@@ -211,17 +222,24 @@ def get_submission_list(
                 course=course,
                 before=before,
                 after=after,
+                with_count=True,
             )
             params = {k: v for k, v in params.items() if v is not None}
+            submissions, submission_count = Submission.filter(**params)
             submissions = [
                 s.to_dict(
                     has_code=False,
                     has_output=False,
                     has_code_detail=False,
-                ) for s in Submission.filter(**params)
-                if not s.handwritten or s.permission(user) > 1
+                    has_tasks=False,
+                ) for s in submissions
             ]
-            cache.set(cache_key, json.dumps(submissions), 15)
+            cache.set(
+                cache_key,
+                json.dumps({
+                    'submissions': submissions,
+                    'submission_count': submission_count,
+                }), 15)
         except ValueError as e:
             return HTTPError(str(e), 400)
     # unicorn gifs
@@ -234,6 +252,7 @@ def get_submission_list(
     ret = {
         'unicorn': random.choice(unicorns),
         'submissions': submissions,
+        'submissionCount': submission_count,
     }
     return HTTPResponse(
         'here you are, bro',

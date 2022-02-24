@@ -422,7 +422,13 @@ class Submission(Document):
         cache.set(key, ret, 60)
         return ret
 
-    def to_dict(self, has_code=False, has_output=False, has_code_detail=False,):
+    def to_dict(
+        self,
+        has_code=False,
+        has_output=False,
+        has_code_detail=False,
+        has_tasks=False,
+    ):
         key = f'{self.id}_{has_code}_{has_output}_{has_code_detail}'
         cache = RedisCache()
         if cache.exists(key):
@@ -444,10 +450,12 @@ class Submission(Document):
                         with ZipFile(output) as zf:
                             case['stdout'] = zf.read('stdout').decode('utf-8')
                             case['stderr'] = zf.read('stderr').decode('utf-8')
-        else:
+        elif has_tasks:
             for task in ret['tasks']:
                 for case in task['cases']:
                     del case['output']
+        else:
+            del ret['tasks']
 
         cache.set(key, json.dumps(ret), 60)
         return ret
