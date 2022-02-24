@@ -2,7 +2,7 @@ from . import engine
 from .user import *
 from .utils import *
 import re
-from typing import Optional
+from typing import Dict
 from .base import MongoBase
 
 __all__ = [
@@ -22,17 +22,42 @@ class Course(MongoBase, engine=engine.Course):
                 new = super().__new__(cls, '0' * 24)
         return new
 
-    def add_user(self, user):
+    def update_student_namelist(
+        self,
+        student_nicknames: Dict[str, str],
+    ):
+        from .homework import Homework
+        if not all(User(name) for name in student_nicknames):
+            raise engine.DoesNotExist(f'User not found')
+        drop_user = set(self.student_nicknames) - set(student_nicknames)
+        for user in drop_user:
+            self.remove_user(User(user).obj)
+        new_user = set(student_nicknames) - set(self.student_nicknames)
+        for user in new_user:
+            self.add_user(User(user).obj)
+        self.student_nicknames = student_nicknames
+        # TODO: use event to update homework data
+        for homework in self.homeworks:
+            for user in drop_user:
+                del homework.student_status[user]
+            user_problems = {}
+            for pid in homework.problem_ids:
+                user_problems[str(pid)] = Homework.default_problem_status()
+            for user in new_user:
+                homework.student_status[user] = user_problems
+            homework.save()
+        self.save()
+
+    def add_user(self, user: User):
         obj = self.obj
         if obj is None:
             raise engine.DoesNotExist(f'Course [{self.course_name}]')
-        if obj not in user.courses:
-            user.courses.append(obj)
-            user.save()
+        user.update(add_to_set__courses=self.id)
+        user.reload()
 
-    def remove_user(self, user):
-        user.courses.remove(self.obj)
-        user.save()
+    def remove_user(self, user: User):
+        user.update(pull__courses=self.id)
+        user.reload()
 
     @classmethod
     def get_all(cls):

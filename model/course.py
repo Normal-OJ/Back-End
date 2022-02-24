@@ -80,36 +80,10 @@ def get_course(user, course_name):
             for user in set(tas) - set(course.tas):
                 course.add_user(user)
             course.tas = tas
-
-        student_dict = {}
-        for student, nickname in student_nicknames.items():
-            user = User(student).obj
-            if not User(student):
-                return HTTPResponse(f'User: {student} not found.', 404)
-            student_dict[student] = nickname
-
-        drop_user = set(course.student_nicknames) - set(student_dict)
-        new_user = set(student_dict) - set(course.student_nicknames)
-
-        for user in drop_user:
-            course.remove_user(User(user).obj)
-        for user in new_user:
-            course.add_user(User(user).obj)
-        course.student_nicknames = student_dict
-
-        for homework in course.homeworks:
-            for user in drop_user:
-                del homework.student_status[user]
-
-            user_problems = {}
-            for pid in homework.problem_ids:
-                user_problems[str(pid)] = Homework.default_problem_status()
-            for user in new_user:
-                homework.student_status[user] = user_problems
-
-            homework.save()
-
-        course.save()
+        try:
+            course.update_student_namelist(student_nicknames)
+        except engine.DoesNotExist as e:
+            return HTTPError(str(e), 404)
         return HTTPResponse('Success.')
 
     if request.method == 'GET':
