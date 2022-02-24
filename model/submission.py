@@ -231,6 +231,7 @@ def get_submission_list(
                     has_code=False,
                     has_output=False,
                     has_code_detail=False,
+                    has_tasks=False,
                 ) for s in submissions
             ]
             cache.set(
