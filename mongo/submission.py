@@ -5,7 +5,7 @@ import io
 import pathlib
 import secrets
 import logging
-from typing import Optional, Union
+from typing import Optional, Union, List
 import requests as rq
 import itertools
 from flask import current_app
@@ -530,10 +530,11 @@ class Submission(MongoBase, engine=engine.Submission):
         submission: Optional[Union[Submission, str]] = None,
         q_user: Optional[Union[User, str]] = None,
         status: Optional[int] = None,
-        language_type: Optional[int] = None,
+        language_type: Optional[Union[List[int], int]] = None,
         course: Optional[Union[Course, str]] = None,
         before: Optional[datetime] = None,
         after: Optional[datetime] = None,
+        with_count: bool = False,
     ):
         if before is not None and after is not None:
             if after > before:
@@ -542,21 +543,22 @@ class Submission(MongoBase, engine=engine.Submission):
             raise ValueError(f'offset must >= 0!')
         if count < -1:
             raise ValueError(f'count must >=-1!')
+        wont_have_results = False
         if isinstance(problem, int):
             problem = Problem(problem).obj
             if problem is None:
-                return []
+                wont_have_results = True
         if not isinstance(submission, (str, type(None))):
             submission = submission.id
         if isinstance(q_user, str):
             q_user = User(q_user)
             if not q_user:
-                return []
+                wont_have_results = True
             q_user = q_user.obj
         if isinstance(course, str):
             course = Course(course)
             if not course:
-                return []
+                wont_have_results = True
         # problem's query key
         p_k = 'problem'
         if course:
@@ -570,13 +572,17 @@ class Submission(MongoBase, engine=engine.Submission):
                 problem = problems
             # if problem not in course
             elif problem not in problems:
-                return []
+                wont_have_results = True
+        if wont_have_results:
+            return ([], 0) if with_count else []
+        if isinstance(language_type, int):
+            language_type = [language_type]
         # query args
         q = {
             p_k: problem,
             'id': submission,
             'status': status,
-            'language': language_type,
+            'language__in': language_type,
             'user': q_user,
             'timestamp__lte': before,
             'timestamp__gte': after,
@@ -584,12 +590,16 @@ class Submission(MongoBase, engine=engine.Submission):
         q = {k: v for k, v in q.items() if v is not None}
         # sort by upload time
         submissions = engine.Submission.objects(**q).order_by('-timestamp')
+        submission_count = submissions.count()
         # truncate
         if count == -1:
             submissions = submissions[offset:]
         else:
             submissions = submissions[offset:offset + count]
-        return list(cls(s) for s in submissions)
+        submissions = list(cls(s) for s in submissions)
+        if with_count:
+            return submissions, submission_count
+        return submissions
 
     @classmethod
     def add(

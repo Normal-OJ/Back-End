@@ -422,7 +422,12 @@ class Submission(Document):
         cache.set(key, ret, 60)
         return ret
 
-    def to_dict(self, has_code=False, has_output=False, has_code_detail=False,):
+    def to_dict(
+        self,
+        has_code=False,
+        has_output=False,
+        has_code_detail=False,
+    ):
         key = f'{self.id}_{has_code}_{has_output}_{has_code_detail}'
         cache = RedisCache()
         if cache.exists(key):
