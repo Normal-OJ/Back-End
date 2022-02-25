@@ -49,9 +49,9 @@ class MongoBase:
     def __repr__(self):
         return self.obj.to_json() if self else '{}'
 
-    def reload(self):
+    def reload(self, *fields):
         if self:
-            self.obj.reload()
+            self.obj.reload(*fields)
         return self
 
     @property
