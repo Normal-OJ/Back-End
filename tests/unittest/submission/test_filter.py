@@ -1,6 +1,7 @@
 import pytest
 import secrets
 import random
+import time
 from datetime import datetime, timedelta
 from typing import (
     Dict,
@@ -82,6 +83,7 @@ def test_param_before(client):
             user=User('first_admin'),
             before=datetime.now(),
         )) == 1
+    time.sleep(0.01)
     before = datetime.now()
     for _ in range(16):
         Submission.add(
@@ -107,6 +109,7 @@ def test_param_after(client):
             username='first_admin',
             lang=0,
         )
+    time.sleep(0.01)
     after = datetime.now()
     for _ in range(expected_count):
         Submission.add(

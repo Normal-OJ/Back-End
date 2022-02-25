@@ -179,7 +179,7 @@ class TestTeacherCourse(BaseTester):
                                   }
                               })
         json = rv.get_json()
-        assert json['message'] == 'User: studentt not found.'
+        assert 'User' in json['message']
         assert rv.status_code == 404
 
     def test_modify(self, client_teacher):

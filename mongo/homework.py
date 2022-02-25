@@ -1,5 +1,6 @@
 from typing import List, Optional
 from . import engine
+from .user import User
 from .base import MongoBase
 from .course import Course
 from .utils import perm, doc_required
@@ -182,3 +183,21 @@ class Homework(MongoBase, engine=engine.Homework):
             'problemStatus': None,
             'submissionIds': [],
         }
+
+    def add_student(self, students: List[User]):
+        if any(u.username in self.student_status for u in students):
+            raise ValueError('Student already in homework')
+        user_status = {
+            str(pid): self.default_problem_status()
+            for pid in self.problem_ids
+        }
+        for student in students:
+            self.student_status[student.username] = user_status
+        self.save()
+
+    def remove_student(self, students: List[User]):
+        if any(u.username not in self.student_status for u in students):
+            raise ValueError('Student not in homework')
+        for student in students:
+            del self.student_status[student.username]
+        self.save()
