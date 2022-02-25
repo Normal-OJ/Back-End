@@ -49,14 +49,35 @@ class User(MongoBase, engine=engine.User):
         '''
         Register multiple students with course
         '''
+        # Validate
         keys = {'username', 'password', 'email'}
-        if any(({*u.keys()} != keys) for u in new_users):
+        if any(({*u.keys()} < keys) for u in new_users):
             raise ValueError('The input of batch_signup has invalid keys')
+        for u in new_users:
+            if (role := u.get('role')) is not None:
+                try:
+                    role = int(role)
+                    u['role'] = role
+                except ValueError:
+                    username = u['username']
+                    raise ValueError(
+                        'Got invalid role in batch signup '
+                        f'[username={username}, role={role}]', )
+        # Register
         registered_users = []
         for u in new_users:
             try:
+                displayed_name = u.pop('displayedName')
+                if displayed_name is not None:
+                    activate_payload = {'displayedName': displayed_name}
+                else:
+                    activate_payload = {}
+                role = u.pop('role')
                 new_user = cls.signup(**u)
-                new_user.activate({})
+                new_user.activate(activate_payload)
+                if role is not None:
+                    new_user.update(role=role)
+                    new_user.reload('role')
             except engine.NotUniqueError:
                 try:
                     new_user = cls.get_by_username(u['username'])

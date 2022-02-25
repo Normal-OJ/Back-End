@@ -1,6 +1,7 @@
 import dataclasses
 from dataclasses import dataclass
-from typing import List
+import random
+from typing import List, Optional, Union
 import pytest
 import secrets
 from mongo import *
@@ -294,32 +295,42 @@ class TestBatchSignup:
         username: str
         password: str
         email: str
+        displayed_name: Optional[str]
+        role: Optional[int]
 
         def row(self):
-            return f'{self.username},{self.password},{self.email}'
-
-        def to_dict(self):
-            return {
-                'username': self.username,
-            }
+            values = [*dataclasses.astuple(self)]
+            while values[-1] is None:
+                values.pop()
+            values = [('' if v is None else v) for v in values]
+            return ','.join(map(str, values))
 
     @classmethod
-    def signup_input(cls):
+    def signup_input(
+        cls,
+        *,
+        displayed_name: Optional[Union[str, bool]] = None,
+        role: Optional[int] = None,
+    ):
         '''
         Generate random signup input data
         '''
         username = secrets.token_hex(8)
         password = secrets.token_hex(16)
         email = f'{username}@gmail.com'
+        if displayed_name == True:
+            displayed_name = secrets.token_urlsafe(8)
         return cls.SignupInput(
             username=username,
             password=password,
             email=email,
+            displayed_name=displayed_name,
+            role=role,
         )
 
     @classmethod
     def convert_to_csv(cls, inputs: List[SignupInput]):
-        new_users = 'username,password,email\n'
+        new_users = 'username,password,email,displayedName,role\n'
         new_users += '\n'.join(i.row() for i in inputs)
         return new_users
 
@@ -358,7 +369,10 @@ class TestBatchSignup:
     def test_signup_with_existent_user(self, forge_client):
         existent_users = [self.signup_input() for _ in range(5)]
         for u in existent_users:
-            User.signup(**dataclasses.asdict(u))
+            u = dataclasses.asdict(u)
+            del u['displayed_name']
+            del u['role']
+            User.signup(**u)
         excepted_users = [self.signup_input() for _ in range(5)]
         excepted_users += existent_users
         course_name = secrets.token_urlsafe(12)
@@ -377,3 +391,37 @@ class TestBatchSignup:
             login = User.login(u.username, u.password)
             assert login == User.get_by_username(u.username)
             assert u.username in course.student_nicknames
+
+    def test_signup_with_displayed_name(self, forge_client):
+        excepted_users = [
+            self.signup_input(displayed_name=True) for _ in range(10)
+        ]
+        client = forge_client('first_admin')
+        rv = client.post(
+            '/auth/batch-signup',
+            json={
+                'newUsers': self.convert_to_csv(excepted_users),
+            },
+        )
+        assert rv.status_code == 200, rv.get_json()
+        for u in excepted_users:
+            login = User.login(u.username, u.password)
+            assert login == User.get_by_username(u.username)
+            assert login.profile.displayed_name == u.displayed_name
+
+    def test_signup_with_role(self, forge_client):
+        excepted_users = [
+            self.signup_input(role=random.randint(1, 2)) for _ in range(20)
+        ]
+        client = forge_client('first_admin')
+        rv = client.post(
+            '/auth/batch-signup',
+            json={
+                'newUsers': self.convert_to_csv(excepted_users),
+            },
+        )
+        assert rv.status_code == 200, rv.get_json()
+        for u in excepted_users:
+            login = User.login(u.username, u.password)
+            assert login == User.get_by_username(u.username)
+            assert login.role == u.role
