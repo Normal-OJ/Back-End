@@ -288,7 +288,7 @@ def batch_signup(
             course=course,
         )
     except ValueError as e:
-        return HTTPError(e, 400)
+        return HTTPError(str(e), 400)
     return HTTPResponse()
 
 

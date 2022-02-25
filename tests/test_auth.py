@@ -425,3 +425,29 @@ class TestBatchSignup:
             login = User.login(u.username, u.password)
             assert login == User.get_by_username(u.username)
             assert login.role == u.role
+
+    def test_signup_without_optional_field(self, forge_client):
+        except_user = self.signup_input()
+        client = forge_client('first_admin')
+        rv = client.post(
+            '/auth/batch-signup',
+            json={
+                'newUsers': 'username,password,email\n' + except_user.row(),
+            },
+        )
+        assert rv.status_code == 200, rv.get_json()
+        login = User.login(except_user.username, except_user.password)
+        assert login == User.get_by_username(except_user.username)
+
+    def test_signup_with_invalid_input_format(self, forge_client):
+        client = forge_client('first_admin')
+        rv = client.post(
+            '/auth/batch-signup',
+            json={
+                'newUsers':
+                'I am invalid input <3\n'
+                'This should not register any user\n',
+            },
+        )
+        assert rv.status_code == 400, rv.get_json()
+        assert 'input' in rv.get_json()['message']
