@@ -5,9 +5,16 @@ import io
 import pathlib
 import secrets
 import logging
-from typing import Optional, Union, List
+from typing import (
+    Any,
+    Dict,
+    Optional,
+    Union,
+    List,
+)
 import requests as rq
 import itertools
+from bson.son import SON
 from flask import current_app
 from tempfile import NamedTemporaryFile
 from datetime import date, datetime
@@ -660,73 +667,60 @@ class Submission(MongoBase, engine=engine.Submission):
             cache.delete(key)
         return valid
 
-    def to_dict(
-        self,
-        has_code=False,
-        has_output=False,
-        has_code_detail=False,
-        has_tasks=False,
-    ):
-        key = f'{self.id}_{has_code}_{has_output}_{has_code_detail}'
-        cache = RedisCache()
-        if cache.exists(key):
-            return json.loads(cache.get(key))
+    def to_dict(self) -> Dict[str, Any]:
         ret = self._to_dict()
-        if has_code:
-            if has_code_detail:
-                ret['code'] = self.get_main_code()
-            else:
-                ret['code'] = False
-        if has_output:
-            ret['tasks'] = self.get_output()
-        elif has_tasks:
-            for task in ret['tasks']:
-                for case in task['cases']:
-                    del case['output']
-        else:
-            del ret['tasks']
-
-        cache.set(key, json.dumps(ret), 60)
+        # Convert Bson object to python dictionary
+        ret = ret.to_dict()
         return ret
 
-    def _to_dict(self):
+    def _to_dict(self) -> SON:
         ret = self.to_mongo()
         _ret = {
             'problemId': ret['problem'],
             'user': self.user.info,
             'submissionId': str(self.id),
             'timestamp': self.timestamp.timestamp(),
-            'lastSend': self.last_send.timestamp()
+            'lastSend': self.last_send.timestamp(),
         }
         old = [
             '_id',
             'problem',
             'code',
             'comment',
+            'tasks',
         ]
         # delete old keys
         for o in old:
             del ret[o]
         # insert new keys
-        for n in _ret:
-            ret[n] = _ret[n]
+        ret.update(**_ret)
         return ret
 
-    def get_output(self):
+    def get_result(self) -> List[Dict[str, Any]]:
         '''
-        Get all output of this submission
+        Get results without output
         '''
-        tasks = self.tasks
+        tasks = [task.to_mongo() for task in self.tasks]
+        for task in tasks:
+            for case in task['cases']:
+                del case['output']
+        return [task.to_dict() for task in tasks]
+
+    def get_detailed_result(self) -> List[Dict[str, Any]]:
+        '''
+        Get all results (including stdout/stderr) of this submission
+        '''
+        tasks = [task.to_mongo() for task in self.tasks]
         for task in tasks:
             for case in task.cases:
                 # extract zip file
-                output = engine.GridFSProxy(case.output)
+                output = case.pop('output', None)
                 if output is not None:
+                    output = engine.GridFSProxy(output)
                     with ZipFile(output) as zf:
                         case['stdout'] = zf.read('stdout').decode('utf-8')
                         case['stderr'] = zf.read('stderr').decode('utf-8')
-                case.output = None
-        return [task.to_mongo() for task in tasks]
+        return [task.to_dict() for task in tasks]
 
     def get_code(self, path: str, binary=False) -> Union[str, bytes]:
         # read file

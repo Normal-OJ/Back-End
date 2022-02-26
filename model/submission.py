@@ -226,14 +226,7 @@ def get_submission_list(
             )
             params = {k: v for k, v in params.items() if v is not None}
             submissions, submission_count = Submission.filter(**params)
-            submissions = [
-                s.to_dict(
-                    has_code=False,
-                    has_output=False,
-                    has_code_detail=False,
-                    has_tasks=False,
-                ) for s in submissions
-            ]
+            submissions = [s.to_dict() for s in submissions]
             cache.set(
                 cache_key,
                 json.dumps({
@@ -273,15 +266,20 @@ def get_submission(user, submission: Submission):
         return HTTPError('Invalid IP address.', 403)
     if not all(submission.timestamp in hw.duration
                for hw in problem.running_homeworks() if hw.ip_filters):
-        return HTTPError('You can not view this submission during quiz.', 403)
+        return HTTPError('You cannot view this submission during quiz.', 403)
     # serialize submission
-    ret = submission.to_dict(
-        has_code=submission.permission(user) >= 2
-        and not submission.handwritten,
-        has_output=submission.problem.can_view_stdout,
-        has_code_detail=bool(submission.code),
-        has_tasks=True,
-    )
+    has_code = not submission.handwritten and submission.permission(user) >= 2
+    has_output = submission.problem.can_view_stdout
+    ret = submission.to_dict()
+    if has_code:
+        try:
+            ret['code'] = submission.get_main_code()
+        except UnicodeDecodeError:
+            ret['code'] = False
+    if has_output:
+        ret['tasks'] = submission.get_detailed_result()
+    else:
+        ret['tasks'] = submission.get_result()
     return HTTPResponse(data=ret)
 
 
