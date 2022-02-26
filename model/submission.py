@@ -263,7 +263,7 @@ def get_submission_list(
 @submission_api.route('/<submission_id>', methods=['GET'])
 @login_required
 @submission_required
-def get_submission(user, submission):
+def get_submission(user, submission: Submission):
     # check permission
     if submission.handwritten and submission.permission(user) < 2:
         return HTTPError('forbidden.', 403)
@@ -294,10 +294,10 @@ def get_submission(user, submission):
 @submission_required
 def get_submission_output(
     user,
-    submission,
-    task_no,
-    case_no,
-    text,
+    submission: Submission,
+    task_no: int,
+    case_no: int,
+    text: Optional[str],
 ):
     if submission.permission(user) < 2:
         return HTTPError('permission denied', 403)
@@ -309,7 +309,7 @@ def get_submission_output(
         except KeyError:
             return HTTPError('Invalid `text` value.', 400)
     try:
-        output = submission.get_output(
+        output = submission.get_single_output(
             task_no,
             case_no,
             text=text,
