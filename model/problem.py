@@ -133,7 +133,7 @@ def manage_problem(user, problem_id=None):
 
     def modify_general_problem(**p_ks):
         if request.method == 'POST':
-            pid = Problem.add_problem(user=user, **p_ks)
+            pid = Problem.add(user=user, **p_ks)
             return HTTPResponse('Success.', data={'problemId': pid})
         elif request.method == 'PUT':
             Problem.edit_problem(

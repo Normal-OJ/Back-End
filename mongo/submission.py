@@ -5,9 +5,16 @@ import io
 import pathlib
 import secrets
 import logging
-from typing import Optional, Union, List
+from typing import (
+    Any,
+    Dict,
+    Optional,
+    Union,
+    List,
+)
 import requests as rq
 import itertools
+from bson.son import SON
 from flask import current_app
 from tempfile import NamedTemporaryFile
 from datetime import date, datetime
@@ -111,10 +118,19 @@ class Submission(MongoBase, engine=engine.Submission):
         }
 
     @property
+    def handwritten(self):
+        return self.language == 3
+
+    @property
     def tmp_dir(self) -> pathlib.Path:
         tmp_dir = self.config().TMP_DIR / self.username / self.id
         tmp_dir.mkdir(exist_ok=True, parents=True)
         return tmp_dir
+
+    @property
+    def main_code_ext(self):
+        lang2ext = {0: '.c', 1: '.cpp', 2: '.py'}
+        return lang2ext[self.language]
 
     @property
     def main_code_path(self) -> str:
@@ -122,8 +138,7 @@ class Submission(MongoBase, engine=engine.Submission):
         if self.handwritten:
             return
         # get excepted code name & temp path
-        lang2ext = {0: '.c', 1: '.cpp', 2: '.py'}
-        ext = lang2ext[self.language]
+        ext = self.main_code_ext
         path = self.tmp_dir / f'main{ext}'
         # check whether the code has been generated
         if not path.exists():
@@ -131,13 +146,6 @@ class Submission(MongoBase, engine=engine.Submission):
                 path.write_text(zf.read(f'main{ext}').decode('utf-8'))
         # return absolute path
         return str(path.absolute())
-
-    @property
-    def logger(self):
-        try:
-            return current_app.logger
-        except RuntimeError:
-            return logging.getLogger('gunicorn.error')
 
     @classmethod
     def config(cls):
@@ -147,7 +155,7 @@ class Submission(MongoBase, engine=engine.Submission):
             cls._config.save()
         return cls._config.reload()
 
-    def get_output(self, task_no, case_no, text=True):
+    def get_single_output(self, task_no, case_no, text=True):
         try:
             case = self.tasks[task_no].cases[case_no]
         except IndexError:
@@ -658,3 +666,81 @@ class Submission(MongoBase, engine=engine.Submission):
         if valid:
             cache.delete(key)
         return valid
+
+    def to_dict(self) -> Dict[str, Any]:
+        ret = self._to_dict()
+        # Convert Bson object to python dictionary
+        ret = ret.to_dict()
+        return ret
+
+    def _to_dict(self) -> SON:
+        ret = self.to_mongo()
+        _ret = {
+            'problemId': ret['problem'],
+            'user': self.user.info,
+            'submissionId': str(self.id),
+            'timestamp': self.timestamp.timestamp(),
+            'lastSend': self.last_send.timestamp(),
+        }
+        old = [
+            '_id',
+            'problem',
+            'code',
+            'comment',
+            'tasks',
+        ]
+        # delete old keys
+        for o in old:
+            del ret[o]
+        # insert new keys
+        ret.update(**_ret)
+        return ret
+
+    def get_result(self) -> List[Dict[str, Any]]:
+        '''
+        Get results without output
+        '''
+        tasks = [task.to_mongo() for task in self.tasks]
+        for task in tasks:
+            for case in task['cases']:
+                del case['output']
+        return [task.to_dict() for task in tasks]
+
+    def get_detailed_result(self) -> List[Dict[str, Any]]:
+        '''
+        Get all results (including stdout/stderr) of this submission
+        '''
+        tasks = [task.to_mongo() for task in self.tasks]
+        for task in tasks:
+            for case in task.cases:
+                # extract zip file
+                output = case.pop('output', None)
+                if output is not None:
+                    output = engine.GridFSProxy(output)
+                    with ZipFile(output) as zf:
+                        case['stdout'] = zf.read('stdout').decode('utf-8')
+                        case['stderr'] = zf.read('stderr').decode('utf-8')
+        return [task.to_dict() for task in tasks]
+
+    def get_code(self, path: str, binary=False) -> Union[str, bytes]:
+        # read file
+        try:
+            with ZipFile(self.code) as zf:
+                data = zf.read(path)
+        # file not exists in the zip or code haven't been uploaded
+        except (KeyError, AttributeError):
+            return None
+        # decode byte if need
+        if not binary:
+            try:
+                data = data.decode('utf-8')
+            except UnicodeDecodeError:
+                data = 'Unusual file content, decode fail'
+        return data
+
+    def get_main_code(self) -> str:
+        '''
+        Get source code user submitted
+        '''
+        ext = self.main_code_ext
+        return self.get_code(f'main{ext}')

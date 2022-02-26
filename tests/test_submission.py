@@ -60,9 +60,9 @@ class TestUserGetSubmission(SubmissionTester):
         pids = [problem_ids(name, 2, True) for name in A_NAMES]
         pids = itertools.chain(*pids)
         # get online problem ids
-        pids = [pid for pid in pids if Problem(pid).obj.problem_status == 0]
+        pids = [pid for pid in pids if Problem(pid).problem_status == 0]
         # get a course name
-        cls.courses = [Problem(pid).obj.courses[0].course_name for pid in pids]
+        cls.courses = [Problem(pid).courses[0].course_name for pid in pids]
         pids = itertools.cycle(pids)
         names = itertools.cycle(S_NAMES.keys())
         # create submissions
@@ -198,32 +198,30 @@ class TestUserGetSubmission(SubmissionTester):
 
     def test_get_self_submission(self, client_student):
         ids = self.submissions['student']
-        assert len(ids) != 0, ids
+        assert len(ids) != 0
 
         for _id in ids:
-            rv, rv_json, rv_data = BaseTester.request(
+            rv, _, rv_data = BaseTester.request(
                 client_student,
                 'get',
                 f'/submission/{_id}',
             )
             assert rv.status_code == 200
-            # user can view self code
-            assert 'code' in rv_data
 
-        # check for fields
-        except_fields = {
-            'problemId',
-            'languageType',
-            'timestamp',
-            'status',
-            'tasks',
-            'score',
-            'runTime',
-            'memoryUsage',
-            'code',
-        }
-        missing_field = except_fields - set(rv_data.keys())
-        assert len(missing_field) == 0, missing_field
+            # check for fields
+            except_fields = {
+                'problemId',
+                'languageType',
+                'timestamp',
+                'status',
+                'tasks',
+                'score',
+                'runTime',
+                'memoryUsage',
+                'code',
+            }
+            missing_field = except_fields - set(rv_data.keys())
+            assert len(missing_field) == 0, missing_field
 
     @pytest.mark.parametrize('offset, count', [(-1, 2), (2, -2)])
     def test_get_submission_list_with_out_ranged_negative_arg(

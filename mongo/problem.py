@@ -2,10 +2,16 @@
 from . import engine
 from .base import MongoBase
 from .course import *
-from .utils import can_view_problem
+from .utils import can_view_problem, drop_none
+from .user import User
 from zipfile import ZipFile
 from datetime import datetime
-from typing import List
+from typing import (
+    Any,
+    Dict,
+    List,
+    Optional,
+)
 import json
 import zipfile
 
@@ -134,44 +140,48 @@ class Problem(MongoBase, engine=engine.Problem):
         return problems[offset:right]
 
     @classmethod
-    def add_problem(
+    def add(
         cls,
-        user,
-        courses,
-        status,
-        problem_name,
-        description,
-        tags,
-        type,
-        test_case_info=None,
-        can_view_stdout=False,
-        allowed_language=7,
-        quota=-1,
-        default_code='',
+        user: User,
+        courses: List[str],
+        problem_name: str,
+        status: Optional[int] = None,
+        description: Optional[Dict[str, Any]] = None,
+        tags: Optional[List[str]] = None,
+        type: Optional[int] = None,
+        test_case_info: Optional[Dict[str, Any]] = None,
+        can_view_stdout: bool = False,
+        allowed_language: Optional[int] = None,
+        quota: Optional[int] = None,
+        default_code: Optional[str] = None,
     ):
         course_objs = []
-        for name in courses:
-            if not Course(name):
+        for course in map(Course, courses):
+            if not course:
                 raise engine.DoesNotExist
-            course_objs.append(Course(name).obj)
-        problem = engine.Problem(
-            courses=course_objs,
-            problem_status=status,
-            problem_type=type,
-            problem_name=problem_name,
-            description=description,
-            owner=user.username,
-            tags=tags,
-            quota=quota,
-            default_code=default_code,
-        )
-        problem.save()
-        if type != 2:
-            problem.update(
-                test_case=test_case_info,
-                can_view_stdout=can_view_stdout,
-                allowed_language=allowed_language,
-            )
+            course_objs.append(course.id)
+        problem_args = drop_none({
+            'courses': course_objs,
+            'problem_status': status,
+            'problem_type': type,
+            'problem_name': problem_name,
+            'description': description,
+            'owner': user.username,
+            'tags': tags,
+            'quota': quota,
+            'default_code': default_code,
+        })
+        problem = cls.engine(**problem_args).save()
+        programming_problem_args = drop_none({
+            'test_case':
+            test_case_info,
+            'can_view_stdout':
+            can_view_stdout,
+            'allowed_language':
+            allowed_language,
+        })
+        if programming_problem_args and type != 2:
+            problem.update(**programming_problem_args)
         return problem.problem_id
 
     @classmethod

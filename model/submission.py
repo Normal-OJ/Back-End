@@ -14,7 +14,12 @@ from datetime import datetime, timedelta
 from functools import wraps
 from mongo import *
 from mongo import engine
-from mongo.utils import can_view_problem, RedisCache, perm
+from mongo.utils import (
+    can_view_problem,
+    RedisCache,
+    perm,
+    drop_none,
+)
 from .utils import *
 from .auth import *
 
@@ -165,14 +170,6 @@ def get_submission_list(
 ):
     '''
     get the list of submission data
-    avaliable filter:
-        - problem id
-        - timestamp
-        - status
-        - runtime
-        - score
-        - language
-        - course
     '''
     def parse_int(val: Optional[int], name: str):
         if val is None:
@@ -182,7 +179,20 @@ def get_submission_list(
         except ValueError:
             raise ValueError(f'can not convert {name} to integer')
 
-    cache_key = f'submissions_{user}_{problem_id}_{username}_{status}_{language_type}_{course}'
+    cache_key = (
+        'SUBMISSION_LIST_API',
+        user,
+        problem_id,
+        username,
+        status,
+        language_type,
+        course,
+        offset,
+        count,
+        before,
+        after,
+    )
+    cache_key = '_'.join(map(str, cache_key))
     cache = RedisCache()
     # check cache
     if cache.exists(cache_key):
@@ -201,39 +211,35 @@ def get_submission_list(
         after = parse_int(after, 'after')
         if after is not None:
             after = datetime.fromtimestamp(after)
-        # if language_type is None:
-        #     language_type = '1,2,3'
-        # try:
-        #     language_type = list(map(int, language_type.split(',')))
-        # except ValueError as e:
-        #     return HTTPError('cannot parse integers from languageType', 400)
+        if language_type is not None:
+            try:
+                language_type = list(map(int, language_type.split(',')))
+            except ValueError as e:
+                return HTTPError(
+                    'cannot parse integers from languageType',
+                    400,
+                )
         # students can only get their own submissions
         if user.role == User.engine.Role.STUDENT:
             username = user.username
         try:
-            params = dict(
-                user=user,
-                offset=offset,
-                count=count,
-                problem=problem_id,
-                q_user=username,
-                status=status,
-                language_type=language_type,
-                course=course,
-                before=before,
-                after=after,
+            params = drop_none({
+                'user': user,
+                'offset': offset,
+                'count': count,
+                'problem': problem_id,
+                'q_user': username,
+                'status': status,
+                'language_type': language_type,
+                'course': course,
+                'before': before,
+                'after': after,
+            })
+            submissions, submission_count = Submission.filter(
+                **params,
                 with_count=True,
             )
-            params = {k: v for k, v in params.items() if v is not None}
-            submissions, submission_count = Submission.filter(**params)
-            submissions = [
-                s.to_dict(
-                    has_code=False,
-                    has_output=False,
-                    has_code_detail=False,
-                    has_tasks=False,
-                ) for s in submissions
-            ]
+            submissions = [s.to_dict() for s in submissions]
             cache.set(
                 cache_key,
                 json.dumps({
@@ -263,7 +269,7 @@ def get_submission_list(
 @submission_api.route('/<submission_id>', methods=['GET'])
 @login_required
 @submission_required
-def get_submission(user, submission):
+def get_submission(user, submission: Submission):
     # check permission
     if submission.handwritten and submission.permission(user) < 2:
         return HTTPError('forbidden.', 403)
@@ -273,14 +279,20 @@ def get_submission(user, submission):
         return HTTPError('Invalid IP address.', 403)
     if not all(submission.timestamp in hw.duration
                for hw in problem.running_homeworks() if hw.ip_filters):
-        return HTTPError('You can not view this submission during quiz.', 403)
+        return HTTPError('You cannot view this submission during quiz.', 403)
     # serialize submission
-    ret = submission.to_dict(
-        has_code=submission.permission(user) >= 2
-        and not submission.handwritten,
-        has_output=submission.problem.can_view_stdout,
-        has_code_detail=bool(submission.code),
-    )
+    has_code = not submission.handwritten and submission.permission(user) >= 2
+    has_output = submission.problem.can_view_stdout
+    ret = submission.to_dict()
+    if has_code:
+        try:
+            ret['code'] = submission.get_main_code()
+        except UnicodeDecodeError:
+            ret['code'] = False
+    if has_output:
+        ret['tasks'] = submission.get_detailed_result()
+    else:
+        ret['tasks'] = submission.get_result()
     return HTTPResponse(data=ret)
 
 
@@ -293,10 +305,10 @@ def get_submission(user, submission):
 @submission_required
 def get_submission_output(
     user,
-    submission,
-    task_no,
-    case_no,
-    text,
+    submission: Submission,
+    task_no: int,
+    case_no: int,
+    text: Optional[str],
 ):
     if submission.permission(user) < 2:
         return HTTPError('permission denied', 403)
@@ -308,7 +320,7 @@ def get_submission_output(
         except KeyError:
             return HTTPError('Invalid `text` value.', 400)
     try:
-        output = submission.get_output(
+        output = submission.get_single_output(
             task_no,
             case_no,
             text=text,

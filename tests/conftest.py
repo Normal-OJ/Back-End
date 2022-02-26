@@ -96,24 +96,24 @@ def random_problem_data(username=None, status=-1, type=0, quota=-1):
             'sample_output': []
         },
         'tags': ['test'],
-        'problemName':
+        'problem_name':
         f'prob {s}',
-        'testCaseInfo': {
+        'test_case_info': {
             'language':
             2,
-            'fillInTemplate':
+            'fill_in_template':
             '',
             'tasks': [
                 {
-                    'caseCount': 1,
-                    'taskScore': 100,
-                    'memoryLimit': 32768,
-                    'timeLimit': 1000,
+                    'case_count': 1,
+                    'task_score': 100,
+                    'memory_limit': 32768,
+                    'time_limit': 1000,
                 },
             ],
         },
         'quota':
-        quota
+        quota,
     }
 
 
@@ -164,13 +164,15 @@ def make_course(forge_client):
 
 
 @pytest.fixture()
-def problem_ids(forge_client, make_course):
-    def problem_ids(username,
-                    length,
-                    add_to_course=False,
-                    status=0,
-                    type=0,
-                    quota=-1):
+def problem_ids(forge_client):
+    def problem_ids(
+        username,
+        length,
+        add_to_course=False,
+        status=0,
+        type=0,
+        quota=-1,
+    ):
         '''
         insert dummy problems into db
 
@@ -183,23 +185,21 @@ def problem_ids(forge_client, make_course):
         client = forge_client(username)
         rets = []  # created problem ids
         for _ in range(length):
-            # create problem
-            rv = client.post(
-                '/problem/manage',
-                json=random_problem_data(
+            _id = Problem.add(
+                **random_problem_data(
                     username=username if add_to_course else None,
                     status=status,
                     type=type,
-                    quota=quota),
+                    quota=quota,
+                ),
+                **{'user': User(username)},
             )
-            assert rv.status_code == 200, rv.get_json()
-            _id = rv.get_json()['data']['problemId']
-            # upload testcase
-            client.put(
-                f'/problem/manage/{_id}',
-                data=get_file('default/test_case.zip'),
-            )
-            assert rv.status_code == 200, rv.get_json()
+            if Problem(_id).problem_type != 2:
+                rv = client.put(
+                    f'/problem/manage/{_id}',
+                    data=get_file('default/test_case.zip'),
+                )
+                assert rv.status_code == 200, rv.get_json()
             rets.append(_id)
         # don't leave cookies!
         client.cookie_jar.clear()
