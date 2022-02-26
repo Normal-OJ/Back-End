@@ -280,6 +280,7 @@ def get_submission(user, submission):
         and not submission.handwritten,
         has_output=submission.problem.can_view_stdout,
         has_code_detail=bool(submission.code),
+        has_tasks=True,
     )
     return HTTPResponse(data=ret)
 

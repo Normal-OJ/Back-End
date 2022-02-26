@@ -113,7 +113,9 @@ def random_problem_data(username=None, status=-1, type=0, quota=-1):
             ],
         },
         'quota':
-        quota
+        quota,
+        'canViewStdout':
+        False,
     }
 
 
@@ -165,12 +167,14 @@ def make_course(forge_client):
 
 @pytest.fixture()
 def problem_ids(forge_client, make_course):
-    def problem_ids(username,
-                    length,
-                    add_to_course=False,
-                    status=0,
-                    type=0,
-                    quota=-1):
+    def problem_ids(
+        username,
+        length,
+        add_to_course=False,
+        status=0,
+        type=0,
+        quota=-1,
+    ):
         '''
         insert dummy problems into db
 
@@ -190,7 +194,8 @@ def problem_ids(forge_client, make_course):
                     username=username if add_to_course else None,
                     status=status,
                     type=type,
-                    quota=quota),
+                    quota=quota,
+                ),
             )
             assert rv.status_code == 200, rv.get_json()
             _id = rv.get_json()['data']['problemId']
