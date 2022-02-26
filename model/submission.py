@@ -14,7 +14,12 @@ from datetime import datetime, timedelta
 from functools import wraps
 from mongo import *
 from mongo import engine
-from mongo.utils import can_view_problem, RedisCache, perm
+from mongo.utils import (
+    can_view_problem,
+    RedisCache,
+    perm,
+    drop_none,
+)
 from .utils import *
 from .auth import *
 
@@ -165,14 +170,6 @@ def get_submission_list(
 ):
     '''
     get the list of submission data
-    avaliable filter:
-        - problem id
-        - timestamp
-        - status
-        - runtime
-        - score
-        - language
-        - course
     '''
     def parse_int(val: Optional[int], name: str):
         if val is None:
@@ -182,7 +179,20 @@ def get_submission_list(
         except ValueError:
             raise ValueError(f'can not convert {name} to integer')
 
-    cache_key = f'submissions_{user}_{problem_id}_{username}_{status}_{language_type}_{course}'
+    cache_key = (
+        'SUBMISSION_LIST_API',
+        user,
+        problem_id,
+        username,
+        status,
+        language_type,
+        course,
+        offset,
+        count,
+        before,
+        after,
+    )
+    cache_key = '_'.join(map(str, cache_key))
     cache = RedisCache()
     # check cache
     if cache.exists(cache_key):
@@ -201,31 +211,32 @@ def get_submission_list(
         after = parse_int(after, 'after')
         if after is not None:
             after = datetime.fromtimestamp(after)
-        # if language_type is None:
-        #     language_type = '1,2,3'
-        # try:
-        #     language_type = list(map(int, language_type.split(',')))
-        # except ValueError as e:
-        #     return HTTPError('cannot parse integers from languageType', 400)
+        if language_type is None:
+            language_type = '0,1,2'
+        try:
+            language_type = list(map(int, language_type.split(',')))
+        except ValueError as e:
+            return HTTPError('cannot parse integers from languageType', 400)
         # students can only get their own submissions
         if user.role == User.engine.Role.STUDENT:
             username = user.username
         try:
-            params = dict(
-                user=user,
-                offset=offset,
-                count=count,
-                problem=problem_id,
-                q_user=username,
-                status=status,
-                language_type=language_type,
-                course=course,
-                before=before,
-                after=after,
+            params = drop_none({
+                'user': user,
+                'offset': offset,
+                'count': count,
+                'problem': problem_id,
+                'q_user': username,
+                'status': status,
+                'language_type': language_type,
+                'course': course,
+                'before': before,
+                'after': after,
+            })
+            submissions, submission_count = Submission.filter(
+                **params,
                 with_count=True,
             )
-            params = {k: v for k, v in params.items() if v is not None}
-            submissions, submission_count = Submission.filter(**params)
             submissions = [s.to_dict() for s in submissions]
             cache.set(
                 cache_key,
