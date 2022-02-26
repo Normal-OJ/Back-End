@@ -3,7 +3,7 @@ import hashlib
 import os
 import redis
 from functools import wraps
-from typing import Optional, Any
+from typing import Dict, Optional, Any
 
 __all__ = (
     'hash_id',
@@ -174,3 +174,7 @@ def doc_required(
         return wrapper
 
     return deco
+
+
+def drop_none(d: Dict):
+    return {k: v for k, v in d.items() if v is not None}
