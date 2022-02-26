@@ -52,7 +52,7 @@ def add_problem(
             'sample_input': [secrets.token_hex() for _ in range(cnt)],
             'sample_output': [secrets.token_hex() for _ in range(cnt)],
         }
-    return Problem.add_problem(
+    return Problem.add(
         user=user,
         courses=courses,
         problem_name=problem_name,

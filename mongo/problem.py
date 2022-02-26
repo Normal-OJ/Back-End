@@ -3,9 +3,15 @@ from . import engine
 from .base import MongoBase
 from .course import *
 from .utils import can_view_problem
+from .user import User
 from zipfile import ZipFile
 from datetime import datetime
-from typing import List
+from typing import (
+    Any,
+    Dict,
+    List,
+    Optional,
+)
 import json
 import zipfile
 
@@ -134,20 +140,20 @@ class Problem(MongoBase, engine=engine.Problem):
         return problems[offset:right]
 
     @classmethod
-    def add_problem(
+    def add(
         cls,
-        user,
-        courses,
-        status,
-        problem_name,
-        description,
-        tags,
-        type,
-        test_case_info=None,
-        can_view_stdout=False,
-        allowed_language=7,
-        quota=-1,
-        default_code='',
+        user: User,
+        courses: List[str],
+        status: int,
+        problem_name: str,
+        description: Dict[str, Any],
+        tags: Optional[List[str]] = None,
+        type: Optional[int] = None,
+        test_case_info: Optional[Dict[str, Any]] = None,
+        can_view_stdout: bool = False,
+        allowed_language: int = 7,
+        quota: int = -1,
+        default_code: str = '',
     ):
         course_objs = []
         for name in courses:
