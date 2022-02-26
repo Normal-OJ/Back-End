@@ -211,12 +211,14 @@ def get_submission_list(
         after = parse_int(after, 'after')
         if after is not None:
             after = datetime.fromtimestamp(after)
-        if language_type is None:
-            language_type = '0,1,2'
-        try:
-            language_type = list(map(int, language_type.split(',')))
-        except ValueError as e:
-            return HTTPError('cannot parse integers from languageType', 400)
+        if language_type is not None:
+            try:
+                language_type = list(map(int, language_type.split(',')))
+            except ValueError as e:
+                return HTTPError(
+                    'cannot parse integers from languageType',
+                    400,
+                )
         # students can only get their own submissions
         if user.role == User.engine.Role.STUDENT:
             username = user.username
