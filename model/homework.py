@@ -195,10 +195,8 @@ def patch_ip_filters(
         except ValueError as e:
             return HTTPError(str(e), 400)
     try:
-        hw.update(
-            push_all__ip_filters=adds,
-            pull_all__ip_filters=dels,
-        )
+        hw.update(push_all__ip_filters=adds)
+        hw.update(pull_all__ip_filters=dels)
     except ValidationError as e:
         return HTTPError(str(e), 400)
     return HTTPResponse()
