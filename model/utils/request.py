@@ -30,6 +30,7 @@ class _Request(type):
                 def wrapper(*args, **kwargs):
                     data = getattr(request, content_type)
                     if data == None:
+                        # FIXME: This exception doesn't mean the content type is wrong
                         return HTTPError(
                             f'Unaccepted Content-Type {content_type}', 415)
                     try:
