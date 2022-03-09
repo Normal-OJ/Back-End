@@ -342,32 +342,12 @@ class Submission(MongoBase, engine=engine.Submission):
         if self.handwritten:
             logging.warning(f'try to send a handwritten {self}')
             return False
-        # metadata
-        meta = {
-            'language':
-            self.language,
-            'tasks': [
-                json.loads(task.to_json())
-                for task in self.problem.test_case.tasks
-            ],
-        }
-        self.logger.debug(f'meta: {meta}')
+        # TODO: Ensure problem is ready to submitted
         if self.problem.test_case.case_zip is None:
             raise TestCaseNotFound(self.problem.problem_id)
         # setup post body
         files = {
-            'src': (
-                f'{self.id}-source.zip',
-                self.code,
-            ),
-            'testcase': (
-                f'{self.id}-testcase.zip',
-                self.problem.test_case.case_zip,
-            ),
-            'meta.json': (
-                f'{self.id}-meta.json',
-                io.StringIO(json.dumps(meta)),
-            ),
+            'src': self.code,
         }
         # look for the target sandbox
         tar = self.target_sandbox()
@@ -379,6 +359,8 @@ class Submission(MongoBase, engine=engine.Submission):
         post_data = {
             'token': tar.token,
             'checker': 'print("not implement yet. qaq")',
+            'problem_id': self.problem_id,
+            'language': self.language,
         }
         judge_url = f'{tar.url}/submit/{self.id}'
         # send submission to snadbox for judgement

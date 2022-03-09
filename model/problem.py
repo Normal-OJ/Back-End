@@ -1,8 +1,11 @@
+import json
+import hashlib
 from flask import Blueprint, request, send_file
 from urllib import parse
 from zipfile import BadZipFile
 from mongo import *
 from mongo import engine
+from mongo import sandbox
 from .auth import *
 from .utils import *
 from mongo.utils import can_view_problem
@@ -226,6 +229,55 @@ def get_testcase(user, problem_id):
         as_attachment=True,
         attachment_filename=f'testdata-{problem_id}.zip',
     )
+
+
+# FIXME: Find a better name
+@problem_api.route('/<int:problem_id>/testdata', methods=['GET'])
+@Request.args('token: str')
+def get_testdata(token: str, problem_id: int):
+    if sandbox.find_by_token(token) is None:
+        return HTTPError('Invalid sandbox token', 401)
+    problem = Problem(problem_id)
+    if not problem:
+        return HTTPError(f'{problem} not found')
+    return send_file(
+        problem.test_case.case_zip,
+        mimetype='application/zip',
+        as_attachment=True,
+        attachment_filename=f'testdata-{problem_id}.zip',
+    )
+
+
+@problem_api.route('/<int:problem_id>/checksum', methods=['GET'])
+@Request.args('token: str')
+def get_checksum(token: str, problem_id: int):
+    if sandbox.find_by_token(token) is None:
+        return HTTPError('Invalid sandbox token', 401)
+    problem = Problem(problem_id)
+    if not problem:
+        return HTTPError(f'{problem} not found')
+    meta = json.dumps({
+        'tasks':
+        [json.loads(task.to_json()) for task in problem.test_case.tasks]
+    }).encode()
+    content = problem.test_case.case_zip.read() + meta
+    digest = hashlib.md5(content).hexdigest()
+    return HTTPResponse(data=digest)
+
+
+@problem_api.route('/<int:problem_id>/meta', methods=['GET'])
+@Request.args('token: str')
+def get_meta(token: str, problem_id: int):
+    if sandbox.find_by_token(token) is None:
+        return HTTPError('Invalid sandbox token', 401)
+    problem = Problem(problem_id)
+    if not problem:
+        return HTTPError(f'{problem} not found')
+    meta = {
+        'tasks':
+        [json.loads(task.to_json()) for task in problem.test_case.tasks]
+    }
+    return HTTPResponse(data=meta)
 
 
 @problem_api.route('/<int:problem_id>/high-score', methods=['GET'])
