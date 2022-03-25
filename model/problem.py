@@ -1,5 +1,6 @@
 import json
 import hashlib
+import statistics
 from flask import Blueprint, request, send_file
 from urllib import parse
 from zipfile import BadZipFile
@@ -322,3 +323,40 @@ def publish_problem(user, problem_id):
         return HTTPError('Not the owner.', 403)
     Problem.release_problem(problem_id)
     return HTTPResponse('Success.')
+
+
+@problem_api.route('/<int:problem_id>/stats', methods=['GET'])
+@Request.doc('problem_id', 'problem', Problem)
+@login_required
+def problem_stats(user, problem: Problem):
+    ret = {}
+    ret['statusCount'] = problem.get_submission_status()
+    students = []
+    for course in problem.courses:
+        students += [User(name) for name in course.student_nicknames]
+    students_high_scores = [
+        problem.high_scores.get(u.username, 0) for u in students
+    ]
+    ret['acUserRatio'] = [problem.get_ac_user_count(), len(students)]
+    ret['triedUserCount'] = problem.get_tried_user_count()
+    ret['average'] = None if len(students) == 0 else statistics.mean(
+        students_high_scores)
+    ret['std'] = None if len(students) <= 1 else statistics.stdev(
+        students_high_scores)
+    ret['scoreDistribution'] = students_high_scores
+    params = {
+        'user': user,
+        'offset': 0,
+        'count': 10,
+        'problem': problem.id,
+        'status': 0,
+    }
+    top_10_runtime_submissions = [
+        s.to_dict() for s in Submission.filter(**params, sort_by='runTime')
+    ]
+    ret['top10RunTime'] = top_10_runtime_submissions
+    top_10_memory_submissions = [
+        s.to_dict() for s in Submission.filter(**params, sort_by='memoryUsage')
+    ]
+    ret['top10MemoryUsage'] = top_10_memory_submissions
+    return HTTPResponse('Success.', data=ret)

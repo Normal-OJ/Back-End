@@ -104,6 +104,30 @@ class Problem(MongoBase, engine=engine.Problem):
     def is_valid_ip(self, ip: str):
         return all(hw.is_valid_ip(ip) for hw in self.running_homeworks())
 
+    def get_submission_status(self) -> Dict[str, int]:
+        pipeline = {
+            "$group": {
+                "_id": "$status",
+                "count": {
+                    "$sum": 1
+                },
+            }
+        }
+        cursor = engine.Submission.objects(problem=self.id).aggregate(pipeline)
+        return {item['_id']: item['count'] for item in cursor}
+
+    def get_ac_user_count(self) -> int:
+        ac_users = engine.Submission.objects(
+            problem=self.id,
+            status=0,
+        ).distinct('user')
+        return len(ac_users)
+
+    def get_tried_user_count(self) -> int:
+        tried_users = engine.Submission.objects(
+            problem=self.id, ).distinct('user')
+        return len(tried_users)
+
     @classmethod
     def get_problem_list(
         cls,

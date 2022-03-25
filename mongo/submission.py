@@ -524,6 +524,7 @@ class Submission(MongoBase, engine=engine.Submission):
         course: Optional[Union[Course, str]] = None,
         before: Optional[datetime] = None,
         after: Optional[datetime] = None,
+        sort_by: Optional[str] = None,
         with_count: bool = False,
     ):
         if before is not None and after is not None:
@@ -533,6 +534,8 @@ class Submission(MongoBase, engine=engine.Submission):
             raise ValueError(f'offset must >= 0!')
         if count < -1:
             raise ValueError(f'count must >=-1!')
+        if sort_by is not None and sort_by not in ['runTime', 'memoryUsage']:
+            raise ValueError(f'can only sort by runTime or memoryUsage')
         wont_have_results = False
         if isinstance(problem, int):
             problem = Problem(problem).obj
@@ -579,7 +582,8 @@ class Submission(MongoBase, engine=engine.Submission):
         }
         q = {k: v for k, v in q.items() if v is not None}
         # sort by upload time
-        submissions = engine.Submission.objects(**q).order_by('-timestamp')
+        submissions = engine.Submission.objects(
+            **q).order_by(sort_by if sort_by is not None else '-timestamp')
         submission_count = submissions.count()
         # truncate
         if count == -1:
