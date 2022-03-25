@@ -10,4 +10,4 @@ COPY ./requirements ./requirements
 
 RUN pip install -r requirements/dev.txt
 
-CMD gunicorn app:app -c gunicorn.conf.dev.py
+CMD ["gunicorn", "app:app()", "-c", "gunicorn.conf.dev.py"]
