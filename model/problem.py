@@ -78,7 +78,7 @@ def view_problem_list(
     return HTTPResponse('Success.', data=data)
 
 
-# TODO: remove "view" from route rule
+@problem_api.route('/<int:problem_id>', methods=['GET'])
 @problem_api.route('/view/<int:problem_id>', methods=['GET'])
 @login_required
 def view_problem(user, problem_id):
@@ -111,8 +111,14 @@ def view_problem(user, problem_id):
 
 
 @problem_api.route('/manage', methods=['POST'])
-@problem_api.route('/manage/<int:problem_id>',
-                   methods=['GET', 'PUT', 'DELETE'])
+@problem_api.route(
+    '/manage/<int:problem_id>',
+    methods=[
+        'GET',
+        'PUT',
+        'DELETE',
+    ],
+)
 @identity_verify(0, 1)
 def manage_problem(user, problem_id=None):
     @Request.json('type', 'courses: list', 'status', 'type', 'description',

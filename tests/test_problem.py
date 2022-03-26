@@ -309,9 +309,9 @@ class TestProblem(BaseTester):
             'submitCount': 0
         }]
 
-    # admin view offline problem (GET /problem/view/<problem_id>)
+    # admin view offline problem (GET /problem/<problem_id>)
     def test_admin_view_offline_problem(self, client_admin):
-        rv = client_admin.get('/problem/view/3')
+        rv = client_admin.get('/problem/3')
         json = rv.get_json()
         assert rv.status_code == 200
         assert json['status'] == 'ok'
@@ -347,17 +347,17 @@ class TestProblem(BaseTester):
             '',
         }
 
-    # student view offline problem (GET /problem/view/<problem_id>)
+    # student view offline problem (GET /problem/<problem_id>)
     def test_student_view_offline_problem(self, client_student):
-        rv = client_student.get('/problem/view/3')
+        rv = client_student.get('/problem/3')
         json = rv.get_json()
         assert rv.status_code == 403
         assert json['status'] == 'err'
         assert json['message'] == 'Problem cannot view.'
 
-    # student view online problem (GET /problem/view/<problem_id>)
+    # student view online problem (GET /problem/<problem_id>)
     def test_student_view_online_problem(self, client_student):
-        rv = client_student.get('/problem/view/4')
+        rv = client_student.get('/problem/4')
         json = rv.get_json()
         assert rv.status_code == 200
         assert json['status'] == 'ok'
@@ -393,9 +393,9 @@ class TestProblem(BaseTester):
             '',
         }
 
-    # student view problem not exist (GET /problem/view/<problem_id>)
+    # student view problem not exist (GET /problem/<problem_id>)
     def test_student_view_problem_not_exist(self, client_student):
-        rv = client_student.get('/problem/view/0')
+        rv = client_student.get('/problem/0')
         json = rv.get_json()
         assert rv.status_code == 404
         assert json['status'] == 'err'
@@ -628,7 +628,7 @@ class TestProblem(BaseTester):
         assert json['message'] == 'Success.'
 
     def test_check_delete_successfully(self, client_admin):
-        rv = client_admin.get('/problem/view/1')
+        rv = client_admin.get('/problem/1')
         json = rv.get_json()
         assert rv.status_code == 404
         assert json['status'] == 'err'
