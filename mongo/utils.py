@@ -4,6 +4,7 @@ import os
 import redis
 from functools import wraps
 from typing import Dict, Optional, Any
+from . import engine
 
 __all__ = (
     'hash_id',

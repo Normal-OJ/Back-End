@@ -21,63 +21,6 @@ def description_dict():
     }
 
 
-class ProblemData:
-    def __init__(
-        self,
-        name,
-        status=1,
-        type=0,
-        description=description_dict(),
-        tags=[],
-        test_case_info={
-            'language':
-            1,
-            'fillInTemplate':
-            '',
-            'tasks': [{
-                'caseCount': 1,
-                'taskScore': 100,
-                'memoryLimit': 1000,
-                'timeLimit': 1000
-            }]
-        }):
-        self.name = name
-        self.status = status
-        self.type = type
-        self.description = description
-        self.tags = tags
-        self.test_case = get_file(test_case)
-        self.test_case_info = test_case_info
-
-
-# First problem (offline)
-@pytest.fixture(params=[{'name': 'Hello World!'}])
-def problem_data(request, client_admin):
-    BaseTester.setup_class()
-    pd = ProblemData(**request.param)
-    # add problem
-    rv = client_admin.post('/problem/manage',
-                           json={
-                               'status': pd.status,
-                               'type': pd.type,
-                               'problemName': pd.name,
-                               'description': pd.description,
-                               'tags': pd.tags,
-                               'testCaseInfo': pd.test_case_info
-                           })
-    id = rv.get_json()['data']['problemId']
-    rv = client_admin.put(f'/problem/manage/{id}',
-                          data=get_file('default/test_case.zip'))
-    yield pd
-    BaseTester.teardown_class()
-
-
-# Online problem
-@pytest.fixture(params=[{'name': 'Goodbye health~', 'status': 0}])
-def another_problem(request, problem_data):
-    return problem_data(request)
-
-
 class TestProblem(BaseTester):
     # add a problem which status value is invalid (POST /problem/manage)
     def test_add_with_invalid_value(self, client_admin):
@@ -345,6 +288,8 @@ class TestProblem(BaseTester):
             0,
             'defaultCode':
             '',
+            'highScore':
+            0,
         }
 
     # student view offline problem (GET /problem/<problem_id>)
@@ -391,6 +336,8 @@ class TestProblem(BaseTester):
             0,
             'defaultCode':
             '',
+            'highScore':
+            0,
         }
 
     # student view problem not exist (GET /problem/<problem_id>)
@@ -399,7 +346,6 @@ class TestProblem(BaseTester):
         json = rv.get_json()
         assert rv.status_code == 404
         assert json['status'] == 'err'
-        assert json['message'] == 'Problem not exist.'
 
     # student change the name of a problem (PUT /problem/manage/<problem_id>)
     def test_student_edit_problem(self, client_student):
@@ -632,4 +578,3 @@ class TestProblem(BaseTester):
         json = rv.get_json()
         assert rv.status_code == 404
         assert json['status'] == 'err'
-        assert json['message'] == 'Problem not exist.'
