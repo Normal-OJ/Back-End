@@ -25,7 +25,7 @@ def create_course(
     """
     if name is None:
         name = secrets.token_hex(8)
-    if (course := Course(name)) is not None:
+    if (course := Course(name)):
         return course
     if not isinstance(teacher, User):
         teacher = user_lib.create_user(username=teacher)

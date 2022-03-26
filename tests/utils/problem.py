@@ -12,14 +12,7 @@ def create_problem(
     owner: Optional[Union[str, User]] = None,
     name: Optional[str] = None,
     status: Optional[int] = None,
-    description: Optional[Dict[str, Any]] = {
-        'description': '',
-        'input': '',
-        'output': '',
-        'hint': '',
-        'sample_input': [],
-        'sample_output': [],
-    },
+    description: Optional[Dict[str, Any]] = None,
     tags: Optional[List[str]] = None,
     type: Optional[int] = None,
     allowed_language: Optional[int] = None,
@@ -32,6 +25,15 @@ def create_problem(
         owner = course.teacher
     if name is None:
         name = secrets.token_hex(8)
+    if description is None:
+        description = {
+            'description': '',
+            'input': '',
+            'output': '',
+            'hint': '',
+            'sample_input': [],
+            'sample_output': [],
+        }
     params = {
         'user': owner,
         'courses': [course],

@@ -23,18 +23,23 @@ def create_submission(
         user = User(user)
     if isinstance(problem, int):
         problem = Problem(problem)
-    if user is None or problem is None:
-        raise ValueError('user and problem cannot be None')
+    if not user or not problem:
+        raise ValueError('Both user and problem must be provided')
     params = {
         'problem_id': problem.id,
         'username': user.username,
         'lang': lang,
-        timestamp: timestamp,
+        'timestamp': timestamp,
     }
     sid = Submission.add(**params)
     submission = Submission(sid)
     for k in ['score', 'status', 'runTime', 'memoryUsage']:
         if locals()[k] is not None:
             submission.update(k, locals()[k])
+    # AC submission should be scored 100
+    if status == 0:
+        submission.update('score', 100)
+        submission.update('runTime', max(0, runTime or -1))
+        submission.update('memoryUsage', max(0, memoryUsage or -1))
     submission.save()
     return submission

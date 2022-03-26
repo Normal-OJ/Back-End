@@ -2,6 +2,7 @@ import secrets
 from typing import Optional, Union
 from mongo import *
 from . import course as course_lib
+from .utils import drop_none
 
 __all__ = ('create_user')
 
@@ -30,7 +31,7 @@ def create_user(
     """
     if username is None:
         username = secrets.token_hex(8)
-    if (user := User(username)) is not None:
+    if (user := User(username)):
         return user
     if password is None:
         password = secrets.token_urlsafe(16)
@@ -41,7 +42,7 @@ def create_user(
         'password': password,
         'email': email,
     }
-    activate_payload = {'displayedName': displayed_name} if displayed_name is not None else {}
+    activate_payload = drop_none({'displayedName': displayed_name})
     new_user = User.signup(**u)
     new_user.activate(activate_payload)
     if role is not None:
