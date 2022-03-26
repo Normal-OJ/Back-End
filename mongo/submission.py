@@ -466,23 +466,8 @@ class Submission(MongoBase, engine=engine.Submission):
                 stat['score'] = self.score
                 stat['problemStatus'] = self.status
             homework.save()
-        # update problem
-        # TODO: compute ac_user count (unused now)
-        # ac_submissions = Submission.filter(
-        #     user=self.user,
-        #     offset=0,
-        #     count=-1,
-        #     problem=self.problem,
-        #     status=0,
-        # )
-        # ac_users = {s.username for s in ac_submissions}
-        # self.problem.ac_user = len(ac_users)
-        # update high score
-        self.problem.high_scores[self.username] = engine.Submission.objects(
-            user=self.user,
-            problem=self.problem,
-        ).only('score').order_by('-score').first().score
-        self.problem.save()
+        key = Problem(self.problem).high_score_key(user=self.user)
+        RedisCache().delete(key)
 
     def add_comment(self, file):
         '''

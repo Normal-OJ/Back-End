@@ -78,13 +78,11 @@ def view_problem_list(
     return HTTPResponse('Success.', data=data)
 
 
-# TODO: remove "view" from route rule
+@problem_api.route('/<int:problem_id>', methods=['GET'])
 @problem_api.route('/view/<int:problem_id>', methods=['GET'])
 @login_required
-def view_problem(user, problem_id):
-    problem = Problem(problem_id)
-    if not problem:
-        return HTTPError('Problem not exist.', 404)
+@Request.doc('problem_id', 'problem', Problem)
+def view_problem(user: User, problem: Problem):
     if not can_view_problem(user, problem.obj):
         return HTTPError('Problem cannot view.', 403)
     # ip validation
@@ -106,13 +104,22 @@ def view_problem(user, problem_id):
     )
     if problem.obj.problem_type == 1:
         data.update({'fillInTemplate': problem.obj.test_case.fill_in_template})
-    data.update({'submitCount': problem.submit_count(user)})
+    data.update({
+        'submitCount': problem.submit_count(user),
+        'highScore': problem.get_high_score(user=user),
+    })
     return HTTPResponse('Problem can view.', data=data)
 
 
 @problem_api.route('/manage', methods=['POST'])
-@problem_api.route('/manage/<int:problem_id>',
-                   methods=['GET', 'PUT', 'DELETE'])
+@problem_api.route(
+    '/manage/<int:problem_id>',
+    methods=[
+        'GET',
+        'PUT',
+        'DELETE',
+    ],
+)
 @identity_verify(0, 1)
 def manage_problem(user, problem_id=None):
     @Request.json('type', 'courses: list', 'status', 'type', 'description',
@@ -283,20 +290,11 @@ def get_meta(token: str, problem_id: int):
 
 @problem_api.route('/<int:problem_id>/high-score', methods=['GET'])
 @login_required
-def high_score(user, problem_id):
-    problem = Problem(problem_id).obj
-    if problem is None:
-        return HTTPError('problem not exists', 404)
-    return HTTPResponse(
-        'Mya nee, 10 hrs ver.\n'
-        'https://www.youtube.com/watch?v=K7s2BuuPKgg',
-        data={
-            'score': problem.high_scores.get(
-                user.username,
-                0,
-            ),
-        },
-    )
+@Request.doc('problem_id', 'problem', Problem)
+def high_score(user: User, problem: Problem):
+    return HTTPResponse(data={
+        'score': problem.get_high_score(user=user),
+    })
 
 
 @problem_api.route('/clone', methods=['POST'])
@@ -328,15 +326,13 @@ def publish_problem(user, problem_id):
 @problem_api.route('/<int:problem_id>/stats', methods=['GET'])
 @Request.doc('problem_id', 'problem', Problem)
 @login_required
-def problem_stats(user, problem: Problem):
+def problem_stats(user: User, problem: Problem):
     ret = {}
     ret['statusCount'] = problem.get_submission_status()
     students = []
     for course in problem.courses:
         students += [User(name) for name in course.student_nicknames]
-    students_high_scores = [
-        problem.high_scores.get(u.username, 0) for u in students
-    ]
+    students_high_scores = [problem.get_high_score(user=u) for u in students]
     ret['acUserRatio'] = [problem.get_ac_user_count(), len(students)]
     ret['triedUserCount'] = problem.get_tried_user_count()
     ret['average'] = None if len(students) == 0 else statistics.mean(
