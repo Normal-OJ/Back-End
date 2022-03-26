@@ -1,9 +1,6 @@
-import secrets
-from typing import Optional, Union, List, Dict, Any, date
+from datetime import date
+from typing import Optional, Union
 from mongo import *
-from . import problem as problem_lib
-from . import course as course_lib
-from . import user as user_lib
 
 __all__ = ('create_submission')
 
@@ -36,9 +33,18 @@ def create_submission(
     for k in ['score', 'status', 'runTime', 'memoryUsage']:
         if locals()[k] is not None:
             submission.update(k, locals()[k])
-    # AC submission should be scored 100
     if status == 0:
+        # AC submission should be scored 100
         submission.update('score', 100)
+        submission.update('runTime', max(0, runTime or -1))
+        submission.update('memoryUsage', max(0, memoryUsage or -1))
+    elif status in [-1, 2, 6]:
+        # PE, CE, JE
+        submission.update('score', 0)
+        submission.update('runTime', -1)
+        submission.update('memoryUsage', -1)
+    else:
+        submission.update('score', min(99, score or -1))
         submission.update('runTime', max(0, runTime or -1))
         submission.update('memoryUsage', max(0, memoryUsage or -1))
     submission.save()
