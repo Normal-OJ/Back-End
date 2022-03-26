@@ -3,7 +3,7 @@ from typing import Optional, Union, List, Dict, Any
 from mongo import *
 from . import course as course_lib
 
-__all__ = ('create_problem')
+__all__ = ('create_problem',)
 
 
 def create_problem(

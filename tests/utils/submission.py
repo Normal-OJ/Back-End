@@ -1,20 +1,26 @@
+import tempfile
+import zipfile
+import pytest
 from datetime import date
-from typing import Optional, Union
+from random import randint
+from typing import Any, Optional, Union
 from mongo import *
+from mongo.utils import drop_none
 
-__all__ = ('create_submission')
+__all__ = ('create_submission',)
 
 
 def create_submission(
     *,
     user: Union[User, str],
     problem: Optional[Union[Problem, int]] = None,
-    lang: Optional[int] = None,
+    lang: Optional[int] = 0,
     timestamp: Optional[date] = None,
     score: Optional[int] = None,
     status: Optional[int] = None,
-    runTime: Optional[int] = None,
-    memoryUsage: Optional[int] = None,
+    exec_time: Optional[int] = None,
+    memory_usage: Optional[int] = None,
+    code: Optional[str] = '',
 ) -> Problem:
     if isinstance(user, str):
         user = User(user)
@@ -30,22 +36,28 @@ def create_submission(
     }
     sid = Submission.add(**params)
     submission = Submission(sid)
-    for k in ['score', 'status', 'runTime', 'memoryUsage']:
-        if locals()[k] is not None:
-            submission.update(k, locals()[k])
-    if status == 0:
-        # AC submission should be scored 100
-        submission.update('score', 100)
-        submission.update('runTime', max(0, runTime or -1))
-        submission.update('memoryUsage', max(0, memoryUsage or -1))
-    elif status in [-1, 2, 6]:
-        # PE, CE, JE
-        submission.update('score', 0)
-        submission.update('runTime', -1)
-        submission.update('memoryUsage', -1)
+    if status in [(PE := -1), (CE := 2), (JE := 6)]:
+        score, exec_time, memory_usage = 0, -1, -1
     else:
-        submission.update('score', min(99, score or -1))
-        submission.update('runTime', max(0, runTime or -1))
-        submission.update('memoryUsage', max(0, memoryUsage or -1))
-    submission.save()
+        if status == (AC := 0):
+            score = 100
+        if score is None:
+            score = randint(0, 999)
+        if exec_time is None:
+            exec_time = randint(0, 999)
+        if memory_usage is None:
+            memory_usage = randint(0, 99999)
+    ext_name = ['c', 'cpp', 'py']
+    with tempfile.SpooledTemporaryFile() as tmp:
+        with zipfile.ZipFile(tmp, 'w', zipfile.ZIP_DEFLATED) as arc:
+            arc.writestr(f'main.{ext_name[lang]}', code)
+            tmp.seek(0)
+        submission.submit(code_file=tmp)
+    submission.update(**drop_none({
+        'status': status,
+        'score': score,
+        'exec_time': exec_time,
+        'memory_usage': memory_usage,
+    }))
+    submission.reload()
     return submission

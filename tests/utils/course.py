@@ -1,10 +1,11 @@
+from pprint import pprint
 import secrets
 from typing import Union, List, Optional
 from mongo import *
 from mongo import engine
 from . import user as user_lib
 
-__all__ = ('create_course')
+__all__ = ('create_course',)
 
 
 def create_course(
@@ -28,15 +29,16 @@ def create_course(
     if (course := Course(name)):
         return course
     if not isinstance(teacher, User):
-        teacher = user_lib.create_user(username=teacher)
+        teacher = user_lib.create_user(username=teacher, role=1)
     Course.add_course(name, teacher)
     course = Course(name)
     if students is not None:
         if isinstance(students, int):
             students = [user_lib.create_user() for _ in range(students)]
+        student_nicknames = {}
         for student in students:
-            if isinstance(student, User):
-                course.add_user(student)
-            else:
-                course.add_user(user_lib.create_user(username=student))
+            if not isinstance(student, User):
+                student = user_lib.create_user(username=student)
+            student_nicknames[student.username] = student.username
+        course.update_student_namelist(student_nicknames)
     return course
