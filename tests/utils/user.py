@@ -56,4 +56,3 @@ def create_user(
             u.username: u.username,
         }
         course.update_student_namelist(new_student_nicknames)
-    
