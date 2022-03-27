@@ -7,7 +7,7 @@ from typing import Any, Optional, Union
 from mongo import *
 from mongo.utils import drop_none
 
-__all__ = ('create_submission',)
+__all__ = ('create_submission', )
 
 
 def create_submission(

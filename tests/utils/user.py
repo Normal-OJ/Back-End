@@ -4,7 +4,7 @@ from mongo import *
 from . import course as course_lib
 from .utils import drop_none
 
-__all__ = ('create_user',)
+__all__ = ('create_user', )
 
 
 def create_user(
@@ -53,7 +53,7 @@ def create_user(
     if course is not None:
         new_student_nicknames = {
             **course.student_nicknames,
-            u.username: u.username,
+            u['username']: u['username'],
         }
         course.update_student_namelist(new_student_nicknames)
     return new_user

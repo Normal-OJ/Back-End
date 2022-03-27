@@ -5,7 +5,7 @@ from mongo import *
 from mongo import engine
 from . import user as user_lib
 
-__all__ = ('create_course',)
+__all__ = ('create_course', )
 
 
 def create_course(

@@ -324,22 +324,26 @@ def publish_problem(user, problem_id):
 
 
 @problem_api.route('/<int:problem_id>/stats', methods=['GET'])
-@Request.doc('problem_id', 'problem', Problem)
 @login_required
+@Request.doc('problem_id', 'problem', Problem)
 def problem_stats(user: User, problem: Problem):
+    if not can_view_problem(user, problem.obj):
+        return HTTPError('Problem cannot view.', 403)
     ret = {}
-    ret['statusCount'] = problem.get_submission_status()
     students = []
     for course in problem.courses:
         students += [User(name) for name in course.student_nicknames]
     students_high_scores = [problem.get_high_score(user=u) for u in students]
+    # These score statistics are only counting the scores of the students in the course.
     ret['acUserRatio'] = [problem.get_ac_user_count(), len(students)]
     ret['triedUserCount'] = problem.get_tried_user_count()
     ret['average'] = None if len(students) == 0 else statistics.mean(
         students_high_scores)
-    ret['std'] = None if len(students) <= 1 else statistics.stdev(
+    ret['std'] = None if len(students) <= 1 else statistics.pstdev(
         students_high_scores)
     ret['scoreDistribution'] = students_high_scores
+    # However, submissions include the submissions of teacher and admin.
+    ret['statusCount'] = problem.get_submission_status()
     params = {
         'user': user,
         'offset': 0,

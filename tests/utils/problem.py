@@ -3,7 +3,7 @@ from typing import Optional, Union, List, Dict, Any
 from mongo import *
 from . import course as course_lib
 
-__all__ = ('create_problem',)
+__all__ = ('create_problem', )
 
 
 def create_problem(
@@ -11,7 +11,7 @@ def create_problem(
     course: Optional[Union[str, Course]] = None,
     owner: Optional[Union[str, User]] = None,
     name: Optional[str] = None,
-    status: Optional[int] = None,
+    status: Optional[int] = 0,
     description: Optional[Dict[str, Any]] = None,
     tags: Optional[List[str]] = None,
     type: Optional[int] = None,
