@@ -311,3 +311,23 @@ def test_top_10_memory_submissions(context, forge_client, app):
         data = rv.get_json()['data']
         top_10_memory = [s['memoryUsage'] for s in data['top10MemoryUsage']]
         assert top_10_memory == memory[:10]
+
+
+def test_cached_highscore(context, forge_client, app):
+    problem = context['problem']
+    student = context['student']
+    with app.app_context():
+        utils.submission.create_submission(problem=problem,
+                                           user=student,
+                                           status=1,
+                                           score=50)
+        client = forge_client(username=context['student'].username)
+        rv = client.get(f'/problem/{problem.id}/stats')
+        assert rv.status_code == 200, rv.data
+        data = rv.get_json()['data']
+        assert data['scoreDistribution'] == [50]
+
+        cached_rv = client.get(f'/problem/{problem.id}/stats')
+        assert cached_rv.status_code == 200, cached_rv.data
+        cached_data = cached_rv.get_json()['data']
+        assert cached_data['scoreDistribution'] == [50]
