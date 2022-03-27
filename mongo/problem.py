@@ -146,7 +146,7 @@ class Problem(MongoBase, engine=engine.Problem):
         cache = RedisCache()
         key = self.high_score_key(user=user)
         if (val := cache.get(key)) is not None:
-            return val
+            return int.from_bytes(val, 'little')
         # TODO: avoid calling mongoengine API directly
         submission = engine.Submission.objects(
             user=user.id,
