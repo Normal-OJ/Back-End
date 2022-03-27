@@ -80,10 +80,10 @@ class Request(metaclass=_Request):
                     return inner_wrapper(*args, **ks)
                 # if document not exists in db
                 except engine.DoesNotExist as e:
-                    return HTTPError(e, 404)
+                    return HTTPError(str(e), 404)
                 # if args missing
                 except TypeError as e:
-                    return HTTPError(e, 500)
+                    return HTTPError(str(e), 500)
                 except engine.ValidationError as e:
                     current_app.logger.info(
                         f'Validation error [err={e.to_dict()}]')

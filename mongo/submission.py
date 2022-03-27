@@ -466,23 +466,8 @@ class Submission(MongoBase, engine=engine.Submission):
                 stat['score'] = self.score
                 stat['problemStatus'] = self.status
             homework.save()
-        # update problem
-        # TODO: compute ac_user count (unused now)
-        # ac_submissions = Submission.filter(
-        #     user=self.user,
-        #     offset=0,
-        #     count=-1,
-        #     problem=self.problem,
-        #     status=0,
-        # )
-        # ac_users = {s.username for s in ac_submissions}
-        # self.problem.ac_user = len(ac_users)
-        # update high score
-        self.problem.high_scores[self.username] = engine.Submission.objects(
-            user=self.user,
-            problem=self.problem,
-        ).only('score').order_by('-score').first().score
-        self.problem.save()
+        key = Problem(self.problem).high_score_key(user=self.user)
+        RedisCache().delete(key)
 
     def add_comment(self, file):
         '''
@@ -524,6 +509,7 @@ class Submission(MongoBase, engine=engine.Submission):
         course: Optional[Union[Course, str]] = None,
         before: Optional[datetime] = None,
         after: Optional[datetime] = None,
+        sort_by: Optional[str] = None,
         with_count: bool = False,
     ):
         if before is not None and after is not None:
@@ -533,6 +519,8 @@ class Submission(MongoBase, engine=engine.Submission):
             raise ValueError(f'offset must >= 0!')
         if count < -1:
             raise ValueError(f'count must >=-1!')
+        if sort_by is not None and sort_by not in ['runTime', 'memoryUsage']:
+            raise ValueError(f'can only sort by runTime or memoryUsage')
         wont_have_results = False
         if isinstance(problem, int):
             problem = Problem(problem).obj
@@ -579,7 +567,8 @@ class Submission(MongoBase, engine=engine.Submission):
         }
         q = {k: v for k, v in q.items() if v is not None}
         # sort by upload time
-        submissions = engine.Submission.objects(**q).order_by('-timestamp')
+        submissions = engine.Submission.objects(
+            **q).order_by(sort_by if sort_by is not None else '-timestamp')
         submission_count = submissions.count()
         # truncate
         if count == -1:

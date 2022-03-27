@@ -1,5 +1,9 @@
 from mongo import *
 from mongo import engine
+from . import user
+from . import course
+from . import problem
+from . import submission
 
 import random
 import secrets

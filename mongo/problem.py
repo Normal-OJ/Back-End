@@ -2,7 +2,12 @@
 from . import engine
 from .base import MongoBase
 from .course import *
-from .utils import can_view_problem, drop_none
+from .utils import (
+    RedisCache,
+    can_view_problem,
+    doc_required,
+    drop_none,
+)
 from .user import User
 from zipfile import ZipFile
 from datetime import datetime
@@ -40,7 +45,7 @@ class Problem(MongoBase, engine=engine.Problem):
     def __init__(self, problem_id):
         self.problem_id = problem_id
 
-    def detailed_info(self, *ks, **kns):
+    def detailed_info(self, *ks, **kns) -> Dict[str, Any]:
         '''
         return detailed info about this problem. notice
         that the `input` and `output` of problem test
@@ -103,6 +108,57 @@ class Problem(MongoBase, engine=engine.Problem):
 
     def is_valid_ip(self, ip: str):
         return all(hw.is_valid_ip(ip) for hw in self.running_homeworks())
+
+    def get_submission_status(self) -> Dict[str, int]:
+        pipeline = {
+            "$group": {
+                "_id": "$status",
+                "count": {
+                    "$sum": 1
+                },
+            }
+        }
+        cursor = engine.Submission.objects(problem=self.id).aggregate(
+            [pipeline])
+        return {item['_id']: item['count'] for item in cursor}
+
+    def get_ac_user_count(self) -> int:
+        ac_users = engine.Submission.objects(
+            problem=self.id,
+            status=0,
+        ).distinct('user')
+        return len(ac_users)
+
+    def get_tried_user_count(self) -> int:
+        tried_users = engine.Submission.objects(
+            problem=self.id, ).distinct('user')
+        return len(tried_users)
+
+    @doc_required('user', User)
+    def high_score_key(self, user: User) -> str:
+        return f'PROBLEM_{self.id}_{user.id}_HIGH_SCORE'
+
+    @doc_required('user', User)
+    def get_high_score(self, user: User) -> int:
+        '''
+        Get highest score for user of this problem.
+        '''
+        cache = RedisCache()
+        key = self.high_score_key(user=user)
+        if (val := cache.get(key)) is not None:
+            return int.from_bytes(val, 'little')
+        # TODO: avoid calling mongoengine API directly
+        submission = engine.Submission.objects(
+            user=user.id,
+            problem=self.id,
+        ).only('score').order_by('-score').first()
+        # If there is no submission for this user
+        # Use 0 instead
+        high_score = getattr(submission, 'score', 0)
+        # It might < 0 if there is only incomplete submission
+        high_score = max(high_score, 0)
+        cache.set(key, high_score, ex=600)
+        return high_score
 
     @classmethod
     def get_problem_list(

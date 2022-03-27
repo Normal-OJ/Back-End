@@ -1,5 +1,6 @@
 import json
 import hashlib
+import statistics
 from flask import Blueprint, request, send_file
 from urllib import parse
 from zipfile import BadZipFile
@@ -77,13 +78,11 @@ def view_problem_list(
     return HTTPResponse('Success.', data=data)
 
 
-# TODO: remove "view" from route rule
+@problem_api.route('/<int:problem_id>', methods=['GET'])
 @problem_api.route('/view/<int:problem_id>', methods=['GET'])
 @login_required
-def view_problem(user, problem_id):
-    problem = Problem(problem_id)
-    if not problem:
-        return HTTPError('Problem not exist.', 404)
+@Request.doc('problem_id', 'problem', Problem)
+def view_problem(user: User, problem: Problem):
     if not can_view_problem(user, problem.obj):
         return HTTPError('Problem cannot view.', 403)
     # ip validation
@@ -105,13 +104,22 @@ def view_problem(user, problem_id):
     )
     if problem.obj.problem_type == 1:
         data.update({'fillInTemplate': problem.obj.test_case.fill_in_template})
-    data.update({'submitCount': problem.submit_count(user)})
+    data.update({
+        'submitCount': problem.submit_count(user),
+        'highScore': problem.get_high_score(user=user),
+    })
     return HTTPResponse('Problem can view.', data=data)
 
 
 @problem_api.route('/manage', methods=['POST'])
-@problem_api.route('/manage/<int:problem_id>',
-                   methods=['GET', 'PUT', 'DELETE'])
+@problem_api.route(
+    '/manage/<int:problem_id>',
+    methods=[
+        'GET',
+        'PUT',
+        'DELETE',
+    ],
+)
 @identity_verify(0, 1)
 def manage_problem(user, problem_id=None):
     @Request.json('type', 'courses: list', 'status', 'type', 'description',
@@ -282,20 +290,11 @@ def get_meta(token: str, problem_id: int):
 
 @problem_api.route('/<int:problem_id>/high-score', methods=['GET'])
 @login_required
-def high_score(user, problem_id):
-    problem = Problem(problem_id).obj
-    if problem is None:
-        return HTTPError('problem not exists', 404)
-    return HTTPResponse(
-        'Mya nee, 10 hrs ver.\n'
-        'https://www.youtube.com/watch?v=K7s2BuuPKgg',
-        data={
-            'score': problem.high_scores.get(
-                user.username,
-                0,
-            ),
-        },
-    )
+@Request.doc('problem_id', 'problem', Problem)
+def high_score(user: User, problem: Problem):
+    return HTTPResponse(data={
+        'score': problem.get_high_score(user=user),
+    })
 
 
 @problem_api.route('/clone', methods=['POST'])
@@ -322,3 +321,42 @@ def publish_problem(user, problem_id):
         return HTTPError('Not the owner.', 403)
     Problem.release_problem(problem_id)
     return HTTPResponse('Success.')
+
+
+@problem_api.route('/<int:problem_id>/stats', methods=['GET'])
+@login_required
+@Request.doc('problem_id', 'problem', Problem)
+def problem_stats(user: User, problem: Problem):
+    if not can_view_problem(user, problem.obj):
+        return HTTPError('Problem cannot view.', 403)
+    ret = {}
+    students = []
+    for course in problem.courses:
+        students += [User(name) for name in course.student_nicknames]
+    students_high_scores = [problem.get_high_score(user=u) for u in students]
+    # These score statistics are only counting the scores of the students in the course.
+    ret['acUserRatio'] = [problem.get_ac_user_count(), len(students)]
+    ret['triedUserCount'] = problem.get_tried_user_count()
+    ret['average'] = None if len(students) == 0 else statistics.mean(
+        students_high_scores)
+    ret['std'] = None if len(students) <= 1 else statistics.pstdev(
+        students_high_scores)
+    ret['scoreDistribution'] = students_high_scores
+    # However, submissions include the submissions of teacher and admin.
+    ret['statusCount'] = problem.get_submission_status()
+    params = {
+        'user': user,
+        'offset': 0,
+        'count': 10,
+        'problem': problem.id,
+        'status': 0,
+    }
+    top_10_runtime_submissions = [
+        s.to_dict() for s in Submission.filter(**params, sort_by='runTime')
+    ]
+    ret['top10RunTime'] = top_10_runtime_submissions
+    top_10_memory_submissions = [
+        s.to_dict() for s in Submission.filter(**params, sort_by='memoryUsage')
+    ]
+    ret['top10MemoryUsage'] = top_10_memory_submissions
+    return HTTPResponse('Success.', data=ret)
