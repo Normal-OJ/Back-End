@@ -332,7 +332,7 @@ def problem_stats(user: User, problem: Problem):
     ret = {}
     students = []
     for course in problem.courses:
-        students += [User(name) for name in course.student_nicknames]
+        students += [User(name) for name in course.student_nicknames.keys()]
     students_high_scores = [problem.get_high_score(user=u) for u in students]
     # These score statistics are only counting the scores of the students in the course.
     ret['acUserRatio'] = [problem.get_ac_user_count(), len(students)]
