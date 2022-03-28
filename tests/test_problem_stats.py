@@ -1,5 +1,5 @@
 import math
-from random import shuffle
+from random import randint, shuffle
 import pytest
 from mongo import course
 from mongo import User
@@ -331,3 +331,22 @@ def test_cached_highscore(context, forge_client, app):
         assert cached_rv.status_code == 200, cached_rv.data
         cached_data = cached_rv.get_json()['data']
         assert cached_data['scoreDistribution'] == [50]
+
+
+# def test_performance(context, forge_client, app):
+#     problem = context['problem']
+#     course = context['course']
+#     students = [context['student']] + [
+#         utils.user.create_user(role=2, course=course)
+#         for _ in range(99)
+#     ]
+#     with app.app_context():
+#         for i in range(1000):
+#             utils.submission.create_submission(
+#                 problem=problem,
+#                 user=students[randint(0, len(students) - 1)],
+#             )
+#         client = forge_client(username=context['student'].username)
+#         rv = client.get(f'/problem/{problem.id}/stats')
+#         assert rv.status_code == 200, rv.data
+#         assert 0

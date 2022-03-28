@@ -36,6 +36,8 @@ def create_submission(
     }
     sid = Submission.add(**params)
     submission = Submission(sid)
+    if status is None:
+        status = randint(-1, 7)
     if status in [(PE := -1), (CE := 2), (JE := 6)]:
         score, exec_time, memory_usage = 0, -1, -1
     else:
