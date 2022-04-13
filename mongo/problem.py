@@ -165,6 +165,21 @@ class Problem(MongoBase, engine=engine.Problem):
         cache.set(key, high_score, ex=600)
         return high_score
 
+    # TODO: Provide a general interface to test permission
+    @doc_required('user', User)
+    def check_manage_permission(self, user: User) -> bool:
+        '''
+        Check whether a user is permmited to call manage API
+        '''
+        # Admin
+        if user.role == 0:
+            return True
+        # Student
+        if user.role == 2:
+            return False
+        # Teacher && is owner
+        return self.owner == user.username
+
     @classmethod
     def get_problem_list(
         cls,

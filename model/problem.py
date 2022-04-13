@@ -111,14 +111,40 @@ def view_problem(user: User, problem: Problem):
     return HTTPResponse('Problem can view.', data=data)
 
 
+@problem_api.route('/manage/<int:problem_id>', methods=['GET'])
+@Request.doc('problem_id', 'problem', Problem)
+@identity_verify(0, 1)  # admin and teacher only
+def get_problem_detailed(user, problem: Problem):
+    '''
+    Get problem's detailed information
+    '''
+    if not problem.check_manage_permission(user=user):
+        return HTTPError('Not enough permission', 403)
+    info = problem.detailed_info(
+        'courses',
+        'problemName',
+        'description',
+        'tags',
+        'testCase',
+        'ACUser',
+        'submitter',
+        'allowedLanguage',
+        'canViewStdout',
+        'quota',
+        status='problemStatus',
+        type='problemType',
+    )
+    info.update({'submitCount': problem.submit_count(user)})
+    return HTTPResponse(
+        'Success.',
+        data=info,
+    )
+
+
 @problem_api.route('/manage', methods=['POST'])
 @problem_api.route(
     '/manage/<int:problem_id>',
-    methods=[
-        'GET',
-        'PUT',
-        'DELETE',
-    ],
+    methods=['PUT', 'DELETE'],
 )
 @identity_verify(0, 1)
 def manage_problem(user, problem_id=None):
@@ -169,35 +195,13 @@ def manage_problem(user, problem_id=None):
 
     # get problem object from DB
     if request.method != 'POST':
-        problem = Problem(problem_id).obj
-        if problem is None:
+        problem = Problem(problem_id)
+        if not problem:
             return HTTPError('Problem not exist.', 404)
         if user.role == 1 and problem.owner != user.username:
             return HTTPError('Not the owner.', 403)
-    # return detailed problem info
-    if request.method == 'GET':
-        problem = Problem(problem_id)
-        info = problem.detailed_info(
-            'courses',
-            'problemName',
-            'description',
-            'tags',
-            'testCase',
-            'ACUser',
-            'submitter',
-            'allowedLanguage',
-            'canViewStdout',
-            'quota',
-            status='problemStatus',
-            type='problemType',
-        )
-        info.update({'submitCount': problem.submit_count(user)})
-        return HTTPResponse(
-            'Success.',
-            data=info,
-        )
     # delete problem
-    elif request.method == 'DELETE':
+    if request.method == 'DELETE':
         Problem.delete_problem(problem_id)
         return HTTPResponse('Success.')
     # edit problem
