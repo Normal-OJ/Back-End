@@ -396,8 +396,10 @@ class TestProblem(BaseTester):
             }
         }
         prob = utils.problem.create_problem()
-        rv = client_teacher.put(f'/problem/manage/{prob.id}',
-                                json=request_json)
+        rv = client_teacher.put(
+            f'/problem/manage/{prob.id}',
+            json=request_json,
+        )
         json = rv.get_json()
         assert rv.status_code == 403
         assert json['status'] == 'err'
@@ -456,15 +458,14 @@ class TestProblem(BaseTester):
         print(json)
         assert rv.status_code == 200
         assert json['status'] == 'ok'
-        assert json['message'] == 'Success.'
 
     # admin get information of a problem (GET /problem/manage/<problem_id>)
     def test_admin_manage_problem(self, client_admin):
-        rv = client_admin.get('/problem/manage/3')
+        pid = 3
+        rv = client_admin.get(f'/problem/manage/{pid}')
         json = rv.get_json()
         assert rv.status_code == 200
         assert json['status'] == 'ok'
-        assert json['message'] == 'Success.'
         assert json['data'] == {
             'courses': [],
             'status': 1,
@@ -487,7 +488,7 @@ class TestProblem(BaseTester):
             'ACUser': 0,
             'submitter': 0,
             'allowedLanguage': 7,
-            'canViewStdout': True,
+            'canViewStdout': Problem(pid).can_view_stdout,
             'quota': -1,
             'submitCount': 0
         }

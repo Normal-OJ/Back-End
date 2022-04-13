@@ -231,6 +231,8 @@ class Problem(MongoBase, engine=engine.Problem):
         quota: Optional[int] = None,
         default_code: Optional[str] = None,
     ):
+        if len(courses) == 0:
+            raise ValueError('No course provided')
         course_objs = []
         for course in map(Course, courses):
             if not course:
@@ -263,20 +265,24 @@ class Problem(MongoBase, engine=engine.Problem):
     @classmethod
     def edit_problem(
         cls,
-        user,
-        problem_id,
-        courses,
-        status,
-        problem_name,
-        description,
-        tags,
+        user: User,
+        problem_id: int,
+        courses: List[str],
+        status: int,
+        problem_name: str,
+        description: Dict[str, Any],
+        tags: List[str],
         type,
-        test_case_info=None,
-        allowed_language=7,
-        can_view_stdout=False,
-        quota=-1,
-        default_code='',
+        test_case_info: Dict[str, Any] = None,
+        allowed_language: int = 7,
+        can_view_stdout: bool = False,
+        quota: int = -1,
+        default_code: str = '',
     ):
+        if type != 2:
+            score = sum(t['taskScore'] for t in test_case_info['tasks'])
+            if score != 100:
+                raise ValueError("Cases' scores should be 100 in total")
         problem = Problem(problem_id).obj
         course_objs = []
         for name in courses:
