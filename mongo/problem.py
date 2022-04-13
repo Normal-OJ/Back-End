@@ -313,32 +313,24 @@ class Problem(MongoBase, engine=engine.Problem):
                 test_case=test_case,
             )
 
-    @classmethod
-    def edit_problem_test_case(cls, problem_id, test_case):
+    def update_testcase(self, test_case):
         '''
         edit problem's testcase
 
         Args:
-            problem_id: target problem's id
             test_case: testcase zip file
         Exceptions:
             zipfile.BadZipFile: if `test_case` is not a zip file
             ValueError: if test case is None or problem_id is invalid
             engine.DoesNotExist
-        Return:
-            a bool denote whether the update is successful
         '''
-        # query problem document
-        problem = Problem(problem_id).obj
-        if problem is None:
-            raise engine.DoesNotExist(f'problem [{problem_id}] not exists.')
         # test case must not be None
         if test_case is None:
             raise ValueError('test case is None')
         # check file structure
         # create set of excepted filenames
         excepted_names = set()
-        for i, task in enumerate(problem.test_case.tasks):
+        for i, task in enumerate(self.test_case.tasks):
             for j in range(task.case_count):
                 excepted_names.add(f'{i:02d}{j:02d}.in')
                 excepted_names.add(f'{i:02d}{j:02d}.out')
@@ -364,24 +356,18 @@ class Problem(MongoBase, engine=engine.Problem):
         # save zip file
         test_case.seek(0)
         # check whether the test case exists
-        if problem.test_case.case_zip.grid_id is None:
+        if self.test_case.case_zip.grid_id is None:
             # if no, put data to a new file
-            write_func = problem.test_case.case_zip.put
+            write_func = self.test_case.case_zip.put
         else:
             # else, replace original file with a new one
-            write_func = problem.test_case.case_zip.replace
+            write_func = self.test_case.case_zip.replace
         write_func(
             test_case,
             content_type='application/zip',
         )
         # update problem obj
-        problem.save()
-        return True
-
-    @classmethod
-    def delete_problem(cls, problem_id):
-        problem = Problem(problem_id).obj
-        problem.delete()
+        self.save()
 
     @classmethod
     def copy_problem(cls, user, problem_id):

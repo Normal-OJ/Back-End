@@ -181,13 +181,14 @@ def create_problem(user: User, **ks):
 def delete_problem(user: User, problem: Problem):
     if not problem.check_manage_permission(user=user):
         return HTTPError('Not enough permission', 403)
-    problem.delete_problem(problem.id)
+    problem.delete()
     return HTTPResponse()
 
 
-@problem_api.route('/manage/<int:problem_id>', methods=['PUT'])
+@problem_api.route('/manage/<int:problem>', methods=['PUT'])
 @identity_verify(0, 1)
-def manage_problem(user: User, problem_id: int):
+@Request.doc('problem', Problem)
+def manage_problem(user: User, problem: Problem):
 
     @Request.json(
         'type',
@@ -206,7 +207,7 @@ def manage_problem(user: User, problem_id: int):
     def modify_problem(**p_ks):
         Problem.edit_problem(
             user=user,
-            problem_id=problem_id,
+            problem_id=problem.id,
             **drop_none(p_ks),
         )
         return HTTPResponse()
@@ -214,20 +215,16 @@ def manage_problem(user: User, problem_id: int):
     @Request.files('case')
     def modify_problem_test_case(case):
         try:
-            result = Problem.edit_problem_test_case(problem_id, case)
+            problem.update_testcase(case)
         except engine.DoesNotExist as e:
             return HTTPError(str(e), 404)
         except (ValueError, BadZipFile) as e:
             return HTTPError(str(e), 400)
         except BadTestCase as e:
             return HTTPError(str(e), 400, data=e.dict)
-        return HTTPResponse('Success.', data=result)
+        return HTTPResponse('Success.', data=True)
 
-    # get problem object from DB
-    problem = Problem(problem_id)
-    if not problem:
-        return HTTPError('Problem not exist.', 404)
-    if user.role == 1 and problem.owner != user.username:
+    if not problem.check_manage_permission(user=user):
         return HTTPError('Not the owner.', 403)
     # edit problem
     try:
