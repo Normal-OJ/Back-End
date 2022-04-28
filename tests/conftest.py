@@ -166,8 +166,8 @@ def problem_ids():
                 },
             )
             if prob.problem_type != 2:
-                prob.update_testcase(
-                    get_file('default/test_case.zip')['case'][0], )
+                test_case = get_file('default/test_case.zip')['case'][0]
+                prob.update_test_case(test_case)
             rets.append(prob.id)
 
         return rets

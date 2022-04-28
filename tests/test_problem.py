@@ -296,7 +296,6 @@ class TestProblem(BaseTester):
         json = rv.get_json()
         assert rv.status_code == 403
         assert json['status'] == 'err'
-        assert json['message'] == 'Problem cannot view.'
 
     # student view online problem (GET /problem/<problem_id>)
     def test_student_view_online_problem(self, client_student):

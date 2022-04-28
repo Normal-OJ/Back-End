@@ -293,7 +293,7 @@ class Problem(MongoBase, engine=engine.Problem):
                 test_case=test_case,
             )
 
-    def update_testcase(self, test_case: BinaryIO):
+    def update_test_case(self, test_case: BinaryIO):
         '''
         edit problem's testcase
 

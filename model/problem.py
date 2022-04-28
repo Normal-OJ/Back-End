@@ -19,6 +19,10 @@ __all__ = ['problem_api']
 problem_api = Blueprint('problem_api', __name__)
 
 
+def permission_error_response():
+    return HTTPError('Not enough permission', 403)
+
+
 @problem_api.route('/', methods=['GET'])
 @login_required
 @Request.args(
@@ -86,7 +90,7 @@ def view_problem_list(
 @Request.doc('problem_id', 'problem', Problem)
 def view_problem(user: User, problem: Problem):
     if not can_view_problem(user, problem.obj):
-        return HTTPError('Problem cannot view.', 403)
+        return permission_error_response()
     # ip validation
     if not problem.is_valid_ip(get_ip()):
         return HTTPError('Invalid IP address.', 403)
@@ -121,7 +125,7 @@ def get_problem_detailed(user, problem: Problem):
     Get problem's detailed information
     '''
     if not problem.check_manage_permission(user=user):
-        return HTTPError('Not enough permission', 403)
+        return permission_error_response()
     info = problem.detailed_info(
         'courses',
         'problemName',
@@ -180,7 +184,7 @@ def create_problem(user: User, **ks):
 @Request.doc('problem', Problem)
 def delete_problem(user: User, problem: Problem):
     if not problem.check_manage_permission(user=user):
-        return HTTPError('Not enough permission', 403)
+        return permission_error_response()
     problem.delete()
     return HTTPResponse()
 
@@ -215,7 +219,7 @@ def manage_problem(user: User, problem: Problem):
     @Request.files('case')
     def modify_problem_test_case(case):
         try:
-            problem.update_testcase(case)
+            problem.update_test_case(case)
         except engine.DoesNotExist as e:
             return HTTPError(str(e), 404)
         except (ValueError, BadZipFile) as e:
@@ -225,7 +229,7 @@ def manage_problem(user: User, problem: Problem):
         return HTTPResponse('Success.', data=True)
 
     if not problem.check_manage_permission(user=user):
-        return HTTPError('Not the owner.', 403)
+        return permission_error_response()
     # edit problem
     try:
         # modify problem meta
@@ -250,35 +254,33 @@ def manage_problem(user: User, problem: Problem):
         return HTTPError('Course not found.', 404)
 
 
+@problem_api.route('/<int:problem_id>/test-case', methods=['GET'])
 @problem_api.route('/<int:problem_id>/testcase', methods=['GET'])
 @login_required
-@identity_verify(0, 1)
-def get_testcase(user, problem_id):
-    problem = Problem(problem_id).obj
-    if problem is None:
-        return HTTPError(f'Unexisted problem id ({problem_id})', 404)
+@Request.doc('problem_id', 'problem', Problem)
+def get_test_case(user: User, problem: Problem):
+    if not problem.check_manage_permission(user=user):
+        return permission_error_response()
     return send_file(
         problem.test_case.case_zip,
         mimetype='application/zip',
         as_attachment=True,
-        download_name=f'testdata-{problem_id}.zip',
+        download_name=f'testdata-{problem.id}.zip',
     )
 
 
 # FIXME: Find a better name
 @problem_api.route('/<int:problem_id>/testdata', methods=['GET'])
 @Request.args('token: str')
-def get_testdata(token: str, problem_id: int):
+@Request.doc('problem_id', 'problem', Problem)
+def get_testdata(token: str, problem: Problem):
     if sandbox.find_by_token(token) is None:
         return HTTPError('Invalid sandbox token', 401)
-    problem = Problem(problem_id)
-    if not problem:
-        return HTTPError(f'{problem} not found')
     return send_file(
         problem.test_case.case_zip,
         mimetype='application/zip',
         as_attachment=True,
-        download_name=f'testdata-{problem_id}.zip',
+        download_name=f'testdata-{problem.id}.zip',
     )
 
 
@@ -364,7 +366,7 @@ def publish_problem(user, problem: Problem):
 @Request.doc('problem_id', 'problem', Problem)
 def problem_stats(user: User, problem: Problem):
     if not can_view_problem(user, problem.obj):
-        return HTTPError('Problem cannot view.', 403)
+        return permission_error_response()
     ret = {}
     students = []
     for course in problem.courses:
