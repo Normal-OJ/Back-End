@@ -12,7 +12,7 @@ from mongo.problem import *
 from .auth import *
 from .utils import *
 from mongo.utils import can_view_problem, drop_none
-from mongo.problem import *
+from mongo.problem.problem import *
 
 __all__ = ['problem_api']
 

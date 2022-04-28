@@ -1,45 +1,25 @@
-# TODO: use **ks to simplify function definition
-from . import engine
-from .base import MongoBase
-from .course import *
-from .utils import (
+from .. import engine
+from ..base import MongoBase
+from ..course import *
+from ..utils import (
     RedisCache,
     can_view_problem,
     doc_required,
     drop_none,
 )
-from .user import User
-from zipfile import ZipFile
+from ..user import User
+from .test_case import SimpleIO
 from datetime import datetime
 from typing import (
     Any,
+    BinaryIO,
     Dict,
     List,
     Optional,
 )
 import json
-import zipfile
 
-__all__ = [
-    'Problem',
-    'BadTestCase',
-]
-
-
-class BadTestCase(Exception):
-
-    def __init__(self, expression, extra, short):
-        super().__init__(expression)
-        self.extra = extra
-        self.short = short
-
-    @property
-    def dict(self):
-        return {
-            'extra': self.extra,
-            'short': self.short,
-            'ERR_TYPE': 'BAD_TEST_CASE',
-        }
+__all__ = ('Problem', )
 
 
 class Problem(MongoBase, engine=engine.Problem):
@@ -107,7 +87,7 @@ class Problem(MongoBase, engine=engine.Problem):
         return user.problem_submission.get(str(self.problem_id), 0)
 
     def running_homeworks(self) -> List:
-        from .homework import Homework
+        from ..homework import Homework
         now = datetime.now()
         return [Homework(hw.id) for hw in self.homeworks if now in hw.duration]
 
@@ -273,7 +253,7 @@ class Problem(MongoBase, engine=engine.Problem):
         description: Dict[str, Any],
         tags: List[str],
         type,
-        test_case_info: Dict[str, Any] = None,
+        test_case_info: Optional[Dict[str, Any]] = None,
         allowed_language: int = 7,
         can_view_stdout: bool = False,
         quota: int = -1,
@@ -313,7 +293,7 @@ class Problem(MongoBase, engine=engine.Problem):
                 test_case=test_case,
             )
 
-    def update_testcase(self, test_case):
+    def update_testcase(self, test_case: BinaryIO):
         '''
         edit problem's testcase
 
@@ -324,35 +304,9 @@ class Problem(MongoBase, engine=engine.Problem):
             ValueError: if test case is None or problem_id is invalid
             engine.DoesNotExist
         '''
-        # test case must not be None
-        if test_case is None:
-            raise ValueError('test case is None')
-        # check file structure
-        # create set of excepted filenames
-        excepted_names = set()
-        for i, task in enumerate(self.test_case.tasks):
-            for j in range(task.case_count):
-                excepted_names.add(f'{i:02d}{j:02d}.in')
-                excepted_names.add(f'{i:02d}{j:02d}.out')
-        # check chaos folder
-        chaos_path = zipfile.Path(test_case, at='chaos')
-        if chaos_path.exists() and chaos_path.is_file():
-            raise BadTestCase('find chaos, but it\'s not a directory')
-        # input/output filenames
-        in_out = {
-            name
-            for name in ZipFile(test_case).namelist()
-            if not name.startswith('chaos')
-        }
-        # check diff
-        ex = in_out - excepted_names
-        sh = excepted_names - in_out
-        if len(ex) or len(sh):
-            raise BadTestCase(
-                'io data not equal to meta provided',
-                [*ex],
-                [*sh],
-            )
+        if not SimpleIO(self).validate(test_case):
+            # FIXME: Validate should raise error if failed
+            return
         # save zip file
         test_case.seek(0)
         # check whether the test case exists

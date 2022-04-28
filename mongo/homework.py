@@ -4,7 +4,7 @@ from .user import User
 from .base import MongoBase
 from .course import Course
 from .utils import perm, doc_required
-from .problem import Problem
+from .problem.problem import Problem
 from .ip_filter import IPFilter
 from datetime import datetime
 
