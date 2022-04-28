@@ -3,12 +3,9 @@ from mongoengine import signals
 import mongoengine
 import os
 import html
-from enum import Enum, IntEnum
+from enum import IntEnum
 from datetime import datetime
 from zipfile import ZipFile, BadZipFile
-from .utils import perm, can_view_problem, RedisCache
-from typing import Union
-import json
 
 __all__ = [*mongoengine.__all__]
 
@@ -408,31 +405,6 @@ class Submission(Document):
     code = ZipField(required=True, null=True, max_size=10**7)
     last_send = DateTimeField(db_field='lastSend', default=datetime.now)
     comment = FileField(default=None, null=True)
-
-    def permission(self, user):
-        '''
-        3: can rejudge & grade, 
-        2: can view upload & comment, 
-        1: can view basic info, 
-        0: can't view
-        '''
-        key = f'SUBMISSION_PERMISSION_{self.id}_{user.id}_{self.problem.id}'
-        # Check cache
-        cache = RedisCache()
-        if (v := cache.get(key)) is not None:
-            return int(v)
-        # Calculate
-        if not can_view_problem(user, self.problem):
-            ret = 0
-        else:
-            ret = 3 - [
-                max(perm(course, user)
-                    for course in self.problem.courses) >= 2,
-                user.username == self.user.username,
-                True,
-            ].index(True)
-        cache.set(key, ret, 60)
-        return ret
 
 
 @escape_markdown.apply

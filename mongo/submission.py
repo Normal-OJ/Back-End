@@ -25,7 +25,7 @@ from .user import User
 from .problem import Problem
 from .homework import Homework
 from .course import Course
-from .utils import RedisCache
+from .utils import (RedisCache, perm)
 
 __all__ = [
     'SubmissionConfig',
@@ -724,3 +724,28 @@ class Submission(MongoBase, engine=engine.Submission):
         '''
         ext = self.main_code_ext
         return self.get_code(f'main{ext}')
+
+    def permission(self, user):
+        '''
+        3: can rejudge & grade, 
+        2: can view upload & comment, 
+        1: can view basic info, 
+        0: can't view
+        '''
+        key = f'SUBMISSION_PERMISSION_{self.id}_{user.id}_{self.problem.id}'
+        # Check cache
+        cache = RedisCache()
+        if (v := cache.get(key)) is not None:
+            return int(v)
+        # Calculate
+        if not Problem(self.problem).check_view_permission(user=user):
+            ret = 0
+        else:
+            ret = 3 - [
+                max(perm(course, user)
+                    for course in self.problem.courses) >= 2,
+                user.username == self.user.username,
+                True,
+            ].index(True)
+        cache.set(key, ret, 60)
+        return ret

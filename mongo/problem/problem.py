@@ -3,9 +3,9 @@ from ..base import MongoBase
 from ..course import *
 from ..utils import (
     RedisCache,
-    can_view_problem,
     doc_required,
     drop_none,
+    perm,
 )
 from ..user import User
 from .test_case import SimpleIO
@@ -23,9 +23,6 @@ __all__ = ('Problem', )
 
 
 class Problem(MongoBase, engine=engine.Problem):
-
-    def __init__(self, problem_id):
-        self.problem_id = problem_id
 
     def detailed_info(self, *ks, **kns) -> Dict[str, Any]:
         '''
@@ -160,6 +157,24 @@ class Problem(MongoBase, engine=engine.Problem):
         # Teacher && is owner
         return self.owner == user.username
 
+    @doc_required('user', User)
+    def check_view_permission(self, user: User) -> bool:
+        '''cheeck if a user can view the problem'''
+        if user.role == 0:
+            return True
+        if user.contest:
+            if user.contest in self.contests:
+                return True
+            return False
+        if user.username == self.owner:
+            return True
+        for course in self.courses:
+            permission = 1 if course.course_name == 'Public' else perm(
+                course, user)
+            if permission and (self.problem_status == 0 or permission >= 2):
+                return True
+        return False
+
     @classmethod
     def get_problem_list(
         cls,
@@ -179,15 +194,16 @@ class Problem(MongoBase, engine=engine.Problem):
             if course is None:
                 return []
         # qurey args
-        ks = {
+        ks = drop_none({
             'problem_id': problem_id,
             'problem_name': name,
             'courses': course,
             'tags__in': tags,
-        }
-        ks = {k: v for k, v in ks.items() if v is not None}
-        problems = engine.Problem.objects(**ks).order_by('problemId')
-        problems = [p for p in problems if can_view_problem(user, p)]
+        })
+        problems = [
+            p for p in engine.Problem.objects(**ks).order_by('problemId')
+            if cls(p).check_view_permission(user=user)
+        ]
         # truncate
         if offset < 0 or (offset >= len(problems) and len(problems)):
             raise IndexError

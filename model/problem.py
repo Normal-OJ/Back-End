@@ -7,12 +7,10 @@ from zipfile import BadZipFile
 from mongo import *
 from mongo import engine
 from mongo import sandbox
-from mongo.utils import can_view_problem, drop_none
+from mongo.utils import drop_none
 from mongo.problem import *
 from .auth import *
 from .utils import *
-from mongo.utils import can_view_problem, drop_none
-from mongo.problem.problem import *
 
 __all__ = ['problem_api']
 
@@ -89,7 +87,7 @@ def view_problem_list(
 @login_required
 @Request.doc('problem_id', 'problem', Problem)
 def view_problem(user: User, problem: Problem):
-    if not can_view_problem(user, problem.obj):
+    if not problem.check_view_permission(user=user):
         return permission_error_response()
     # ip validation
     if not problem.is_valid_ip(get_ip()):
@@ -336,7 +334,7 @@ def clone_problem(
     target,
     status,
 ):
-    if not can_view_problem(user, problem):
+    if not problem.check_view_permission(user=user):
         return HTTPError('Problem can not view.', 403)
     override = drop_none({'status': status})
     new_problem_id = problem.copy_to(
@@ -365,7 +363,7 @@ def publish_problem(user, problem: Problem):
 @login_required
 @Request.doc('problem_id', 'problem', Problem)
 def problem_stats(user: User, problem: Problem):
-    if not can_view_problem(user, problem.obj):
+    if not problem.check_view_permission(user=user):
         return permission_error_response()
     ret = {}
     students = []

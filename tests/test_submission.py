@@ -5,7 +5,6 @@ import pathlib
 from pprint import pprint
 from mongo import *
 from mongo import engine
-from mongo.utils import can_view_problem
 from .base_tester import BaseTester
 from .utils import *
 
