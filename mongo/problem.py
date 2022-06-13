@@ -119,7 +119,7 @@ class Problem(MongoBase, engine=engine.Problem):
             }
         }
         cursor = engine.Submission.objects(problem=self.id).aggregate(
-            [pipeline])
+            [pipeline], )
         return {item['_id']: item['count'] for item in cursor}
 
     def get_ac_user_count(self) -> int:

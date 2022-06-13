@@ -1,8 +1,9 @@
 import tempfile
+import warnings
 import zipfile
 import pytest
-from datetime import date
-from random import randint
+from datetime import date, datetime
+from random import randint, choice
 from typing import Any, Optional, Union
 from mongo import *
 from mongo.utils import drop_none
@@ -15,19 +16,21 @@ def create_submission(
     user: Union[User, str],
     problem: Optional[Union[Problem, int]] = None,
     lang: Optional[int] = 0,
-    timestamp: Optional[date] = None,
+    timestamp: Optional[float] = None,
     score: Optional[int] = None,
     status: Optional[int] = None,
     exec_time: Optional[int] = None,
     memory_usage: Optional[int] = None,
     code: Optional[str] = '',
-) -> Problem:
+) -> Submission:
     if isinstance(user, str):
         user = User(user)
     if isinstance(problem, int):
         problem = Problem(problem)
     if not user or not problem:
         raise ValueError('Both user and problem must be provided')
+    if timestamp:
+        timestamp = datetime.fromtimestamp(timestamp)
     params = {
         'problem_id': problem.id,
         'username': user.username,
@@ -37,11 +40,18 @@ def create_submission(
     sid = Submission.add(**params)
     submission = Submission(sid)
     if status is None:
-        status = randint(-1, 7)
+        if score is not None:
+            status = 0 if score == 100 else choice([1, 3, 4, 5])
+        else:
+            status = randint(-1, 7)
     if status in [(PE := -1), (CE := 2), (JE := 6)]:
+        if score is not None:
+            warnings.warn("score is overridden since status is PE/CE/JE")
         score, exec_time, memory_usage = 0, -1, -1
     else:
         if status == (AC := 0):
+            if score is not None:
+                warnings.warn("score is overridden since status is AC")
             score = 100
         if score is None:
             score = randint(0, 999)

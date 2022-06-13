@@ -2,8 +2,9 @@ from . import engine
 from .user import *
 from .utils import *
 import re
-from typing import Dict
+from typing import Dict, List, Optional
 from .base import MongoBase
+from datetime import datetime
 
 __all__ = [
     'Course',
@@ -96,6 +97,90 @@ class Course(MongoBase, engine=engine.Course):
         self.remove_user(self.teacher)
         self.delete()
         return True
+
+    def get_scoreboard(self,
+                       problem_ids: List[int],
+                       start: Optional[float] = None,
+                       end: Optional[float] = None) -> List[Dict]:
+        scoreboard = []
+        usernames = [User(u).id for u in self.student_nicknames.keys()]
+        matching = {
+            "user": {
+                "$in": usernames
+            },
+            "problem": {
+                "$in": problem_ids
+            },
+            "timestamp": {},
+        }
+        if start:
+            matching['timestamp']['$gte'] = datetime.fromtimestamp(start)
+            # print('st', datetime.fromtimestamp(start))
+        if end:
+            matching['timestamp']['$lte'] = datetime.fromtimestamp(end)
+            # print('ed', datetime.fromtimestamp(end))
+            # raise 'h'
+        if not matching["timestamp"]:
+            del matching["timestamp"]
+        pipeline = [
+            {
+                "$match": matching
+            },
+            {
+                "$group": {
+                    "_id": {
+                        "user": "$user",
+                        "problem": "$problem",
+                    },
+                    "count": {
+                        "$sum": 1
+                    },
+                    "max": {
+                        "$max": "$score"
+                    },
+                    "min": {
+                        "$min": "$score"
+                    },
+                    "avg": {
+                        "$avg": "$score"
+                    },
+                }
+            },
+            {
+                "$group": {
+                    "_id": "$_id.user",
+                    "scores": {
+                        "$push": {
+                            "pid": "$_id.problem",
+                            "count": "$count",
+                            "max": "$max",
+                            "min": "$min",
+                            "avg": "$avg",
+                        },
+                    },
+                }
+            },
+        ]
+        cursor = engine.Submission.objects().aggregate(pipeline)
+        unrecorded_users = set(usernames)
+        for item in cursor:
+            sum_of_score = sum(s['max'] for s in item['scores'])
+            scoreboard.append({
+                'user': User(item['_id']).info,
+                'sum': sum_of_score,
+                'avg': sum_of_score / len(problem_ids),
+                **{f'{score["pid"]}': score
+                   for score in item['scores']},
+            })
+            unrecorded_users.remove(item['_id'])
+        for u in unrecorded_users:
+            scoreboard.append({
+                'user': User(u).info,
+                'sum': 0,
+                'avg': 0,
+            })
+
+        return scoreboard
 
     @classmethod
     def add_course(cls, course, teacher):
