@@ -185,10 +185,9 @@ def grading(user, course_name, student):
 
 @course_api.route('/<course_name>/scoreboard', methods=['GET'])
 @login_required
-@Request.args('pids', 'start', 'end')
-def get_course_scoreboard(user, course_name, pids, start, end):
-    if not pids:
-        return HTTPError('Argument `pids` is required.', 400)
+@Request.args('pids: str', 'start', 'end')
+@Request.doc('course_name', 'course', Course)
+def get_course_scoreboard(user, pids, start, end, course):
     try:
         pids = pids.split(',')
         pids = [int(pid.strip()) for pid in pids]
@@ -205,10 +204,6 @@ def get_course_scoreboard(user, course_name, pids, start, end):
             end = float(end)
         except:
             return HTTPError('Type of `end` should be float.', 400)
-
-    course = Course(course_name)
-    if not course:
-        return HTTPError('Course not found.', 404)
 
     permission = perm(course, user)
     if permission < 2:

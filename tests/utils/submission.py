@@ -1,3 +1,4 @@
+import logging
 import tempfile
 import warnings
 import zipfile
@@ -46,12 +47,12 @@ def create_submission(
             status = randint(-1, 7)
     if status in [(PE := -1), (CE := 2), (JE := 6)]:
         if score is not None:
-            warnings.warn("score is overridden since status is PE/CE/JE")
+            logging.warning(f'Score ignored for status: {status}')
         score, exec_time, memory_usage = 0, -1, -1
     else:
         if status == (AC := 0):
             if score is not None:
-                warnings.warn("score is overridden since status is AC")
+                logging.warning(f'Score ignored for status: {status}')
             score = 100
         if score is None:
             score = randint(0, 999)

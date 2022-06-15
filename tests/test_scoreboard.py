@@ -68,17 +68,21 @@ def test_get_correct_query_result_with_no_submission(context, testcase):
     data = course.get_scoreboard(problems)
     assert len(data) == testcase['student_count'], data
     for student in students:
-        idx = data.index(
-            next(
-                filter(lambda x: x['user']['username'] == student.username,
-                       data), None))
-        assert data[idx]['user'] == student.info
-        assert data[idx]['avg'] == 0
-        assert data[idx]['sum'] == 0
+        # find element in array
+        row = next(
+            filter(
+                lambda x: x['user']['username'] == student.username,
+                data,
+            ),
+            None,
+        )
+        assert row['user'] == student.info
+        assert row['avg'] == 0
+        assert row['sum'] == 0
         for problem in problems:
-            assert data[idx].get(problem.id) == None
-            assert data[idx]['sum'] == 0
-            assert data[idx]['avg'] == 0
+            assert row.get(problem.id) == None
+            assert row['sum'] == 0
+            assert row['avg'] == 0
 
 
 @pytest.mark.parametrize('testcase', [
@@ -710,7 +714,6 @@ def test_get_error_for_no_provided_pids(context, forge_client, query: Dict,
         rv = client.get(
             f'/course/{context["course"].course_name}/scoreboard?{qs}')
         assert rv.status_code == 400
-        assert rv.json['message'] == 'Argument `pids` is required.'
 
 
 @pytest.mark.parametrize('pids', ['a', '1,a', '1,2,a', None, 'None', '1,'])

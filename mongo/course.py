@@ -98,10 +98,12 @@ class Course(MongoBase, engine=engine.Course):
         self.delete()
         return True
 
-    def get_scoreboard(self,
-                       problem_ids: List[int],
-                       start: Optional[float] = None,
-                       end: Optional[float] = None) -> List[Dict]:
+    def get_scoreboard(
+        self,
+        problem_ids: List[int],
+        start: Optional[float] = None,
+        end: Optional[float] = None,
+    ) -> List[Dict]:
         scoreboard = []
         usernames = [User(u).id for u in self.student_nicknames.keys()]
         matching = {
@@ -115,11 +117,8 @@ class Course(MongoBase, engine=engine.Course):
         }
         if start:
             matching['timestamp']['$gte'] = datetime.fromtimestamp(start)
-            # print('st', datetime.fromtimestamp(start))
         if end:
             matching['timestamp']['$lte'] = datetime.fromtimestamp(end)
-            # print('ed', datetime.fromtimestamp(end))
-            # raise 'h'
         if not matching["timestamp"]:
             del matching["timestamp"]
         pipeline = [
