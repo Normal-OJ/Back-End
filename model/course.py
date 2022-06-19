@@ -181,3 +181,37 @@ def grading(user, course_name, student):
         'DELETE': delete_score
     }
     return methods[request.method]()
+
+
+@course_api.route('/<course_name>/scoreboard', methods=['GET'])
+@login_required
+@Request.args('pids: str', 'start', 'end')
+@Request.doc('course_name', 'course', Course)
+def get_course_scoreboard(user, pids, start, end, course):
+    try:
+        pids = pids.split(',')
+        pids = [int(pid.strip()) for pid in pids]
+    except:
+        return HTTPError('Error occurred when parsing `pids`.', 400)
+
+    if start:
+        try:
+            start = float(start)
+        except:
+            return HTTPError('Type of `start` should be float.', 400)
+    if end:
+        try:
+            end = float(end)
+        except:
+            return HTTPError('Type of `end` should be float.', 400)
+
+    permission = perm(course, user)
+    if permission < 2:
+        return HTTPError('Permission denied', 403)
+
+    ret = course.get_scoreboard(pids, start, end)
+
+    return HTTPResponse(
+        'Success.',
+        data=ret,
+    )
