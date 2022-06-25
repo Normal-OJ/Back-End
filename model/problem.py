@@ -11,6 +11,7 @@ from .auth import *
 from .utils import *
 from mongo.utils import can_view_problem
 from mongo.problem import *
+from mongo import statistic
 
 __all__ = ['problem_api']
 
@@ -329,21 +330,22 @@ def publish_problem(user, problem_id):
 def problem_stats(user: User, problem: Problem):
     if not can_view_problem(user, problem.obj):
         return HTTPError('Problem cannot view.', 403)
+    problem_stat = statistic.ProblemStatistic(problem)
     ret = {}
     students = []
     for course in problem.courses:
         students += [User(name) for name in course.student_nicknames.keys()]
     students_high_scores = [problem.get_high_score(user=u) for u in students]
     # These score statistics are only counting the scores of the students in the course.
-    ret['acUserRatio'] = [problem.get_ac_user_count(), len(students)]
-    ret['triedUserCount'] = problem.get_tried_user_count()
+    ret['acUserRatio'] = [problem_stat.get_ac_user_count(), len(students)]
+    ret['triedUserCount'] = problem_stat.get_tried_user_count()
     ret['average'] = None if len(students) == 0 else statistics.mean(
         students_high_scores)
     ret['std'] = None if len(students) <= 1 else statistics.pstdev(
         students_high_scores)
     ret['scoreDistribution'] = students_high_scores
     # However, submissions include the submissions of teacher and admin.
-    ret['statusCount'] = problem.get_submission_status()
+    ret['statusCount'] = problem_stat.get_submission_status()
     params = {
         'user': user,
         'offset': 0,

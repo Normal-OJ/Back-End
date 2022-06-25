@@ -1,11 +1,8 @@
 import math
-from random import randint, shuffle
+from random import shuffle
 import pytest
-from mongo import course
-from mongo import User
-from mongo.engine import Problem
+from mongo.statistic import ProblemStatistic
 from tests.base_tester import BaseTester
-from tests.conftest import forge_client
 from . import utils
 
 
@@ -31,10 +28,10 @@ def context():
 
 
 def test_get_correct_query_result_with_no_submission(context):
-    problem = context['problem']
-    assert problem.get_ac_user_count() == 0
-    assert problem.get_tried_user_count() == 0
-    assert all([v == 0 for v in problem.get_submission_status().values()])
+    problem_stat = ProblemStatistic(context['problem'])
+    assert problem_stat.get_ac_user_count() == 0
+    assert problem_stat.get_tried_user_count() == 0
+    assert all([v == 0 for v in problem_stat.get_submission_status().values()])
 
 
 @pytest.mark.parametrize('status', [
@@ -61,17 +58,20 @@ def test_get_correct_query_result_with_no_submission(context):
 ])
 def test_get_correct_query_result_with_multiple_status(context, status, app):
     problem = context['problem']
+    problem_stat = ProblemStatistic(problem)
     student = context['student']
     with app.app_context():
         for k, v in status.items():
             for _ in range(v):
-                utils.submission.create_submission(problem=problem,
-                                                   user=student,
-                                                   status=int(k))
+                utils.submission.create_submission(
+                    problem=problem,
+                    user=student,
+                    status=int(k),
+                )
         ac_user_count = 1 if status.get('0') else 0
-        assert problem.get_ac_user_count() == ac_user_count
-        assert problem.get_tried_user_count() == 1
-        submission_count = problem.get_submission_status()
+        assert problem_stat.get_ac_user_count() == ac_user_count
+        assert problem_stat.get_tried_user_count() == 1
+        submission_count = problem_stat.get_submission_status()
         assert all([
             status.get(str(k), 0) == v for k, v in submission_count.items()
         ]), submission_count

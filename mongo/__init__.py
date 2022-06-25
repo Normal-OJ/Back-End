@@ -9,6 +9,7 @@ from . import announcement
 from . import contest
 from . import post
 from . import ip_filter
+from . import statistic
 
 from .course import *
 from .engine import *
