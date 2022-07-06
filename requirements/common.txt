@@ -15,7 +15,7 @@ gunicorn==20.0.4
 idna==2.10
 itsdangerous==1.1.0
 Jinja2==2.11.3
-lxml==4.6.3
+lxml==4.9.1
 MarkupSafe==1.1.1
 mongoengine==0.24.1
 mosspy==1.0.8
