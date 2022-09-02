@@ -60,6 +60,8 @@ def get_report_task(user, problem_id, student_dict: Dict):
     # Get problem object
     problem = Problem(problem_id)
 
+    cpp_report_url = ''
+    python_report_url = ''
     # check for c or cpp code
     if problem.allowed_language != 4:
         m1 = mosspy.Moss(moss_userid, "cc")

@@ -119,7 +119,7 @@ class Problem(MongoBase, engine=engine.Problem):
             }
         }
         cursor = engine.Submission.objects(problem=self.id).aggregate(
-            [pipeline])
+            [pipeline], )
         return {item['_id']: item['count'] for item in cursor}
 
     def get_ac_user_count(self) -> int:
@@ -146,17 +146,17 @@ class Problem(MongoBase, engine=engine.Problem):
         cache = RedisCache()
         key = self.high_score_key(user=user)
         if (val := cache.get(key)) is not None:
-            return int.from_bytes(val, 'little')
+            return int(val.decode())
         # TODO: avoid calling mongoengine API directly
-        submission = engine.Submission.objects(
+        submissions = engine.Submission.objects(
             user=user.id,
             problem=self.id,
-        ).only('score').order_by('-score').first()
-        # If there is no submission for this user
-        # Use 0 instead
-        high_score = getattr(submission, 'score', 0)
-        # It might < 0 if there is only incomplete submission
-        high_score = max(high_score, 0)
+        ).only('score').order_by('-score').limit(1)
+        if submissions.count() == 0:
+            high_score = 0
+        else:
+            # It might < 0 if there is only incomplete submission
+            high_score = max(submissions[0].score, 0)
         cache.set(key, high_score, ex=600)
         return high_score
 
