@@ -2,6 +2,7 @@ from typing import List
 from flask import Blueprint, request
 from mongo import *
 from mongo import engine
+from mongo import utils
 from .utils import *
 from .auth import login_required
 from .course import course_api
@@ -143,6 +144,21 @@ def check(user, homework_name, course_name):
         return HTTPResponse('homework name can be used', data={'valid': 1})
     else:
         return HTTPResponse('homework name exist', data={'valid': 0})
+
+@homework_api.route('/<course_id>/status/<homework_id>')
+@login_required
+def status(user, course_id,homework_id):
+    homework = Homework.get_by_id(homework_id)
+    course = Course(course_id)
+    role = utils.perm(course, user) 
+    if role <= 1:
+        return HTTPError('students cannot call this API', 403)
+
+    if course is None:
+        return HTTPError('course not exists', 404)
+    if homework is None:
+        return HTTPError('homework not exists', 404)
+    return HTTPResponse('get homework status', data=Homework.get_homework_status(self=homework,students=course.get_all_student()))
 
 
 @homework_api.route('/<course>/<homework_name>/ip-filters', methods=['GET'])

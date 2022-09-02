@@ -1,3 +1,4 @@
+from collections import UserList
 from . import engine
 from .user import *
 from .utils import *
@@ -53,7 +54,11 @@ class Course(MongoBase, engine=engine.Course):
     def remove_user(self, user: User):
         user.update(pull__courses=self.id)
         user.reload()
-
+    def get_all_student(self):
+        user_list = []
+        for user in self.student_nicknames:
+            user_list.append(User.get_by_username(user))
+        return user_list
     @classmethod
     def get_all(cls):
         return engine.Course.objects
