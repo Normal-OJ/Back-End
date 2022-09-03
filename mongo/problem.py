@@ -101,6 +101,10 @@ class Problem(MongoBase, engine=engine.Problem):
             return 0
         return user.problem_submission.get(str(self.problem_id), 0)
 
+    def get_user_submit_count(self, user):
+        # reset quota if it's a new day
+        return user.problem_submission.get(str(self.problem_id), 0)
+
     def running_homeworks(self) -> List:
         from .homework import Homework
         now = datetime.now()

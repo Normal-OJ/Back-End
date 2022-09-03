@@ -211,10 +211,6 @@ class Homework(MongoBase, engine=engine.Homework):
         homework_status["studentStatus"] = {}
         for pid in self.problem_ids:
             problem = Problem(pid)
-            problem_status[pid] = {}
-            problem_status[pid]["submissionStatus"] = problem.get_submission_status()
-            problem_status[pid]["acceptedUserCount"] = problem.get_ac_user_count()
-            problem_status[pid]["triedUserCount"] = problem.get_tried_user_count()
             weight = 1 # change to actual weight when homework problem has weight attribute
             student_status = {student.username:{} for student in students}
             score_sum = 0
@@ -225,22 +221,28 @@ class Homework(MongoBase, engine=engine.Homework):
                 student_id = student.username
                 high_score = (problem.get_high_score(user=student))
                 student_score = high_score
-                student_submit_count = problem.submit_count(student)
+                student_submit_count = problem.get_user_submit_count(student)
                 total_submit_count += student_submit_count
                 score_sum += high_score
                 scores.append(high_score)
                 student_status[str(student_id)]["sumbitCount"] = student_submit_count
                 student_status[str(student_id)]["highScore"] = high_score
 
+            problem_status[pid] = {
+                        "submissionStatus" : problem.get_submission_status(),
+                        "acceptedUserCount": problem.get_ac_user_count(),
+                        "triedUserCount" : problem.get_tried_user_count(),
+                        "problemWeight": weight ,
+                        "scoreSum": score_sum,
+                        "averageScore": mean(scores) if len(scores) > 0 else 0,
+                        "standardDeviation": stdev(scores) if len(scores) > 1 else 0,
+                        "maxScore": 100 * student_count,
+                        "userSubmitCount": total_submit_count
+                    }
+
             homework_status["scoreSum"] += score_sum
             homework_status["homeworkMaxScore"] += 100 * weight * student_count
             homework_status["studentStatus"][pid] = student_status
-            problem_status[pid]["problemWeight"] = weight 
-            problem_status[pid]["scoreSum"] = score_sum
-            problem_status[pid]["averageScore"] = mean(scores) if len(scores) > 0 else 0
-            problem_status[pid]["standardDeviation"] = stdev(scores) if len(scores) > 1 else 0
-            problem_status[pid]["maxScore"] = 100 * student_count
-            problem_status[pid]["userSubmitCount"] = total_submit_count
             problem_status[pid]["acRate"] = problem_status[pid]["acceptedUserCount"] / problem_status[pid]["triedUserCount"] if problem_status[pid]["triedUserCount"] > 0 else 0 
             
 
