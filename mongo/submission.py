@@ -1,7 +1,5 @@
 from __future__ import annotations
-import json
 import os
-import io
 import pathlib
 import secrets
 import logging
@@ -12,6 +10,7 @@ from typing import (
     Union,
     List,
 )
+import tempfile
 import requests as rq
 import itertools
 from bson.son import SON
@@ -69,14 +68,10 @@ class SubmissionConfig(MongoBase, engine=engine.SubmissionConfig):
     TMP_DIR = pathlib.Path(
         os.getenv(
             'SUBMISSION_TMP_DIR',
-            '/tmp/submissions',
+            tempfile.TemporaryDirectory(suffix='noj-submisisons').name,
         ), )
 
-    def __new__(cls, *args, **ks):
-        cls.TMP_DIR.mkdir(exist_ok=True)
-        return super().__new__(cls, *args, **ks)
-
-    def __init__(self, name):
+    def __init__(self, name: str):
         self.name = name
 
 
@@ -123,7 +118,9 @@ class Submission(MongoBase, engine=engine.Submission):
 
     @property
     def tmp_dir(self) -> pathlib.Path:
-        tmp_dir = self.config().TMP_DIR / self.username / self.id
+        tmp_dir = self.config().TMP_DIR
+        tmp_dir.mkdir(exist_ok=True)
+        tmp_dir = tmp_dir / self.username / self.id
         tmp_dir.mkdir(exist_ok=True, parents=True)
         return tmp_dir
 
@@ -454,10 +451,22 @@ class Submission(MongoBase, engine=engine.Submission):
         User(self.username).add_submission(self)
         # update homework data
         for homework in self.problem.homeworks:
-            # if the homework is overdue, skip it
-            if self.timestamp > homework.duration.end:
-                continue
+            # if the homework is overdue, do the penalty
             stat = homework.student_status[self.username][str(self.problem_id)]
+            if self.timestamp > homework.duration.end:
+                if homework.penalty is None:
+                    continue
+                if self.handwritten:
+                    continue
+                if 'rawScore' not in stat:
+                        stat['rawScore'] = stat['score']
+                score = self.score - stat['rawScore']
+                if score >0:
+                    overtime = int((timestamp-homework.duration.end)/86400)
+                    exec(homework.penalty)
+                    stat['score']+=score
+                    stat['rawScore'] = self.score
+                continue
             stat['submissionIds'].append(self.id)
             # handwritten problem will only keep the last submission
             if self.handwritten:

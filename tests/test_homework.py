@@ -63,6 +63,7 @@ def course_data(
         end=int(datetime.now().timestamp()),
         problem_ids=problem_ids(cd.teacher, 3),
         scoreboard_status=0,
+        penalty='score=score*(0.8**overtime)',
     )
     # append hw id
     cd.homework_ids.append(str(hw.id))
@@ -186,7 +187,8 @@ class TestHomework(BaseTester):
                 'courseName': course_data.name,
                 'markdown': '# ' + course_data.homework_name + ' (=_=) ',
                 'start': int(datetime.now().timestamp()),
-                'end': int(datetime.now().timestamp() + 86400)
+                'end': int(datetime.now().timestamp() + 86400),
+                'penalty': 'score=score*(0.8**overtime)',
             })
         print(rv_json)
         assert rv.status_code == 200
@@ -212,7 +214,8 @@ class TestHomework(BaseTester):
             'start': int(datetime.now().timestamp()),
             'end': int(datetime.now().timestamp()) + 1440,
             'problemIds': pids,
-            'scoreboardStatus': 1
+            'scoreboardStatus': 1,
+            'penalty': 'score=score*(0.8**overtime)',
         }
         rv, rv_json, rv_data = self.request(
             client,
