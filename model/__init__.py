@@ -12,6 +12,7 @@ from . import ranking
 from . import contest
 from . import post
 from . import copycat
+from . import health
 
 from .auth import *
 from .profile import *
@@ -27,6 +28,7 @@ from .ranking import *
 from .contest import *
 from .post import *
 from .copycat import *
+from .health import *
 
 __all__ = [
     *auth.__all__,
@@ -42,4 +44,5 @@ __all__ = [
     *contest.__all__,
     *post.__all__,
     *copycat.__all__,
+    *health.__all__,
 ]
