@@ -298,6 +298,7 @@ def high_score(user: User, problem: Problem):
 
 
 @problem_api.route('/clone', methods=['POST'])
+@problem_api.route('/copy', methods=['POST'])
 @identity_verify(0, 1)
 @Request.json(vars_dict={'problem_id': 'problemId'})
 def clone_problem(user, problem_id):

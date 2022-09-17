@@ -94,7 +94,10 @@ class Problem(MongoBase, engine=engine.Problem):
             return False
         return bool((1 << language) & self.allowed_language)
 
-    def submit_count(self, user):
+    def submit_count(self, user: User) -> int:
+        '''
+        Calculate how many submissions the user has submitted to this problem.
+        '''
         # reset quota if it's a new day
         if user.last_submit.date() != datetime.now().date():
             user.update(problem_submission={})
@@ -369,6 +372,37 @@ class Problem(MongoBase, engine=engine.Problem):
             tags=problem.tags,
             test_case=problem.test_case,
         ).save()
+
+    @doc_required('target', Course, null=True)
+    def copy_to(
+        self,
+        user: User,
+        target: Optional[Course] = None,
+    ) -> 'Problem':
+        '''
+        Copy a problem to target course.
+
+        Args:
+            user (User): The user who execute this action and will become
+                the owner of copied problem.
+            target (Optional[Course] = None): The course this problem will
+                be copied to, default to the first of origial courses.
+        '''
+        target = self.courses[0] if target is None else target
+        copy = self.add(
+            user=user,
+            courses=[target.course_name],
+            problem_name=self.problem_name,
+            status=self.problem_status,
+            description=self.description.to_mongo(),
+            tags=self.tags,
+            type=self.problem_type,
+            test_case_info=self.test_case.to_mongo(),
+            can_view_stdout=self.can_view_stdout,
+            quota=self.quota,
+            default_code=self.default_code,
+        )
+        return copy
 
     @classmethod
     def release_problem(cls, problem_id):
