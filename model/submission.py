@@ -11,7 +11,6 @@ from flask import (
     current_app,
 )
 from datetime import datetime, timedelta
-from functools import wraps
 from mongo import *
 from mongo import engine
 from mongo.utils import (
@@ -25,25 +24,6 @@ from .auth import *
 
 __all__ = ['submission_api']
 submission_api = Blueprint('submission_api', __name__)
-
-
-def submission_required(func):
-    '''
-    get submission via route param "submission_id"
-    '''
-    @wraps(func)
-    def wrapper(*args, **ks):
-        submission = Submission(request.view_args.get('submission_id'))
-        if not submission:
-            return HTTPError(
-                f'{submission} not exist',
-                404,
-            )
-        del ks['submission_id']
-        ks.update({'submission': submission})
-        return func(*args, **ks)
-
-    return wrapper
 
 
 @submission_api.route('/', methods=['POST'])
@@ -266,9 +246,9 @@ def get_submission_list(
     )
 
 
-@submission_api.route('/<submission_id>', methods=['GET'])
+@submission_api.route('/<submission>', methods=['GET'])
 @login_required
-@submission_required
+@Request.doc('submission', Submission)
 def get_submission(user, submission: Submission):
     # check permission
     if submission.handwritten and submission.permission(user) < 2:
@@ -297,12 +277,12 @@ def get_submission(user, submission: Submission):
 
 
 @submission_api.route(
-    '/<submission_id>/output/<int:task_no>/<int:case_no>',
+    '/<submission>/output/<int:task_no>/<int:case_no>',
     methods=['GET'],
 )
 @Request.args('text')
 @login_required
-@submission_required
+@Request.doc('submission', Submission)
 def get_submission_output(
     user,
     submission: Submission,
@@ -332,10 +312,10 @@ def get_submission_output(
     return HTTPResponse('ok', data=output)
 
 
-@submission_api.route('/<submission_id>/pdf/<item>', methods=['GET'])
+@submission_api.route('/<submission>/pdf/<item>', methods=['GET'])
 @login_required
-@submission_required
-def get_submission_pdf(user, submission, item):
+@Request.doc('submission', Submission)
+def get_submission_pdf(user, submission: Submission, item):
     # check the permission
     if submission.permission(user) < 2:
         return HTTPError('forbidden.', 403)
@@ -383,10 +363,10 @@ def get_submission_count(user, problem_id, submission_id, username, status,
     return HTTPResponse('Padoru~', data={'count': len(submissions)})
 
 
-@submission_api.route('/<submission_id>/complete', methods=['PUT'])
+@submission_api.route('/<submission>/complete', methods=['PUT'])
 @Request.json('tasks: list', 'token: str')
-@submission_required
-def on_submission_complete(submission, tasks, token):
+@Request.doc('submission', Submission)
+def on_submission_complete(submission: Submission, tasks, token):
     if not Submission.verify_token(submission.id, token):
         return HTTPError('i don\'t know you', 403)
     try:
@@ -400,11 +380,11 @@ def on_submission_complete(submission, tasks, token):
     return HTTPResponse(f'{submission} result recieved.')
 
 
-@submission_api.route('/<submission_id>', methods=['PUT'])
+@submission_api.route('/<submission>', methods=['PUT'])
 @login_required
-@submission_required
+@Request.doc('submission', Submission)
 @Request.files('code')
-def update_submission(user, submission, code):
+def update_submission(user, submission: Submission, code):
     # validate this reques
     if submission.status >= 0:
         return HTTPError(
@@ -450,11 +430,11 @@ def update_submission(user, submission, code):
         return HTTPError('Some error occurred, please contact the admin', 500)
 
 
-@submission_api.route('/<submission_id>/grade', methods=['PUT'])
+@submission_api.route('/<submission>/grade', methods=['PUT'])
 @login_required
 @Request.json('score: int')
-@submission_required
-def grade_submission(user, submission, score):
+@Request.doc('submission', Submission)
+def grade_submission(user: User, submission: Submission, score: int):
     if submission.permission(user) < 3:
         return HTTPError('forbidden.', 403)
 
@@ -467,11 +447,11 @@ def grade_submission(user, submission, score):
     return HTTPResponse(f'{submission} score recieved.')
 
 
-@submission_api.route('/<submission_id>/comment', methods=['PUT'])
+@submission_api.route('/<submission>/comment', methods=['PUT'])
 @login_required
 @Request.files('comment')
-@submission_required
-def comment_submission(user, submission, comment):
+@Request.doc('submission', Submission)
+def comment_submission(user, submission: Submission, comment):
     if submission.permission(user) < 3:
         return HTTPError('forbidden.', 403)
 
@@ -487,10 +467,10 @@ def comment_submission(user, submission, comment):
     return HTTPResponse(f'{submission} comment recieved.')
 
 
-@submission_api.route('/<submission_id>/rejudge', methods=['GET'])
+@submission_api.route('/<submission>/rejudge', methods=['GET'])
 @login_required
-@submission_required
-def rejudge(user, submission):
+@Request.doc('submission', Submission)
+def rejudge(user, submission: Submission):
     if submission.status == -2 or (
             submission.status == -1 and
         (datetime.now() - submission.last_send).seconds < 300):
