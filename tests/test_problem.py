@@ -1,8 +1,8 @@
 import io
-import pytest
 from zipfile import ZipFile
 from tests.base_tester import BaseTester
 from mongo import *
+from tests import utils
 
 
 def get_file(file):
@@ -24,25 +24,18 @@ def description_dict():
 class TestProblem(BaseTester):
     # add a problem which status value is invalid (POST /problem/manage)
     def test_add_with_invalid_value(self, client_admin):
-
         # create courses
-        client_admin.post('/course',
-                          json={
-                              'course': 'math',
-                              'teacher': 'admin'
-                          })
-        client_admin.post('/course',
-                          json={
-                              'course': 'English',
-                              'teacher': 'admin'
-                          })
-        client_admin.put('/course/math',
-                         json={
-                             'TAs': ['admin'],
-                             'studentNicknames': {
-                                 'student': 'noobs'
-                             }
-                         })
+        utils.course.create_course(teacher='admin', name='math')
+        utils.course.create_course(teacher='admin', name='English')
+        client_admin.put(
+            '/course/math',
+            json={
+                'TAs': ['admin'],
+                'studentNicknames': {
+                    'student': 'noobs'
+                }
+            },
+        )
 
         request_json_with_invalid_json = {
             'courses': ['math'],
@@ -64,8 +57,10 @@ class TestProblem(BaseTester):
                 }]
             }
         }
-        rv = client_admin.post('/problem/manage',
-                               json=request_json_with_invalid_json)
+        rv = client_admin.post(
+            '/problem/manage',
+            json=request_json_with_invalid_json,
+        )
         json = rv.get_json()
         assert rv.status_code == 400
         assert json['status'] == 'err'
@@ -100,7 +95,7 @@ class TestProblem(BaseTester):
         assert rv.status_code == 400
         assert json['status'] == 'err'
 
-    # add a offline problem which problem_id = 1 (POST /problem/manage)
+    # add a offline problem
     def test_add_offline_problem(self, client_admin):
         request_json = {
             'courses': ['English'],
@@ -126,15 +121,16 @@ class TestProblem(BaseTester):
         json = rv.get_json()
         id = json['data']['problemId']
 
-        rv = client_admin.put(f'/problem/manage/{id}',
-                              data=get_file('default/test_case.zip'))
+        rv = client_admin.put(
+            f'/problem/manage/{id}',
+            data=get_file('default/test_case.zip'),
+        )
         json = rv.get_json()
-
         assert rv.status_code == 200, json
         assert json['status'] == 'ok'
         assert json['message'] == 'Success.'
 
-    # add a online problem which problem_id = 2 (POST /problem/manage)
+    # add a online problem
     def test_add_online_problem(self, client_admin):
         request_json = {
             'courses': ['math'],
@@ -160,8 +156,10 @@ class TestProblem(BaseTester):
         json = rv.get_json()
         id = json['data']['problemId']
 
-        rv = client_admin.put(f'/problem/manage/{id}',
-                              data=get_file('default/test_case.zip'))
+        rv = client_admin.put(
+            f'/problem/manage/{id}',
+            data=get_file('default/test_case.zip'),
+        )
         json = rv.get_json()
         assert rv.status_code == 200
         assert json['status'] == 'ok'
@@ -196,7 +194,7 @@ class TestProblem(BaseTester):
             'submitCount': 0
         }]
 
-    # admin get problem list with a filter(GET /problem)
+    # admin get problem list with a filter (GET /problem)
     def test_admin_get_problem_list_with_filter(self, client_admin):
         rv = client_admin.get('/problem?offset=0&count=5&course=English')
         json = rv.get_json()
@@ -578,3 +576,35 @@ class TestProblem(BaseTester):
         json = rv.get_json()
         assert rv.status_code == 404
         assert json['status'] == 'err'
+
+    def test_student_cannot_copy_problem(self, forge_client):
+        student = utils.user.create_user()
+        course = student.courses[-1]
+        problem = utils.problem.create_problem(course=course)
+        client = forge_client(student.username)
+        rv = client.post(
+            '/problem/copy',
+            json={
+                'problemId': problem.problem_id,
+            },
+        )
+        assert rv.status_code == 403
+
+    def test_admin_can_copy_problem_from_other_course(self, forge_client):
+        admin = utils.user.create_user(role=User.engine.Role.ADMIN)
+        course = admin.courses[-1]
+        original_problem = utils.problem.create_problem(course=course)
+        new_course = utils.course.create_course()
+        client_admin = forge_client(admin.username)
+        rv, rv_json, rv_data = self.request(
+            client_admin,
+            'post',
+            '/problem/copy',
+            json={
+                'problemId': original_problem.problem_id,
+                'target': new_course.course_name,
+            },
+        )
+        assert rv.status_code == 200, rv_json
+        new_problem = Problem(rv_data['problemId'])
+        utils.problem.cmp_copied_problem(original_problem, new_problem)

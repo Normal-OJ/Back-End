@@ -48,3 +48,24 @@ def create_problem(
     }
     pid = Problem.add(**params)
     return Problem(pid)
+
+
+def cmp_copied_problem(original: Problem, copy: Problem):
+    # It shouold be a new problem
+    assert original.problem_id != copy.problem_id
+    # But some fields are identical
+    fields = (
+        'problem_name',
+        'problem_status',
+        'problem_type',
+        'description',
+        'tags',
+        'can_view_stdout',
+        'allowed_language',
+        'quota',
+    )
+    for field in fields:
+        assert getattr(original, field) == getattr(copy, field)
+    # And some fields shuold be default
+    assert len(copy.homeworks) == 0
+    assert len(copy.high_scores) == 0
