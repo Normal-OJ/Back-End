@@ -7,10 +7,10 @@ from zipfile import BadZipFile
 from mongo import *
 from mongo import engine
 from mongo import sandbox
+from mongo.utils import can_view_problem, drop_none
+from mongo.problem import *
 from .auth import *
 from .utils import *
-from mongo.utils import can_view_problem
-from mongo.problem import *
 
 __all__ = ['problem_api']
 
@@ -300,12 +300,22 @@ def high_score(user: User, problem: Problem):
 @problem_api.route('/clone', methods=['POST'])
 @problem_api.route('/copy', methods=['POST'])
 @identity_verify(0, 1)
-@Request.json('problem_id: int', 'target')
+@Request.json('problem_id: int', 'target', 'status')
 @Request.doc('problem_id', 'problem', Problem)
-def clone_problem(user: User, problem: Problem, target):
+def clone_problem(
+    user: User,
+    problem: Problem,
+    target,
+    status,
+):
     if not can_view_problem(user, problem):
         return HTTPError('Problem can not view.', 403)
-    new_problem_id = problem.copy_to(user=user, target=target)
+    override = drop_none({'status': status})
+    new_problem_id = problem.copy_to(
+        user=user,
+        target=target,
+        **override,
+    )
     return HTTPResponse(
         'Success.',
         data={'problemId': new_problem_id},

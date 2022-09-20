@@ -378,22 +378,26 @@ class Problem(MongoBase, engine=engine.Problem):
         self,
         user: User,
         target: Optional[Course] = None,
+        **override,
     ) -> 'Problem':
         '''
-        Copy a problem to target course.
+        Copy a problem to target course, hidden by default.
 
         Args:
             user (User): The user who execute this action and will become
                 the owner of copied problem.
             target (Optional[Course] = None): The course this problem will
                 be copied to, default to the first of origial courses.
+            override: Override field values passed to `Problem.add`.
         '''
         target = self.courses[0] if target is None else target
-        copy = self.add(
+        # Copied problem is hidden by default
+        status = override.pop('status', Problem.engine.Visibility.HIDDEN)
+        ks = dict(
             user=user,
             courses=[target.course_name],
             problem_name=self.problem_name,
-            status=self.problem_status,
+            status=status,
             description=self.description.to_mongo(),
             tags=self.tags,
             type=self.problem_type,
@@ -402,6 +406,8 @@ class Problem(MongoBase, engine=engine.Problem):
             quota=self.quota,
             default_code=self.default_code,
         )
+        ks.update(override)
+        copy = self.add(**ks)
         return copy
 
     @classmethod

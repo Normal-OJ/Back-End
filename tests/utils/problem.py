@@ -56,7 +56,6 @@ def cmp_copied_problem(original: Problem, copy: Problem):
     # But some fields are identical
     fields = (
         'problem_name',
-        'problem_status',
         'problem_type',
         'description',
         'tags',

@@ -608,3 +608,24 @@ class TestProblem(BaseTester):
         assert rv.status_code == 200, rv_json
         new_problem = Problem(rv_data['problemId'])
         utils.problem.cmp_copied_problem(original_problem, new_problem)
+
+    def test_override_copied_problem_status(self, forge_client):
+        admin = utils.user.create_user(role=User.engine.Role.ADMIN)
+        original_problem = utils.problem.create_problem(
+            status=Problem.engine.Visibility.SHOW)
+        client = forge_client(admin.username)
+        rv, rv_json, rv_data = self.request(
+            client,
+            'post',
+            '/problem/copy',
+            json={
+                'problemId': original_problem.problem_id,
+                'status': Problem.engine.Visibility.HIDDEN,
+            },
+        )
+        assert rv.status_code == 200, rv_json
+        another_problem = Problem(rv_data['problemId'])
+        utils.problem.cmp_copied_problem(original_problem, another_problem)
+
+        assert original_problem.problem_status != Problem.engine.Visibility.HIDDEN
+        assert another_problem.problem_status == Problem.engine.Visibility.HIDDEN

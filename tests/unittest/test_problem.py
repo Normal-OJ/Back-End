@@ -54,3 +54,20 @@ def test_admin_can_copy_problem_to_any_other_course():
     assert len(another_problems) == 1
     another_problem = another_problems[0]
     utils.problem.cmp_copied_problem(original_problem, another_problem)
+    assert another_problem.problem_status == Problem.engine.Visibility.HIDDEN
+
+
+def test_override_copied_problem_status():
+    admin = utils.user.create_user(role=User.engine.Role.ADMIN)
+    original_problem = utils.problem.create_problem(
+        status=Problem.engine.Visibility.SHOW)
+    # Copy and hide
+    another_problem = Problem(
+        original_problem.copy_to(
+            user=admin,
+            target=None,
+            status=Problem.engine.Visibility.HIDDEN,
+        ))
+    utils.problem.cmp_copied_problem(original_problem, another_problem)
+    assert original_problem.problem_status != Problem.engine.Visibility.HIDDEN
+    assert another_problem.problem_status == Problem.engine.Visibility.HIDDEN

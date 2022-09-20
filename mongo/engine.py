@@ -278,6 +278,10 @@ def problem_desc_escape(sender, document):
 
 @problem_desc_escape.apply
 class Problem(Document):
+    class Visibility:
+        SHOW = 0
+        HIDDEN = 1
+
     problem_id = SequenceField(
         db_field='problemId',
         required=True,
@@ -286,7 +290,7 @@ class Problem(Document):
     courses = ListField(ReferenceField('Course'), default=list)
     problem_status = IntField(
         default=1,
-        choices=[0, 1],
+        choices=[Visibility.SHOW, Visibility.HIDDEN],
         db_field='problemStatus',
     )
     problem_type = IntField(
