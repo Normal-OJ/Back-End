@@ -7,10 +7,10 @@ from zipfile import BadZipFile
 from mongo import *
 from mongo import engine
 from mongo import sandbox
+from mongo.utils import can_view_problem, drop_none
+from mongo.problem import *
 from .auth import *
 from .utils import *
-from mongo.utils import can_view_problem
-from mongo.problem import *
 
 __all__ = ['problem_api']
 
@@ -298,28 +298,38 @@ def high_score(user: User, problem: Problem):
 
 
 @problem_api.route('/clone', methods=['POST'])
+@problem_api.route('/copy', methods=['POST'])
 @identity_verify(0, 1)
-@Request.json(vars_dict={'problem_id': 'problemId'})
-def clone_problem(user, problem_id):
-    problem = Problem(problem_id).obj
-    if problem is None:
-        return HTTPError('Problem not exist.', 404)
+@Request.json('problem_id: int', 'target', 'status')
+@Request.doc('problem_id', 'problem', Problem)
+def clone_problem(
+    user: User,
+    problem: Problem,
+    target,
+    status,
+):
     if not can_view_problem(user, problem):
         return HTTPError('Problem can not view.', 403)
-    Problem.copy_problem(user, problem_id)
-    return HTTPResponse('Success.')
+    override = drop_none({'status': status})
+    new_problem_id = problem.copy_to(
+        user=user,
+        target=target,
+        **override,
+    )
+    return HTTPResponse(
+        'Success.',
+        data={'problemId': new_problem_id},
+    )
 
 
 @problem_api.route('/publish', methods=['POST'])
 @identity_verify(0, 1)
-@Request.json(vars_dict={'problem_id': 'problemId'})
-def publish_problem(user, problem_id):
-    problem = Problem(problem_id).obj
-    if problem is None:
-        return HTTPError('Problem not exist.', 404)
+@Request.json('problem_id')
+@Request.doc('problem_id', 'problem', Problem)
+def publish_problem(user, problem: Problem):
     if user.role == 1 and problem.owner != user.username:
         return HTTPError('Not the owner.', 403)
-    Problem.release_problem(problem_id)
+    Problem.release_problem(problem.problem_id)
     return HTTPResponse('Success.')
 
 

@@ -3,8 +3,12 @@ import hashlib
 import os
 import redis
 from functools import wraps
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, TYPE_CHECKING
 from . import engine
+
+if TYPE_CHECKING:
+    from .user import User
+    from .problem import Problem
 
 __all__ = (
     'hash_id',
@@ -30,9 +34,10 @@ def perm(course, user):
     ].index(True)
 
 
-def can_view_problem(user, problem):
+def can_view_problem(user: 'User', problem: 'Problem'):
     '''cheeck if a user can view the problem'''
-    if user.role == 0:
+    from .user import User
+    if user.role == User.engine.Role.ADMIN:
         return True
     if user.contest:
         if user.contest in problem.contests:
