@@ -11,6 +11,7 @@ from mongo import engine
 class TestSignup:
     '''Test Signup
     '''
+
     def test_without_username_and_email(self, client):
         # Signup without username and password
         rv = client.post('/auth/signup', json={'password': 'test'})
@@ -122,6 +123,7 @@ class TestSignup:
 class TestActive:
     '''Test Active
     '''
+
     def test_redirect_with_invalid_toke(self, client):
         # Access active-page with invalid token
         rv = client.get('/auth/active/invalid_token')
@@ -204,6 +206,7 @@ class TestActive:
 class TestLogin:
     '''Test Login
     '''
+
     def test_incomplete_data(self, client):
         # Login with incomplete data
         rv = client.post('/auth/session', json={})
@@ -264,6 +267,7 @@ class TestLogin:
 class TestLogout:
     '''Test Logout
     '''
+
     def test_logout(self, client, test_token):
         # Logout
         client.set_cookie('test.test', 'piann', test_token)
@@ -290,6 +294,7 @@ def test_get_self_data(client):
 
 
 class TestBatchSignup:
+
     @dataclass
     class SignupInput:
         username: str

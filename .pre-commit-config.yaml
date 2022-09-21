@@ -10,4 +10,4 @@ repos:
     rev: v0.32.0
     hooks:
       - id: yapf
-        args: ["-ir", "."]
+        additional_dependencies: [toml]

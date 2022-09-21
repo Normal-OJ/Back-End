@@ -6,6 +6,7 @@ __all__ = ['Inbox']
 
 
 class Inbox(MongoBase, engine=engine.Inbox):
+
     def __init__(self, message_id):
         self.message_id = message_id
 

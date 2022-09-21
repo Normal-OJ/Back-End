@@ -3,10 +3,12 @@ from mongo.course import *
 from datetime import datetime
 from .user import *
 from .utils import *
+
 __all__ = ['Post']
 
 
 class Post():
+
     @classmethod
     def found_thread(cls, target_thread):
         reply_thread = []

@@ -54,6 +54,7 @@ def can_view_problem(user: 'User', problem: 'Problem'):
 
 
 class Cache(abc.ABC):
+
     @abc.abstractmethod
     def exists(self, key: str) -> bool:
         '''
@@ -145,6 +146,7 @@ def doc_required(
         des = src
 
     def deco(func):
+
         @wraps(func)
         def wrapper(*args, **ks):
             # try get source param

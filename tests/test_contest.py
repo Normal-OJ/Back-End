@@ -6,6 +6,7 @@ from mongo import engine
 
 
 class CourseData():
+
     def __init__(self, student_nicknames, course_status, name, teacher, tas):
         self.student_nicknames = student_nicknames
         self.course_status = course_status
@@ -52,6 +53,7 @@ def course_data(request, client_teacher):
 
 
 class TestContest(BaseTester):
+
     def test_get_single_contest(self, forge_client, course_data):
         client = forge_client(course_data.teacher)
         cd = course_data

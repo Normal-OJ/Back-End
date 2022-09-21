@@ -37,6 +37,7 @@ def login_required(func):
         - 403 Invalid Token
         - 403 Inactive User
     '''
+
     @wraps(func)
     @Request.cookies(vars_dict={'token': 'piann'})
     def wrapper(token, *args, **kwargs):
@@ -61,7 +62,9 @@ def identity_verify(*roles):
 
     You can find an example in `model/test.py`
     '''
+
     def verify(func):
+
         @wraps(func)
         @login_required
         def wrapper(user, *args, **kwargs):
@@ -82,6 +85,7 @@ def session():
         GET: Logout
         POST: Login
     '''
+
     def logout():
         '''Logout a user.
         Returns:
@@ -146,6 +150,7 @@ def change_password(user, old_password, new_password):
 def check(item):
     '''Checking when the user is registing.
     '''
+
     @Request.json('username: str')
     def check_username(username):
         try:
@@ -185,6 +190,7 @@ def resend_email(email):
 def active(token=None):
     '''Activate a user.
     '''
+
     @Request.json('profile: dict', 'agreement: bool')
     @Request.cookies(vars_dict={'token': 'piann'})
     def update(profile, agreement, token):

@@ -5,6 +5,7 @@ from tests.base_tester import BaseTester
 class TestRanking(BaseTester):
     '''Test ranking
     '''
+
     def test_get(
         self,
         forge_client,

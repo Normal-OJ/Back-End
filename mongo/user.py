@@ -23,6 +23,7 @@ JWT_SECRET = os.environ.get('JWT_SECRET', 'SuperSecretString')
 
 
 class User(MongoBase, engine=engine.User):
+
     @classmethod
     def signup(cls, username, password, email):
         if re.match(r'^[a-zA-Z0-9_\-]+$', username) is None:

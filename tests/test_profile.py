@@ -3,6 +3,7 @@ from tests.base_tester import BaseTester
 
 
 class TestProfile(BaseTester):
+
     def test_edit_without_displayName(self, client_student):
         rv = client_student.post('/profile', json={'bio': 'Hello World!'})
         json = rv.get_json()

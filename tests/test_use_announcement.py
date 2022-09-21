@@ -6,6 +6,7 @@ from tests.base_tester import BaseTester
 class TestAnnouncement(BaseTester):
     '''Test courses panel used my admins
     '''
+
     def test_add(self, client_admin):
         # add an announcement
         rv = client_admin.post('/course',

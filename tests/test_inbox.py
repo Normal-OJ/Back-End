@@ -7,6 +7,7 @@ message_id = 0
 class TestInbox(BaseTester):
     '''Test inbox
     '''
+
     def test_send_with_invalid_username(self, client_student):
         # send inbox with all invalide user
         rv = client_student.post('/inbox',

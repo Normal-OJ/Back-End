@@ -36,6 +36,7 @@ def client(app: Flask):
 
 @pytest.fixture
 def forge_client(client):
+
     def seted_cookie(username):
         client.set_cookie('test.test', 'piann', User(username).secret)
         return client
@@ -119,6 +120,7 @@ def random_problem_data(username=None, status=-1, type=0, quota=-1):
 
 @pytest.fixture
 def make_course(forge_client):
+
     def make_course(username, students={}, tas=[]):
         '''
         insert a dummy course data into DB
@@ -165,6 +167,7 @@ def make_course(forge_client):
 
 @pytest.fixture()
 def problem_ids(forge_client):
+
     def problem_ids(
         username,
         length,
@@ -211,6 +214,7 @@ def problem_ids(forge_client):
 
 @pytest.fixture
 def save_source(tmp_path):
+
     def save_source(filename, source, lang, ext=None):
         '''
         save user source codes to tmp dir
@@ -245,6 +249,7 @@ def save_source(tmp_path):
 
 @pytest.fixture
 def get_source(tmp_path):
+
     def get_source(filename):
         '''
         get users zipped source by filename
@@ -267,6 +272,7 @@ def get_source(tmp_path):
 
 @pytest.fixture
 def submit_once(app, get_source):
+
     def submit_once(name, pid, filename, lang, client=None):
         '''
         create one submission
@@ -296,6 +302,7 @@ def submit_once(app, get_source):
 
 @pytest.fixture
 def submit(submit_once):
+
     def submit(
         names,
         pids,

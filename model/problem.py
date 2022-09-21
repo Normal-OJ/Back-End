@@ -122,6 +122,7 @@ def view_problem(user: User, problem: Problem):
 )
 @identity_verify(0, 1)
 def manage_problem(user, problem_id=None):
+
     @Request.json('type', 'courses: list', 'status', 'type', 'description',
                   'tags', 'problem_name', 'quota')
     def modify_problem(**p_ks):

@@ -151,6 +151,7 @@ def get_submission_list(
     '''
     get the list of submission data
     '''
+
     def parse_int(val: Optional[int], name: str):
         if val is None:
             return None

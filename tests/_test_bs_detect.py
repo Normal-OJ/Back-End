@@ -1,6 +1,7 @@
 import pytest
 import bs_detect
 import subprocess
+
 bs = bs_detect.BSDetect()
 
 

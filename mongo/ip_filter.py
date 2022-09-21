@@ -5,6 +5,7 @@ __all__ = ('IPFilter', )
 
 
 class OctetMatcher:
+
     def __init__(self, pattern: str) -> None:
         if pattern.isdecimal():
             num = int(pattern)
@@ -33,6 +34,7 @@ class OctetMatcher:
 
 
 class IPFilter:
+
     def __init__(self, pattern: str) -> None:
         pattern = pattern.split('.')
         if len(pattern) != 4:

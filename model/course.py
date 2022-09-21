@@ -16,6 +16,7 @@ course_api = Blueprint('course_api', __name__)
 @course_api.route('/', methods=['GET', 'POST', 'PUT', 'DELETE'])
 @login_required
 def get_courses(user):
+
     @Request.json('course', 'new_course', 'teacher')
     @identity_verify(0, 1)
     def modify_courses(user, course, new_course, teacher):

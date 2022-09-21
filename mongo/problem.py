@@ -27,6 +27,7 @@ __all__ = [
 
 
 class BadTestCase(Exception):
+
     def __init__(self, expression, extra, short):
         super().__init__(expression)
         self.extra = extra
@@ -42,6 +43,7 @@ class BadTestCase(Exception):
 
 
 class Problem(MongoBase, engine=engine.Problem):
+
     def __init__(self, problem_id):
         self.problem_id = problem_id
 

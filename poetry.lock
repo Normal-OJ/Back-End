@@ -638,7 +638,7 @@ testing = ["func-timeout", "jaraco.itertools", "pytest (>=6)", "pytest-black (>=
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "6984617803ee731b3f744e5fe375a66b9fa0427dde32e097cf0f6847045ae336"
+content-hash = "0ffbd1e4017092925850f817bf51c26d926d2172ee1a39428d686767cb6ddb7e"
 
 [metadata.files]
 async-timeout = [

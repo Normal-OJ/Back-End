@@ -18,6 +18,7 @@ def homework_entry(user, homework_id=None):
     '''
     apply a operation to single homework
     '''
+
     @Request.json('name', 'course_name', 'markdown', 'start', 'end',
                   'problem_ids', 'scoreboard_status')
     def add_homework(course_name, name, markdown, start, end, problem_ids,

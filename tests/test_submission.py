@@ -53,6 +53,7 @@ class SubmissionTester:
 
 
 class TestUserGetSubmission(SubmissionTester):
+
     @classmethod
     @pytest.fixture(autouse=True)
     def on_create(cls, submit, problem_ids):
@@ -1022,6 +1023,7 @@ class TestHandwrittenSubmission(SubmissionTester):
 
 
 class TestSubmissionConfig(SubmissionTester):
+
     def test_get_config(self, client_admin):
         rv = client_admin.get(f'/submission/config')
         json = rv.get_json()
