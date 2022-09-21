@@ -10,27 +10,40 @@ test:
   stage: test
   tags: [docker]
   image: python:3.8-slim
+  variables:
+    POETRY_HOME: /opt/poetry
   script:
-    - pip install -r requirements/dev.txt
-    - yapf -pqr .
-    - pytest --cov=./ --cov-config=.coveragerc --junitxml=pytest-report.xml
+    - apt update && apt install -y curl
+    - curl -sSL https://install.python-poetry.org | python -
+    - $POETRY_HOME/bin/poetry config virtualenvs.in-project true
+    - $POETRY_HOME/bin/poetry install
+    - $POETRY_HOME/bin/poetry run yapf -- --recursive --parallel --diff .
+    - $POETRY_HOME/bin/poetry run pytest -- --cov=./ --cov-config=.coveragerc --junitxml=pytest-report.xml
   artifacts:
     when: always
     reports:
       junit: pytest-report.xml
+  cache:
+    key:
+      files:
+        - poetry.lock
+    paths:
+      - .venv
 
 build:
   stage: build
   tags: [docker]
   image:
-    name: gcr.io/kaniko-project/executor:debug
+    name: gcr.io/kaniko-project/executor:v1.9.0-debug
     entrypoint: [""]
   variables:
     IMAGE_TAG: $CI_REGISTRY_IMAGE:latest
   script:
-    - mkdir -p /kaniko/.docker
-    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"auth\":\"$(echo -n ${CI_REGISTRY_USER}:${CI_REGISTRY_PASSWORD} | base64 | tr -d '\n')\"}}}" > /kaniko/.docker/config.json
-    - /kaniko/executor --context $CI_PROJECT_DIR --dockerfile $CI_PROJECT_DIR/Dockerfile.prod --destination $IMAGE_TAG
+    - /kaniko/executor \
+      --context $CI_PROJECT_DIR \
+      --dockerfile $CI_PROJECT_DIR/Dockerfile \
+      --target production \
+      --destination $IMAGE_TAG
   only:
     variables:
       - $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
