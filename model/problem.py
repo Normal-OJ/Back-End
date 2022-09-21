@@ -236,7 +236,7 @@ def get_testcase(user, problem_id):
         problem.test_case.case_zip,
         mimetype='application/zip',
         as_attachment=True,
-        attachment_filename=f'testdata-{problem_id}.zip',
+        download_name=f'testdata-{problem_id}.zip',
     )
 
 
