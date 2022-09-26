@@ -24,7 +24,7 @@ RUN curl -sSL https://install.python-poetry.org | python -
 # and install only runtime deps using poetry
 WORKDIR $PYSETUP_PATH
 COPY ./poetry.lock ./pyproject.toml ./
-RUN poetry install --no-dev
+RUN poetry install --only main
 
 # 'development' stage installs all dev deps and can be used to develop code.
 # For example using docker-compose to mount local volume under /app
