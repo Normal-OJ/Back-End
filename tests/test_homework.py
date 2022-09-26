@@ -7,6 +7,7 @@ from mongo import *
 
 
 class CourseData:
+
     def __init__(self, name, teacher, students, tas):
         self.name = name
         self.teacher = teacher
@@ -84,6 +85,7 @@ def another_course(request, course_data, client_admin):
 
 
 class TestIPFilter(BaseTester):
+
     @pytest.mark.parametrize(
         '_filter',
         [
@@ -148,6 +150,7 @@ class TestIPFilter(BaseTester):
 
 
 class TestHomework(BaseTester):
+
     def test_get_single_homework(self, forge_client, course_data):
         # get teacher client
         client = forge_client(course_data.teacher)

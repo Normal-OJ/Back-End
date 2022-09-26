@@ -12,6 +12,7 @@ __all__ = [
 
 
 class Course(MongoBase, engine=engine.Course):
+
     def __new__(cls, course_name, *args, **kwargs):
         try:
             new = super().__new__(cls, course_name)

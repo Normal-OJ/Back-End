@@ -6,6 +6,7 @@ from mongoengine import DoesNotExist, NotUniqueError
 from datetime import datetime
 from mongo.problem import Problem
 from .base import MongoBase
+
 __all__ = [
     'Contest', 'AuthorityError', 'UserIsNotInCourse', 'ExistError',
     'UserIsNotInContest', 'CourseNotExist', 'ProblemNotExist'
@@ -43,6 +44,7 @@ class ProblemNotExist(Exception):
 
 
 class Contest(MongoBase, engine=engine.Contest):
+
     @classmethod
     @doc_required('course_name', 'course', Course)
     def add_contest(cls,

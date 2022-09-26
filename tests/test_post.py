@@ -5,6 +5,7 @@ from tests.base_tester import BaseTester
 class TestPost(BaseTester):
     '''Test post
     '''
+
     def test_add_post_to_invalid_course(self, client_admin):
         # add a post to a non-existent course
 

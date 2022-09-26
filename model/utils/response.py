@@ -4,6 +4,7 @@ __all__ = ['HTTPResponse', 'HTTPRedirect', 'HTTPError']
 
 
 class HTTPBaseResponese(tuple):
+
     def __new__(
         cls,
         resp,
@@ -20,6 +21,7 @@ class HTTPBaseResponese(tuple):
 
 
 class HTTPResponse(HTTPBaseResponese):
+
     def __new__(
         cls,
         message='',
@@ -42,6 +44,7 @@ class HTTPResponse(HTTPBaseResponese):
 
 
 class HTTPRedirect(HTTPBaseResponese):
+
     def __new__(
         cls,
         location,
@@ -58,6 +61,7 @@ class HTTPRedirect(HTTPBaseResponese):
 
 
 class HTTPError(HTTPResponse):
+
     def __new__(
         cls,
         message,

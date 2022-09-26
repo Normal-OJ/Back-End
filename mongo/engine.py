@@ -21,7 +21,9 @@ def handler(event):
     Signal decorator to allow use of callback functions as class decorators.
     reference: http://docs.mongoengine.org/guide/signals.html
     '''
+
     def decorator(fn):
+
         def apply(cls):
             event.connect(fn, sender=cls)
             return cls
@@ -38,6 +40,7 @@ def escape_markdown(sender, document):
 
 
 class ZipField(FileField):
+
     def __init__(self, max_size=0, **ks):
         super().__init__(**ks)
         self.max_size = max_size
@@ -63,6 +66,7 @@ class ZipField(FileField):
 
 
 class IntEnumField(IntField):
+
     def __init__(self, enum: IntEnum, **ks):
         super().__init__(**ks)
         self.enum = enum
@@ -122,6 +126,7 @@ class Duration(EmbeddedDocument):
 
 
 class User(Document):
+
     class Role(IntEnum):
         ADMIN = 0
         TEACHER = 1
@@ -278,6 +283,7 @@ def problem_desc_escape(sender, document):
 
 @problem_desc_escape.apply
 class Problem(Document):
+
     class Visibility:
         SHOW = 0
         HIDDEN = 1

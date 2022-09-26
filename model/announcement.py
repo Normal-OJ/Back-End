@@ -35,6 +35,7 @@ def get_sys_ann(ann_id=None):
 @ann_api.route('/<course_name>/<ann_id>', methods=['GET'])
 @login_required
 def anncmnt(user, course_name=None, ann_id=None):
+
     def get_anns():
         # Get an announcement list
         try:

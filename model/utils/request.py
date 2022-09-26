@@ -23,9 +23,13 @@ type_map = {
 
 
 class _Request(type):
+
     def __getattr__(self, content_type):
+
         def get(*keys, vars_dict={}):
+
             def data_func(func):
+
                 @wraps(func)
                 def wrapper(*args, **kwargs):
                     data = getattr(request, content_type)
@@ -64,12 +68,15 @@ class _Request(type):
 
 
 class Request(metaclass=_Request):
+
     @staticmethod
     def doc(src, des, cls=None, null=False):
         '''
         a warpper to `doc_required` for flask route
         '''
+
         def deco(func):
+
             @doc_required(src, des, cls, null)
             def inner_wrapper(*args, **ks):
                 return func(*args, **ks)
@@ -99,6 +106,7 @@ def timing_request(func):
     inject the execution time into response
     the func must return a response with json
     '''
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         # calculate execution time and get the response

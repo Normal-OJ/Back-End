@@ -13,6 +13,7 @@ __all__ = ['Homework']
 
 # TODO: unittest for class `Homework`
 class Homework(MongoBase, engine=engine.Homework):
+
     def is_valid_ip(self, ip: str) -> bool:
         # no restriction, always valid
         if not self.ip_filters:

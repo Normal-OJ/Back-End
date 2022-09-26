@@ -5,6 +5,7 @@ from tests.base_tester import BaseTester
 class TestAdminCourse(BaseTester):
     '''Test courses panel used my admins
     '''
+
     def test_add_with_invalid_username(self, client_admin):
         # add a course with non-existent username
         rv = client_admin.post('/course',
@@ -134,6 +135,7 @@ class TestAdminCourse(BaseTester):
 class TestTeacherCourse(BaseTester):
     '''Test courses panel used my teachers and admins
     '''
+
     def test_modify_invalid_course(self, client_admin):
         # modify a non-existent course
 
@@ -227,6 +229,7 @@ class TestTeacherCourse(BaseTester):
 class TestCourseGrade(BaseTester):
     '''Test grading feature in courses
     '''
+
     def test_add_score(self, client_admin):
         # add scores
 

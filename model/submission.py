@@ -151,6 +151,7 @@ def get_submission_list(
     '''
     get the list of submission data
     '''
+
     def parse_int(val: Optional[int], name: str):
         if val is None:
             return None
@@ -335,8 +336,8 @@ def get_submission_pdf(user, submission: Submission, item):
         io.BytesIO(data),
         mimetype='application/pdf',
         as_attachment=True,
-        cache_timeout=0,
-        attachment_filename=f'{item}-{submission.id[-6:] or "missing-id"}.pdf',
+        max_age=0,
+        download_name=f'{item}-{submission.id[-6:] or "missing-id"}.pdf',
     )
 
 

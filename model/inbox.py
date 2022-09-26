@@ -12,6 +12,7 @@ inbox_api = Blueprint('inbox_api', __name__)
 @inbox_api.route('/', methods=['GET', 'POST', 'PUT', 'DELETE'])
 @login_required
 def inbox(user):
+
     def get_messages():
         # Get received list
         messages = Inbox.messages(user.username)
@@ -67,6 +68,7 @@ def inbox(user):
 @inbox_api.route('/sent', methods=['GET', 'DELETE'])
 @login_required
 def sent(user):
+
     def read():
         # Get sent list
         messages = Inbox.sents(user.username)

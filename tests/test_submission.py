@@ -53,6 +53,7 @@ class SubmissionTester:
 
 
 class TestUserGetSubmission(SubmissionTester):
+
     @classmethod
     @pytest.fixture(autouse=True)
     def on_create(cls, submit, problem_ids):
@@ -796,15 +797,8 @@ class TestHandwrittenSubmission(SubmissionTester):
             '/submission',
             json=post_json,
         )
-
-        pprint(f'post: {rv_json}')
-
-        assert rv.status_code == 200, can_view_problem(
-            User('stucent'),
-            Problem(pid).obj,
-        )
+        assert rv.status_code == 200, rv_json
         assert sorted(rv_data.keys()) == sorted(['submissionId'])
-
         self.submission_id = rv_data["submissionId"]
 
         # second, post my homework to server. after that,
@@ -821,31 +815,20 @@ class TestHandwrittenSubmission(SubmissionTester):
             data=files,
         )
         rv_json = rv.get_json()
-
-        pprint(f'put: {rv_json}')
-
-        assert rv.status_code == 200
+        assert rv.status_code == 200, rv_json
 
         # third, read the student's upload
-
-        rv = client_student.get(
-            f'/submission/{self.submission_id}/pdf/upload', )
-
-        assert rv.status_code == 200
+        rv = client_student.get(f'/submission/{self.submission_id}/pdf/upload')
+        assert rv.status_code == 200, rv.get_json()
 
         # fourth, grade the submission
-
         rv = client_teacher.put(
             f'/submission/{self.submission_id}/grade',
             json={'score': 87},
         )
-
-        json = rv.get_json()
-        pprint(f'grade: {json}')
-        assert rv.status_code == 200
+        assert rv.status_code == 200, rv.get_json()
 
         # fifth, send a wrong file to the submission
-
         pdf_dir = pathlib.Path('tests/src/base.c')
         files = {
             'comment': (
@@ -857,11 +840,9 @@ class TestHandwrittenSubmission(SubmissionTester):
             f'/submission/{self.submission_id}/comment',
             data=files,
         )
-
-        assert rv.status_code == 400
+        assert rv.status_code == 400, rv.get_json()
 
         # sixth, send the comment.pdf to the submission
-
         pdf_dir = pathlib.Path('tests/handwritten/comment.pdf')
         files = {
             'comment': (
@@ -873,26 +854,20 @@ class TestHandwrittenSubmission(SubmissionTester):
             f'/submission/{self.submission_id}/comment',
             data=files,
         )
-
-        assert rv.status_code == 200
+        assert rv.status_code == 200, rv.get_json()
 
         # seventh, get the submission info
-
-        rv = client_student.get(f'/submission/{self.submission_id}', )
-
-        json = rv.get_json()
-        assert rv.status_code == 200
-        assert json['data']['score'] == 87
+        rv = client_student.get(f'/submission/{self.submission_id}')
+        rv_json = rv.get_json()
+        assert rv.status_code == 200, rv_json
+        assert rv_json['data']['score'] == 87
 
         # eighth, get the submission comment
-
         rv = client_student.get(
-            f'/submission/{self.submission_id}/pdf/comment', )
-
+            f'/submission/{self.submission_id}/pdf/comment')
         assert rv.status_code == 200
 
         # submit again will only replace the old one
-
         rv, rv_json, rv_data = BaseTester.request(
             client_student,
             'post',
@@ -900,7 +875,6 @@ class TestHandwrittenSubmission(SubmissionTester):
             json=post_json,
         )
         self.submission_id = rv_data["submissionId"]
-
         pdf_dir = pathlib.Path('tests/handwritten/main.pdf.zip')
         files = {
             'code': (
@@ -912,25 +886,18 @@ class TestHandwrittenSubmission(SubmissionTester):
             f'/submission/{self.submission_id}',
             data=files,
         )
-        rv_json = rv.get_json()
-
-        assert rv.status_code == 200
+        assert rv.status_code == 200, rv.get_json()
 
         # see if the student and thw teacher can get the submission
-
         rv = client_student.get(f'/submission?offset=0&count=-1')
-
-        json = rv.get_json()
-        print(json['data'])
-        assert len(json['data']['submissions']) == 1
-        assert rv.status_code == 200
+        rv_json = rv.get_json()
+        assert rv.status_code == 200, rv_json
+        assert len(rv_json['data']['submissions']) == 1
 
         rv = client_teacher.get(f'/submission?offset=0&count=-1')
-
-        json = rv.get_json()
-        print(json['data'])
-        assert len(json['data']['submissions']) == 1
-        assert rv.status_code == 200
+        rv_json = rv.get_json()
+        assert rv.status_code == 200, rv_json
+        assert len(rv_json['data']['submissions']) == 1
 
     @pytest.mark.parametrize(
         'user_a, user_b, status_code',
@@ -984,7 +951,7 @@ class TestHandwrittenSubmission(SubmissionTester):
             assert rv.status_code == 200, rv_json
             # check comment content
             rv = client.get(f'/submission/{submission_id}/pdf/comment')
-            assert rv.status_code == 200, rv.status_code
+            assert rv.status_code == 200, rv.get_json()
             assert rv.data == open(p, 'rb').read()
 
     def test_comment_for_different_submissions(
@@ -1017,11 +984,12 @@ class TestHandwrittenSubmission(SubmissionTester):
                 'get',
                 f'/submission/{submission_id}/pdf/comment',
             )
-            assert rv.status_code == 200
+            assert rv.status_code == 200, rv_json
             assert rv.data == open(p, 'rb').read(), p
 
 
 class TestSubmissionConfig(SubmissionTester):
+
     def test_get_config(self, client_admin):
         rv = client_admin.get(f'/submission/config')
         json = rv.get_json()
