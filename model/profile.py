@@ -63,11 +63,9 @@ def edit_config(user, font_size, theme, indent_type, tab_size, language):
             'tab_size': tab_size,
             'language': language
         }
-
         user.obj.update(editor_config=config)
     except ValidationError as ve:
         return HTTPError('Update fail.', 400, data=ve.to_dict())
-
     user.reload()
     cookies = {'jwt': user.cookie}
     return HTTPResponse('Uploaded.', cookies=cookies)

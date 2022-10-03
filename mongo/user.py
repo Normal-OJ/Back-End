@@ -176,7 +176,7 @@ class User(MongoBase, engine=engine.User):
         }
         if any((k not in whiltelists) for k in keys):
             raise ValueError('Found unallowed key')
-        user = self.reload().to_mongo()
+        user = self.to_mongo()
         user['username'] = user.get('_id')
         return {k: user.get(k, getattr(self, k, None)) for k in keys}
 

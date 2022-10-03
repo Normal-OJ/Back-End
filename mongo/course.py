@@ -50,11 +50,11 @@ class Course(MongoBase, engine=engine.Course):
         if not self:
             raise engine.DoesNotExist(f'Course [{self.course_name}]')
         user.update(add_to_set__courses=self.id)
-        user.reload()
+        user.reload('courses')
 
     def remove_user(self, user: User):
         user.update(pull__courses=self.id)
-        user.reload()
+        user.reload('courses')
 
     @classmethod
     def get_all(cls):
