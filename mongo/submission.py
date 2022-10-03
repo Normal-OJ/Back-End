@@ -440,6 +440,7 @@ class Submission(MongoBase, engine=engine.Submission):
             exec_time=exec_time,
             memory_usage=memory_usage,
         )
+        self.reload()
         self.finish_judging()
         for has_code, has_output, has_code_detail in itertools.product(
             [True, False], repeat=3):
@@ -450,7 +451,7 @@ class Submission(MongoBase, engine=engine.Submission):
 
     def finish_judging(self):
         # update user's submission
-        User(self.username).add_submission(self.reload())
+        User(self.username).add_submission(self)
         # update homework data
         for homework in self.problem.homeworks:
             # if the homework is overdue, skip it
