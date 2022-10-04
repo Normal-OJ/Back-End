@@ -29,7 +29,7 @@ RUN poetry install --only main
 # 'development' stage installs all dev deps and can be used to develop code.
 # For example using docker-compose to mount local volume under /app
 FROM python-base as development
-ENV FLASK_ENV=development
+ENV FLASK_DEBUG=True
 
 # Copying poetry and venv into image
 COPY --from=builder-base $POETRY_HOME $POETRY_HOME
@@ -49,7 +49,6 @@ CMD ["gunicorn", "app:app()", "-c", "gunicorn.conf.dev.py"]
 # 'production' stage uses the clean 'python-base' stage and copyies
 # in only our runtime deps that were installed in the 'builder-base'
 FROM python-base as production
-ENV FLASK_ENV=production
 
 COPY --from=builder-base $VENV_PATH $VENV_PATH
 COPY ./ /app
