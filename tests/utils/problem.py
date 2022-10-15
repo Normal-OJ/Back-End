@@ -64,7 +64,9 @@ def cmp_copied_problem(original: Problem, copy: Problem):
         'quota',
     )
     for field in fields:
-        assert getattr(original, field) == getattr(copy, field)
+        old = getattr(original, field)
+        new = getattr(copy, field)
+        assert old == new, (field, old, new)
     # And some fields shuold be default
     assert len(copy.homeworks) == 0
     assert len(copy.high_scores) == 0

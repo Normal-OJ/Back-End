@@ -15,7 +15,8 @@ def teardown_function(_):
 
 def test_copy_problem_without_target_should_dup_to_the_same_course():
     admin = utils.user.create_user(role=User.engine.Role.ADMIN)
-    original_problem = utils.problem.create_problem()
+    # Only allowed to use C
+    original_problem = utils.problem.create_problem(allowed_language=1)
     course = original_problem.courses[0]
     assert len(
         Problem.get_problem_list(
