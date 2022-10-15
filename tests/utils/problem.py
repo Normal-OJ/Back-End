@@ -23,6 +23,8 @@ def create_problem(
         course = course_lib.create_course(name=course)
     if owner is None:
         owner = course.teacher
+    elif isinstance(owner, str):
+        owner = User(owner)
     if name is None:
         name = secrets.token_hex(8)
     if description is None:
