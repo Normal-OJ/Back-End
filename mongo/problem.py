@@ -405,6 +405,7 @@ class Problem(MongoBase, engine=engine.Problem):
             type=self.problem_type,
             test_case_info=self.test_case.to_mongo(),
             can_view_stdout=self.can_view_stdout,
+            allowed_language=self.allowed_language,
             quota=self.quota,
             default_code=self.default_code,
         )

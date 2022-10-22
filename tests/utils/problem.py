@@ -23,6 +23,8 @@ def create_problem(
         course = course_lib.create_course(name=course)
     if owner is None:
         owner = course.teacher
+    elif isinstance(owner, str):
+        owner = User(owner)
     if name is None:
         name = secrets.token_hex(8)
     if description is None:
@@ -64,7 +66,9 @@ def cmp_copied_problem(original: Problem, copy: Problem):
         'quota',
     )
     for field in fields:
-        assert getattr(original, field) == getattr(copy, field)
+        old = getattr(original, field)
+        new = getattr(copy, field)
+        assert old == new, (field, old, new)
     # And some fields shuold be default
     assert len(copy.homeworks) == 0
     assert len(copy.high_scores) == 0
