@@ -23,6 +23,7 @@ from . import engine
 from .base import MongoBase
 from .user import User
 from .problem import Problem
+from .homework import Homework
 from .course import Course
 from .utils import RedisCache
 
@@ -451,30 +452,27 @@ class Submission(MongoBase, engine=engine.Submission):
         User(self.username).add_submission(self)
         # update homework data
         for homework in self.problem.homeworks:
-            # if the homework is overdue, do the penalty
+            
             stat = homework.student_status[self.username][str(self.problem_id)]
-            if self.timestamp > homework.duration.end:
-                if homework.penalty is None:
-                    continue
-                if self.handwritten:
-                    continue
-                if 'rawScore' not in stat:
-                        stat['rawScore'] = stat['score']
-                score = self.score - stat['rawScore']
-                if score >0:
-                    overtime = int((timestamp-homework.duration.end)/86400)
-                    exec(homework.penalty)
-                    stat['score']+=score
-                    stat['rawScore'] = self.score
+            if self.handwritten:
                 continue
+            if 'rawScore' not in stat:
+                stat['rawScore'] = 0
             stat['submissionIds'].append(self.id)
             # handwritten problem will only keep the last submission
             if self.handwritten:
                 stat['submissionIds'] = stat['submissionIds'][-1:]
+            # if the homework is overdue, do the penalty
+            if self.timestamp > homework.duration.end and not self.handwritten and homework.penalty is not None:
+                self.score,stat['rawScore'] = Homework(homework).do_penalty(self,stat)
+            else:
+                if self.score > stat['rawScore']:
+                    stat['rawScore'] = self.score
             # update high score / handwritten problem is judged by teacher
             if self.score >= stat['score'] or self.handwritten:
                 stat['score'] = self.score
                 stat['problemStatus'] = self.status
+            
             homework.save()
         key = Problem(self.problem).high_score_key(user=self.user)
         RedisCache().delete(key)

@@ -82,7 +82,8 @@ def homework_entry(user, homework_id=None):
             homework.student_status
             if user.role < 2 else homework.student_status.get(user.username),
             'penalty':
-            homework.penalty,
+            homework.penalty
+            if hasattr(homework,'penalty') else None,
         }
         return HTTPResponse('get homework', data=ret)
 

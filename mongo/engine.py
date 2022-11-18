@@ -184,6 +184,7 @@ class Homework(Document):
     problem_ids = ListField(IntField(), db_field='problemIds')
     student_status = DictField(db_field='studentStatus')
     ip_filters = ListField(StringField(max_length=64), default=list)
+    penalty = StringField(max_length=10000, default='')
 
 
 class Contest(Document):

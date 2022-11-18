@@ -11,6 +11,8 @@ from datetime import datetime
 __all__ = ['Homework']
 
 def check_penalty(penalty):
+        if penalty is None:
+                return 0
         allowChar = ["+","-","*","/","=",".","(",")",":",">","<"]
         allowWord = ["score","overtime","if","else"]
         checkstring = ""
@@ -22,25 +24,13 @@ def check_penalty(penalty):
                     int(i)
                 except:
                     return 1
-                    
         try:
-            scoreexist = 0 
-            overtimeexist = 0 
-            if 'score' not in locals():
-                score = 0
-                scoreexist = 1
-            if 'overtime' not in locals():
-                overtime = 0
-                overtimeexist = 1
+            score = 0
+            overtime = 0
             exec(penalty)
-            if overtimeexist:
-                del overtime
-            if scoreexist:
-                del score
-            del scoreexist 
-            del overtimeexist
         except:
             return 2
+        return 0
 
 # TODO: unittest for class `Homework`
 class Homework(MongoBase, engine=engine.Homework):
@@ -68,7 +58,7 @@ class Homework(MongoBase, engine=engine.Homework):
         scoreboard_status: int = 0,
         start: Optional[float] = None,
         end: Optional[float] = None,
-        penalty: str = '',
+        penalty: Optional[str] = '',
     ):
         # check user is teacher or ta
         if perm(course, user) <= 1:
@@ -83,9 +73,9 @@ class Homework(MongoBase, engine=engine.Homework):
         
         penaltyStat = check_penalty(penalty);
         if penaltyStat==1:
-            raise Exception("Illegal penalty")
+            raise ValueError("Illegal penalty")
         elif penaltyStat==2:
-            raise Exception("Invalid penalty")
+            raise ValueError("Invalid penalty")
 
         problems = [*map(Problem, problem_ids)]
         if not all(problems):
@@ -257,3 +247,18 @@ class Homework(MongoBase, engine=engine.Homework):
         for student in students:
             del self.student_status[student.username]
         self.save()
+
+    def do_penalty(self, submission,stat):
+        d={}
+        
+        d['score'] = submission.score - stat['rawScore']
+        with open("C:\\Users\\oscar\\Desktop\\Coding\\Normal OJ\\My NOJ\\Github\\Back-End\\tests\\unittest\\submission\\kk\\b.txt", "w") as file:
+            file.write(str(stat['rawScore']))
+        if d['score'] > 0:
+            d['overtime'] = int((submission.timestamp.timestamp()-self.duration.end.timestamp())/86400)
+            exec(self.penalty,d)
+            d['score'] = int(d['score'])
+            stat['score'] += d['score']
+            stat['rawScore'] = submission.score
+        
+        return [stat['score'],stat['rawScore']]
