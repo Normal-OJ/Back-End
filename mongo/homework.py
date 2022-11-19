@@ -10,27 +10,29 @@ from datetime import datetime
 
 __all__ = ['Homework']
 
+
 def check_penalty(penalty):
-        if penalty is None:
-                return 0
-        allowChar = ["+","-","*","/","=",".","(",")",":",">","<"]
-        allowWord = ["score","overtime","if","else"]
-        checkstring = ""
-        for i in penalty:
-            checkstring+=(" " if i in allowChar else i)
-        for i in checkstring.split():
-            if i not in allowWord:
-                try:
-                    int(i)
-                except:
-                    return 1
-        try:
-            score = 0
-            overtime = 0
-            exec(penalty)
-        except:
-            return 2
+    if penalty is None:
         return 0
+    allowChar = ["+", "-", "*", "/", "=", ".", "(", ")", ":", ">", "<"]
+    allowWord = ["score", "overtime", "if", "else"]
+    checkstring = ""
+    for i in penalty:
+        checkstring += (" " if i in allowChar else i)
+    for i in checkstring.split():
+        if i not in allowWord:
+            try:
+                int(i)
+            except:
+                return 1
+    try:
+        score = 0
+        overtime = 0
+        exec(penalty)
+    except:
+        return 2
+    return 0
+
 
 # TODO: unittest for class `Homework`
 class Homework(MongoBase, engine=engine.Homework):
@@ -41,10 +43,6 @@ class Homework(MongoBase, engine=engine.Homework):
             return True
         ip_filters = map(IPFilter, self.ip_filters)
         return any(_filter.match(ip) for _filter in ip_filters)
-
-    
-            
-
 
     @classmethod
     @doc_required('course_name', 'course', Course)
@@ -70,11 +68,11 @@ class Homework(MongoBase, engine=engine.Homework):
         ):
             raise engine.NotUniqueError('homework exist')
         # check problems exist
-        
-        penaltyStat = check_penalty(penalty);
-        if penaltyStat==1:
+
+        penaltyStat = check_penalty(penalty)
+        if penaltyStat == 1:
             raise ValueError("Illegal penalty")
-        elif penaltyStat==2:
+        elif penaltyStat == 2:
             raise ValueError("Invalid penalty")
 
         problems = [*map(Problem, problem_ids)]
@@ -129,10 +127,10 @@ class Homework(MongoBase, engine=engine.Homework):
         # check the new_name hasn't been use in this course
 
         if penalty is not None:
-            penaltyStat = check_penalty(penalty);
-            if penaltyStat==1:
+            penaltyStat = check_penalty(penalty)
+            if penaltyStat == 1:
                 raise Exception("Illegal penalty")
-            elif penaltyStat==2:
+            elif penaltyStat == 2:
                 raise Exception("Invalid penalty")
             homework.penalty = penalty
 
@@ -248,17 +246,16 @@ class Homework(MongoBase, engine=engine.Homework):
             del self.student_status[student.username]
         self.save()
 
-    def do_penalty(self, submission,stat):
-        d={}
-        
+    def do_penalty(self, submission, stat):
+        d = {}
+
         d['score'] = submission.score - stat['rawScore']
-        with open("C:\\Users\\oscar\\Desktop\\Coding\\Normal OJ\\My NOJ\\Github\\Back-End\\tests\\unittest\\submission\\kk\\b.txt", "w") as file:
-            file.write(str(stat['rawScore']))
         if d['score'] > 0:
-            d['overtime'] = int((submission.timestamp.timestamp()-self.duration.end.timestamp())/86400)
-            exec(self.penalty,d)
+            d['overtime'] = int((submission.timestamp.timestamp() -
+                                 self.duration.end.timestamp()) / 86400)
+            exec(self.penalty, d)
             d['score'] = int(d['score'])
             stat['score'] += d['score']
             stat['rawScore'] = submission.score
-        
-        return [stat['score'],stat['rawScore']]
+
+        return [stat['score'], stat['rawScore']]

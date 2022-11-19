@@ -41,7 +41,7 @@ def add_homework(
     '''
     if hw_name is None:
         problem_name = secrets.token_hex(16)
-    
+
     return Homework.add(
         user=user,
         course_name=course,
@@ -53,6 +53,7 @@ def add_homework(
         problem_ids=problem_ids,
         scoreboard_status=scoreboard_status,
     )
+
 
 def add_problem(
     user: User,
@@ -97,145 +98,142 @@ def add_problem(
         allowed_language=allowed_language,
     )
 
+
 def test_penalty_exist(client):
-    
-    hw = add_homework(
-        user=User('first_admin'),
-        course='Public',
-        penalty =  'score=score*(0.8**overtime)',
-        hw_name = 'test1'
-    )
-    assert Homework.get_by_name('Public','test1').penalty=='score=score*(0.8**overtime)'
 
-def test_penalty(client,app):
+    hw = add_homework(user=User('first_admin'),
+                      course='Public',
+                      penalty='score=score*(0.8**overtime)',
+                      hw_name='test1')
+    assert Homework.get_by_name(
+        'Public', 'test1').penalty == 'score=score*(0.8**overtime)'
 
-    course = utils.course.create_course(
-    name = 'Test',
-    )
+
+def test_penalty(client, app):
+
+    course = utils.course.create_course(name='Test', )
     student = utils.user.create_user(
-        username = 'student',
-        course = course,
-        role = 2,
-        )
+        username='student',
+        course=course,
+        role=2,
+    )
 
     problem = utils.problem.create_problem(course=course)
-    hw = add_homework(
-        user=User('first_admin'),
-        course='Test',
-        penalty = 'score=score*(0.8**overtime)',
-        problem_ids = [problem.id],
-        start = int(datetime.now().timestamp())-86411,
-        end = int(datetime.now().timestamp())-86410,
-        hw_name = 'qqoot'
-    )
+    hw = add_homework(user=User('first_admin'),
+                      course='Test',
+                      penalty='score=score*(0.8**overtime)',
+                      problem_ids=[problem.id],
+                      start=int(datetime.now().timestamp()) - 86411,
+                      end=int(datetime.now().timestamp()) - 86410,
+                      hw_name='qqoot')
     with app.app_context():
         submission = utils.submission.create_submission(
-            problem = problem,
-            user = student,
-            lang = 0,
-            score = 100,
+            problem=problem,
+            user=student,
+            lang=0,
+            score=100,
         )
         submission.finish_judging()
-    assert Homework.get_by_name('Test','qqoot').student_status[student.username][str(problem.id)]['score'] == 80
+    assert Homework.get_by_name('Test',
+                                'qqoot').student_status[student.username][str(
+                                    problem.id)]['score'] == 80
 
 
-def test_penalty2(client,app):
+def test_penalty2(client, app):
 
-    course = utils.course.create_course(
-    name = 'Test',
-    )
+    course = utils.course.create_course(name='Test', )
     student = utils.user.create_user(
-        username = 'student',
-        course = course,
-        role = 2,
-        )
+        username='student',
+        course=course,
+        role=2,
+    )
 
     problem = utils.problem.create_problem(course=course)
-    hw = add_homework(
-        user=User('first_admin'),
-        course='Test',
-        penalty = 'score=score*(0.7**overtime)',
-        problem_ids = [problem.id],
-        start = int(datetime.now().timestamp())-86411,
-        end = int(datetime.now().timestamp())-86410,
-        hw_name = 'qqoot'
-    )
+    hw = add_homework(user=User('first_admin'),
+                      course='Test',
+                      penalty='score=score*(0.7**overtime)',
+                      problem_ids=[problem.id],
+                      start=int(datetime.now().timestamp()) - 86411,
+                      end=int(datetime.now().timestamp()) - 86410,
+                      hw_name='qqoot')
     with app.app_context():
         submission = utils.submission.create_submission(
-            problem = problem,
-            user = student,
-            lang = 0,
-            score = 50,
-            timestamp = float(int(datetime.now().timestamp())-86410),
+            problem=problem,
+            user=student,
+            lang=0,
+            score=50,
+            timestamp=float(int(datetime.now().timestamp()) - 86410),
         )
         submission.finish_judging()
         submission = utils.submission.create_submission(
-            problem = problem,
-            user = student,
-            lang = 0,
-            score = 100,
+            problem=problem,
+            user=student,
+            lang=0,
+            score=100,
         )
         submission.finish_judging()
-    assert Homework.get_by_name('Test','qqoot').student_status[student.username][str(problem.id)]['score'] == 85 and Homework.get_by_name('Test','qqoot').student_status[student.username][str(problem.id)]['rawScore'] == 100
+    assert Homework.get_by_name(
+        'Test', 'qqoot').student_status[student.username][str(
+            problem.id)]['score'] == 85 and Homework.get_by_name(
+                'Test', 'qqoot').student_status[student.username][str(
+                    problem.id)]['rawScore'] == 100
 
-def test_no_penalty(client,app):
 
-    course = utils.course.create_course(
-    name = 'Test',
-    )
+def test_no_penalty(client, app):
+
+    course = utils.course.create_course(name='Test', )
     student = utils.user.create_user(
-        username = 'student',
-        course = course,
-        role = 2,
-        )
+        username='student',
+        course=course,
+        role=2,
+    )
 
     problem = utils.problem.create_problem(course=course)
-    hw = add_homework(
-        user=User('first_admin'),
-        course='Test',
-        penalty = '',
-        problem_ids = [problem.id],
-        start = int(datetime.now().timestamp())-86411,
-        end = int(datetime.now().timestamp())-86410,
-        hw_name = 'qqoot'
-    )
+    hw = add_homework(user=User('first_admin'),
+                      course='Test',
+                      penalty='',
+                      problem_ids=[problem.id],
+                      start=int(datetime.now().timestamp()) - 86411,
+                      end=int(datetime.now().timestamp()) - 86410,
+                      hw_name='qqoot')
     with app.app_context():
         submission = utils.submission.create_submission(
-            problem = problem,
-            user = student,
-            lang = 0,
-            score = 100,
+            problem=problem,
+            user=student,
+            lang=0,
+            score=100,
         )
         submission.finish_judging()
-    assert Homework.get_by_name('Test','qqoot').student_status[student.username][str(problem.id)]['score'] == 100
+    assert Homework.get_by_name('Test',
+                                'qqoot').student_status[student.username][str(
+                                    problem.id)]['score'] == 100
 
-def test_penalty_in_time(client,app):
 
-    course = utils.course.create_course(
-    name = 'Test',
-    )
+def test_penalty_in_time(client, app):
+
+    course = utils.course.create_course(name='Test', )
     student = utils.user.create_user(
-        username = 'student',
-        course = course,
-        role = 2,
-        )
+        username='student',
+        course=course,
+        role=2,
+    )
 
     problem = utils.problem.create_problem(course=course)
-    hw = add_homework(
-        user=User('first_admin'),
-        course='Test',
-        penalty = 'score=score*(0.7**overtime)',
-        problem_ids = [problem.id],
-        start = int(datetime.now().timestamp())-1,
-        end = int(datetime.now().timestamp()),
-        hw_name = 'qqoot'
-    )
+    hw = add_homework(user=User('first_admin'),
+                      course='Test',
+                      penalty='score=score*(0.7**overtime)',
+                      problem_ids=[problem.id],
+                      start=int(datetime.now().timestamp()) - 1,
+                      end=int(datetime.now().timestamp()),
+                      hw_name='qqoot')
     with app.app_context():
         submission = utils.submission.create_submission(
-            problem = problem,
-            user = student,
-            lang = 0,
-            score = 100,
+            problem=problem,
+            user=student,
+            lang=0,
+            score=100,
         )
         submission.finish_judging()
-    assert Homework.get_by_name('Test','qqoot').student_status[student.username][str(problem.id)]['score'] == 100
+    assert Homework.get_by_name('Test',
+                                'qqoot').student_status[student.username][str(
+                                    problem.id)]['score'] == 100

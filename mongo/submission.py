@@ -452,7 +452,7 @@ class Submission(MongoBase, engine=engine.Submission):
         User(self.username).add_submission(self)
         # update homework data
         for homework in self.problem.homeworks:
-            
+
             stat = homework.student_status[self.username][str(self.problem_id)]
             if self.handwritten:
                 continue
@@ -464,7 +464,8 @@ class Submission(MongoBase, engine=engine.Submission):
                 stat['submissionIds'] = stat['submissionIds'][-1:]
             # if the homework is overdue, do the penalty
             if self.timestamp > homework.duration.end and not self.handwritten and homework.penalty is not None:
-                self.score,stat['rawScore'] = Homework(homework).do_penalty(self,stat)
+                self.score, stat['rawScore'] = Homework(homework).do_penalty(
+                    self, stat)
             else:
                 if self.score > stat['rawScore']:
                     stat['rawScore'] = self.score
@@ -472,7 +473,7 @@ class Submission(MongoBase, engine=engine.Submission):
             if self.score >= stat['score'] or self.handwritten:
                 stat['score'] = self.score
                 stat['problemStatus'] = self.status
-            
+
             homework.save()
         key = Problem(self.problem).high_score_key(user=self.user)
         RedisCache().delete(key)

@@ -33,7 +33,7 @@ def homework_entry(user, homework_id=None):
                 problem_ids=problem_ids or [],
                 start=start,
                 end=end,
-                penalty=penalty, 
+                penalty=penalty,
             )
         except NameError:
             return HTTPError('user must be the teacher or ta of this course',
@@ -45,7 +45,7 @@ def homework_entry(user, homework_id=None):
     @Request.json('name', 'markdown', 'start', 'end', 'problem_ids',
                   'scoreboard_status', 'penalty')
     def update_homework(name, markdown, start, end, problem_ids,
-                        scoreboard_status,penalty):
+                        scoreboard_status, penalty):
         homework = Homework.update(
             user=user,
             homework_id=homework_id,
@@ -82,8 +82,7 @@ def homework_entry(user, homework_id=None):
             homework.student_status
             if user.role < 2 else homework.student_status.get(user.username),
             'penalty':
-            homework.penalty
-            if hasattr(homework,'penalty') else None,
+            homework.penalty if hasattr(homework, 'penalty') else None,
         }
         return HTTPResponse('get homework', data=ret)
 
