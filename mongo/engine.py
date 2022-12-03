@@ -167,6 +167,7 @@ class User(Document):
 
 @escape_markdown.apply
 class Homework(Document):
+
     homework_name = StringField(
         max_length=64,
         required=True,
@@ -184,7 +185,7 @@ class Homework(Document):
     problem_ids = ListField(IntField(), db_field='problemIds')
     student_status = DictField(db_field='studentStatus')
     ip_filters = ListField(StringField(max_length=64), default=list)
-    penalty = StringField(max_length=10000, default='')
+    penalty = StringField(max_length=10000, default='score = 0')
 
 
 class Contest(Document):

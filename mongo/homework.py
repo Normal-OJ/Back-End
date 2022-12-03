@@ -10,17 +10,19 @@ from datetime import datetime
 
 __all__ = ['Homework']
 
-
+class Error():
+    Illegal_penalty = 1
+    Invalid_penalty = 2
 def check_penalty(penalty: Optional[str]) -> int:
     if penalty is None:
         return 0
-    allowChar = ["+", "-", "*", "/", "=", ".", "(", ")", ":", ">", "<"]
-    allowWord = ["score", "overtime", "if", "else"]
+    allowed_chars = ["+", "-", "*", "/", "=", ".", "(", ")", ":", ">", "<"]
+    allowed_words = ["score", "overtime", "if", "else"]
     checkstring = ""
     for i in penalty:
-        checkstring += (" " if i in allowChar else i)
+        checkstring += (" " if i in allowed_chars else i)
     for i in checkstring.split():
-        if i not in allowWord:
+        if i not in allowed_words:
             try:
                 int(i)
             except:
@@ -69,10 +71,10 @@ class Homework(MongoBase, engine=engine.Homework):
             raise engine.NotUniqueError('homework exist')
         # check problems exist
 
-        penaltyStat = check_penalty(penalty)
-        if penaltyStat == 1:
+        penalty_stat = check_penalty(penalty)
+        if penalty_stat == Error.Illegal_penalty:
             raise ValueError("Illegal penalty")
-        elif penaltyStat == 2:
+        elif penalty_stat == Error.Illegal_penalty:
             raise ValueError("Invalid penalty")
 
         problems = [*map(Problem, problem_ids)]
@@ -127,12 +129,13 @@ class Homework(MongoBase, engine=engine.Homework):
         # check the new_name hasn't been use in this course
 
         if penalty is not None:
-            penaltyStat = check_penalty(penalty)
-            if penaltyStat == 1:
-                raise Exception("Illegal penalty")
-            elif penaltyStat == 2:
-                raise Exception("Invalid penalty")
-            homework.penalty = penalty
+            penalty_stat = check_penalty(penalty)
+            if penalty_stat == Error.Illegal_penalty:
+                raise ValueError("Illegal penalty")
+            elif penalty_stat == Error.Illegal_penalty:
+                raise ValueError("Invalid penalty")
+            else:
+                homework.penalty = penalty
 
         if new_hw_name is not None:
             if cls.engine.objects(

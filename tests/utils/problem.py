@@ -2,6 +2,7 @@ import secrets
 from typing import Optional, Union, List, Dict, Any
 from mongo import *
 from . import course as course_lib
+from tests import utils
 
 __all__ = ('create_problem', )
 
