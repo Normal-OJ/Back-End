@@ -11,7 +11,7 @@ from datetime import datetime
 __all__ = ['Homework']
 
 
-def check_penalty(penalty):
+def check_penalty(penalty: Optional[str]) -> int:
     if penalty is None:
         return 0
     allowChar = ["+", "-", "*", "/", "=", ".", "(", ")", ":", ">", "<"]
