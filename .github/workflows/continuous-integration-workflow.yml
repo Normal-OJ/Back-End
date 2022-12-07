@@ -3,28 +3,20 @@ name: CI
 on: [push, pull_request]
 
 jobs:
-  build:
-
+  test:
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v1
-    - name: Set up Python 3.8
-      uses: actions/setup-python@v1
-      with:
-        python-version: 3.8
-    - name: Upgrade pip
-      run: |
-        python -m pip install --upgrade pip
-    - name: Install dev dependencies
-      run: |
-        pip install -r requirements/dev.txt
-    # - name: Install bs detection requirements
-    #   run: |
-    #     sudo apt install cppcheck
-    - name: YAPF
-      run: |
-        yapf . -rd
-    - name: Unit test
-      run: |
-        pytest
+      - uses: actions/checkout@v3
+      - name: Install Poetry
+        run: pipx install poetry
+      - name: Setup Python 3.8
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.8"
+          cache: "poetry"
+      - name: Install Dependency
+        run: poetry install
+      - name: Format
+        run: poetry run yapf -- --recursive --parallel --diff .
+      - name: Unit test
+        run: poetry run pytest -- --cov=./ --cov-config=.coveragerc
