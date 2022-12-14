@@ -11,6 +11,34 @@ from datetime import datetime
 __all__ = ['Homework']
 
 
+class Error():
+    Illegal_penalty = 1
+    Invalid_penalty = 2
+
+
+def check_penalty(penalty: Optional[str]) -> int:
+    if penalty is None:
+        return 0
+    allowed_chars = ["+", "-", "*", "/", "=", ".", "(", ")", ":", ">", "<"]
+    allowed_words = ["score", "overtime", "if", "else"]
+    checkstring = ""
+    for i in penalty:
+        checkstring += (" " if i in allowed_chars else i)
+    for i in checkstring.split():
+        if i not in allowed_words:
+            try:
+                int(i)
+            except:
+                return 1
+    try:
+        score = 0
+        overtime = 0
+        exec(penalty)
+    except:
+        return 2
+    return 0
+
+
 # TODO: unittest for class `Homework`
 class Homework(MongoBase, engine=engine.Homework):
 
@@ -33,6 +61,7 @@ class Homework(MongoBase, engine=engine.Homework):
         scoreboard_status: int = 0,
         start: Optional[float] = None,
         end: Optional[float] = None,
+        penalty: Optional[str] = '',
     ):
         # check user is teacher or ta
         if perm(course, user) <= 1:
@@ -44,6 +73,13 @@ class Homework(MongoBase, engine=engine.Homework):
         ):
             raise engine.NotUniqueError('homework exist')
         # check problems exist
+
+        penalty_stat = check_penalty(penalty)
+        if penalty_stat == Error.Illegal_penalty:
+            raise ValueError("Illegal penalty")
+        elif penalty_stat == Error.Illegal_penalty:
+            raise ValueError("Invalid penalty")
+
         problems = [*map(Problem, problem_ids)]
         if not all(problems):
             raise engine.DoesNotExist(f'some problems not found!')
@@ -54,6 +90,8 @@ class Homework(MongoBase, engine=engine.Homework):
             scoreboard_status=scoreboard_status,
             markdown=markdown,
         )
+        if penalty:
+            homework.penalty = penalty
         if start:
             homework.duration.start = datetime.fromtimestamp(start)
         if end:
@@ -81,6 +119,7 @@ class Homework(MongoBase, engine=engine.Homework):
         markdown: str,
         new_hw_name: str,
         problem_ids: List[int],
+        penalty: str,
         start: Optional[datetime] = None,
         end: Optional[datetime] = None,
         scoreboard_status: Optional[int] = None,
@@ -91,6 +130,16 @@ class Homework(MongoBase, engine=engine.Homework):
         if perm(course, user) <= 1:
             raise PermissionError('user is not tacher or ta')
         # check the new_name hasn't been use in this course
+
+        if penalty is not None:
+            penalty_stat = check_penalty(penalty)
+            if penalty_stat == Error.Illegal_penalty:
+                raise ValueError("Illegal penalty")
+            elif penalty_stat == Error.Illegal_penalty:
+                raise ValueError("Invalid penalty")
+            else:
+                homework.penalty = penalty
+
         if new_hw_name is not None:
             if cls.engine.objects(
                     course_id=str(course.id),
@@ -202,3 +251,17 @@ class Homework(MongoBase, engine=engine.Homework):
         for student in students:
             del self.student_status[student.username]
         self.save()
+
+    def do_penalty(self, submission, stat):
+        d = {}
+
+        d['score'] = submission.score - stat['rawScore']
+        if d['score'] > 0:
+            d['overtime'] = int((submission.timestamp.timestamp() -
+                                 self.duration.end.timestamp()) / 86400)
+            exec(self.penalty, d)
+            d['score'] = int(d['score'])
+            stat['score'] += d['score']
+            stat['rawScore'] = submission.score
+
+        return [stat['score'], stat['rawScore']]

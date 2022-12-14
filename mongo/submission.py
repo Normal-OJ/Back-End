@@ -1,7 +1,5 @@
 from __future__ import annotations
-import json
 import os
-import io
 import pathlib
 import secrets
 import logging
@@ -12,6 +10,7 @@ from typing import (
     Union,
     List,
 )
+import tempfile
 import requests as rq
 import itertools
 from bson.son import SON
@@ -24,6 +23,7 @@ from . import engine
 from .base import MongoBase
 from .user import User
 from .problem import Problem
+from .homework import Homework
 from .course import Course
 from .utils import RedisCache
 
@@ -69,14 +69,10 @@ class SubmissionConfig(MongoBase, engine=engine.SubmissionConfig):
     TMP_DIR = pathlib.Path(
         os.getenv(
             'SUBMISSION_TMP_DIR',
-            '/tmp/submissions',
+            tempfile.TemporaryDirectory(suffix='noj-submisisons').name,
         ), )
 
-    def __new__(cls, *args, **ks):
-        cls.TMP_DIR.mkdir(exist_ok=True)
-        return super().__new__(cls, *args, **ks)
-
-    def __init__(self, name):
+    def __init__(self, name: str):
         self.name = name
 
 
@@ -123,7 +119,9 @@ class Submission(MongoBase, engine=engine.Submission):
 
     @property
     def tmp_dir(self) -> pathlib.Path:
-        tmp_dir = self.config().TMP_DIR / self.username / self.id
+        tmp_dir = self.config().TMP_DIR
+        tmp_dir.mkdir(exist_ok=True)
+        tmp_dir = tmp_dir / self.username / self.id
         tmp_dir.mkdir(exist_ok=True, parents=True)
         return tmp_dir
 
@@ -454,18 +452,28 @@ class Submission(MongoBase, engine=engine.Submission):
         User(self.username).add_submission(self)
         # update homework data
         for homework in self.problem.homeworks:
-            # if the homework is overdue, skip it
-            if self.timestamp > homework.duration.end:
-                continue
+
             stat = homework.student_status[self.username][str(self.problem_id)]
+            if self.handwritten:
+                continue
+            if 'rawScore' not in stat:
+                stat['rawScore'] = 0
             stat['submissionIds'].append(self.id)
             # handwritten problem will only keep the last submission
             if self.handwritten:
                 stat['submissionIds'] = stat['submissionIds'][-1:]
+            # if the homework is overdue, do the penalty
+            if self.timestamp > homework.duration.end and not self.handwritten and homework.penalty is not None:
+                self.score, stat['rawScore'] = Homework(homework).do_penalty(
+                    self, stat)
+            else:
+                if self.score > stat['rawScore']:
+                    stat['rawScore'] = self.score
             # update high score / handwritten problem is judged by teacher
             if self.score >= stat['score'] or self.handwritten:
                 stat['score'] = self.score
                 stat['problemStatus'] = self.status
+
             homework.save()
         key = Problem(self.problem).high_score_key(user=self.user)
         RedisCache().delete(key)

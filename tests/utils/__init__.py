@@ -4,6 +4,7 @@ from . import user
 from . import course
 from . import problem
 from . import submission
+from . import homework
 
 import random
 import secrets
