@@ -32,7 +32,8 @@ class CourseData:
 def course_data(
     request,
     client_admin: FlaskClient,
-    problem_ids,):
+    problem_ids,
+):
     BaseTester.setup_class()
     cd = CourseData(**request.param)
     # add course

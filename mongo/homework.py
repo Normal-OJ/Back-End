@@ -10,9 +10,12 @@ from datetime import datetime
 
 __all__ = ['Homework']
 
+
 class Error():
     Illegal_penalty = 1
     Invalid_penalty = 2
+
+
 def check_penalty(penalty: Optional[str]) -> int:
     if penalty is None:
         return 0

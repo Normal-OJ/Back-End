@@ -9,7 +9,7 @@ __all__ = ('add_homework', )
 def add_homework(
     user: User,
     course,
-    hw_name: str ,
+    hw_name: str,
     problem_ids: List[int],
     markdown: str,
     scoreboard_status: int,
