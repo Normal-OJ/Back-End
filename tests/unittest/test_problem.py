@@ -1,8 +1,17 @@
+import io
+from zipfile import ZipFile, ZipInfo
 from tests import utils
+import mongomock
+import pytest
 from mongo import (
     User,
     Problem,
 )
+from mongo.problem import BadTestCase
+
+
+def setup_module(_):
+    mongomock.gridfs.enable_gridfs_integration()
 
 
 def setup_function(_):
@@ -72,3 +81,91 @@ def test_override_copied_problem_status():
     utils.problem.cmp_copied_problem(original_problem, another_problem)
     assert original_problem.problem_status != Problem.engine.Visibility.HIDDEN
     assert another_problem.problem_status == Problem.engine.Visibility.HIDDEN
+
+
+def test_simple_io_test_case():
+    p = utils.problem.create_problem(
+        test_case_info={
+            'language':
+            0,
+            'fillInTemplate':
+            '',
+            'tasks': [{
+                'taskScore': 60,
+                'caseCount': 8,
+                'memoryLimit': 65535,
+                'timeLimit': 1000,
+            }, {
+                'taskScore': 40,
+                'caseCount': 12,
+                'memoryLimit': 65535,
+                'timeLimit': 1000,
+            }],
+        })
+    f = io.BytesIO()
+    with ZipFile(f, 'x') as zf:
+        for i, task in enumerate(p.test_case.tasks):
+            for j in range(task.case_count):
+                zf.writestr(f'{i:02d}{j:02d}.in', 'hello')
+                zf.writestr(f'{i:02d}{j:02d}.out', 'hello')
+    f.seek(0)
+    p.update_test_case(f)
+
+
+def test_simple_io_with_missing_files_should_fail():
+    p = utils.problem.create_problem(
+        test_case_info={
+            'language':
+            0,
+            'fillInTemplate':
+            '',
+            'tasks': [{
+                'taskScore': 60,
+                'caseCount': 8,
+                'memoryLimit': 65535,
+                'timeLimit': 1000,
+            }, {
+                'taskScore': 40,
+                'caseCount': 12,
+                'memoryLimit': 65535,
+                'timeLimit': 1000,
+            }],
+        })
+    f = io.BytesIO()
+    with ZipFile(f, 'x') as zf:
+        for i, task in enumerate(p.test_case.tasks):
+            for j in range(task.case_count):
+                zf.writestr(f'{i:02d}{j:02d}.in', 'hello')
+    f.seek(0)
+    with pytest.raises(BadTestCase):
+        p.update_test_case(f)
+
+
+def test_test_case_include_optional_directory():
+    p = utils.problem.create_problem(
+        test_case_info={
+            'language':
+            0,
+            'fillInTemplate':
+            '',
+            'tasks': [{
+                'taskScore': 60,
+                'caseCount': 8,
+                'memoryLimit': 65535,
+                'timeLimit': 1000,
+            }, {
+                'taskScore': 40,
+                'caseCount': 12,
+                'memoryLimit': 65535,
+                'timeLimit': 1000,
+            }],
+        })
+    f = io.BytesIO()
+    with ZipFile(f, 'x') as zf:
+        zf.writestr('chaos/', '')
+        for i, task in enumerate(p.test_case.tasks):
+            for j in range(task.case_count):
+                zf.writestr(f'{i:02d}{j:02d}.in', 'hello')
+                zf.writestr(f'{i:02d}{j:02d}.out', 'hello')
+    f.seek(0)
+    p.update_test_case(f)

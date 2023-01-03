@@ -1,4 +1,5 @@
 class BadTestCase(Exception):
+
     def __init__(self, expression, extra, short):
         super().__init__(expression)
         self.extra = extra

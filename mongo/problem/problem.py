@@ -8,7 +8,11 @@ from ..utils import (
     perm,
 )
 from ..user import User
-from .test_case import SimpleIO
+from .test_case import (
+    SimpleIO,
+    IncludeDirectory,
+    TestCaseRule,
+)
 from datetime import datetime
 from typing import (
     Any,
@@ -320,9 +324,15 @@ class Problem(MongoBase, engine=engine.Problem):
             ValueError: if test case is None or problem_id is invalid
             engine.DoesNotExist
         '''
-        if not SimpleIO(self).validate(test_case):
-            # FIXME: Validate should raise error if failed
-            return
+        rules: List[TestCaseRule] = [
+            IncludeDirectory(self, 'include'),
+            IncludeDirectory(self, 'share'),
+            SimpleIO(self, ['include/', 'share/', 'chaos/']),
+            # For backward compatibility
+            IncludeDirectory(self, 'chaos'),
+        ]
+        for rule in rules:
+            rule.validate(test_case)
         # save zip file
         test_case.seek(0)
         # check whether the test case exists
