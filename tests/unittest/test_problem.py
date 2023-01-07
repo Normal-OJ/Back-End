@@ -1,5 +1,5 @@
 import io
-from zipfile import ZipFile, ZipInfo
+from zipfile import ZipFile
 from tests import utils
 import mongomock
 import pytest
@@ -85,23 +85,10 @@ def test_override_copied_problem_status():
 
 def test_simple_io_test_case():
     p = utils.problem.create_problem(
-        test_case_info={
-            'language':
-            0,
-            'fillInTemplate':
-            '',
-            'tasks': [{
-                'taskScore': 60,
-                'caseCount': 8,
-                'memoryLimit': 65535,
-                'timeLimit': 1000,
-            }, {
-                'taskScore': 40,
-                'caseCount': 12,
-                'memoryLimit': 65535,
-                'timeLimit': 1000,
-            }],
-        })
+        test_case_info=utils.problem.create_test_case_info(
+            language=1,
+            task_len=2,
+        ))
     f = io.BytesIO()
     with ZipFile(f, 'x') as zf:
         for i, task in enumerate(p.test_case.tasks):
@@ -114,23 +101,10 @@ def test_simple_io_test_case():
 
 def test_simple_io_with_missing_files_should_fail():
     p = utils.problem.create_problem(
-        test_case_info={
-            'language':
-            0,
-            'fillInTemplate':
-            '',
-            'tasks': [{
-                'taskScore': 60,
-                'caseCount': 8,
-                'memoryLimit': 65535,
-                'timeLimit': 1000,
-            }, {
-                'taskScore': 40,
-                'caseCount': 12,
-                'memoryLimit': 65535,
-                'timeLimit': 1000,
-            }],
-        })
+        test_case_info=utils.problem.create_test_case_info(
+            language=1,
+            task_len=2,
+        ))
     f = io.BytesIO()
     with ZipFile(f, 'x') as zf:
         for i, task in enumerate(p.test_case.tasks):
@@ -143,23 +117,10 @@ def test_simple_io_with_missing_files_should_fail():
 
 def test_test_case_include_optional_directory():
     p = utils.problem.create_problem(
-        test_case_info={
-            'language':
-            0,
-            'fillInTemplate':
-            '',
-            'tasks': [{
-                'taskScore': 60,
-                'caseCount': 8,
-                'memoryLimit': 65535,
-                'timeLimit': 1000,
-            }, {
-                'taskScore': 40,
-                'caseCount': 12,
-                'memoryLimit': 65535,
-                'timeLimit': 1000,
-            }],
-        })
+        test_case_info=utils.problem.create_test_case_info(
+            language=1,
+            task_len=2,
+        ))
     f = io.BytesIO()
     with ZipFile(f, 'x') as zf:
         zf.writestr('chaos/', '')
@@ -169,3 +130,102 @@ def test_test_case_include_optional_directory():
                 zf.writestr(f'{i:02d}{j:02d}.out', 'hello')
     f.seek(0)
     p.update_test_case(f)
+
+
+def test_context_io():
+    p = utils.problem.create_problem(
+        test_case_info=utils.problem.create_test_case_info(
+            language=1,
+            task_len=2,
+        ))
+    f = io.BytesIO()
+    with ZipFile(f, 'x') as zf:
+        zf.writestr('test-case/', '')
+        for i, task in enumerate(p.test_case.tasks):
+            for j in range(task.case_count):
+                test_case_dir = f'test-case/{i:02d}{j:02d}'
+                zf.writestr(f'{test_case_dir}/STDIN', 'hello')
+                zf.writestr(f'{test_case_dir}/STDOUT', 'hello')
+                zf.writestr(f'{test_case_dir}/in/', '')
+                zf.writestr(f'{test_case_dir}/in/in.bin', b'hello')
+                zf.writestr(f'{test_case_dir}/out/', '')
+                zf.writestr(f'{test_case_dir}/out/out.bin', b'hello')
+    f.seek(0)
+    p.update_test_case(f)
+
+
+def test_context_io_with_missing_files():
+    p = utils.problem.create_problem(
+        test_case_info=utils.problem.create_test_case_info(
+            language=1,
+            task_len=2,
+        ))
+    f = io.BytesIO()
+    with ZipFile(f, 'x') as zf:
+        zf.writestr('test-case/', '')
+        for i, task in enumerate(p.test_case.tasks):
+            for j in range(task.case_count):
+                test_case_dir = f'test-case/{i:02d}{j:02d}'
+                zf.writestr(f'{test_case_dir}/STDOUT', 'hello')
+                zf.writestr(f'{test_case_dir}/in/', '')
+                zf.writestr(f'{test_case_dir}/in/in.bin', b'hello')
+                zf.writestr(f'{test_case_dir}/out/', '')
+                zf.writestr(f'{test_case_dir}/out/out.bin', b'hello')
+    f.seek(0)
+    with pytest.raises(BadTestCase, match=r'.*STDIN.*'):
+        p.update_test_case(f)
+
+
+def test_context_io_with_missing_test_case_dir():
+    p = utils.problem.create_problem(
+        test_case_info=utils.problem.create_test_case_info(
+            language=1,
+            task_len=2,
+        ))
+    f = io.BytesIO()
+    skip = True
+    with ZipFile(f, 'x') as zf:
+        zf.writestr('test-case/', '')
+        for i, task in enumerate(p.test_case.tasks):
+            for j in range(task.case_count):
+                if skip:
+                    skip = False
+                    continue
+                test_case_dir = f'test-case/{i:02d}{j:02d}'
+                zf.writestr(f'{test_case_dir}/STDIN', 'hello')
+                zf.writestr(f'{test_case_dir}/STDOUT', 'hello')
+                zf.writestr(f'{test_case_dir}/in/', '')
+                zf.writestr(f'{test_case_dir}/in/in.bin', b'hello')
+                zf.writestr(f'{test_case_dir}/out/', '')
+                zf.writestr(f'{test_case_dir}/out/out.bin', b'hello')
+    f.seek(0)
+    with pytest.raises(BadTestCase):
+        p.update_test_case(f)
+
+
+def test_context_io_extra_file_in_unallowed_path():
+    p = utils.problem.create_problem(
+        test_case_info=utils.problem.create_test_case_info(
+            language=1,
+            task_len=2,
+        ))
+    f = io.BytesIO()
+    with ZipFile(f, 'x') as zf:
+        zf.writestr('test-case/', '')
+        for i, task in enumerate(p.test_case.tasks):
+            for j in range(task.case_count):
+                test_case_dir = f'test-case/{i:02d}{j:02d}'
+                zf.writestr(f'{test_case_dir}/STDIN', 'hello')
+                zf.writestr(f'{test_case_dir}/STDOUT', 'hello')
+                zf.writestr(f'{test_case_dir}/in/', '')
+                zf.writestr(f'{test_case_dir}/out/', '')
+                # these files are not allowed
+                # they should be placed under in/ and out/
+                zf.writestr(f'{test_case_dir}/extra-input', b'aaa')
+                zf.writestr(f'{test_case_dir}/extra-output', b'bbb')
+    f.seek(0)
+    with pytest.raises(
+            BadTestCase,
+            match=r'.*(extra-input|extra-output),*',
+    ):
+        p.update_test_case(f)

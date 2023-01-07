@@ -1,11 +1,94 @@
 import secrets
-from typing import Optional, Union, List, Dict, Any
+import random
+from dataclasses import dataclass, asdict, field
+from typing import (
+    Optional,
+    Union,
+    List,
+    Dict,
+    Any,
+    Tuple,
+    Iterable,
+)
 from mongo import *
 from mongo.utils import drop_none
 from . import course as course_lib
-from tests import utils
 
-__all__ = ('create_problem', )
+__all__ = (
+    'create_problem',
+    'cmp_copied_problem',
+    'create_test_case_info',
+)
+
+
+@dataclass
+class Task:
+    task_score: int
+    case_count: int
+    memory_limit: int
+    time_limit: int
+
+
+@dataclass
+class TestCaseInfo:
+    language: int
+    fill_in_template: str
+    tasks: List[Task] = field(default_factory=list)
+
+
+def generate_task(
+    task_score: int,
+    case_count_range: Tuple[int, int],
+    memory_limit_range: Tuple[int, int],
+    time_limit_range: Tuple[int, int],
+):
+    return Task(
+        task_score=task_score,
+        case_count=random.randint(*case_count_range),
+        memory_limit=random.randint(*memory_limit_range),
+        time_limit=random.randint(*time_limit_range),
+    )
+
+
+def conv_key(k: str):
+    '''
+    convert a `snake_case` string to `camelCase`
+    '''
+    s, *e = k.split('_')
+    return ''.join((s, *(x.capitalize() for x in e)))
+
+
+def conv_dict(kv_pairs: Iterable[Tuple[str, Any]]):
+    return {conv_key(k): v for k, v in kv_pairs}
+
+
+def create_test_case_info(
+        *,
+        language: int,
+        task_len: int,
+        case_count_range: Tuple[int, int] = (1, 10),
+        memory_limit_range: Tuple[int, int] = (65536, 16777216),
+        time_limit_range: Tuple[int, int] = (1, 4),
+) -> Dict[str, Any]:
+    per_task_score = 100 // task_len
+    tasks = [
+        generate_task(
+            per_task_score,
+            case_count_range,
+            memory_limit_range,
+            time_limit_range,
+        ) for _ in range(task_len)
+    ]
+    remainder = 100 - per_task_score * task_len
+    tasks[-1].task_score += remainder
+    return asdict(
+        TestCaseInfo(
+            language=language,
+            fill_in_template='',
+            tasks=tasks,
+        ),
+        dict_factory=conv_dict,
+    )
 
 
 def create_problem(

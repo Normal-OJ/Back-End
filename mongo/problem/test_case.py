@@ -99,17 +99,46 @@ class ContextIO(TestCaseRule):
         if not test_case_root.is_dir():
             raise BadTestCase('test-case is not a directory')
 
+        expected_dirs = self.expected_test_case_dirs()
+
         for test_case in test_case_root.iterdir():
+            try:
+                expected_dirs.remove(test_case.name)
+            except KeyError:
+                raise BadTestCase(
+                    f'extra test case directory found: {test_case.name}')
             self.validate_test_case_dir(test_case)
 
+        if len(expected_dirs):
+            raise BadTestCase(
+                f'missing test case directory: {", ".join(expected_dirs)}')
+
     def validate_test_case_dir(self, test_case_dir: zipfile.Path):
-        requireds = (
+        requireds = {
             'STDIN',
             'STDOUT',
-            'in/',
-            'out/',
-        )
+        }
 
         for r in requireds:
             if not (test_case_dir / r).exists():
                 raise BadTestCase(f'required file/dir not found: {r}')
+
+        dirs = {
+            'in',
+            'out',
+        }
+        for fp in test_case_dir.iterdir():
+            # files under in/out are allowed
+            if fp.is_dir() and fp.name in dirs:
+                continue
+            # STDIN/STDOUT are allowed
+            if fp.name in requireds:
+                continue
+            raise BadTestCase(f'files in unallowed path: {fp.name}')
+
+    def expected_test_case_dirs(self) -> Set[str]:
+        excepted = set()
+        for i, task in enumerate(self.problem.test_case.tasks):
+            for j in range(task.case_count):
+                excepted.add(f'{i:02d}{j:02d}')
+        return excepted
