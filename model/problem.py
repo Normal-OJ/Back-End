@@ -223,8 +223,8 @@ def manage_problem(user: User, problem: Problem):
         except (ValueError, BadZipFile) as e:
             return HTTPError(str(e), 400)
         except BadTestCase as e:
-            return HTTPError(str(e), 400, data=e.dict)
-        return HTTPResponse('Success.', data=True)
+            return HTTPError(str(e), 400)
+        return HTTPResponse('Success.')
 
     if not problem.check_manage_permission(user=user):
         return permission_error_response()

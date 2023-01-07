@@ -34,7 +34,7 @@ class IncludeDirectory(TestCaseRule):
 
     def validate(self, test_case: BinaryIO) -> bool:
         if test_case is None:
-            raise ValueError('test case is None')
+            raise BadTestCase('test case is None')
         path = zipfile.Path(test_case, at=self.path)
 
         if not path.exists():
@@ -49,6 +49,9 @@ class IncludeDirectory(TestCaseRule):
 
 
 class SimpleIO(TestCaseRule):
+    '''
+    Test cases that only contains single input and output file.
+    '''
 
     def __init__(self, problem: 'Problem', excludes: List[str] = []):
         self.excludes = excludes
@@ -57,7 +60,7 @@ class SimpleIO(TestCaseRule):
     def validate(self, test_case: BinaryIO) -> bool:
         # test case must not be None
         if test_case is None:
-            raise ValueError('test case is None')
+            raise BadTestCase('test case is None')
         got = {*zipfile.ZipFile(test_case).namelist()}
         for ex in self.excludes:
             if ex.endswith('/'):
@@ -65,15 +68,8 @@ class SimpleIO(TestCaseRule):
             else:
                 got.discard(ex)
         expected = self.expected_test_case_filenames()
-        # check diff
-        extra = got - expected
-        short = expected - got
-        if len(extra) or len(short):
-            raise BadTestCase(
-                'io data not equal to meta provided',
-                [*extra],
-                [*short],
-            )
+        if got != expected:
+            raise BadTestCase('I/O data not equal to meta provided')
         # reset
         test_case.seek(0)
         return True
@@ -85,3 +81,35 @@ class SimpleIO(TestCaseRule):
                 excepted.add(f'{i:02d}{j:02d}.in')
                 excepted.add(f'{i:02d}{j:02d}.out')
         return excepted
+
+
+class ContextIO(TestCaseRule):
+    '''
+    Test cases that contains multiple file for input/output.
+    e.g. given a image, rotate and save it on disk.
+    '''
+
+    def validate(self, test_case_fp: BinaryIO) -> bool:
+        if test_case_fp is None:
+            raise BadTestCase('test case is None')
+
+        test_case_root = zipfile.Path(test_case_fp, at='test-case/')
+        if not test_case_root.exists():
+            raise BadTestCase('test-case not found')
+        if not test_case_root.is_dir():
+            raise BadTestCase('test-case is not a directory')
+
+        for test_case in test_case_root.iterdir():
+            self.validate_test_case_dir(test_case)
+
+    def validate_test_case_dir(self, test_case_dir: zipfile.Path):
+        requireds = (
+            'STDIN',
+            'STDOUT',
+            'in/',
+            'out/',
+        )
+
+        for r in requireds:
+            if not (test_case_dir / r).exists():
+                raise BadTestCase(f'required file/dir not found: {r}')

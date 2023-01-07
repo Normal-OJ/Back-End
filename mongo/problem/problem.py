@@ -8,8 +8,10 @@ from ..utils import (
     perm,
 )
 from ..user import User
+from .exception import BadTestCase
 from .test_case import (
     SimpleIO,
+    ContextIO,
     IncludeDirectory,
     TestCaseRule,
 )
@@ -327,12 +329,30 @@ class Problem(MongoBase, engine=engine.Problem):
         rules: List[TestCaseRule] = [
             IncludeDirectory(self, 'include'),
             IncludeDirectory(self, 'share'),
-            SimpleIO(self, ['include/', 'share/', 'chaos/']),
-            # For backward compatibility
+            # for backward compatibility
             IncludeDirectory(self, 'chaos'),
         ]
         for rule in rules:
             rule.validate(test_case)
+
+        # Should only match one format
+        rules = [
+            SimpleIO(self, ['include/', 'share/', 'chaos/']),
+            ContextIO(self),
+        ]
+        excs = []
+        for rule in rules:
+            try:
+                rule.validate(test_case)
+            except BadTestCase as e:
+                excs.append(e)
+
+        if len(excs) == 0:
+            raise BadTestCase('ambiguous test case format')
+        elif len(excs) == 2:
+            raise BadTestCase(
+                f'invalid test case format\n\n{excs[0]}\n\n{excs[1]}')
+
         # save zip file
         test_case.seek(0)
         # check whether the test case exists
