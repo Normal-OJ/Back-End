@@ -440,11 +440,6 @@ class Submission(MongoBase, engine=engine.Submission):
         )
         self.reload()
         self.finish_judging()
-        for has_code, has_output, has_code_detail in itertools.product(
-            [True, False], repeat=3):
-            # iterate through True and False
-            key = f'{self.id}_{has_code}_{has_output}_{has_code_detail}'
-            RedisCache().delete(key)
         return True
 
     def finish_judging(self):
