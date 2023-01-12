@@ -1,0 +1,2 @@
+class BadTestCase(Exception):
+    pass

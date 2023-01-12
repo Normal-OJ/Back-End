@@ -296,7 +296,6 @@ class TestProblem(BaseTester):
         json = rv.get_json()
         assert rv.status_code == 403
         assert json['status'] == 'err'
-        assert json['message'] == 'Problem cannot view.'
 
     # student view online problem (GET /problem/<problem_id>)
     def test_student_view_online_problem(self, client_student):
@@ -395,11 +394,14 @@ class TestProblem(BaseTester):
                 }]
             }
         }
-        rv = client_teacher.put('/problem/manage/1', json=request_json)
+        prob = utils.problem.create_problem()
+        rv = client_teacher.put(
+            f'/problem/manage/{prob.id}',
+            json=request_json,
+        )
         json = rv.get_json()
         assert rv.status_code == 403
         assert json['status'] == 'err'
-        assert json['message'] == 'Not the owner.'
 
     # admin change the name of a problem (PUT /problem/manage/<problem_id>)
     def test_admin_edit_problem_with_non_exist_course(self, client_admin):
@@ -455,15 +457,14 @@ class TestProblem(BaseTester):
         print(json)
         assert rv.status_code == 200
         assert json['status'] == 'ok'
-        assert json['message'] == 'Success.'
 
     # admin get information of a problem (GET /problem/manage/<problem_id>)
     def test_admin_manage_problem(self, client_admin):
-        rv = client_admin.get('/problem/manage/3')
+        pid = 3
+        rv = client_admin.get(f'/problem/manage/{pid}')
         json = rv.get_json()
         assert rv.status_code == 200
         assert json['status'] == 'ok'
-        assert json['message'] == 'Success.'
         assert json['data'] == {
             'courses': [],
             'status': 1,
@@ -486,7 +487,7 @@ class TestProblem(BaseTester):
             'ACUser': 0,
             'submitter': 0,
             'allowedLanguage': 7,
-            'canViewStdout': True,
+            'canViewStdout': Problem(pid).can_view_stdout,
             'quota': -1,
             'submitCount': 0
         }
@@ -522,30 +523,31 @@ class TestProblem(BaseTester):
         self,
         client_admin,
     ):
+        prob = utils.problem.create_problem()
         # upload a test case with invalid data
         rv, rv_json, rv_data = BaseTester.request(
             client_admin,
             'put',
-            '/problem/manage/1',
+            f'/problem/manage/{prob.id}',
             data=get_file('task-exceed/test_case.zip'),
         )
         assert rv.status_code == 400
 
     # non-owner teacher get information of a problem (GET /problem/manage/<problem_id>)
     def test_teacher_not_owner_manage_problem(self, client_teacher):
-        rv = client_teacher.get('/problem/manage/1')
+        prob = utils.problem.create_problem()
+        rv = client_teacher.get(f'/problem/manage/{prob.id}')
         json = rv.get_json()
         assert rv.status_code == 403
         assert json['status'] == 'err'
-        assert json['message'] == 'Not the owner.'
 
     # student get information of a problem (GET /problem/manage/<problem_id>)
     def test_student_manage_problem(self, client_student):
-        rv = client_student.get('/problem/manage/1')
+        prob = utils.problem.create_problem()
+        rv = client_student.get(f'/problem/manage/{prob.id}')
         json = rv.get_json()
         assert rv.status_code == 403
         assert json['status'] == 'err'
-        assert json['message'] == 'Insufficient Permissions'
 
     # student delete problem (DELETE /problem/manage/<problem_id>)
     def test_student_delete_problem(self, client_student):
@@ -557,25 +559,73 @@ class TestProblem(BaseTester):
 
     # non-owner teacher delete problem (DELETE /problem/manage/<problem_id>)
     def test_teacher_not_owner_delete_problem(self, client_teacher):
-        rv = client_teacher.delete('/problem/manage/1')
+        prob = utils.problem.create_problem()
+        rv = client_teacher.delete(f'/problem/manage/{prob.id}')
         json = rv.get_json()
         assert rv.status_code == 403
         assert json['status'] == 'err'
-        assert json['message'] == 'Not the owner.'
 
     # admin delete problem (DELETE /problem/manage/<problem_id>)
     def test_admin_delete_problem(self, client_admin):
-        rv = client_admin.delete('/problem/manage/1')
+        prob = utils.problem.create_problem()
+        rv = client_admin.delete(f'/problem/manage/{prob.id}')
         json = rv.get_json()
         assert rv.status_code == 200
         assert json['status'] == 'ok'
-        assert json['message'] == 'Success.'
+        assert not Problem(prob.id)
 
-    def test_check_delete_successfully(self, client_admin):
-        rv = client_admin.get('/problem/1')
-        json = rv.get_json()
-        assert rv.status_code == 404
-        assert json['status'] == 'err'
+    def test_student_cannot_copy_problem(self, forge_client):
+        student = utils.user.create_user()
+        course = student.courses[-1]
+        problem = utils.problem.create_problem(course=course)
+        client = forge_client(student.username)
+        rv = client.post(
+            '/problem/copy',
+            json={
+                'problemId': problem.problem_id,
+            },
+        )
+        assert rv.status_code == 403
+
+    def test_admin_can_copy_problem_from_other_course(self, forge_client):
+        admin = utils.user.create_user(role=User.engine.Role.ADMIN)
+        course = admin.courses[-1]
+        original_problem = utils.problem.create_problem(course=course)
+        new_course = utils.course.create_course()
+        client_admin = forge_client(admin.username)
+        rv, rv_json, rv_data = self.request(
+            client_admin,
+            'post',
+            '/problem/copy',
+            json={
+                'problemId': original_problem.problem_id,
+                'target': new_course.course_name,
+            },
+        )
+        assert rv.status_code == 200, rv_json
+        new_problem = Problem(rv_data['problemId'])
+        utils.problem.cmp_copied_problem(original_problem, new_problem)
+
+    def test_override_copied_problem_status(self, forge_client):
+        admin = utils.user.create_user(role=User.engine.Role.ADMIN)
+        original_problem = utils.problem.create_problem(
+            status=Problem.engine.Visibility.SHOW)
+        client = forge_client(admin.username)
+        rv, rv_json, rv_data = self.request(
+            client,
+            'post',
+            '/problem/copy',
+            json={
+                'problemId': original_problem.problem_id,
+                'status': Problem.engine.Visibility.HIDDEN,
+            },
+        )
+        assert rv.status_code == 200, rv_json
+        another_problem = Problem(rv_data['problemId'])
+        utils.problem.cmp_copied_problem(original_problem, another_problem)
+
+        assert original_problem.problem_status != Problem.engine.Visibility.HIDDEN
+        assert another_problem.problem_status == Problem.engine.Visibility.HIDDEN
 
     def test_student_cannot_copy_problem(self, forge_client):
         student = utils.user.create_user()

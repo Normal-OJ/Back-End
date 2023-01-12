@@ -1,10 +1,10 @@
+from typing import Optional
 import pytest
 import itertools
 import pathlib
 from pprint import pprint
 from mongo import *
 from mongo import engine
-from mongo.utils import can_view_problem
 from .base_tester import BaseTester
 from .utils import *
 
@@ -427,7 +427,11 @@ class TestCreateSubmission(SubmissionTester):
         yield
         cls.pid = None
 
-    def post_payload(self, language=0, problem_id=None):
+    def post_payload(
+        self,
+        language: int = 0,
+        problem_id: Optional[int] = None,
+    ):
         return {
             'problemId': problem_id or self.pid,
             'languageType': language,
@@ -590,19 +594,13 @@ class TestCreateSubmission(SubmissionTester):
             '/submission',
             json=self.post_payload(),
         )
-
-        pprint(f'post: {rv_json}')
-
+        assert rv.status_code == 200, rv_data
         files = {'c0d3': (get_source(f'base{ext}'), 'code')}
         rv = client.put(
             f'/submission/{rv_data["submissionId"]}',
             data=files,
         )
-        rv_json = rv.get_json()
-
-        pprint(f'put: {rv_json}')
-
-        assert rv.status_code == 400
+        assert rv.status_code == 400, rv_data
 
     def test_submit_to_others(
         self,
@@ -663,13 +661,12 @@ class TestCreateSubmission(SubmissionTester):
         post_json = self.post_payload(0, pid)
         client = forge_client(user)
 
-        for _ in range(10):
+        for i in range(10):
             rv = client.post(
                 '/submission',
                 json=post_json,
             )
-
-            assert rv.status_code == 200, str(rv.get_json()) + str(_)
+            assert rv.status_code == 200, (i, rv.get_json())
 
         rv = client.get(f'/problem/view/{pid}')
         assert rv.status_code == 200

@@ -7,7 +7,7 @@ from zipfile import BadZipFile
 from mongo import *
 from mongo import engine
 from mongo import sandbox
-from mongo.utils import can_view_problem, drop_none
+from mongo.utils import drop_none
 from mongo.problem import *
 from .auth import *
 from .utils import *
@@ -15,6 +15,10 @@ from .utils import *
 __all__ = ['problem_api']
 
 problem_api = Blueprint('problem_api', __name__)
+
+
+def permission_error_response():
+    return HTTPError('Not enough permission', 403)
 
 
 @problem_api.route('/', methods=['GET'])
@@ -83,8 +87,8 @@ def view_problem_list(
 @login_required
 @Request.doc('problem_id', 'problem', Problem)
 def view_problem(user: User, problem: Problem):
-    if not can_view_problem(user, problem.obj):
-        return HTTPError('Problem cannot view.', 403)
+    if not problem.check_view_permission(user=user):
+        return permission_error_response()
     # ip validation
     if not problem.is_valid_ip(get_ip()):
         return HTTPError('Invalid IP address.', 403)
@@ -111,149 +115,170 @@ def view_problem(user: User, problem: Problem):
     return HTTPResponse('Problem can view.', data=data)
 
 
-@problem_api.route('/manage', methods=['POST'])
-@problem_api.route(
-    '/manage/<int:problem_id>',
-    methods=[
-        'GET',
-        'PUT',
-        'DELETE',
-    ],
-)
-@identity_verify(0, 1)
-def manage_problem(user, problem_id=None):
+@problem_api.route('/manage/<int:problem_id>', methods=['GET'])
+@Request.doc('problem_id', 'problem', Problem)
+@identity_verify(0, 1)  # admin and teacher only
+def get_problem_detailed(user, problem: Problem):
+    '''
+    Get problem's detailed information
+    '''
+    if not problem.check_manage_permission(user=user):
+        return permission_error_response()
+    info = problem.detailed_info(
+        'courses',
+        'problemName',
+        'description',
+        'tags',
+        'testCase',
+        'ACUser',
+        'submitter',
+        'allowedLanguage',
+        'canViewStdout',
+        'quota',
+        status='problemStatus',
+        type='problemType',
+    )
+    info.update({'submitCount': problem.submit_count(user)})
+    return HTTPResponse(
+        'Success.',
+        data=info,
+    )
 
-    @Request.json('type', 'courses: list', 'status', 'type', 'description',
-                  'tags', 'problem_name', 'quota')
-    def modify_problem(**p_ks):
-        if p_ks['type'] == 2:
-            return modify_general_problem(**p_ks)
-        else:
-            return modify_coding_problem(**p_ks)
+
+@problem_api.route('/manage', methods=['POST'])
+@identity_verify(0, 1)
+@Request.json(
+    'type',
+    'courses: list',
+    'status',
+    'type',
+    'description',
+    'tags',
+    'problem_name',
+    'quota',
+    'test_case_info',
+    'can_view_stdout',
+    'allowed_language',
+    'default_code',
+)
+def create_problem(user: User, **ks):
+    try:
+        pid = Problem.add(user=user, **ks)
+    except ValidationError as e:
+        return HTTPError(
+            'Invalid or missing arguments.',
+            400,
+            data=e.to_dict(),
+        )
+    except DoesNotExist as e:
+        return HTTPError('Course not found', 404)
+    except ValueError as e:
+        return HTTPError(str(e), 400)
+    return HTTPResponse(data={'problemId': pid})
+
+
+@problem_api.route('/manage/<int:problem>', methods=['DELETE'])
+@identity_verify(0, 1)
+@Request.doc('problem', Problem)
+def delete_problem(user: User, problem: Problem):
+    if not problem.check_manage_permission(user=user):
+        return permission_error_response()
+    problem.delete()
+    return HTTPResponse()
+
+
+@problem_api.route('/manage/<int:problem>', methods=['PUT'])
+@identity_verify(0, 1)
+@Request.doc('problem', Problem)
+def manage_problem(user: User, problem: Problem):
 
     @Request.json(
+        'type',
+        'courses: list',
+        'status',
+        'type',
+        'description',
+        'tags',
+        'problem_name',
+        'quota',
         'test_case_info',
         'can_view_stdout',
         'allowed_language',
         'default_code',
     )
-    def modify_coding_problem(**p_ks):
-        scores = (c['taskScore'] for c in p_ks['test_case_info']['tasks'])
-        if sum(scores) != 100:
-            return HTTPError("Cases' scores should be 100 in total", 400)
-        return modify_general_problem(**p_ks)
-
-    def modify_general_problem(**p_ks):
-        if request.method == 'POST':
-            pid = Problem.add(user=user, **p_ks)
-            return HTTPResponse('Success.', data={'problemId': pid})
-        elif request.method == 'PUT':
-            Problem.edit_problem(
-                user=user,
-                problem_id=problem_id,
-                **p_ks,
-            )
-            return HTTPResponse('Success.')
+    def modify_problem(**p_ks):
+        Problem.edit_problem(
+            user=user,
+            problem_id=problem.id,
+            **drop_none(p_ks),
+        )
+        return HTTPResponse()
 
     @Request.files('case')
     def modify_problem_test_case(case):
         try:
-            result = Problem.edit_problem_test_case(problem_id, case)
+            problem.update_test_case(case)
         except engine.DoesNotExist as e:
             return HTTPError(str(e), 404)
         except (ValueError, BadZipFile) as e:
             return HTTPError(str(e), 400)
         except BadTestCase as e:
-            return HTTPError(str(e), 400, data=e.dict)
-        return HTTPResponse('Success.', data=result)
-
-    # get problem object from DB
-    if request.method != 'POST':
-        problem = Problem(problem_id).obj
-        if problem is None:
-            return HTTPError('Problem not exist.', 404)
-        if user.role == 1 and problem.owner != user.username:
-            return HTTPError('Not the owner.', 403)
-    # return detailed problem info
-    if request.method == 'GET':
-        problem = Problem(problem_id)
-        info = problem.detailed_info(
-            'courses',
-            'problemName',
-            'description',
-            'tags',
-            'testCase',
-            'ACUser',
-            'submitter',
-            'allowedLanguage',
-            'canViewStdout',
-            'quota',
-            status='problemStatus',
-            type='problemType',
-        )
-        info.update({'submitCount': problem.submit_count(user)})
-        return HTTPResponse(
-            'Success.',
-            data=info,
-        )
-    # delete problem
-    elif request.method == 'DELETE':
-        Problem.delete_problem(problem_id)
+            return HTTPError(str(e), 400)
         return HTTPResponse('Success.')
+
+    if not problem.check_manage_permission(user=user):
+        return permission_error_response()
     # edit problem
-    else:
-        try:
-            # modify problem meta
-            if request.content_type.startswith('application/json'):
-                return modify_problem()
-            # upload testcase file
-            elif request.content_type.startswith('multipart/form-data'):
-                return modify_problem_test_case()
-            else:
-                return HTTPError(
-                    'Unknown content type',
-                    400,
-                    data={'contentType': request.content_type},
-                )
-        except ValidationError as ve:
+    try:
+        # modify problem meta
+        if request.content_type.startswith('application/json'):
+            return modify_problem()
+        # upload testcase file
+        elif request.content_type.startswith('multipart/form-data'):
+            return modify_problem_test_case()
+        else:
             return HTTPError(
-                'Invalid or missing arguments.',
+                'Unknown content type',
                 400,
-                data=ve.to_dict(),
+                data={'contentType': request.content_type},
             )
-        except engine.DoesNotExist:
-            return HTTPError('Course not found.', 404)
+    except ValidationError as ve:
+        return HTTPError(
+            'Invalid or missing arguments.',
+            400,
+            data=ve.to_dict(),
+        )
+    except engine.DoesNotExist:
+        return HTTPError('Course not found.', 404)
 
 
+@problem_api.route('/<int:problem_id>/test-case', methods=['GET'])
 @problem_api.route('/<int:problem_id>/testcase', methods=['GET'])
 @login_required
-@identity_verify(0, 1)
-def get_testcase(user, problem_id):
-    problem = Problem(problem_id).obj
-    if problem is None:
-        return HTTPError(f'Unexisted problem id ({problem_id})', 404)
+@Request.doc('problem_id', 'problem', Problem)
+def get_test_case(user: User, problem: Problem):
+    if not problem.check_manage_permission(user=user):
+        return permission_error_response()
     return send_file(
         problem.test_case.case_zip,
         mimetype='application/zip',
         as_attachment=True,
-        download_name=f'testdata-{problem_id}.zip',
+        download_name=f'testdata-{problem.id}.zip',
     )
 
 
 # FIXME: Find a better name
 @problem_api.route('/<int:problem_id>/testdata', methods=['GET'])
 @Request.args('token: str')
-def get_testdata(token: str, problem_id: int):
+@Request.doc('problem_id', 'problem', Problem)
+def get_testdata(token: str, problem: Problem):
     if sandbox.find_by_token(token) is None:
         return HTTPError('Invalid sandbox token', 401)
-    problem = Problem(problem_id)
-    if not problem:
-        return HTTPError(f'{problem} not found')
     return send_file(
         problem.test_case.case_zip,
         mimetype='application/zip',
         as_attachment=True,
-        download_name=f'testdata-{problem_id}.zip',
+        download_name=f'testdata-{problem.id}.zip',
     )
 
 
@@ -309,7 +334,7 @@ def clone_problem(
     target,
     status,
 ):
-    if not can_view_problem(user, problem):
+    if not problem.check_view_permission(user=user):
         return HTTPError('Problem can not view.', 403)
     override = drop_none({'status': status})
     new_problem_id = problem.copy_to(
@@ -338,8 +363,8 @@ def publish_problem(user, problem: Problem):
 @login_required
 @Request.doc('problem_id', 'problem', Problem)
 def problem_stats(user: User, problem: Problem):
-    if not can_view_problem(user, problem.obj):
-        return HTTPError('Problem cannot view.', 403)
+    if not problem.check_view_permission(user=user):
+        return permission_error_response()
     ret = {}
     students = []
     for course in problem.courses:

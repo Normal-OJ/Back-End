@@ -12,6 +12,7 @@ from collections import defaultdict
 from tests.base_tester import random_string
 from tests.test_homework import CourseData
 from tests.test_problem import get_file
+from tests import utils
 
 
 @pytest.fixture
@@ -71,53 +72,6 @@ def test2_token():
     return User('test2').secret
 
 
-def random_problem_data(username=None, status=-1, type=0, quota=-1):
-    '''
-    generate dummy problem data
-
-    Args:
-        username: problem owner's name, if not None, add this problem to his/her course
-        status: problem status, if -1, random select from {0, 1}
-    '''
-    s = random_string()
-    return {
-        'courses':
-        [engine.Course.objects.filter(
-            teacher=username)[0].course_name] if username else [],
-        'status':
-        random.randint(0, 1) if status == -1 else status,
-        'type':
-        type,
-        'description': {
-            'description': '',
-            'input': '',
-            'output': '',
-            'hint': '',
-            'sample_input': [],
-            'sample_output': []
-        },
-        'tags': ['test'],
-        'problem_name':
-        f'prob {s}',
-        'test_case_info': {
-            'language':
-            2,
-            'fill_in_template':
-            '',
-            'tasks': [
-                {
-                    'case_count': 1,
-                    'task_score': 100,
-                    'memory_limit': 32768,
-                    'time_limit': 1000,
-                },
-            ],
-        },
-        'quota':
-        quota,
-    }
-
-
 @pytest.fixture
 def make_course(forge_client):
 
@@ -166,16 +120,16 @@ def make_course(forge_client):
 
 
 @pytest.fixture()
-def problem_ids(forge_client):
+def problem_ids():
 
     def problem_ids(
-        username,
-        length,
-        add_to_course=False,
-        status=0,
-        type=0,
-        quota=-1,
-    ):
+        username: int,
+        length: int,
+        add_to_course: bool = False,
+        status: int = 0,
+        type: int = 0,
+        quota: int = -1,
+    ) -> List[int]:
         '''
         insert dummy problems into db
 
@@ -185,27 +139,36 @@ def problem_ids(forge_client):
         Return:
             a list of problem id that you create
         '''
-        client = forge_client(username)
         rets = []  # created problem ids
         for _ in range(length):
-            _id = Problem.add(
-                **random_problem_data(
-                    username=username if add_to_course else None,
-                    status=status,
-                    type=type,
-                    quota=quota,
-                ),
-                **{'user': User(username)},
+            course = None
+            if add_to_course:
+                course = engine.Course.objects(teacher=username).first()
+            prob = utils.problem.create_problem(
+                course=course,
+                owner=username,
+                status=random.randint(0, 1) if status == -1 else status,
+                type=type,
+                quota=quota,
+                test_case_info={
+                    'language':
+                    2,
+                    'fill_in_template':
+                    '',
+                    'tasks': [
+                        {
+                            'caseCount': 1,
+                            'taskScore': 100,
+                            'memoryLimit': 32768,
+                            'timeLimit': 1000,
+                        },
+                    ],
+                },
             )
-            if Problem(_id).problem_type != 2:
-                rv = client.put(
-                    f'/problem/manage/{_id}',
-                    data=get_file('default/test_case.zip'),
-                )
-                assert rv.status_code == 200, rv.get_json()
-            rets.append(_id)
-        # don't leave cookies!
-        client.cookie_jar.clear()
+            if prob.problem_type != 2:
+                test_case = get_file('default/test_case.zip')['case'][0]
+                prob.update_test_case(test_case)
+            rets.append(prob.id)
 
         return rets
 

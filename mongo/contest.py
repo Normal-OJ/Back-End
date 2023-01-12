@@ -4,7 +4,7 @@ from .course import Course
 from .user import User
 from mongoengine import DoesNotExist, NotUniqueError
 from datetime import datetime
-from mongo.problem import Problem
+from mongo.problem.problem import Problem
 from .base import MongoBase
 
 __all__ = [

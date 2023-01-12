@@ -1,51 +1,34 @@
-# TODO: use **ks to simplify function definition
-from . import engine
-from .base import MongoBase
-from .course import *
-from .utils import (
+from .. import engine
+from ..base import MongoBase
+from ..course import *
+from ..utils import (
     RedisCache,
-    can_view_problem,
     doc_required,
     drop_none,
+    perm,
 )
-from .user import User
-from zipfile import ZipFile
+from ..user import User
+from .exception import BadTestCase
+from .test_case import (
+    SimpleIO,
+    ContextIO,
+    IncludeDirectory,
+    TestCaseRule,
+)
 from datetime import datetime
 from typing import (
     Any,
+    BinaryIO,
     Dict,
     List,
     Optional,
 )
 import json
-import zipfile
 
-__all__ = [
-    'Problem',
-    'BadTestCase',
-]
-
-
-class BadTestCase(Exception):
-
-    def __init__(self, expression, extra, short):
-        super().__init__(expression)
-        self.extra = extra
-        self.short = short
-
-    @property
-    def dict(self):
-        return {
-            'extra': self.extra,
-            'short': self.short,
-            'ERR_TYPE': 'BAD_TEST_CASE',
-        }
+__all__ = ('Problem', )
 
 
 class Problem(MongoBase, engine=engine.Problem):
-
-    def __init__(self, problem_id):
-        self.problem_id = problem_id
 
     def detailed_info(self, *ks, **kns) -> Dict[str, Any]:
         '''
@@ -107,7 +90,7 @@ class Problem(MongoBase, engine=engine.Problem):
         return user.problem_submission.get(str(self.problem_id), 0)
 
     def running_homeworks(self) -> List:
-        from .homework import Homework
+        from ..homework import Homework
         now = datetime.now()
         return [Homework(hw.id) for hw in self.homeworks if now in hw.duration]
 
@@ -165,6 +148,39 @@ class Problem(MongoBase, engine=engine.Problem):
         cache.set(key, high_score, ex=600)
         return high_score
 
+    # TODO: Provide a general interface to test permission
+    @doc_required('user', User)
+    def check_manage_permission(self, user: User) -> bool:
+        '''
+        Check whether a user is permmited to call manage API
+        '''
+        # Admin
+        if user.role == 0:
+            return True
+        # Student
+        if user.role == 2:
+            return False
+        # Teacher && is owner
+        return self.owner == user.username
+
+    @doc_required('user', User)
+    def check_view_permission(self, user: User) -> bool:
+        '''cheeck if a user can view the problem'''
+        if user.role == 0:
+            return True
+        if user.contest:
+            if user.contest in self.contests:
+                return True
+            return False
+        if user.username == self.owner:
+            return True
+        for course in self.courses:
+            permission = 1 if course.course_name == 'Public' else perm(
+                course, user)
+            if permission and (self.problem_status == 0 or permission >= 2):
+                return True
+        return False
+
     @classmethod
     def get_problem_list(
         cls,
@@ -184,15 +200,16 @@ class Problem(MongoBase, engine=engine.Problem):
             if course is None:
                 return []
         # qurey args
-        ks = {
+        ks = drop_none({
             'problem_id': problem_id,
             'problem_name': name,
             'courses': course,
             'tags__in': tags,
-        }
-        ks = {k: v for k, v in ks.items() if v is not None}
-        problems = engine.Problem.objects(**ks).order_by('problemId')
-        problems = [p for p in problems if can_view_problem(user, p)]
+        })
+        problems = [
+            p for p in engine.Problem.objects(**ks).order_by('problemId')
+            if cls(p).check_view_permission(user=user)
+        ]
         # truncate
         if offset < 0 or (offset >= len(problems) and len(problems)):
             raise IndexError
@@ -216,6 +233,8 @@ class Problem(MongoBase, engine=engine.Problem):
         quota: Optional[int] = None,
         default_code: Optional[str] = None,
     ):
+        if len(courses) == 0:
+            raise ValueError('No course provided')
         course_objs = []
         for course in map(Course, courses):
             if not course:
@@ -248,20 +267,24 @@ class Problem(MongoBase, engine=engine.Problem):
     @classmethod
     def edit_problem(
         cls,
-        user,
-        problem_id,
-        courses,
-        status,
-        problem_name,
-        description,
-        tags,
+        user: User,
+        problem_id: int,
+        courses: List[str],
+        status: int,
+        problem_name: str,
+        description: Dict[str, Any],
+        tags: List[str],
         type,
-        test_case_info=None,
-        allowed_language=7,
-        can_view_stdout=False,
-        quota=-1,
-        default_code='',
+        test_case_info: Optional[Dict[str, Any]] = None,
+        allowed_language: int = 7,
+        can_view_stdout: bool = False,
+        quota: int = -1,
+        default_code: str = '',
     ):
+        if type != 2:
+            score = sum(t['taskScore'] for t in test_case_info['tasks'])
+            if score != 100:
+                raise ValueError("Cases' scores should be 100 in total")
         problem = Problem(problem_id).obj
         course_objs = []
         for name in courses:
@@ -292,75 +315,59 @@ class Problem(MongoBase, engine=engine.Problem):
                 test_case=test_case,
             )
 
-    @classmethod
-    def edit_problem_test_case(cls, problem_id, test_case):
+    def update_test_case(self, test_case: BinaryIO):
         '''
         edit problem's testcase
 
         Args:
-            problem_id: target problem's id
             test_case: testcase zip file
         Exceptions:
             zipfile.BadZipFile: if `test_case` is not a zip file
             ValueError: if test case is None or problem_id is invalid
             engine.DoesNotExist
-        Return:
-            a bool denote whether the update is successful
         '''
-        # query problem document
-        problem = Problem(problem_id).obj
-        if problem is None:
-            raise engine.DoesNotExist(f'problem [{problem_id}] not exists.')
-        # test case must not be None
-        if test_case is None:
-            raise ValueError('test case is None')
-        # check file structure
-        # create set of excepted filenames
-        excepted_names = set()
-        for i, task in enumerate(problem.test_case.tasks):
-            for j in range(task.case_count):
-                excepted_names.add(f'{i:02d}{j:02d}.in')
-                excepted_names.add(f'{i:02d}{j:02d}.out')
-        # check chaos folder
-        chaos_path = zipfile.Path(test_case, at='chaos')
-        if chaos_path.exists() and chaos_path.is_file():
-            raise BadTestCase('find chaos, but it\'s not a directory')
-        # input/output filenames
-        in_out = {
-            name
-            for name in ZipFile(test_case).namelist()
-            if not name.startswith('chaos')
-        }
-        # check diff
-        ex = in_out - excepted_names
-        sh = excepted_names - in_out
-        if len(ex) or len(sh):
+        rules: List[TestCaseRule] = [
+            IncludeDirectory(self, 'include'),
+            IncludeDirectory(self, 'share'),
+            # for backward compatibility
+            IncludeDirectory(self, 'chaos'),
+        ]
+        for rule in rules:
+            rule.validate(test_case)
+
+        # Should only match one format
+        rules = [
+            SimpleIO(self, ['include/', 'share/', 'chaos/']),
+            ContextIO(self),
+        ]
+        excs = []
+        for rule in rules:
+            try:
+                rule.validate(test_case)
+            except BadTestCase as e:
+                excs.append(e)
+
+        if len(excs) == 0:
+            raise BadTestCase('ambiguous test case format')
+        elif len(excs) == 2:
             raise BadTestCase(
-                'io data not equal to meta provided',
-                [*ex],
-                [*sh],
-            )
+                f'invalid test case format\n\n{excs[0]}\n\n{excs[1]}')
+
         # save zip file
         test_case.seek(0)
         # check whether the test case exists
-        if problem.test_case.case_zip.grid_id is None:
+        if self.test_case.case_zip.grid_id is None:
             # if no, put data to a new file
-            write_func = problem.test_case.case_zip.put
+            write_func = self.test_case.case_zip.put
         else:
             # else, replace original file with a new one
-            write_func = problem.test_case.case_zip.replace
+            write_func = self.test_case.case_zip.replace
         write_func(
             test_case,
             content_type='application/zip',
         )
         # update problem obj
-        problem.save()
-        return True
-
-    @classmethod
-    def delete_problem(cls, problem_id):
-        problem = Problem(problem_id).obj
-        problem.delete()
+        self.save()
 
     @classmethod
     def copy_problem(cls, user, problem_id):
