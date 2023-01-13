@@ -1,5 +1,5 @@
-# Back-End
+# NOJ Backend
 
-## API Reference
+This respository uses [Poetry](https://python-poetry.org/) to manage Python dependencies.
 
-https://normal-oj.github.io/Back-End
+You need to have a Python interpreter higher than 3.8
