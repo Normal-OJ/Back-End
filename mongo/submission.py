@@ -80,7 +80,7 @@ class SubmissionConfig(MongoBase, engine=engine.SubmissionConfig):
 class Submission(MongoBase, engine=engine.Submission):
     _config = None
 
-    class Permission(enum.Flag):
+    class Permission(enum.IntFlag):
         READ = enum.auto()
         UPLOAD = enum.auto()
         COMMENT = enum.auto()
@@ -742,7 +742,7 @@ class Submission(MongoBase, engine=engine.Submission):
         # Check cache
         cache = RedisCache()
         if (v := cache.get(key)) is not None:
-            return int(v)
+            return self.Permission(int(v))
 
         # Calculate
         cap = self.Permission(0)
@@ -750,8 +750,8 @@ class Submission(MongoBase, engine=engine.Submission):
             cap |= self.Permission.MANAGER
         if user.username == self.user.username:
             cap |= self.Permission.STUDENT
-        if Problem(self.problem).check_view_permission(user):
+        if Problem(self.problem).check_view_permission(user=user):
             cap |= self.Permission.OTHER
 
-        cache.set(key, cap, 60)
+        cache.set(key, cap.value, 60)
         return cap
