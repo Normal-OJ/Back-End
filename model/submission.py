@@ -251,7 +251,7 @@ def get_submission_list(
 @Request.doc('submission', Submission)
 def get_submission(user, submission: Submission):
     # check permission
-    if submission.handwritten and submission.permission(user) < 2:
+    if submission.handwritten and submission.permission(user) == Submission.Permission.STUDENT:
         return HTTPError('forbidden.', 403)
     # ip validation
     problem = Problem(submission.problem_id)
@@ -261,7 +261,8 @@ def get_submission(user, submission: Submission):
                for hw in problem.running_homeworks() if hw.ip_filters):
         return HTTPError('You cannot view this submission during quiz.', 403)
     # serialize submission
-    has_code = not submission.handwritten and submission.permission(user) >= 2
+    has_code = not submission.handwritten and submission.permission(
+        user) >= Submission.Permission.STUDENT
     has_output = submission.problem.can_view_stdout
     ret = submission.to_dict()
     if has_code:
@@ -290,7 +291,7 @@ def get_submission_output(
     case_no: int,
     text: Optional[str],
 ):
-    if submission.permission(user) < 2:
+    if submission.permission(user) < Submission.Permission.STUDENT:
         return HTTPError('permission denied', 403)
     if text is None:
         text = True
@@ -317,7 +318,7 @@ def get_submission_output(
 @Request.doc('submission', Submission)
 def get_submission_pdf(user, submission: Submission, item):
     # check the permission
-    if submission.permission(user) < 2:
+    if submission.permission(user) < Submission.Permission.STUDENT:
         return HTTPError('forbidden.', 403)
     # non-handwritten submissions have no pdf file
     if not submission.handwritten:
@@ -435,7 +436,7 @@ def update_submission(user, submission: Submission, code):
 @Request.json('score: int')
 @Request.doc('submission', Submission)
 def grade_submission(user: User, submission: Submission, score: int):
-    if submission.permission(user) < 3:
+    if submission.permission(user) < Submission.Permission.MANAGER:
         return HTTPError('forbidden.', 403)
 
     if score < 0 or score > 100:
@@ -452,7 +453,7 @@ def grade_submission(user: User, submission: Submission, score: int):
 @Request.files('comment')
 @Request.doc('submission', Submission)
 def comment_submission(user, submission: Submission, comment):
-    if submission.permission(user) < 3:
+    if submission.permission(user) < Submission.Permission.MANAGER:
         return HTTPError('forbidden.', 403)
 
     if comment is None:
@@ -472,10 +473,10 @@ def comment_submission(user, submission: Submission, comment):
 @Request.doc('submission', Submission)
 def rejudge(user, submission: Submission):
     if submission.status == -2 or (
-            submission.status == -1 and
-        (datetime.now() - submission.last_send).seconds < 300):
+        submission.status == -1 and
+            (datetime.now() - submission.last_send).seconds < 300):
         return HTTPError(f'{submission} haven\'t be judged', 403)
-    if submission.permission(user) < 3:
+    if submission.permission(user) < Submission.Permission.MANAGER:
         return HTTPError('forbidden.', 403)
     try:
         success = submission.rejudge()

@@ -18,6 +18,7 @@ from flask import current_app
 from tempfile import NamedTemporaryFile
 from datetime import date, datetime
 from zipfile import ZipFile, is_zipfile
+import enum
 
 from . import engine
 from .base import MongoBase
@@ -78,6 +79,16 @@ class SubmissionConfig(MongoBase, engine=engine.SubmissionConfig):
 
 class Submission(MongoBase, engine=engine.Submission):
     _config = None
+
+    class Permission(enum.Flag):
+        READ = enum.auto()
+        UPLOAD = enum.auto()
+        COMMENT = enum.auto()
+        REJUDGE = enum.auto()
+        GRADE = enum.auto()
+        MANAGER = READ | UPLOAD | COMMENT | REJUDGE | GRADE
+        STUDENT = READ | UPLOAD | COMMENT
+        OTHER = READ
 
     def __init__(self, submission_id):
         self.submission_id = str(submission_id)
@@ -732,15 +743,15 @@ class Submission(MongoBase, engine=engine.Submission):
         cache = RedisCache()
         if (v := cache.get(key)) is not None:
             return int(v)
+
         # Calculate
-        if not Problem(self.problem).check_view_permission(user=user):
-            ret = 0
-        else:
-            ret = 3 - [
-                max(perm(course, user)
-                    for course in self.problem.courses) >= 2,
-                user.username == self.user.username,
-                True,
-            ].index(True)
-        cache.set(key, ret, 60)
-        return ret
+        cap = self.Permission(0)
+        if max(perm(course, user) for course in self.problem.courses) >= 2:
+            cap |= self.Permission.MANAGER
+        if user.username == self.user.username:
+            cap |= self.Permission.STUDENT
+        if Problem(self.problem).check_view_permission(user):
+            cap |= self.Permission.OTHER
+
+        cache.set(key, cap, 60)
+        return cap
