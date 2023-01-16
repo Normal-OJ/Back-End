@@ -251,7 +251,7 @@ def get_submission_list(
 @Request.doc('submission', Submission)
 def get_submission(user, submission: Submission):
     # check permission
-    if submission.handwritten and submission.permission(user) == Submission.Permission.STUDENT:
+    if submission.handwritten and submission.permission(user) < Submission.Permission.STUDENT:
         return HTTPError('forbidden.', 403)
     # ip validation
     problem = Problem(submission.problem_id)
