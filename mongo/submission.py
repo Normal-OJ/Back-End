@@ -10,6 +10,7 @@ from typing import (
     Union,
     List,
 )
+import enum
 import tempfile
 import requests as rq
 import itertools
@@ -77,6 +78,17 @@ class SubmissionConfig(MongoBase, engine=engine.SubmissionConfig):
 
 
 class Submission(MongoBase, engine=engine.Submission):
+    class Permission(enum.IntFlag):
+        VIEW = enum.auto()
+        UPLOAD = enum.auto()
+        FEEDBACK = enum.auto()
+        COMMENT = enum.auto()
+        REJUDGE = enum.auto()
+        GRADE = enum.auto()
+        OTHER = VIEW
+        STUDENT = OTHER | UPLOAD | FEEDBACK
+        MANAGER = STUDENT | COMMENT | REJUDGE | GRADE
+    
     _config = None
 
     def __init__(self, submission_id):
@@ -720,10 +732,10 @@ class Submission(MongoBase, engine=engine.Submission):
         ext = self.main_code_ext
         return self.get_code(f'main{ext}')
 
-    def permission(self, user):
+    def own_permission(self, user):
         '''
-        3: can rejudge & grade, 
-        2: can view upload & comment, 
+        3: can rejudge & grade & give comment, 
+        2: can view upload & view feedback, 
         1: can view basic info, 
         0: can't view
         '''
@@ -731,16 +743,24 @@ class Submission(MongoBase, engine=engine.Submission):
         # Check cache
         cache = RedisCache()
         if (v := cache.get(key)) is not None:
-            return int(v)
+            return self.Permission(int(v))
+
         # Calculate
-        if not Problem(self.problem).check_view_permission(user=user):
-            ret = 0
+        if max(perm(course, user) for course in self.problem.courses) >= 2:
+            cap = self.Permission.MANAGER
+        elif user.username == self.user.username:
+            cap = self.Permission.STUDENT
+        elif Problem(self.problem).permission(user=user, req=Problem.Permission.VIEW):
+            cap = self.Permission.OTHER
         else:
-            ret = 3 - [
-                max(perm(course, user)
-                    for course in self.problem.courses) >= 2,
-                user.username == self.user.username,
-                True,
-            ].index(True)
-        cache.set(key, ret, 60)
-        return ret
+            cap = self.Permission(0)
+
+        cache.set(key, cap.value, 60)
+        return cap
+
+    def permission(self, user, req: Permission):
+        """
+        check whether user own `req` permission
+        """
+
+        return bool(self.own_permission(user) & req)
