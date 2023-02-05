@@ -87,7 +87,7 @@ def view_problem_list(
 @login_required
 @Request.doc('problem_id', 'problem', Problem)
 def view_problem(user: User, problem: Problem):
-    if not problem.check_view_permission(user=user):
+    if not problem.permission(user=user, req=problem.Permission.VIEW):
         return permission_error_response()
     # ip validation
     if not problem.is_valid_ip(get_ip()):
@@ -122,7 +122,7 @@ def get_problem_detailed(user, problem: Problem):
     '''
     Get problem's detailed information
     '''
-    if not problem.check_manage_permission(user=user):
+    if not problem.permission(user, problem.Permission.MANAGE):
         return permission_error_response()
     info = problem.detailed_info(
         'courses',
@@ -181,7 +181,7 @@ def create_problem(user: User, **ks):
 @identity_verify(0, 1)
 @Request.doc('problem', Problem)
 def delete_problem(user: User, problem: Problem):
-    if not problem.check_manage_permission(user=user):
+    if not problem.permission(user, problem.Permission.MANAGE):
         return permission_error_response()
     problem.delete()
     return HTTPResponse()
@@ -226,7 +226,7 @@ def manage_problem(user: User, problem: Problem):
             return HTTPError(str(e), 400)
         return HTTPResponse('Success.')
 
-    if not problem.check_manage_permission(user=user):
+    if not problem.permission(user, problem.Permission.MANAGE):
         return permission_error_response()
     # edit problem
     try:
@@ -257,7 +257,7 @@ def manage_problem(user: User, problem: Problem):
 @login_required
 @Request.doc('problem_id', 'problem', Problem)
 def get_test_case(user: User, problem: Problem):
-    if not problem.check_manage_permission(user=user):
+    if not problem.permission(user, problem.Permission.MANAGE):
         return permission_error_response()
     return send_file(
         problem.test_case.case_zip,
@@ -334,7 +334,7 @@ def clone_problem(
     target,
     status,
 ):
-    if not problem.check_view_permission(user=user):
+    if not problem.permission(user, problem.Permission.VIEW):
         return HTTPError('Problem can not view.', 403)
     override = drop_none({'status': status})
     new_problem_id = problem.copy_to(
@@ -363,7 +363,7 @@ def publish_problem(user, problem: Problem):
 @login_required
 @Request.doc('problem_id', 'problem', Problem)
 def problem_stats(user: User, problem: Problem):
-    if not problem.check_view_permission(user=user):
+    if not problem.permission(user, problem.Permission.VIEW):
         return permission_error_response()
     ret = {}
     students = []

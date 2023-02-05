@@ -24,11 +24,16 @@ from typing import (
     Optional,
 )
 import json
+import enum
 
 __all__ = ('Problem', )
 
 
 class Problem(MongoBase, engine=engine.Problem):
+
+    class Permission(enum.IntFlag):
+        VIEW = enum.auto()
+        MANAGE = enum.auto()
 
     def detailed_info(self, *ks, **kns) -> Dict[str, Any]:
         '''
@@ -148,38 +153,35 @@ class Problem(MongoBase, engine=engine.Problem):
         cache.set(key, high_score, ex=600)
         return high_score
 
-    # TODO: Provide a general interface to test permission
     @doc_required('user', User)
-    def check_manage_permission(self, user: User) -> bool:
-        '''
-        Check whether a user is permmited to call manage API
-        '''
-        # Admin
-        if user.role == 0:
-            return True
-        # Student
-        if user.role == 2:
-            return False
-        # Teacher && is owner
-        return self.owner == user.username
+    def own_permission(self, user: User) -> Permission:
+        """
+        generate user permission capability
+        """
 
-    @doc_required('user', User)
-    def check_view_permission(self, user: User) -> bool:
-        '''cheeck if a user can view the problem'''
-        if user.role == 0:
-            return True
-        if user.contest:
-            if user.contest in self.contests:
-                return True
-            return False
-        if user.username == self.owner:
-            return True
+        user_cap = self.Permission(0)
+        # Admin, Teacher && is owner
+        if user.role == 0 or self.owner == user.username:
+            user_cap |= self.Permission.MANAGE
+            user_cap |= self.Permission.VIEW
+
+        if user.contest and user.contest in self.contests:
+            user_cap |= self.Permission.VIEW
+
         for course in self.courses:
             permission = 1 if course.course_name == 'Public' else perm(
                 course, user)
             if permission and (self.problem_status == 0 or permission >= 2):
-                return True
-        return False
+                user_cap |= self.Permission.VIEW
+
+        return user_cap
+
+    def permission(self, user: User, req: Permission) -> bool:
+        """
+        check whether user own `req` permission
+        """
+
+        return bool(self.own_permission(user=user) & req)
 
     @classmethod
     def get_problem_list(
@@ -208,7 +210,7 @@ class Problem(MongoBase, engine=engine.Problem):
         })
         problems = [
             p for p in engine.Problem.objects(**ks).order_by('problemId')
-            if cls(p).check_view_permission(user=user)
+            if cls(p).permission(user=user, req=cls.Permission.VIEW)
         ]
         # truncate
         if offset < 0 or (offset >= len(problems) and len(problems)):

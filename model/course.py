@@ -56,31 +56,31 @@ def get_courses(user):
 @login_required
 def get_course(user, course_name):
     course = Course(course_name)
+
     if not course:
         return HTTPError('Course not found.', 404)
 
-    permission = perm(course, user)
-    if not permission:
+    if not course.permission(user, Course.Permission.VIEW):
         return HTTPError('You are not in this course.', 403)
 
     @Request.json('TAs', 'student_nicknames')
     def modify_course(TAs, student_nicknames):
-        if permission < 2:
+        if not course.permission(user, Course.Permission.MODIFY):
             return HTTPError('Forbidden.', 403)
-
-        if permission > 2:
+        else:
             tas = []
             for ta in TAs:
-                user = User(ta).obj
+                permit_user = User(ta).obj
                 if not User(ta):
                     return HTTPResponse(f'User: {ta} not found.', 404)
-                tas.append(user)
+                tas.append(permit_user)
 
-            for user in set(course.tas) - set(tas):
-                course.remove_user(user)
-            for user in set(tas) - set(course.tas):
-                course.add_user(user)
+            for permit_user in set(course.tas) - set(tas):
+                course.remove_user(permit_user)
+            for permit_user in set(tas) - set(course.tas):
+                course.add_user(permit_user)
             course.tas = tas
+
         try:
             course.update_student_namelist(student_nicknames)
         except engine.DoesNotExist as e:
@@ -105,16 +105,16 @@ def get_course(user, course_name):
                   methods=['GET', 'POST', 'PUT', 'DELETE'])
 @login_required
 def grading(user, course_name, student):
-    course = Course(course_name).obj
+    course = Course(course_name)
+
     if not course:
         return HTTPError('Course not found.', 404)
-    permission = perm(course, user)
-    if not permission:
+    if not course.permission(user, Course.Permission.VIEW):
         return HTTPError('You are not in this course.', 403)
     if student not in course.student_nicknames.keys():
         return HTTPError('The student is not in the course.', 404)
-    if permission == 1 and (user.username != student
-                            or request.method != 'GET'):
+    if course.permission(user, Course.Permission.SCORE) and \
+        (user.username != student or request.method != 'GET'):
         return HTTPError('You can only view your score.', 403)
 
     def get_score():
@@ -188,7 +188,7 @@ def grading(user, course_name, student):
 @login_required
 @Request.args('pids: str', 'start', 'end')
 @Request.doc('course_name', 'course', Course)
-def get_course_scoreboard(user, pids, start, end, course):
+def get_course_scoreboard(user, pids, start, end, course: Course):
     try:
         pids = pids.split(',')
         pids = [int(pid.strip()) for pid in pids]
@@ -206,8 +206,7 @@ def get_course_scoreboard(user, pids, start, end, course):
         except:
             return HTTPError('Type of `end` should be float.', 400)
 
-    permission = perm(course, user)
-    if permission < 2:
+    if course.permission(user, Course.Permission.GRADE):
         return HTTPError('Permission denied', 403)
 
     ret = course.get_scoreboard(pids, start, end)
