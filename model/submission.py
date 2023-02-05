@@ -53,7 +53,7 @@ def create_submission(user, language_type, problem_id):
     if not problem:
         return HTTPError('Unexisted problem id.', 404)
     # problem permissoion
-    if not problem.permission(user, Submission.Permission.VIEW):
+    if not problem.permission(user, Problem.Permission.VIEW):
         return HTTPError('problem permission denied!', 403)
     # check deadline
     for homework in problem.obj.homeworks:
