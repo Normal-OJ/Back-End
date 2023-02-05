@@ -13,11 +13,12 @@ __all__ = [
 
 
 class Course(MongoBase, engine=engine.Course):
+
     class Permission(enum.IntFlag):
-        VIEW = enum.auto()      # view course basic info
-        SCORE = enum.auto()     # only can view self score
-        MODIFY = enum.auto()    # manage course
-        GRADE = enum.auto()     # grade students' score
+        VIEW = enum.auto()  # view course basic info
+        SCORE = enum.auto()  # only can view self score
+        MODIFY = enum.auto()  # manage course
+        GRADE = enum.auto()  # grade students' score
 
     def __new__(cls, course_name, *args, **kwargs):
         try:
@@ -213,13 +214,20 @@ class Course(MongoBase, engine=engine.Course):
 
     def own_permission(self, user) -> Permission:
         ROLE_CAPABILITY = {
-            0: self.Permission(0),
-            1: self.Permission.VIEW | self.Permission.SCORE,
-            2: self.Permission.VIEW | self.Permission.GRADE,
-            3: self.Permission.VIEW | self.Permission.GRADE | self.Permission.MODIFY,
-            4: self.Permission.VIEW | self.Permission.GRADE | self.Permission.MODIFY,
+            0:
+            self.Permission(0),
+            1:
+            self.Permission.VIEW | self.Permission.SCORE,
+            2:
+            self.Permission.VIEW | self.Permission.GRADE,
+            3:
+            self.Permission.VIEW | self.Permission.GRADE
+            | self.Permission.MODIFY,
+            4:
+            self.Permission.VIEW | self.Permission.GRADE
+            | self.Permission.MODIFY,
         }
-        
+
         role = perm(self.obj, user)
 
         return ROLE_CAPABILITY[role]

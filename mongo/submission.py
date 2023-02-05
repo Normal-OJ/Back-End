@@ -78,6 +78,7 @@ class SubmissionConfig(MongoBase, engine=engine.SubmissionConfig):
 
 
 class Submission(MongoBase, engine=engine.Submission):
+
     class Permission(enum.IntFlag):
         VIEW = enum.auto()
         UPLOAD = enum.auto()
@@ -88,7 +89,7 @@ class Submission(MongoBase, engine=engine.Submission):
         OTHER = VIEW
         STUDENT = OTHER | UPLOAD | FEEDBACK
         MANAGER = STUDENT | COMMENT | REJUDGE | GRADE
-    
+
     _config = None
 
     def __init__(self, submission_id):
@@ -750,7 +751,8 @@ class Submission(MongoBase, engine=engine.Submission):
             cap = self.Permission.MANAGER
         elif user.username == self.user.username:
             cap = self.Permission.STUDENT
-        elif Problem(self.problem).permission(user=user, req=Problem.Permission.VIEW):
+        elif Problem(self.problem).permission(user=user,
+                                              req=Problem.Permission.VIEW):
             cap = self.Permission.OTHER
         else:
             cap = self.Permission(0)

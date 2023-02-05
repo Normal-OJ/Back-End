@@ -250,7 +250,8 @@ def get_submission_list(
 @login_required
 @Request.doc('submission', Submission)
 def get_submission(user, submission: Submission):
-    user_feedback_perm = submission.permission(user, Submission.Permission.FEEDBACK)
+    user_feedback_perm = submission.permission(user,
+                                               Submission.Permission.FEEDBACK)
     # check permission
     if submission.handwritten and not user_feedback_perm:
         return HTTPError('forbidden.', 403)

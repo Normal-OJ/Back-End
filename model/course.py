@@ -80,7 +80,7 @@ def get_course(user, course_name):
             for permit_user in set(tas) - set(course.tas):
                 course.add_user(permit_user)
             course.tas = tas
-        
+
         try:
             course.update_student_namelist(student_nicknames)
         except engine.DoesNotExist as e:

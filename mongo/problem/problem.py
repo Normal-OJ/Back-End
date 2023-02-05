@@ -30,6 +30,7 @@ __all__ = ('Problem', )
 
 
 class Problem(MongoBase, engine=engine.Problem):
+
     class Permission(enum.IntFlag):
         VIEW = enum.auto()
         MANAGE = enum.auto()
@@ -163,7 +164,7 @@ class Problem(MongoBase, engine=engine.Problem):
         if user.role == 0 or self.owner == user.username:
             user_cap |= self.Permission.MANAGE
             user_cap |= self.Permission.VIEW
-        
+
         if user.contest and user.contest in self.contests:
             user_cap |= self.Permission.VIEW
 
