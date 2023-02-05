@@ -80,12 +80,12 @@ class SubmissionConfig(MongoBase, engine=engine.SubmissionConfig):
 class Submission(MongoBase, engine=engine.Submission):
 
     class Permission(enum.IntFlag):
-        VIEW = enum.auto()
-        UPLOAD = enum.auto()
-        FEEDBACK = enum.auto()
-        COMMENT = enum.auto()
-        REJUDGE = enum.auto()
-        GRADE = enum.auto()
+        VIEW = enum.auto()  # view submission info
+        UPLOAD = enum.auto()  # student can re-upload
+        FEEDBACK = enum.auto()  # student can view homework feedback
+        COMMENT = enum.auto()  # teacher or TAs can give comment
+        REJUDGE = enum.auto()  # teacher or TAs can rejudge submission
+        GRADE = enum.auto()  # teacher or TAs can grade homework
         OTHER = VIEW
         STUDENT = OTHER | UPLOAD | FEEDBACK
         MANAGER = STUDENT | COMMENT | REJUDGE | GRADE
