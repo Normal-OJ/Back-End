@@ -111,7 +111,7 @@ def grading(user, course_name, student):
         return HTTPError('Course not found.', 404)
     if not course.permission(user, Course.Permission.VIEW):
         return HTTPError('You are not in this course.', 403)
-    if student not in course.obj.student_nicknames.keys():
+    if student not in course.student_nicknames.keys():
         return HTTPError('The student is not in the course.', 404)
     if course.permission(user, Course.Permission.SCORE) and \
         (user.username != student or request.method != 'GET'):
@@ -125,11 +125,11 @@ def grading(user, course_name, student):
                 'content': score['content'],
                 'score': score['score'],
                 'timestamp': score['timestamp'].timestamp()
-            } for score in course.obj.student_scores.get(student, [])])
+            } for score in course.student_scores.get(student, [])])
 
     @Request.json('title', 'content', 'score')
     def add_score(title, content, score):
-        score_list = course.obj.student_scores.get(student, [])
+        score_list = course.student_scores.get(student, [])
         if title in [score['title'] for score in score_list]:
             return HTTPError('This title is taken.', 400)
         score_list.append({
@@ -138,13 +138,13 @@ def grading(user, course_name, student):
             'score': score,
             'timestamp': datetime.now()
         })
-        course.obj.student_scores[student] = score_list
-        course.obj.save()
+        course.student_scores[student] = score_list
+        course.save()
         return HTTPResponse('Success.')
 
     @Request.json('title', 'new_title', 'content', 'score')
     def modify_score(title, new_title, content, score):
-        score_list = course.obj.student_scores.get(student, [])
+        score_list = course.student_scores.get(student, [])
         title_list = [score['title'] for score in score_list]
         if title not in title_list:
             return HTTPError('Score not found.', 404)
@@ -159,20 +159,20 @@ def grading(user, course_name, student):
             'score': score,
             'timestamp': datetime.now()
         }
-        course.obj.student_scores[student] = score_list
-        course.obj.save()
+        course.student_scores[student] = score_list
+        course.save()
         return HTTPResponse('Success.')
 
     @Request.json('title')
     def delete_score(title):
-        score_list = course.obj.student_scores.get(student, [])
+        score_list = course.student_scores.get(student, [])
         title_list = [score['title'] for score in score_list]
         if title not in title_list:
             return HTTPError('Score not found.', 404)
         index = title_list.index(title)
         del score_list[index]
-        course.obj.student_scores[student] = score_list
-        course.obj.save()
+        course.student_scores[student] = score_list
+        course.save()
         return HTTPResponse('Success.')
 
     methods = {
