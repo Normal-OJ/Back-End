@@ -733,13 +733,7 @@ class Submission(MongoBase, engine=engine.Submission):
         ext = self.main_code_ext
         return self.get_code(f'main{ext}')
 
-    def own_permission(self, user):
-        '''
-        3: can rejudge & grade & give comment, 
-        2: can view upload & view feedback, 
-        1: can view basic info, 
-        0: can't view
-        '''
+    def own_permission(self, user) -> Permission:
         key = f'SUBMISSION_PERMISSION_{self.id}_{user.id}_{self.problem.id}'
         # Check cache
         cache = RedisCache()
