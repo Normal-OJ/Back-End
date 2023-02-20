@@ -1,6 +1,8 @@
 import secrets
+from typing import Union, Literal
 from mongoengine import connect
 from mongo import *
+from flask.testing import FlaskClient
 from .conftest import *
 
 
@@ -69,7 +71,12 @@ class BaseTester:
         return user
 
     @staticmethod
-    def request(client, method, url, **ks):
+    def request(
+        client: FlaskClient,
+        method: Literal['get', 'post', 'put', 'patch', 'delete'],
+        url: str,
+        **ks,
+    ):
         func = getattr(client, method)
         rv = func(url, **ks)
         rv_json = rv.get_json()

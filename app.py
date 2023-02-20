@@ -24,6 +24,7 @@ def app():
         (post_api, '/post'),
         (copycat_api, '/copycat'),
         (health_api, '/health'),
+        (user_api, '/user'),
     ]
     for api, prefix in api2prefix:
         app.register_blueprint(api, url_prefix=prefix)
