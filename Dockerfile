@@ -55,4 +55,4 @@ COPY ./ /app
 
 WORKDIR /app
 EXPOSE 8080
-CMD ["gunicorn", "app:app()", "-c", "gunicorn.conf.conf.py"]
+CMD ["gunicorn", "app:app()", "-c", "gunicorn.conf.py"]

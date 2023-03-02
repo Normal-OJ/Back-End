@@ -1,6 +1,6 @@
 from urllib import parse
 from typing import Optional
-from flask import Blueprint, current_app
+from flask import Blueprint, current_app, request
 from mongo import engine
 from mongo.utils import drop_none
 from mongo import *
@@ -12,18 +12,11 @@ __all__ = ['user_api']
 user_api = Blueprint('user_api', __name__)
 
 
-@user_api.before_request
-@identity_verify(0)
-def before_user_api(user):
-    '''
-    We only allow admin to use user API (currently)
-    '''
-    pass
-
-
 @user_api.get('/')
+@identity_verify(0)
 @Request.args('offset', 'count', 'course', 'role')
 def get_user_list(
+    user,
     offset: Optional[str],
     count: Optional[str],
     course: Optional[str],
@@ -61,8 +54,10 @@ def get_user_list(
 
 
 @user_api.post('/')
+@identity_verify(0)
 @Request.json('username: str', 'password: str', 'email: str')
 def add_user(
+    user,
     username: str,
     password: str,
     email: str,
@@ -86,9 +81,8 @@ def add_user(
     return HTTPResponse()
 
 
-# username
 @user_api.patch('/<username>')
-@login_required
+@identity_verify(0)
 @Request.doc('username', 'target_user', User)
 @Request.json('password', 'displayed_name', 'role')
 def update_user(
