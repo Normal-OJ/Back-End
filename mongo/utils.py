@@ -15,6 +15,7 @@ __all__ = (
     'perm',
     'RedisCache',
     'doc_required',
+    'drop_none',
 )
 
 

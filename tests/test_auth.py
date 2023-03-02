@@ -6,6 +6,8 @@ import pytest
 import secrets
 from mongo import *
 from mongo import engine
+from tests import utils
+from tests.conftest import ForgeClient
 
 
 class TestSignup:
@@ -310,13 +312,27 @@ class TestBatchSignup:
             values = [('' if v is None else v) for v in values]
             return ','.join(map(str, values))
 
+    @staticmethod
+    def cmp_payload_and_user(
+        user: User,
+        payload: SignupInput,
+    ):
+        assert user.username == payload.username
+        assert user.email == payload.email
+        if payload.displayed_name is not None:
+            assert user.profile.displayed_name == payload.displayed_name
+        if payload.role is not None:
+            assert user.role == payload.role
+        login = User.login(payload.username, payload.password)
+        assert login.username == payload.username
+
     @classmethod
     def signup_input(
         cls,
         *,
         displayed_name: Optional[Union[str, bool]] = None,
         role: Optional[int] = None,
-    ):
+    ) -> SignupInput:
         '''
         Generate random signup input data
         '''
@@ -456,3 +472,50 @@ class TestBatchSignup:
         )
         assert rv.status_code == 400, rv.get_json()
         assert 'input' in rv.get_json()['message']
+
+    def test_force_signup_should_override_existent_users(
+        self,
+        forge_client: ForgeClient,
+    ):
+        existent_users = [
+            self.signup_input(
+                displayed_name=True,
+                role=int(engine.User.Role.TEACHER),
+            ) for _ in range(5)
+        ]
+        for eu in existent_users:
+            u = dataclasses.asdict(eu)
+            del u['displayed_name']
+            del u['role']
+            User.signup(**u)
+            eu.password += secrets.token_hex(8)
+
+        # ensure they can't login with updated payload
+        for u in existent_users:
+            with pytest.raises(engine.DoesNotExist):
+                User.login(u.username, u.password)
+            with pytest.raises(engine.DoesNotExist):
+                User.login(u.email, u.password)
+
+        excepted_users = [
+            *(self.signup_input() for _ in range(5)),
+            *existent_users,
+        ]
+
+        course = utils.course.create_course(teacher='first_admin')
+        client = forge_client('first_admin')
+        rv = client.post(
+            '/auth/batch-signup',
+            json={
+                'newUsers': self.convert_to_csv(excepted_users),
+                'course': course.course_name,
+                'force': True,
+            },
+        )
+        assert rv.status_code == 200, rv.get_json()
+
+        course.reload()
+        for u in excepted_users:
+            login = User.login(u.username, u.password)
+            self.cmp_payload_and_user(login, u)
+            assert u.username in course.student_nicknames
