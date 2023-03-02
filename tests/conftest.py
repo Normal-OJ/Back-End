@@ -1,5 +1,6 @@
-from typing import Dict, List
+from typing import Dict, List, Protocol
 from flask import Flask
+from flask.testing import FlaskClient
 from mongo import *
 from mongo import engine
 import mongomock.gridfs
@@ -10,7 +11,6 @@ from datetime import datetime
 from zipfile import ZipFile
 from collections import defaultdict
 from tests.base_tester import random_string
-from tests.test_homework import CourseData
 from tests.test_problem import get_file
 from tests import utils
 
@@ -35,10 +35,16 @@ def client(app: Flask):
     return app.test_client()
 
 
-@pytest.fixture
-def forge_client(client):
+class ForgeClient(Protocol):
 
-    def seted_cookie(username):
+    def __call__(self, username: str) -> FlaskClient:
+        ...
+
+
+@pytest.fixture
+def forge_client(client: FlaskClient):
+
+    def seted_cookie(username: str) -> FlaskClient:
         client.set_cookie('test.test', 'piann', User(username).secret)
         return client
 
@@ -46,17 +52,17 @@ def forge_client(client):
 
 
 @pytest.fixture
-def client_admin(forge_client):
+def client_admin(forge_client: ForgeClient):
     return forge_client('admin')
 
 
 @pytest.fixture
-def client_teacher(forge_client):
+def client_teacher(forge_client: ForgeClient):
     return forge_client('teacher')
 
 
 @pytest.fixture
-def client_student(forge_client):
+def client_student(forge_client: ForgeClient):
     return forge_client('student')
 
 
@@ -74,6 +80,7 @@ def test2_token():
 
 @pytest.fixture
 def make_course(forge_client):
+    from tests.test_homework import CourseData
 
     def make_course(username, students={}, tas=[]):
         '''

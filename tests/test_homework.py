@@ -1,8 +1,8 @@
-from typing import Callable
-from flask.testing import FlaskClient
-import pytest
-from tests.base_tester import BaseTester, random_string
 from datetime import datetime
+import pytest
+from flask.testing import FlaskClient
+from tests.base_tester import BaseTester, random_string
+from tests.conftest import ForgeClient
 from mongo import *
 
 
@@ -96,7 +96,7 @@ class TestIPFilter(BaseTester):
     )
     def test_valid_filter(
         self,
-        forge_client: Callable[[str], FlaskClient],
+        forge_client: ForgeClient,
         course_data: CourseData,
         _filter: str,
     ):
@@ -127,7 +127,7 @@ class TestIPFilter(BaseTester):
     )
     def test_invalid_filter(
         self,
-        forge_client: Callable[[str], FlaskClient],
+        forge_client: ForgeClient,
         course_data: CourseData,
         _filter: str,
     ):
