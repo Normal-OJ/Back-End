@@ -221,3 +221,11 @@ def test_non_admin_cannot_update_user_data(
     assert rv.status_code == 403, rv_json
     # ensure user is not updated
     assert user.reload().to_json() == original_user
+
+
+def test_client_can_make_cors_preflight_request(client):
+    # CORS-preflight requests must never include credentials, so
+    # using a unauthorized client here
+    # see more: https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS#preflight_requests_and_credentials
+    rv = client.options('/user')
+    assert rv.status_code == 200
