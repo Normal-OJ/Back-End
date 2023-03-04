@@ -275,23 +275,27 @@ def add_user(
 
 
 @auth_api.route('/batch-signup', methods=['POST'])
-@Request.json('new_users: str', 'course')
+@Request.json('new_users: str', 'course', 'force')
 @Request.doc('course', 'course', Course, null=True)
 @identity_verify(0)
 def batch_signup(
     user,
     new_users: str,
     course: Optional[Course],
+    force: Optional[bool],
 ):
     try:
         new_users = [*csv.DictReader(io.StringIO(new_users))]
     except csv.Error as e:
         current_app.logger.info(f'Error parse csv file [err={e}]')
         return HTTPError('Invalid file content', 400)
+    if force is None:
+        force = False
     try:
         new_users = User.batch_signup(
             new_users=new_users,
             course=course,
+            force=force,
         )
     except ValueError as e:
         return HTTPError(str(e), 400)

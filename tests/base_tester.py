@@ -1,9 +1,13 @@
 import secrets
-from typing import Union, Literal
+import typing
+from typing import Literal, Tuple, Dict, Any, Union
 from mongoengine import connect
 from mongo import *
 from flask.testing import FlaskClient
 from .conftest import *
+
+if typing.TYPE_CHECKING:
+    from flask.testing import TestResponse
 
 
 def random_string(k=None):
@@ -76,9 +80,9 @@ class BaseTester:
         method: Literal['get', 'post', 'put', 'patch', 'delete'],
         url: str,
         **ks,
-    ):
+    ) -> Tuple['TestResponse', Union[Any, Dict[str, Any]], Union[Any, None]]:
         func = getattr(client, method)
-        rv = func(url, **ks)
+        rv: 'TestResponse' = func(url, **ks)
         rv_json = rv.get_json()
         if isinstance(rv_json, dict):
             rv_data = rv_json.get('data')

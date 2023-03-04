@@ -25,27 +25,32 @@ JWT_SECRET = os.environ.get('JWT_SECRET', 'SuperSecretString')
 class User(MongoBase, engine=engine.User):
 
     @classmethod
-    def signup(cls, username, password, email):
+    def signup(
+        cls,
+        username: str,
+        password: str,
+        email: str,
+    ):
         if re.match(r'^[a-zA-Z0-9_\-]+$', username) is None:
             raise ValueError(f'Invalid username [username={username}]')
-        user = cls(username)
-        user_id = hash_id(user.username, password)
+        user_id = hash_id(username, password)
         email = email.lower().strip()
-        cls.engine(
+        user = cls.engine(
             user_id=user_id,
             user_id2=user_id,
-            username=user.username,
+            username=username,
             email=email,
             md5=hashlib.md5(email.encode()).hexdigest(),
             active=False,
         ).save(force_insert=True)
-        return user.reload()
+        return cls(user).reload()
 
     @classmethod
     def batch_signup(
         cls,
         new_users: List[Dict[str, str]],
         course: Optional['Course'] = None,
+        force: bool = False,
     ):
         '''
         Register multiple students with course
@@ -68,15 +73,17 @@ class User(MongoBase, engine=engine.User):
         registered_users = []
         for u in new_users:
             try:
-                displayed_name = u.pop('displayedName', None)
-                if displayed_name is not None:
-                    activate_payload = {'displayedName': displayed_name}
-                else:
-                    activate_payload = {}
-                role = u.pop('role', None)
-                new_user = cls.signup(**u)
+                new_user = cls.signup(
+                    username=u['username'],
+                    password=u['password'],
+                    email=u['email'],
+                )
+                activate_payload = drop_none({
+                    'displayedName':
+                    u.get('displayedName'),
+                })
                 new_user.activate(activate_payload)
-                if role is not None:
+                if (role := u.get('role')) is not None:
                     new_user.update(role=role)
                     new_user.reload('role')
             except engine.NotUniqueError:
@@ -84,6 +91,8 @@ class User(MongoBase, engine=engine.User):
                     new_user = cls.get_by_username(u['username'])
                 except engine.DoesNotExist:
                     new_user = cls.get_by_email(u['email'])
+                if force:
+                    new_user.force_update(u)
             registered_users.append(new_user)
         if course is not None:
             new_student_nicknames = {
@@ -93,6 +102,18 @@ class User(MongoBase, engine=engine.User):
             }
             course.update_student_namelist(new_student_nicknames)
         return new_users
+
+    def force_update(self, new_user: Dict[str, Any]):
+        '''
+        Force update an existent user in batch update procedure
+        '''
+        if (displayed_name := new_user.get('displayedName')) is not None:
+            self.update(profile__displayed_name=displayed_name)
+        if (role := new_user.get('role')) is not None:
+            self.update(role=role)
+        if (password := new_user.get('password')) is not None:
+            self.change_password(password)
+        self.reload()
 
     @classmethod
     def login(cls, username, password):
