@@ -12,11 +12,28 @@ __all__ = ['user_api']
 user_api = Blueprint('user_api', __name__)
 
 
-@user_api.get('/')
 @identity_verify(0)
+def check_admin(user):
+    '''
+    an empty wrapper to check whether client is admin
+    '''
+    return None
+
+
+@user_api.before_request
+def before_request():
+    '''
+    we only allow admins to call user APIs, but the CORS preflight
+    request won't contain credentials, so we skip the check for that.
+    '''
+    if request.method.lower() == 'options':
+        return None
+    return check_admin()
+
+
+@user_api.get('/')
 @Request.args('offset', 'count', 'course', 'role')
 def get_user_list(
-    user,
     offset: Optional[str],
     count: Optional[str],
     course: Optional[str],
@@ -54,10 +71,8 @@ def get_user_list(
 
 
 @user_api.post('/')
-@identity_verify(0)
 @Request.json('username: str', 'password: str', 'email: str')
 def add_user(
-    user,
     username: str,
     password: str,
     email: str,
@@ -82,7 +97,7 @@ def add_user(
 
 
 @user_api.patch('/<username>')
-@identity_verify(0)
+@login_required
 @Request.doc('username', 'target_user', User)
 @Request.json('password', 'displayed_name', 'role')
 def update_user(
