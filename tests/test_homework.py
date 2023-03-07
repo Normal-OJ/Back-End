@@ -1,4 +1,6 @@
 from datetime import datetime
+from dataclasses import dataclass, field
+from typing import Dict, List
 import pytest
 from flask.testing import FlaskClient
 from tests.base_tester import BaseTester, random_string
@@ -6,36 +8,34 @@ from tests.conftest import ForgeClient
 from mongo import *
 
 
+@dataclass
 class CourseData:
-
-    def __init__(self, name, teacher, students, tas):
-        self.name = name
-        self.teacher = teacher
-        self.students = students
-        self.tas = tas
-        self.homework_ids = []
+    name: str
+    teacher: str
+    students: Dict[str, str]
+    tas: List[str]
+    homework_ids: List[str] = field(default_factory=list, init=False)
 
     @property
     def homework_name(self):
         return f'Test HW 4 {self.name} {id(self)}'
 
 
-@pytest.fixture(params=[{
-    'name': 'Programming_I',
-    'teacher': 'Po-Wen-Chi',
-    'students': {
-        'Yin-Da-Chen': 'ala',
-        'Bo-Chieh-Chuang': 'bogay'
-    },
-    'tas': ['Tzu-Wei-Yu']
-}])
+@pytest.fixture
 def course_data(
-    request,
     client_admin: FlaskClient,
     problem_ids,
 ):
     BaseTester.setup_class()
-    cd = CourseData(**request.param)
+    cd = CourseData(
+        name='Programming_I',
+        teacher='Po-Wen-Chi',
+        students={
+            'Yin-Da-Chen': 'ala',
+            'Bo-Chieh-Chuang': 'bogay'
+        },
+        tas=['Tzu-Wei-Yu'],
+    )
     # add course
     Course.add_course(cd.name, cd.teacher)
     # add students and TA
