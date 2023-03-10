@@ -1,4 +1,4 @@
-import pytest
+from mongo import engine
 from tests.conftest import ForgeClient
 from tests.base_tester import BaseTester
 from tests import utils
@@ -353,20 +353,37 @@ class TestScoreBoard(BaseTester):
 
     def test_admin_can_view_scoreboard(self, forge_client: ForgeClient):
         course = utils.course.create_course()
-        client_admin = forge_client('first_admin')
-        rv = client_admin.get(
-            f'/course/{course.course_name}/scoreboard?pids=1,2,3')
+        client = forge_client('first_admin')
+        rv = client.get(f'/course/{course.course_name}/scoreboard?pids=1,2,3')
         assert rv.status_code == 200, rv.json
 
-    @pytest.mark.parametrize('role', (1, 2))
-    def test_non_admin_cannot_view_scoreboard(
+    def test_teacher_can_view_scoreboard(self, forge_client: ForgeClient):
+        course = utils.course.create_course()
+        client = forge_client(course.teacher.username)
+        rv = client.get(f'/course/{course.course_name}/scoreboard?pids=1,2,3')
+        assert rv.status_code == 200, rv.json
+
+    def test_student_cannot_view_scoreboard(
         self,
         forge_client: ForgeClient,
-        role: int,
     ):
-        user = utils.user.create_user(role=role)
+        user = utils.user.create_user(role=engine.User.Role.STUDENT)
+        course = utils.course.create_course(students=[user])
+        client = forge_client(user.username)
+        rv = client.get(f'/course/{course.course_name}/scoreboard?pids=1,2,3')
+        assert rv.status_code == 403, rv.json
+
+    def test_teacher_role_cannot_view_scoreboard(
+        self,
+        forge_client: ForgeClient,
+    ):
+        '''
+        Users that has role 'teacher' but is not the teacher of that
+        course should not have permission to view scoreboard
+        '''
         course = utils.course.create_course()
-        client_admin = forge_client(user.username)
-        rv = client_admin.get(
-            f'/course/{course.course_name}/scoreboard?pids=1,2,3')
+        user = utils.user.create_user(role=engine.User.Role.TEACHER)
+        assert user != course.teacher
+        client = forge_client(user.username)
+        rv = client.get(f'/course/{course.course_name}/scoreboard?pids=1,2,3')
         assert rv.status_code == 403, rv.json
