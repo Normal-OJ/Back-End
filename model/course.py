@@ -1,3 +1,4 @@
+from typing import Optional
 from flask import Blueprint, request
 
 from mongo import *
@@ -188,7 +189,13 @@ def grading(user, course_name, student):
 @login_required
 @Request.args('pids: str', 'start', 'end')
 @Request.doc('course_name', 'course', Course)
-def get_course_scoreboard(user, pids, start, end, course: Course):
+def get_course_scoreboard(
+    user,
+    pids: str,
+    start: Optional[str],
+    end: Optional[str],
+    course: Course,
+):
     try:
         pids = pids.split(',')
         pids = [int(pid.strip()) for pid in pids]
@@ -206,7 +213,7 @@ def get_course_scoreboard(user, pids, start, end, course: Course):
         except:
             return HTTPError('Type of `end` should be float.', 400)
 
-    if course.permission(user, Course.Permission.GRADE):
+    if not course.permission(user, Course.Permission.GRADE):
         return HTTPError('Permission denied', 403)
 
     ret = course.get_scoreboard(pids, start, end)
