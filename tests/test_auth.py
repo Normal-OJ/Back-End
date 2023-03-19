@@ -6,6 +6,7 @@ import pytest
 import secrets
 from mongo import *
 from mongo import engine
+from model import get_verify_link
 from tests import utils
 from tests.conftest import ForgeClient
 
@@ -878,3 +879,25 @@ class TestBatchSignup:
         client = forge_client('first_admin')
         rv = client.get('/auth/me?fields=invalid')
         assert rv.status_code == 400, rv.get_json()
+
+
+def test_verify_link_without_subdirectory(app):
+    server_name = '4pi.n0j.tw'
+    app.config['SERVER_NAME'] = server_name
+
+    u = utils.user.create_user()
+    expected_url = f'https://{server_name}/auth/active/{u.cookie}'
+    with app.app_context():
+        assert expected_url == get_verify_link(u)
+
+
+def test_verify_link_with_subdirectory(app):
+    server_name = 'n0j.tw'
+    subdirectory = '/4pi'
+    app.config['SERVER_NAME'] = server_name
+    app.config['APPLICATION_ROOT'] = subdirectory
+
+    u = utils.user.create_user()
+    expected_url = f'https://{server_name}{subdirectory}/auth/active/{u.cookie}'
+    with app.app_context():
+        assert expected_url == get_verify_link(u)

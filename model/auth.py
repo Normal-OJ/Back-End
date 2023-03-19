@@ -5,7 +5,7 @@ from typing import Optional
 import csv
 import io
 # Related third party imports
-from flask import Blueprint, request, current_app
+from flask import Blueprint, request, current_app, url_for
 # Local application
 from mongo import *
 from mongo import engine
@@ -14,7 +14,12 @@ from .utils import *
 
 import string
 
-__all__ = ['auth_api', 'login_required', 'identity_verify']
+__all__ = (
+    'auth_api',
+    'login_required',
+    'identity_verify',
+    'get_verify_link',
+)
 
 auth_api = Blueprint('auth_api', __name__)
 
@@ -49,7 +54,7 @@ def login_required(func):
             return HTTPError('Invalid Token', 403)
         user = User(json['data']['username'])
         if json['data'].get('userId') != user.user_id:
-            return HTTPError(f'Authorization Expired', 403)
+            return HTTPError('Authorization Expired', 403)
         if not user.active:
             return HTTPError('Inactive User', 403)
         kwargs['user'] = user
@@ -79,6 +84,14 @@ def identity_verify(*roles):
     return verify
 
 
+def get_verify_link(user: User) -> str:
+    return url_for(
+        'auth_api.active',
+        _external=True,
+        token=user.cookie,
+    )
+
+
 @auth_api.route('/session', methods=['GET', 'POST'])
 def session():
     '''Create a session or remove a session.
@@ -93,7 +106,7 @@ def session():
             - 200 Logout Success
         '''
         cookies = {'jwt': None, 'piann': None}
-        return HTTPResponse(f'Goodbye', cookies=cookies)
+        return HTTPResponse('Goodbye', cookies=cookies)
 
     @Request.json('username: str', 'password: str')
     def login(username, password):
@@ -123,11 +136,11 @@ def signup(username, password, email):
         user = User.signup(username, password, email)
     except ValidationError as ve:
         return HTTPError('Signup Failed', 400, data=ve.to_dict())
-    except NotUniqueError as ne:
+    except NotUniqueError:
         return HTTPError('User Exists', 400)
-    except ValueError as ve:
+    except ValueError:
         return HTTPError('Not Allowed Name', 400)
-    verify_link = f'https://noj.tw/api/auth/active/{user.cookie}'
+    verify_link = get_verify_link(user)
     text = VERIFY_TEXT.format(url=verify_link)
     html = VERIFY_HTML.format(url=verify_link)
     send_noreply([email], '[N-OJ] Varify Your Email', text, html)
@@ -181,7 +194,7 @@ def resend_email(email):
         return HTTPError('User Not Exists', 400)
     if user.active:
         return HTTPError('User Has Been Actived', 400)
-    verify_link = f'https://noj.tw/api/auth/active/{user.cookie}'
+    verify_link = get_verify_link(user)
     send_noreply([email], '[N-OJ] Varify Your Email', verify_link)
     return HTTPResponse('Email Has Been Resent')
 
@@ -270,7 +283,7 @@ def add_user(
         return HTTPError('Signup Failed', 400, data=ve.to_dict())
     except NotUniqueError:
         return HTTPError('User Exists', 400)
-    except ValueError as ve:
+    except ValueError:
         return HTTPError('Not Allowed Name', 400)
     return HTTPResponse()
 
