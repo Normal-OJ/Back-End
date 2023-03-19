@@ -159,7 +159,7 @@ def create_problem(
 
 
 def cmp_copied_problem(original: Problem, copy: Problem):
-    # It shouold be a new problem
+    # It should be a new problem
     assert original.problem_id != copy.problem_id
     # But some fields are identical
     fields = (
@@ -175,6 +175,6 @@ def cmp_copied_problem(original: Problem, copy: Problem):
         old = getattr(original, field)
         new = getattr(copy, field)
         assert old == new, (field, old, new)
-    # And some fields shuold be default
+    # And some fields should be default
     assert len(copy.homeworks) == 0
     assert len(copy.high_scores) == 0
