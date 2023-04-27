@@ -23,3 +23,14 @@ jobs:
         run: poetry run yapf -- --recursive --parallel --diff .
       - name: Unit test
         run: poetry run pytest -- --cov=./ --cov-config=.coveragerc
+      - name: Generate and Commit coverage badge
+        run: |
+          COVERAGE_PERCENT=$(poetry run coverage report | tail -n 1 | awk '{print $NF}' | sed 's/%//')
+          git config --global user.email "admin@noj.tw"
+          git config --global user.name "noj-admin"
+          git fetch
+          git checkout coverage-badge
+          wget "https://img.shields.io/badge/coverage-${COVERAGE_PERCENT}%25-green?logo=python" -O coverage.svg
+          git add coverage.svg
+          git commit -m "Add coverage badge"
+          git push -u origin coverage-badge
