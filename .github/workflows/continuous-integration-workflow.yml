@@ -10,7 +10,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-
       - name: Install Poetry
         run: pipx install poetry
       - name: Setup Python 3.8
@@ -28,8 +27,8 @@ jobs:
           poetry run coverage report
 
       - name: Creating coverage folder
-      run: |
-        mkdir -p coverage
+        run: |
+          mkdir -p coverage
       - name: Coverage Badge
         uses: tj-actions/coverage-badge-py@v2
         with:
