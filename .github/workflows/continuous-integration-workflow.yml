@@ -10,8 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-        with:
-          ref: gh-pages
+
       - name: Install Poetry
         run: pipx install poetry
       - name: Setup Python 3.8
@@ -28,31 +27,21 @@ jobs:
           poetry run pytest --html=report/report.html --self-contained-html -- --cov=./ --cov-config=.coveragerc
           poetry run coverage report
 
+      - name: Creating coverage folder
+      run: |
+        mkdir -p coverage
       - name: Coverage Badge
         uses: tj-actions/coverage-badge-py@v2
-
+        with:
+          output: report/coverage.svg
       - name: Verify Changed files
         uses: tj-actions/verify-changed-files@v13
         id: verify-changed-files
         with:
           files: report/coverage.svg
 
-      - name: Commit files
-        if: steps.verify-changed-files.outputs.files_changed == 'true'
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add report
-          git commit -m "Updated coverage.svg and report.html"
-
-      - name: Push changes
-        if: steps.verify-changed-files.outputs.files_changed == 'true'
-        uses: ad-m/github-push-action@master
-        with:
-          github_token: ${{ secrets.github_token }}
-          branch: ${{ github.ref }}
-
-      - name: Publish coverage report to GitHub Pages
+      - name: Publish coverage report to gh-pages branch
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: reports/
+          branch: gh-pages
+          folder: report
