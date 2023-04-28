@@ -16,6 +16,7 @@ PyJWT = "^2.5"
 requests = "^2.28"
 mosspy = "^1.0"
 redis = "^4.3"
+pytest-html = "^3.2.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.1"
