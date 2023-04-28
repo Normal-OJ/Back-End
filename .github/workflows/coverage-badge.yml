@@ -1,10 +1,5 @@
 name: Coverage Badge
 
-on:
-  pull_request:
-    branches:
-      - develop
-
 jobs:
   coverage-badge:
     runs-on: ubuntu-latest
