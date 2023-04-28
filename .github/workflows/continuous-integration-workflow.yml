@@ -27,6 +27,7 @@ jobs:
           poetry run coverage report
 
   coverage-report:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - name: Creating coverage folder
