@@ -1,5 +1,8 @@
 name: Coverage Badge
 
+on:
+  push:
+
 jobs:
   coverage-badge:
     runs-on: ubuntu-latest
