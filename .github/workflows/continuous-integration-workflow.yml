@@ -25,7 +25,6 @@ jobs:
         run: |
           poetry run pytest -- --cov=./ --cov-report=html:report --cov-config=.coveragerc
           poetry run coverage report
-          ls -al report/
       # coverage-report
       - name: Coverage Badge
         uses: tj-actions/coverage-badge-py@v2
