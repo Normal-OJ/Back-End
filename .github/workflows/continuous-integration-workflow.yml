@@ -32,7 +32,7 @@ jobs:
         with:
           output: report/coverage.svg
       - name: Publish coverage report to gh-pages branch
-        uses: JamesIves/github-pages-deploy-action@v4
+        uses: peaceiris/actions-gh-pages@v3
         with:
-          branch: gh-pages
-          folder: ./report
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./report
