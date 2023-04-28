@@ -29,7 +29,6 @@ jobs:
       - name: Creating coverage folder
         run: |
           mkdir -p report
-          poetry run pytest --cov --cov-report=html:report
       - name: Coverage Badge
         uses: tj-actions/coverage-badge-py@v2
         with:
