@@ -26,6 +26,9 @@ jobs:
           poetry run pytest --html=report/report.html -- --cov=./ --cov-config=.coveragerc
           poetry run coverage report
 
+  coverage-report:
+    runs-on: ubuntu-latest
+    steps:
       - name: Creating coverage folder
         run: |
           mkdir -p coverage
