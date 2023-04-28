@@ -23,7 +23,7 @@ jobs:
         run: poetry run yapf -- --recursive --parallel --diff .
       - name: Unit test
         run: |
-          poetry run pytest -- --cov=./ --cov-report=html:report/coverage --cov-config=.coveragerc
+          poetry run pytest -- --cov=./ --cov-report=html:report --cov-config=.coveragerc
           poetry run coverage report
       # coverage-report
       - name: Coverage Badge
