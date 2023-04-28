@@ -23,7 +23,7 @@ jobs:
         run: poetry run yapf -- --recursive --parallel --diff .
       - name: Unit test
         run: |
-          poetry run pytest --html=report/report.html --self-contained-html -- --cov=./ --cov-config=.coveragerc
+          poetry run pytest --html=report/report.html -- --cov=./ --cov-config=.coveragerc
           poetry run coverage report
 
       - name: Creating coverage folder
@@ -37,9 +37,10 @@ jobs:
         uses: tj-actions/verify-changed-files@v13
         id: verify-changed-files
         with:
-          files: report/coverage.svg
+          files: report
 
       - name: Publish coverage report to gh-pages branch
+        if: steps.verify-changed-files.outputs.files_changed == 'true'
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           branch: gh-pages
