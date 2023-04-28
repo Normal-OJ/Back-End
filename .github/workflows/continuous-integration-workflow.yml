@@ -31,14 +31,7 @@ jobs:
         uses: tj-actions/coverage-badge-py@v2
         with:
           output: report/coverage.svg
-      - name: Verify Changed files
-        uses: tj-actions/verify-changed-files@v13
-        id: verify-changed-files
-        with:
-          files: report/index.html
-
       - name: Publish coverage report to gh-pages branch
-        if: steps.verify-changed-files.outputs.files_changed == 'true'
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           branch: gh-pages
