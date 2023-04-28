@@ -1,6 +1,6 @@
 # NOJ Backend
 
-![Coverage Badge](https://raw.githubusercontent.com/Normal-OJ/Back-End/coverage-badge/coverage.svg)
+[![Coverage Badge](https://normal-oj.github.io/Back-End/coverage.svg)](https://normal-oj.github.io/Back-End/report.html)
 
 This respository uses [Poetry](https://python-poetry.org/) to manage Python dependencies.
 
