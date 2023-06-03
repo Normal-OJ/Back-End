@@ -403,7 +403,7 @@ class TestCheckUser:
 
 class TestResendEmail:
 
-    def test_user_not_exit(self, client):
+    def test_user_not_exists(self, client):
         name = secrets.token_hex()[:12]
         rv = client.post('/auth/resend-email',
                          json={'email': f'{name}@test.test'})
