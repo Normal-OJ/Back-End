@@ -8,6 +8,7 @@ import io
 from flask import Blueprint, request, current_app
 # Local application
 from mongo import *
+from mongo import engine
 from mongo.utils import hash_id
 from .utils import *
 

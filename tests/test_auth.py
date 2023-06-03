@@ -37,28 +37,24 @@ class TestSignup:
     def test_too_long_username(self, client):
         name = secrets.token_hex()[:12]
         password = secrets.token_hex()
-        rv = client.post(
-            '/auth/signup',
-            json={
-                'username': f'tooooooooloooooooooong{name}',
-                'password': password,
-                'email': f'{name}@noj.tw',
-            }
-        )
+        rv = client.post('/auth/signup',
+                         json={
+                             'username': f'tooooooooloooooooooong{name}',
+                             'password': password,
+                             'email': f'{name}@noj.tw',
+                         })
         assert rv.status_code == 400, rv.get_json()
         assert rv.get_json()['message'] == 'Signup Failed'
 
     def test_invalid_username(self, client):
         name = secrets.token_hex()[:12]
         password = secrets.token_hex()
-        rv = client.post(
-            '/auth/signup',
-            json={
-                'username': f'invalid/{name}',
-                'password': password,
-                'email': f'{name}@noj.tw',
-            }
-        )
+        rv = client.post('/auth/signup',
+                         json={
+                             'username': f'invalid/{name}',
+                             'password': password,
+                             'email': f'{name}@noj.tw',
+                         })
         assert rv.status_code == 400, rv.get_json()
         assert rv.get_json()['message'] == 'Not Allowed Name'
 
@@ -144,29 +140,25 @@ class TestSignup:
         client = forge_client('first_admin')
         name = secrets.token_hex()[:12]
         password = secrets.token_hex()
-        rv = client.post(
-            '/auth/user',
-            json={
-                'username': f'invalid/{name}',
-                'password': password,
-                'email': f'{name}@noj.tw',
-            }
-        )
+        rv = client.post('/auth/user',
+                         json={
+                             'username': f'invalid/{name}',
+                             'password': password,
+                             'email': f'{name}@noj.tw',
+                         })
         assert rv.status_code == 400, rv.get_json()
         assert rv.get_json()['message'] == 'Not Allowed Name'
-    
+
     def test_add_user_with_too_long_username(self, forge_client):
         client = forge_client('first_admin')
         name = secrets.token_hex()[:12]
         password = secrets.token_hex()
-        rv = client.post(
-            '/auth/user',
-            json={
-                'username': f'tooooooooloooooooooong{name}',
-                'password': password,
-                'email': f'{name}@noj.tw',
-            }
-        )
+        rv = client.post('/auth/user',
+                         json={
+                             'username': f'tooooooooloooooooooong{name}',
+                             'password': password,
+                             'email': f'{name}@noj.tw',
+                         })
         assert rv.status_code == 400, rv.get_json()
         assert rv.get_json()['message'] == 'Signup Failed'
         assert rv.get_json()['data']['username'] == 'String value is too long'
@@ -175,23 +167,19 @@ class TestSignup:
         client = forge_client('first_admin')
         name = secrets.token_hex()[:12]
         password = secrets.token_hex()
-        rv = client.post(
-            '/auth/user',
-            json={
-                'username': name,
-                'password': password,
-                'email': f'{name}@noj.tw',
-            }
-        )
+        rv = client.post('/auth/user',
+                         json={
+                             'username': name,
+                             'password': password,
+                             'email': f'{name}@noj.tw',
+                         })
         assert rv.status_code == 200, rv.get_json()
-        rv = client.post(
-            '/auth/user',
-            json={
-                'username': name,
-                'password': password,
-                'email': f'{name}@noj.tw',
-            }
-        )
+        rv = client.post('/auth/user',
+                         json={
+                             'username': name,
+                             'password': password,
+                             'email': f'{name}@noj.tw',
+                         })
         assert rv.status_code == 400, rv.get_json()
         assert rv.get_json()['message'] == 'User Exists'
 
@@ -251,6 +239,60 @@ class TestActive:
         assert json['status'] == 'err'
         assert json['message'] == 'Requested Value With Wrong Type'
 
+    def test_update_without_true_agreement(self, client):
+        rv = client.post(f'/auth/active',
+                         json={
+                             'profile': {},
+                             'agreement': False
+                         })
+        assert rv.status_code == 403, rv.get_json()
+        assert rv.get_json()['message'] == 'Not Confirm the Agreement'
+
+    def test_update_with_invalid_token(self, client):
+        rv = client.post(f'/auth/active',
+                         json={
+                             'profile': {},
+                             'agreement': True
+                         })
+        assert rv.status_code == 403, rv.get_json()
+        assert rv.get_json()['message'] == 'Invalid Token.'
+
+    def test_update_with_user_not_exists(self, client, monkeypatch):
+        from model import auth
+
+        def mock_jwt_decode(_):
+            return {
+                'secret': 'mock_secret',
+                'data': {
+                    'username': secrets.token_hex()[:12],
+                }
+            }
+
+        monkeypatch.setattr(auth, 'jwt_decode', mock_jwt_decode)
+        rv = client.post(f'/auth/active',
+                         json={
+                             'profile': {},
+                             'agreement': True
+                         })
+        assert rv.status_code == 400, rv.get_json()
+        assert rv.get_json()['message'] == 'User Not Exists'
+
+    def test_update_public_course_not_exists(self, client, test_token,
+                                             monkeypatch):
+
+        def raise_public_course_not_exists(*args, **kwargs):
+            raise engine.DoesNotExist('Public Course Not Exists')
+
+        monkeypatch.setattr(User, 'activate', raise_public_course_not_exists)
+        client.set_cookie('test.test', 'piann', test_token)
+        rv = client.post(f'/auth/active',
+                         json={
+                             'profile': {},
+                             'agreement': True
+                         })
+        assert rv.status_code == 404, rv.get_json()
+        assert rv.get_json()['message'] == 'Public Course Not Exists'
+
     def test_update(self, client, test_token):
         # Update
         client.set_cookie('test.test', 'piann', test_token)
@@ -268,6 +310,16 @@ class TestActive:
         assert rv.status_code == 200
         assert json['status'] == 'ok'
         assert json['message'] == 'User Is Now Active'
+
+    def test_update_with_activated_user(self, client, test_token):
+        client.set_cookie('test.test', 'piann', test_token)
+        rv = client.post(f'/auth/active',
+                         json={
+                             'profile': {},
+                             'agreement': True
+                         })
+        assert rv.status_code == 400, rv.get_json()
+        assert rv.get_json()['message'] == 'User Has Been Actived'
 
     @pytest.mark.parametrize(
         'role',
@@ -290,6 +342,28 @@ class TestActive:
         u.update(role=role)
         u.reload()
         assert u.role == role
+
+
+class TestPasswordRecovery:
+
+    def test_recovery_with_user_not_exists(self, client):
+        name = secrets.token_hex()[:12]
+        rv = client.post('/auth/password-recovery',
+                         json={
+                             'email': f'{name}_not_exists@test.test',
+                         })
+        assert rv.status_code == 400, rv.get_json()
+        assert rv.get_json()['message'] == 'User Not Exists'
+
+    def test_recovery(self, client):
+        rv = client.post('/auth/password-recovery',
+                         json={
+                             'email': 'test@test.test',
+                         })
+        assert rv.status_code == 200, rv.get_json()
+        assert rv.get_json()['message'] == 'Recovery Email Has Been Sent'
+        test_user = User('test')
+        assert test_user.user_id != test_user.user_id2
 
 
 class TestCheckUser:
@@ -315,7 +389,8 @@ class TestCheckUser:
 
     def test_email_not_exist(self, client):
         name = secrets.token_hex()[:12]
-        rv = client.post('/auth/check/email', json={'email': f'{name}@test.test'})
+        rv = client.post('/auth/check/email',
+                         json={'email': f'{name}@test.test'})
         assert rv.status_code == 200, rv.get_json()
         assert rv.get_json()['message'] == 'Email Can Be Used'
         assert rv.get_json()['data']['valid'] == 1
@@ -330,7 +405,8 @@ class TestResendEmail:
 
     def test_user_not_exit(self, client):
         name = secrets.token_hex()[:12]
-        rv = client.post('/auth/resend-email', json={'email': f'{name}@test.test'})
+        rv = client.post('/auth/resend-email',
+                         json={'email': f'{name}@test.test'})
         assert rv.status_code == 400, rv.get_json()
         assert rv.get_json()['message'] == 'User Not Exists'
 
@@ -338,22 +414,22 @@ class TestResendEmail:
         client = forge_client('first_admin')
         name = secrets.token_hex()[:12]
         password = secrets.token_hex()
-        rv = client.post(
-            '/auth/user',
-            json={
-                'username': name,
-                'password': password,
-                'email': f'{name}@test.test',
-            }
-        )
+        rv = client.post('/auth/user',
+                         json={
+                             'username': name,
+                             'password': password,
+                             'email': f'{name}@test.test',
+                         })
         assert rv.status_code == 200
         client.delete_cookie('test.test', 'pinna')
-        rv = client.post('/auth/resend-email', json={'email': f'{name}@test.test'})
+        rv = client.post('/auth/resend-email',
+                         json={'email': f'{name}@test.test'})
         assert rv.status_code == 400, rv.get_json()
         assert rv.get_json()['message'] == 'User Has Been Actived'
 
     def test_normal_resend(self, client):
-        rv = client.post('/auth/resend-email', json={'email': 'test2@test.test'})
+        rv = client.post('/auth/resend-email',
+                         json={'email': 'test2@test.test'})
         assert rv.status_code == 200, rv.get_json()
         assert rv.get_json()['message'] == 'Email Has Been Resent'
 
@@ -454,29 +530,27 @@ def test_get_self_data(client):
 
 
 def test_identity_verify(forge_client):
-        client = forge_client('first_admin')
-        name = secrets.token_hex()[:12]
-        password = secrets.token_hex()
-        rv = client.post(
-            '/auth/user',
-            json={
-                'username': name,
-                'password': password,
-                'email': f'{name}@noj.tw',
-            }
-        )
-        assert rv.status_code == 200
-        client = forge_client(name)
-        rv = client.post(
-            '/auth/user',
-            json={
-                'username': name,
-                'password': password,
-                'email': f'{name}@noj.tw',
-            },
-        )
-        assert rv.status_code == 403, rv.get_json()
-        assert rv.get_json()['message'] == 'Insufficient Permissions'
+    client = forge_client('first_admin')
+    name = secrets.token_hex()[:12]
+    password = secrets.token_hex()
+    rv = client.post('/auth/user',
+                     json={
+                         'username': name,
+                         'password': password,
+                         'email': f'{name}@noj.tw',
+                     })
+    assert rv.status_code == 200
+    client = forge_client(name)
+    rv = client.post(
+        '/auth/user',
+        json={
+            'username': name,
+            'password': password,
+            'email': f'{name}@noj.tw',
+        },
+    )
+    assert rv.status_code == 403, rv.get_json()
+    assert rv.get_json()['message'] == 'Insufficient Permissions'
 
 
 class TestChangePassword:
@@ -485,58 +559,49 @@ class TestChangePassword:
         client = forge_client('first_admin')
         name = secrets.token_hex()[:12]
         password = secrets.token_hex()
-        rv = client.post(
-            '/auth/user',
-            json={
-                'username': name,
-                'password': password,
-                'email': f'{name}@noj.tw',
-            }
-        )
+        rv = client.post('/auth/user',
+                         json={
+                             'username': name,
+                             'password': password,
+                             'email': f'{name}@noj.tw',
+                         })
         assert rv.status_code == 200
         client = forge_client(name)
         old_secret = User(name).secret
         new_password = secrets.token_hex()
-        rv = client.post(
-            '/auth/change-password',
-            json={
-                'oldPassword': password,
-                'newPassword': new_password
-            }
-        )
+        rv = client.post('/auth/change-password',
+                         json={
+                             'oldPassword': password,
+                             'newPassword': new_password
+                         })
         assert rv.status_code == 200, rv.get_json()
         assert rv.get_json()['message'] == 'Password Has Been Changed'
         client.set_cookie('test.test', 'piann', old_secret)
         rv = client.get('/auth/me')
         assert rv.status_code == 403, rv.get_json()
         assert rv.get_json()['message'] == 'Authorization Expired'
-    
+
     def test_change_password_with_wrong_password(self, forge_client):
         client = forge_client('first_admin')
         name = secrets.token_hex()[:12]
         password = secrets.token_hex()
-        rv = client.post(
-            '/auth/user',
-            json={
-                'username': name,
-                'password': password,
-                'email': f'{name}@noj.tw',
-            }
-        )
+        rv = client.post('/auth/user',
+                         json={
+                             'username': name,
+                             'password': password,
+                             'email': f'{name}@noj.tw',
+                         })
         assert rv.status_code == 200
         client = forge_client(name)
         bad_password = secrets.token_hex()
         new_password = secrets.token_hex()
-        rv = client.post(
-            '/auth/change-password',
-            json={
-                'oldPassword': bad_password,
-                'newPassword': new_password
-            }
-        )
+        rv = client.post('/auth/change-password',
+                         json={
+                             'oldPassword': bad_password,
+                             'newPassword': new_password
+                         })
         assert rv.status_code == 403, rv.get_json()
         assert rv.get_json()['message'] == 'Wrong Password'
-
 
 
 class TestBatchSignup:
@@ -616,8 +681,10 @@ class TestBatchSignup:
 
     def test_sign_up_with_invalid_csv(self, monkeypatch, forge_client):
         import csv
+
         def csv_raise_error(*args, **kwargs):
             raise csv.Error
+
         monkeypatch.setattr(csv.DictReader, '__next__', csv_raise_error)
         client = forge_client('first_admin')
         rv = client.post(
