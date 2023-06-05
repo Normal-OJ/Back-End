@@ -20,6 +20,7 @@ def app(tmp_path):
     from app import app as flask_app
     app = flask_app()
     app.config['TESTING'] = True
+    app.config['SERVER_NAME'] = 'test.test'
     mongomock.gridfs.enable_gridfs_integration()
     # modify submission config for testing
     # use tmp dir to save user source code
