@@ -139,17 +139,17 @@ def get_report(user, course, problem_id):
         )
     # some privilege or exist check
     try:
-        problem = Problem(int(problem_id)).obj
+        problem = Problem(int(problem_id))
     except ValueError:
         return HTTPError('problemId must be integer', 400)
-    course = Course(course).obj
+    course = Course(course)
     permission = perm(course, user)
 
     if permission < 2:
         return HTTPError('Forbidden.', 403)
-    if problem is None:
+    if not problem:
         return HTTPError('Problem not exist.', 404)
-    if course is None:
+    if not course:
         return HTTPError('Course not found.', 404)
 
     cpp_report_url = problem.cpp_report_url
@@ -157,8 +157,8 @@ def get_report(user, course, problem_id):
 
     if problem.moss_status == 0:
         return HTTPError(
-            404,
             "No report found. Please make a post request to copycat api to generate a report",
+            404,
             data={},
         )
     elif problem.moss_status == 1:
@@ -179,7 +179,7 @@ def get_report(user, course, problem_id):
 @login_required
 @Request.json('course', 'problem_id', 'student_nicknames')
 def detect(user, course, problem_id, student_nicknames):
-    if not (problem_id and course and student_nicknames):
+    if not (problem_id and course and type(student_nicknames) is dict):
         return HTTPError(
             'missing arguments! (In Json format)',
             400,
@@ -188,8 +188,8 @@ def detect(user, course, problem_id, student_nicknames):
             },
         )
 
-    course = Course(course).obj
-    problem = Problem(problem_id).obj
+    course = Course(course)
+    problem = Problem(problem_id)
     permission = perm(course, user)
 
     # Check if student is in course
@@ -204,9 +204,9 @@ def detect(user, course, problem_id, student_nicknames):
     # some privilege or exist check
     if permission < 2:
         return HTTPError('Forbidden.', 403)
-    if problem is None:
+    if not problem:
         return HTTPError('Problem not exist.', 404)
-    if course is None:
+    if not course:
         return HTTPError('Course not found.', 404)
 
     problem = Problem(problem_id)
