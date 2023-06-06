@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <title>Coverage for model/test.py: 60%</title>
+    <title>Coverage for model/test.py: 100%</title>
     <link rel="icon" sizes="32x32" href="favicon_32.png">
     <link rel="stylesheet" href="style.css" type="text/css">
     <script type="text/javascript" src="coverage_html.js" defer></script>
@@ -12,7 +12,7 @@
     <div class="content">
         <h1>
             <span class="text">Coverage for </span><b>model/test.py</b>:
-            <span class="pc_cov">60%</span>
+            <span class="pc_cov">100%</span>
         </h1>
         <aside id="help_panel_wrapper">
             <input id="help_panel_state" type="checkbox">
@@ -55,8 +55,8 @@
         </aside>
         <h2>
             <span class="text">25 statements &nbsp;</span>
-            <button type="button" class="run button_toggle_run" value="run" data-shortcut="r" title="Toggle lines run">15<span class="text"> run</span></button>
-            <button type="button" class="mis show_mis button_toggle_mis" value="mis" data-shortcut="m" title="Toggle lines missing">10<span class="text"> missing</span></button>
+            <button type="button" class="run button_toggle_run" value="run" data-shortcut="r" title="Toggle lines run">25<span class="text"> run</span></button>
+            <button type="button" class="mis show_mis button_toggle_mis" value="mis" data-shortcut="m" title="Toggle lines missing">0<span class="text"> missing</span></button>
             <button type="button" class="exc show_exc button_toggle_exc" value="exc" data-shortcut="x" title="Toggle lines excluded">0<span class="text"> excluded</span></button>
         </h2>
         <p class="text">
@@ -65,7 +65,7 @@
             <a id="nextFileLink" class="nav" href="d_6e2dbee8102cccb9_user_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io">coverage.py v7.1.0</a>,
-            created at 2023-06-05 14:19 +0000
+            created at 2023-06-06 05:20 +0000
         </p>
         <aside class="hidden">
             <button type="button" class="button_next_chunk" data-shortcut="j"/>
@@ -93,29 +93,29 @@
     <p class="run"><span class="n"><a id="t11" href="#t11">11</a></span><span class="t"><span class="op">@</span><span class="nam">test_api</span><span class="op">.</span><span class="nam">route</span><span class="op">(</span><span class="str">'/'</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t12" href="#t12">12</a></span><span class="t"><span class="op">@</span><span class="nam">login_required</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t13" href="#t13">13</a></span><span class="t"><span class="key">def</span> <span class="nam">test</span><span class="op">(</span><span class="nam">user</span><span class="op">)</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
-    <p class="mis show_mis"><span class="n"><a id="t14" href="#t14">14</a></span><span class="t">    <span class="key">return</span> <span class="nam">HTTPResponse</span><span class="op">(</span><span class="nam">user</span><span class="op">.</span><span class="nam">username</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t14" href="#t14">14</a></span><span class="t">    <span class="key">return</span> <span class="nam">HTTPResponse</span><span class="op">(</span><span class="nam">user</span><span class="op">.</span><span class="nam">username</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t15" href="#t15">15</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t16" href="#t16">16</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t17" href="#t17">17</a></span><span class="t"><span class="op">@</span><span class="nam">test_api</span><span class="op">.</span><span class="nam">route</span><span class="op">(</span><span class="str">'/role'</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t18" href="#t18">18</a></span><span class="t"><span class="op">@</span><span class="nam">identity_verify</span><span class="op">(</span><span class="num">0</span><span class="op">,</span> <span class="num">1</span><span class="op">,</span> <span class="op">...</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t19" href="#t19">19</a></span><span class="t"><span class="key">def</span> <span class="nam">role</span><span class="op">(</span><span class="nam">user</span><span class="op">)</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
-    <p class="mis show_mis"><span class="n"><a id="t20" href="#t20">20</a></span><span class="t">    <span class="key">return</span> <span class="nam">HTTPResponse</span><span class="op">(</span><span class="nam">str</span><span class="op">(</span><span class="nam">user</span><span class="op">.</span><span class="nam">obj</span><span class="op">.</span><span class="nam">role</span><span class="op">)</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t20" href="#t20">20</a></span><span class="t">    <span class="key">return</span> <span class="nam">HTTPResponse</span><span class="op">(</span><span class="nam">str</span><span class="op">(</span><span class="nam">user</span><span class="op">.</span><span class="nam">obj</span><span class="op">.</span><span class="nam">role</span><span class="op">)</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t21" href="#t21">21</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t22" href="#t22">22</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t23" href="#t23">23</a></span><span class="t"><span class="op">@</span><span class="nam">test_api</span><span class="op">.</span><span class="nam">route</span><span class="op">(</span><span class="str">'/log'</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t24" href="#t24">24</a></span><span class="t"><span class="key">def</span> <span class="nam">log</span><span class="op">(</span><span class="op">)</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
-    <p class="mis show_mis"><span class="n"><a id="t25" href="#t25">25</a></span><span class="t">    <span class="nam">current_app</span><span class="op">.</span><span class="nam">logger</span><span class="op">.</span><span class="nam">debug</span><span class="op">(</span><span class="str">'this is a DEBUG log'</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
-    <p class="mis show_mis"><span class="n"><a id="t26" href="#t26">26</a></span><span class="t">    <span class="nam">current_app</span><span class="op">.</span><span class="nam">logger</span><span class="op">.</span><span class="nam">info</span><span class="op">(</span><span class="str">'this is a INFO log'</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
-    <p class="mis show_mis"><span class="n"><a id="t27" href="#t27">27</a></span><span class="t">    <span class="nam">current_app</span><span class="op">.</span><span class="nam">logger</span><span class="op">.</span><span class="nam">warning</span><span class="op">(</span><span class="str">'this is a WARNING log'</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
-    <p class="mis show_mis"><span class="n"><a id="t28" href="#t28">28</a></span><span class="t">    <span class="nam">current_app</span><span class="op">.</span><span class="nam">logger</span><span class="op">.</span><span class="nam">error</span><span class="op">(</span><span class="str">'this is a ERROR log'</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
-    <p class="mis show_mis"><span class="n"><a id="t29" href="#t29">29</a></span><span class="t">    <span class="nam">current_app</span><span class="op">.</span><span class="nam">logger</span><span class="op">.</span><span class="nam">critical</span><span class="op">(</span><span class="str">'this is a CRITICAL log'</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
-    <p class="mis show_mis"><span class="n"><a id="t30" href="#t30">30</a></span><span class="t">    <span class="key">return</span> <span class="nam">HTTPResponse</span><span class="op">(</span><span class="str">'check the log'</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t25" href="#t25">25</a></span><span class="t">    <span class="nam">current_app</span><span class="op">.</span><span class="nam">logger</span><span class="op">.</span><span class="nam">debug</span><span class="op">(</span><span class="str">'this is a DEBUG log'</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t26" href="#t26">26</a></span><span class="t">    <span class="nam">current_app</span><span class="op">.</span><span class="nam">logger</span><span class="op">.</span><span class="nam">info</span><span class="op">(</span><span class="str">'this is a INFO log'</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t27" href="#t27">27</a></span><span class="t">    <span class="nam">current_app</span><span class="op">.</span><span class="nam">logger</span><span class="op">.</span><span class="nam">warning</span><span class="op">(</span><span class="str">'this is a WARNING log'</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t28" href="#t28">28</a></span><span class="t">    <span class="nam">current_app</span><span class="op">.</span><span class="nam">logger</span><span class="op">.</span><span class="nam">error</span><span class="op">(</span><span class="str">'this is a ERROR log'</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t29" href="#t29">29</a></span><span class="t">    <span class="nam">current_app</span><span class="op">.</span><span class="nam">logger</span><span class="op">.</span><span class="nam">critical</span><span class="op">(</span><span class="str">'this is a CRITICAL log'</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t30" href="#t30">30</a></span><span class="t">    <span class="key">return</span> <span class="nam">HTTPResponse</span><span class="op">(</span><span class="str">'check the log'</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t31" href="#t31">31</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t32" href="#t32">32</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t33" href="#t33">33</a></span><span class="t"><span class="op">@</span><span class="nam">test_api</span><span class="op">.</span><span class="nam">route</span><span class="op">(</span><span class="str">'/header'</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t34" href="#t34">34</a></span><span class="t"><span class="key">def</span> <span class="nam">check_header</span><span class="op">(</span><span class="op">)</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
-    <p class="mis show_mis"><span class="n"><a id="t35" href="#t35">35</a></span><span class="t">    <span class="nam">current_app</span><span class="op">.</span><span class="nam">logger</span><span class="op">.</span><span class="nam">debug</span><span class="op">(</span><span class="str">f'{request.headers}'</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
-    <p class="mis show_mis"><span class="n"><a id="t36" href="#t36">36</a></span><span class="t">    <span class="key">return</span> <span class="nam">HTTPResponse</span><span class="op">(</span><span class="str">'ok'</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t35" href="#t35">35</a></span><span class="t">    <span class="nam">current_app</span><span class="op">.</span><span class="nam">logger</span><span class="op">.</span><span class="nam">debug</span><span class="op">(</span><span class="str">f'{request.headers}'</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t36" href="#t36">36</a></span><span class="t">    <span class="key">return</span> <span class="nam">HTTPResponse</span><span class="op">(</span><span class="str">'ok'</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
 </main>
 <footer>
     <div class="content">
@@ -125,7 +125,7 @@
             <a id="nextFileLink" class="nav" href="d_6e2dbee8102cccb9_user_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io">coverage.py v7.1.0</a>,
-            created at 2023-06-05 14:19 +0000
+            created at 2023-06-06 05:20 +0000
         </p>
     </div>
 </footer>
