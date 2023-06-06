@@ -14,7 +14,6 @@ def app():
         (profile_api, '/profile'),
         (problem_api, '/problem'),
         (submission_api, '/submission'),
-        (inbox_api, '/inbox'),
         (course_api, '/course'),
         (homework_api, '/homework'),
         (test_api, '/test'),
