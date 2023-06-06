@@ -402,12 +402,6 @@ class Message(Document):
     markdown = StringField(max_length=100000, required=True)
 
 
-class Inbox(Document):
-    receiver = StringField(max_length=16, required=True)
-    status = IntField(default=0, choices=[0, 1, 2])  # unread / read / delete
-    message = ReferenceField('Message')
-
-
 @escape_markdown.apply
 class Announcement(Document):
     status = IntField(default=0, choices=[0, 1])  # not delete / delete
