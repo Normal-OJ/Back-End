@@ -22,14 +22,10 @@ def health():
         return HTTPResponse()
     else:
         return HTTPError(
+            message='Service is not available',
             status_code=500,
             data={
                 'mongo': mongo_ok,
                 'redis': redis_ok
             },
         )
-
-
-@health_api.route('/livez')
-def livez():
-    return HTTPResponse()
