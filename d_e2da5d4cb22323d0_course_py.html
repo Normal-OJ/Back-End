@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <title>Coverage for mongo/course.py: 94%</title>
+    <title>Coverage for mongo/course.py: 100%</title>
     <link rel="icon" sizes="32x32" href="favicon_32.png">
     <link rel="stylesheet" href="style.css" type="text/css">
     <script type="text/javascript" src="coverage_html.js" defer></script>
@@ -12,7 +12,7 @@
     <div class="content">
         <h1>
             <span class="text">Coverage for </span><b>mongo/course.py</b>:
-            <span class="pc_cov">94%</span>
+            <span class="pc_cov">100%</span>
         </h1>
         <aside id="help_panel_wrapper">
             <input id="help_panel_state" type="checkbox">
@@ -55,8 +55,8 @@
         </aside>
         <h2>
             <span class="text">126 statements &nbsp;</span>
-            <button type="button" class="run button_toggle_run" value="run" data-shortcut="r" title="Toggle lines run">119<span class="text"> run</span></button>
-            <button type="button" class="mis show_mis button_toggle_mis" value="mis" data-shortcut="m" title="Toggle lines missing">7<span class="text"> missing</span></button>
+            <button type="button" class="run button_toggle_run" value="run" data-shortcut="r" title="Toggle lines run">126<span class="text"> run</span></button>
+            <button type="button" class="mis show_mis button_toggle_mis" value="mis" data-shortcut="m" title="Toggle lines missing">0<span class="text"> missing</span></button>
             <button type="button" class="exc show_exc button_toggle_exc" value="exc" data-shortcut="x" title="Toggle lines excluded">0<span class="text"> excluded</span></button>
         </h2>
         <p class="text">
@@ -65,7 +65,7 @@
             <a id="nextFileLink" class="nav" href="d_e2da5d4cb22323d0_engine_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io">coverage.py v7.1.0</a>,
-            created at 2023-06-06 20:50 +0000
+            created at 2023-06-06 20:56 +0000
         </p>
         <aside class="hidden">
             <button type="button" class="button_next_chunk" data-shortcut="j"/>
@@ -137,7 +137,7 @@
     <p class="pln"><span class="n"><a id="t55" href="#t55">55</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t56" href="#t56">56</a></span><span class="t">    <span class="key">def</span> <span class="nam">add_user</span><span class="op">(</span><span class="nam">self</span><span class="op">,</span> <span class="nam">user</span><span class="op">:</span> <span class="nam">User</span><span class="op">)</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t57" href="#t57">57</a></span><span class="t">        <span class="key">if</span> <span class="key">not</span> <span class="nam">self</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
-    <p class="mis show_mis"><span class="n"><a id="t58" href="#t58">58</a></span><span class="t">            <span class="key">raise</span> <span class="nam">engine</span><span class="op">.</span><span class="nam">DoesNotExist</span><span class="op">(</span><span class="str">f'Course [{self.course_name}]'</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t58" href="#t58">58</a></span><span class="t">            <span class="key">raise</span> <span class="nam">engine</span><span class="op">.</span><span class="nam">DoesNotExist</span><span class="op">(</span><span class="str">f'Course [{self.course_name}]'</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t59" href="#t59">59</a></span><span class="t">        <span class="nam">user</span><span class="op">.</span><span class="nam">update</span><span class="op">(</span><span class="nam">add_to_set__courses</span><span class="op">=</span><span class="nam">self</span><span class="op">.</span><span class="nam">id</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t60" href="#t60">60</a></span><span class="t">        <span class="nam">user</span><span class="op">.</span><span class="nam">reload</span><span class="op">(</span><span class="str">'courses'</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t61" href="#t61">61</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
@@ -158,20 +158,20 @@
     <p class="pln"><span class="n"><a id="t76" href="#t76">76</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t77" href="#t77">77</a></span><span class="t">    <span class="key">def</span> <span class="nam">edit_course</span><span class="op">(</span><span class="nam">self</span><span class="op">,</span> <span class="nam">user</span><span class="op">,</span> <span class="nam">new_course</span><span class="op">,</span> <span class="nam">teacher</span><span class="op">)</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t78" href="#t78">78</a></span><span class="t">        <span class="key">if</span> <span class="nam">re</span><span class="op">.</span><span class="nam">match</span><span class="op">(</span><span class="str">r'^[a-zA-Z0-9._\- ]+$'</span><span class="op">,</span> <span class="nam">new_course</span><span class="op">)</span> <span class="key">is</span> <span class="key">None</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
-    <p class="mis show_mis"><span class="n"><a id="t79" href="#t79">79</a></span><span class="t">            <span class="key">raise</span> <span class="nam">ValueError</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t79" href="#t79">79</a></span><span class="t">            <span class="key">raise</span> <span class="nam">ValueError</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t80" href="#t80">80</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t81" href="#t81">81</a></span><span class="t">        <span class="key">if</span> <span class="key">not</span> <span class="nam">self</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t82" href="#t82">82</a></span><span class="t">            <span class="key">raise</span> <span class="nam">engine</span><span class="op">.</span><span class="nam">DoesNotExist</span><span class="op">(</span><span class="str">'Course'</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t83" href="#t83">83</a></span><span class="t">        <span class="key">if</span> <span class="key">not</span> <span class="nam">perm</span><span class="op">(</span><span class="nam">self</span><span class="op">,</span> <span class="nam">user</span><span class="op">)</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
-    <p class="mis show_mis"><span class="n"><a id="t84" href="#t84">84</a></span><span class="t">            <span class="key">raise</span> <span class="nam">PermissionError</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t84" href="#t84">84</a></span><span class="t">            <span class="key">raise</span> <span class="nam">PermissionError</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t85" href="#t85">85</a></span><span class="t">        <span class="nam">te</span> <span class="op">=</span> <span class="nam">User</span><span class="op">(</span><span class="nam">teacher</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t86" href="#t86">86</a></span><span class="t">        <span class="key">if</span> <span class="key">not</span> <span class="nam">te</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t87" href="#t87">87</a></span><span class="t">            <span class="key">raise</span> <span class="nam">engine</span><span class="op">.</span><span class="nam">DoesNotExist</span><span class="op">(</span><span class="str">'User'</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t88" href="#t88">88</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t89" href="#t89">89</a></span><span class="t">        <span class="nam">self</span><span class="op">.</span><span class="nam">course_name</span> <span class="op">=</span> <span class="nam">new_course</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t90" href="#t90">90</a></span><span class="t">        <span class="key">if</span> <span class="nam">te</span><span class="op">.</span><span class="nam">obj</span> <span class="op">!=</span> <span class="nam">self</span><span class="op">.</span><span class="nam">teacher</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
-    <p class="mis show_mis"><span class="n"><a id="t91" href="#t91">91</a></span><span class="t">            <span class="nam">self</span><span class="op">.</span><span class="nam">remove_user</span><span class="op">(</span><span class="nam">self</span><span class="op">.</span><span class="nam">teacher</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
-    <p class="mis show_mis"><span class="n"><a id="t92" href="#t92">92</a></span><span class="t">            <span class="nam">self</span><span class="op">.</span><span class="nam">add_user</span><span class="op">(</span><span class="nam">te</span><span class="op">.</span><span class="nam">obj</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t91" href="#t91">91</a></span><span class="t">            <span class="nam">self</span><span class="op">.</span><span class="nam">remove_user</span><span class="op">(</span><span class="nam">self</span><span class="op">.</span><span class="nam">teacher</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t92" href="#t92">92</a></span><span class="t">            <span class="nam">self</span><span class="op">.</span><span class="nam">add_user</span><span class="op">(</span><span class="nam">te</span><span class="op">.</span><span class="nam">obj</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t93" href="#t93">93</a></span><span class="t">        <span class="nam">self</span><span class="op">.</span><span class="nam">teacher</span> <span class="op">=</span> <span class="nam">te</span><span class="op">.</span><span class="nam">obj</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t94" href="#t94">94</a></span><span class="t">        <span class="nam">self</span><span class="op">.</span><span class="nam">save</span><span class="op">(</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t95" href="#t95">95</a></span><span class="t">        <span class="key">return</span> <span class="key">True</span>&nbsp;</span><span class="r"></span></p>
@@ -279,7 +279,7 @@
     <p class="run"><span class="n"><a id="t197" href="#t197">197</a></span><span class="t">        <span class="key">if</span> <span class="key">not</span> <span class="nam">teacher</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t198" href="#t198">198</a></span><span class="t">            <span class="key">raise</span> <span class="nam">engine</span><span class="op">.</span><span class="nam">DoesNotExist</span><span class="op">(</span><span class="str">'User'</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t199" href="#t199">199</a></span><span class="t">        <span class="key">if</span> <span class="nam">teacher</span><span class="op">.</span><span class="nam">role</span> <span class="op">>=</span> <span class="num">2</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
-    <p class="mis show_mis"><span class="n"><a id="t200" href="#t200">200</a></span><span class="t">            <span class="key">raise</span> <span class="nam">PermissionError</span><span class="op">(</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t200" href="#t200">200</a></span><span class="t">            <span class="key">raise</span> <span class="nam">PermissionError</span><span class="op">(</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t201" href="#t201">201</a></span><span class="t">                <span class="str">f'{teacher} is not permitted to create a course'</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t202" href="#t202">202</a></span><span class="t">        <span class="nam">co</span> <span class="op">=</span> <span class="nam">cls</span><span class="op">.</span><span class="nam">engine</span><span class="op">(</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t203" href="#t203">203</a></span><span class="t">            <span class="nam">course_name</span><span class="op">=</span><span class="nam">course</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
@@ -291,7 +291,7 @@
     <p class="run"><span class="n"><a id="t209" href="#t209">209</a></span><span class="t">    <span class="op">@</span><span class="nam">classmethod</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t210" href="#t210">210</a></span><span class="t">    <span class="key">def</span> <span class="nam">get_public</span><span class="op">(</span><span class="nam">cls</span><span class="op">)</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t211" href="#t211">211</a></span><span class="t">        <span class="key">if</span> <span class="key">not</span> <span class="nam">cls</span><span class="op">(</span><span class="str">'Public'</span><span class="op">)</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
-    <p class="mis show_mis"><span class="n"><a id="t212" href="#t212">212</a></span><span class="t">            <span class="nam">cls</span><span class="op">.</span><span class="nam">add_course</span><span class="op">(</span><span class="str">'Public'</span><span class="op">,</span> <span class="str">'first_admin'</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t212" href="#t212">212</a></span><span class="t">            <span class="nam">cls</span><span class="op">.</span><span class="nam">add_course</span><span class="op">(</span><span class="str">'Public'</span><span class="op">,</span> <span class="str">'first_admin'</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t213" href="#t213">213</a></span><span class="t">        <span class="key">return</span> <span class="nam">cls</span><span class="op">(</span><span class="str">'Public'</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t214" href="#t214">214</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t215" href="#t215">215</a></span><span class="t">    <span class="key">def</span> <span class="nam">own_permission</span><span class="op">(</span><span class="nam">self</span><span class="op">,</span> <span class="nam">user</span><span class="op">)</span> <span class="op">-></span> <span class="nam">Permission</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
@@ -329,7 +329,7 @@
             <a id="nextFileLink" class="nav" href="d_e2da5d4cb22323d0_engine_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io">coverage.py v7.1.0</a>,
-            created at 2023-06-06 20:50 +0000
+            created at 2023-06-06 20:56 +0000
         </p>
     </div>
 </footer>
