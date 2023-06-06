@@ -143,7 +143,6 @@ class User(Document):
         default=EditorConfig,
         null=True,
     )
-    contest = ReferenceField('Contest', db_field='contestId')
     courses = ListField(ReferenceField('Course'))
     submissions = ListField(ReferenceField('Submission'))
     last_submit = DateTimeField(default=datetime.min)
@@ -185,18 +184,6 @@ class Homework(Document):
     penalty = StringField(max_length=10000, default='score = 0')
 
 
-class Contest(Document):
-    name = StringField(max_length=64, required=True, db_field='contestName')
-    scoreboard_status = IntField(default=0,
-                                 choice=[0, 1],
-                                 db_field='scoreboardStatus')
-    course_id = StringField(db_field='courseId')
-    duration = EmbeddedDocumentField(Duration, default=Duration)
-    contest_mode = IntField(default=0, choice=[0, 1], db_field='contestMode')
-    problem_ids = ListField(IntField(), db_field='problemIds')
-    participants = DictField(db_field='participants')
-
-
 class Course(Document):
     course_name = StringField(
         max_length=64,
@@ -208,7 +195,6 @@ class Course(Document):
     course_status = IntField(default=0, choices=[0, 1])
     teacher = ReferenceField('User')
     tas = ListField(ReferenceField('User'))
-    contests = ListField(ReferenceField('Contest', reverse_delete_rule=PULL))
     homeworks = ListField(ReferenceField('Homework', reverse_delete_rule=PULL))
     announcements = ListField(ReferenceField('Announcement'))
     posts = ListField(ReferenceField('Post'), default=list)
@@ -323,7 +309,6 @@ class Problem(Document):
     ac_user = IntField(db_field='ACUser', default=0)
     submitter = IntField(default=0)
     homeworks = ListField(ReferenceField('Homework'), default=list)
-    contests = ListField(ReferenceField('Contest'), default=list)
     # user can view stdout/stderr
     can_view_stdout = BooleanField(db_field='canViewStdout', default=True)
     cpp_report_url = StringField(

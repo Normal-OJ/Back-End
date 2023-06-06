@@ -9,7 +9,6 @@ from . import inbox
 from . import announcement
 from . import test
 from . import ranking
-from . import contest
 from . import post
 from . import copycat
 from . import health
@@ -26,7 +25,6 @@ from .inbox import *
 from .announcement import *
 from .test import *
 from .ranking import *
-from .contest import *
 from .post import *
 from .copycat import *
 from .health import *
@@ -43,7 +41,6 @@ __all__ = [
     *test.__all__,
     *announcement.__all__,
     *ranking.__all__,
-    *contest.__all__,
     *post.__all__,
     *copycat.__all__,
     *health.__all__,

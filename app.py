@@ -20,7 +20,6 @@ def app():
         (test_api, '/test'),
         (ann_api, '/ann'),
         (ranking_api, '/ranking'),
-        (contest_api, '/contest'),
         (post_api, '/post'),
         (copycat_api, '/copycat'),
         (health_api, '/health'),

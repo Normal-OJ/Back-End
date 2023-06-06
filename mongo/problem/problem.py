@@ -165,9 +165,6 @@ class Problem(MongoBase, engine=engine.Problem):
             user_cap |= self.Permission.MANAGE
             user_cap |= self.Permission.VIEW
 
-        if user.contest and user.contest in self.contests:
-            user_cap |= self.Permission.VIEW
-
         for course in self.courses:
             permission = 1 if course.course_name == 'Public' else perm(
                 course, user)
