@@ -47,7 +47,7 @@ def test_admin_can_create_user(forge_client):
 
 
 @pytest.mark.parametrize(
-    'case',
+    ('payload_override', 'expected_err_msg'),
     (
         ({
             'email': 'inva@lid.'
@@ -60,7 +60,8 @@ def test_admin_can_create_user(forge_client):
         }, 'Not Allowed Name'),
     ),
 )
-def test_admin_fails_to_create_user(forge_client, case):
+def test_admin_fails_to_create_user(forge_client, payload_override,
+                                    expected_err_msg):
     client = forge_client('first_admin')
     payload = random_create_user_input()
     rv, rv_json, _ = BaseTester.request(
@@ -69,11 +70,11 @@ def test_admin_fails_to_create_user(forge_client, case):
         '/user',
         json={
             **asdict(payload),
-            **case[0]
+            **payload_override
         },
     )
     assert rv.status_code == 400, rv_json
-    assert rv_json['message'] == case[1]
+    assert rv_json['message'] == expected_err_msg
 
 
 @pytest.mark.parametrize(
@@ -133,8 +134,8 @@ def test_read_user_list_with_role(forge_client):
         assert rv.status_code == 200, rv_json
         assert len(rv_data) == count, rv_data
 
-    [utils.user.create_user(role=1) for _ in range(3)]
-    [utils.user.create_user(role=2) for _ in range(5)]
+    utils.user.create_user_many(3, role=1)
+    utils.user.create_user_many(5, role=2)
 
     expected = [(0, 1), (1, 3), (2, 5)]
     for role, count in expected:
@@ -157,7 +158,7 @@ def test_read_user_list_with_offset(forge_client):
         assert rv.status_code == 200, rv_json
         assert len(rv_data) == count, rv_data
 
-    [utils.user.create_user(role=1) for _ in range(3)]
+    utils.user.create_user_many(3, role=1)
 
     expected = [(0, 4), (2, 2)]
     for offset, count in expected:
