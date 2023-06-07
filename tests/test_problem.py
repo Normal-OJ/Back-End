@@ -728,8 +728,15 @@ class TestProblem(BaseTester):
         assert rv.get_json()['message'] == 'problem [878787] not found'
 
     def test_get_meta(self, client, monkeypatch):
-        from model.problem import sandbox
-        monkeypatch.setattr(sandbox, 'find_by_token', lambda *_: True)
+
+        class MockSandbox:
+            token = 'SandboxToken'
+
+        class MockConfig:
+            sandbox_instances = [MockSandbox()]
+
+        from mongo.sandbox import Submission
+        monkeypatch.setattr(Submission, 'config', MockConfig)
         rv = client.get('/problem/3/meta?token=SandboxToken')
         assert rv.status_code == 200, rv.get_json()
         assert rv.get_json()['data'] == {
