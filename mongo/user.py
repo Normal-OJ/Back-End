@@ -13,7 +13,7 @@ import os
 import re
 
 if TYPE_CHECKING:
-    from .course import Course
+    from .course import Course  # pragma: no cover
 
 __all__ = ['User', 'jwt_decode']
 
@@ -216,8 +216,6 @@ class User(MongoBase, engine=engine.User):
         '''
         # check whether `Public` is exists
         pub_course = course.Course('Public').obj
-        if pub_course is None:
-            raise engine.DoesNotExist('Public Course Not Exists')
         # update user data
         self.update(
             active=True,
