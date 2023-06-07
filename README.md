@@ -17,6 +17,6 @@ These environment variables are used for config NOJ backend:
 - `JWT_SECRET`: JWT secret, ensure that you set a strong enough value in production
 - `SMTP_SERVER`: SMTP server
 - `SMTP_NOREPLY`: email account used to send emails, e.g. `noreply@noj.tw`
-- `SMTP_NOREPLY_PASSWORD`: password of `SMTP_NOREPLY`
+- `SMTP_NOREPLY_PASSWORD`: password of `SMTP_NOREPLY` (optional)
 - `SERVER_NAME`: hostname used in external link (without schema), e.g. `api.noj.tw`
 - `APPLICATION_ROOT`: the path that flask app is mounted, also used to generate external link, e.g. `/api`. default to `/`

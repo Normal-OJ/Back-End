@@ -73,8 +73,7 @@ def setup_smtp(app: Flask):
     if os.getenv('SMTP_NOREPLY') is None:
         raise RuntimeError('missing required configuration \'SMTP_NOREPLY\'')
     if os.getenv('SMTP_NOREPLY_PASSWORD') is None:
-        raise RuntimeError(
-            'missing required configuration \'SMTP_NOREPLY_PASSWORD\'')
+        logger.info('\'SMTP_NOREPLY\' set but \'SMTP_NOREPLY_PASSWORD\' not')
     # config for external URLs
     server_name = os.getenv('SERVER_NAME')
     if server_name is None:
