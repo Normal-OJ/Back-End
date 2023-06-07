@@ -73,7 +73,9 @@ class Problem(MongoBase, engine=engine.Problem):
             e = ret
             s_ks = k.split('__')
             for s_k in s_ks[:-1]:
-                e = e.get(s_k, {s_k: {}})
+                if s_k not in e:
+                    e[s_k] = {}
+                e = e[s_k]
             e[s_ks[-1]] = v
         return ret
 
@@ -195,9 +197,10 @@ class Problem(MongoBase, engine=engine.Problem):
         get a list of problems
         '''
         if course is not None:
-            course = Course(course).obj
-            if course is None:
+            course = Course(course)
+            if not course:
                 return []
+            course = course.obj
         # qurey args
         ks = drop_none({
             'problem_id': problem_id,

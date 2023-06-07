@@ -3,7 +3,7 @@ import zipfile
 from typing import BinaryIO, Set, TYPE_CHECKING, List
 from .exception import BadTestCase
 if TYPE_CHECKING:
-    from .. import Problem
+    from .. import Problem  # pragma: no cover
 
 
 class TestCaseRule(abc.ABC):
@@ -17,7 +17,7 @@ class TestCaseRule(abc.ABC):
         '''
         Validate test case
         '''
-        raise NotImplementedError
+        raise NotImplementedError   # pragma: no cover
 
 
 class IncludeDirectory(TestCaseRule):
