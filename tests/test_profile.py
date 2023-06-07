@@ -55,6 +55,19 @@ class TestProfile(BaseTester):
         assert json['status'] == 'err'
         assert json['message'] == 'Profile not exist.'
 
+    def test_set_config(self, client_student):
+        rv = client_student.put('/profile/config',
+                                json={
+                                    'fontSize': 14,
+                                    'theme': 'default',
+                                    'indentType': 0,
+                                    'tabSize': 4,
+                                    'language': 0
+                                })
+        json = rv.get_json()
+        assert rv.status_code == 200
+        assert json['message'] == 'Uploaded.'
+
     def test_set_invalid_config(self, client_student):
         rv = client_student.put('/profile/config',
                                 json={

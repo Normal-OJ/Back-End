@@ -13,19 +13,16 @@ profile_api = Blueprint('profile_api', __name__)
 @profile_api.route('/<username>', methods=['GET'])
 @login_required
 def view_profile(user, username=None):
-    try:
-        user = user if username is None else User(username)
-        if not user:
-            return HTTPError('Profile not exist.', 404)
-
-        data = {
-            'email': user.obj.email,
-            'displayedName': user.obj.profile.displayed_name,
-            'bio': user.obj.profile.bio
-        }
-        data.update(user.info)
-    except:
+    user = user if username is None else User(username)
+    if not user:
         return HTTPError('Profile not exist.', 404)
+
+    data = {
+        'email': user.obj.email,
+        'displayedName': user.obj.profile.displayed_name,
+        'bio': user.obj.profile.bio
+    }
+    data.update(user.info)
 
     return HTTPResponse('Profile exist.', data=data)
 
@@ -34,18 +31,15 @@ def view_profile(user, username=None):
 @login_required
 @Request.json('bio', vars_dict={'displayed_name': 'displayedName'})
 def edit_profile(user, displayed_name, bio):
-    try:
-        profile = user.obj.profile or {}
+    profile = user.obj.profile or {}
 
-        if displayed_name is not None:
-            profile[
-                'displayed_name'] = displayed_name if displayed_name != "" else user.username
-        if bio is not None:
-            profile['bio'] = bio
+    if displayed_name is not None:
+        profile[
+            'displayed_name'] = displayed_name if displayed_name != "" else user.username
+    if bio is not None:
+        profile['bio'] = bio
 
-        user.obj.update(profile=profile)
-    except:
-        return HTTPError('Upload fail.', 400)
+    user.obj.update(profile=profile)
 
     cookies = {'jwt': user.cookie}
     return HTTPResponse('Uploaded.', cookies=cookies)
