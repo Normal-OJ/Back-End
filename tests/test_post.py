@@ -226,7 +226,7 @@ class TestPost(BaseTester):
         assert rv.status_code == 404, rv.get_json()
         assert rv.get_json()['message'] == 'Course not found.'
 
-    def test_view_without_course_members(self, make_course, forge_client):
+    def test_view_from_non_course_member(self, make_course, forge_client):
         c_data = make_course('teacher')
         client_student = forge_client('student')
         rv = client_student.get(f'/post/{c_data.name}')
@@ -243,7 +243,7 @@ class TestPost(BaseTester):
         assert rv.status_code == 404, rv.get_json()
         assert rv.get_json()['message'] == 'Course not found.'
 
-    def test_view_thread_without_course_members(self, make_course,
+    def test_view_thread_from_non_course_member(self, make_course,
                                                 forge_client):
         c_data = make_course('teacher')
         client_student = forge_client('student')
