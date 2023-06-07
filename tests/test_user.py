@@ -47,6 +47,37 @@ def test_admin_can_create_user(forge_client):
 
 
 @pytest.mark.parametrize(
+    ('payload_override', 'expected_err_msg'),
+    (
+        ({
+            'email': 'inva@lid.'
+        }, 'Signup Failed'),
+        ({
+            'username': 'first_admin'
+        }, 'User Exists'),
+        ({
+            'username': ''
+        }, 'Not Allowed Name'),
+    ),
+)
+def test_admin_fails_to_create_user(forge_client, payload_override,
+                                    expected_err_msg):
+    client = forge_client('first_admin')
+    payload = random_create_user_input()
+    rv, rv_json, _ = BaseTester.request(
+        client,
+        'post',
+        '/user',
+        json={
+            **asdict(payload),
+            **payload_override
+        },
+    )
+    assert rv.status_code == 400, rv_json
+    assert rv_json['message'] == expected_err_msg
+
+
+@pytest.mark.parametrize(
     'role',
     (
         engine.User.Role.STUDENT,
@@ -91,6 +122,68 @@ def test_non_admin_cannot_read_user_list(
     rv, rv_json, rv_data = BaseTester.request(client, 'get', '/user')
     assert rv.status_code == 403, rv_json
     assert rv_data is None
+
+
+def test_read_user_list_with_role(forge_client):
+    client = forge_client('first_admin')
+
+    expected = [(0, 1), (1, 0), (2, 0)]
+    for role, count in expected:
+        rv, rv_json, rv_data = BaseTester.request(client, 'get',
+                                                  f'/user?role={role}')
+        assert rv.status_code == 200, rv_json
+        assert len(rv_data) == count, rv_data
+
+    utils.user.create_user_many(3, role=1)
+    utils.user.create_user_many(5, role=2)
+
+    expected = [(0, 1), (1, 3), (2, 5)]
+    for role, count in expected:
+        rv, rv_json, rv_data = BaseTester.request(client, 'get',
+                                                  f'/user?role={role}')
+        assert rv.status_code == 200, rv_json
+        assert len(rv_data) == count
+
+    rv, rv_json, rv_data = BaseTester.request(client, 'get', '/user?role=0.5')
+    assert rv.status_code == 400, rv_json
+
+
+def test_read_user_list_with_offset(forge_client):
+    client = forge_client('first_admin')
+
+    expected = [(0, 1), (1, 0)]
+    for offset, count in expected:
+        rv, rv_json, rv_data = BaseTester.request(client, 'get',
+                                                  f'/user?offset={offset}')
+        assert rv.status_code == 200, rv_json
+        assert len(rv_data) == count, rv_data
+
+    utils.user.create_user_many(3, role=1)
+
+    expected = [(0, 4), (2, 2)]
+    for offset, count in expected:
+        rv, rv_json, rv_data = BaseTester.request(client, 'get',
+                                                  f'/user?offset={offset}')
+        assert rv.status_code == 200, rv_json
+        assert len(rv_data) == count, rv_data
+
+    rv, rv_json, rv_data = BaseTester.request(client, 'get',
+                                              '/user?offset=0.5')
+    assert rv.status_code == 400, rv_json
+
+
+def test_read_user_list_with_count(forge_client):
+    client = forge_client('first_admin')
+
+    expected = [(0, 0), (1, 1)]
+    for count, length in expected:
+        rv, rv_json, rv_data = BaseTester.request(client, 'get',
+                                                  f'/user?count={count}')
+        assert rv.status_code == 200, rv_json
+        assert len(rv_data) == length, rv_data
+
+    rv, rv_json, rv_data = BaseTester.request(client, 'get', '/user?count=0.5')
+    assert rv.status_code == 400, rv_json
 
 
 def test_admin_can_read_user_under_specific_course(forge_client):

@@ -58,3 +58,7 @@ def create_user(
         course.update_student_namelist(new_student_nicknames)
         new_user.reload('courses')
     return new_user
+
+
+def create_user_many(k: int, **kwargs):
+    return [create_user(**kwargs) for _ in range(k)]
