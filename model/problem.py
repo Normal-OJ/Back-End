@@ -289,7 +289,7 @@ def get_checksum(token: str, problem_id: int):
         return HTTPError('Invalid sandbox token', 401)
     problem = Problem(problem_id)
     if not problem:
-        return HTTPError(f'{problem} not found')
+        return HTTPError(f'{problem} not found', 404)
     meta = json.dumps({
         'tasks':
         [json.loads(task.to_json()) for task in problem.test_case.tasks]
@@ -306,7 +306,7 @@ def get_meta(token: str, problem_id: int):
         return HTTPError('Invalid sandbox token', 401)
     problem = Problem(problem_id)
     if not problem:
-        return HTTPError(f'{problem} not found')
+        return HTTPError(f'{problem} not found', 404)
     meta = {
         'tasks':
         [json.loads(task.to_json()) for task in problem.test_case.tasks]
