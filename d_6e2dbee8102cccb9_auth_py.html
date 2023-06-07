@@ -54,8 +54,8 @@
             </div>
         </aside>
         <h2>
-            <span class="text">199 statements &nbsp;</span>
-            <button type="button" class="run button_toggle_run" value="run" data-shortcut="r" title="Toggle lines run">199<span class="text"> run</span></button>
+            <span class="text">202 statements &nbsp;</span>
+            <button type="button" class="run button_toggle_run" value="run" data-shortcut="r" title="Toggle lines run">202<span class="text"> run</span></button>
             <button type="button" class="mis show_mis button_toggle_mis" value="mis" data-shortcut="m" title="Toggle lines missing">0<span class="text"> missing</span></button>
             <button type="button" class="exc show_exc button_toggle_exc" value="exc" data-shortcut="x" title="Toggle lines excluded">0<span class="text"> excluded</span></button>
         </h2>
@@ -65,7 +65,7 @@
             <a id="nextFileLink" class="nav" href="d_6e2dbee8102cccb9_copycat_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io">coverage.py v7.1.0</a>,
-            created at 2023-06-07 17:51 +0000
+            created at 2023-06-07 18:00 +0000
         </p>
         <aside class="hidden">
             <button type="button" class="button_next_chunk" data-shortcut="j"/>
@@ -403,7 +403,10 @@
     <p class="run"><span class="n"><a id="t321" href="#t321">321</a></span><span class="t">        <span class="nam">fields</span> <span class="op">=</span> <span class="nam">default</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t322" href="#t322">322</a></span><span class="t">    <span class="key">else</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t323" href="#t323">323</a></span><span class="t">        <span class="nam">fields</span> <span class="op">=</span> <span class="nam">fields</span><span class="op">.</span><span class="nam">split</span><span class="op">(</span><span class="str">','</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t324" href="#t324">324</a></span><span class="t">    <span class="key">return</span> <span class="nam">HTTPResponse</span><span class="op">(</span><span class="nam">data</span><span class="op">=</span><span class="nam">user</span><span class="op">.</span><span class="nam">properties</span><span class="op">(</span><span class="op">*</span><span class="nam">fields</span><span class="op">)</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t324" href="#t324">324</a></span><span class="t">    <span class="key">try</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t325" href="#t325">325</a></span><span class="t">        <span class="key">return</span> <span class="nam">HTTPResponse</span><span class="op">(</span><span class="nam">data</span><span class="op">=</span><span class="nam">user</span><span class="op">.</span><span class="nam">properties</span><span class="op">(</span><span class="op">*</span><span class="nam">fields</span><span class="op">)</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t326" href="#t326">326</a></span><span class="t">    <span class="key">except</span> <span class="nam">ValueError</span> <span class="key">as</span> <span class="nam">e</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t327" href="#t327">327</a></span><span class="t">        <span class="key">return</span> <span class="nam">HTTPError</span><span class="op">(</span><span class="nam">str</span><span class="op">(</span><span class="nam">e</span><span class="op">)</span><span class="op">,</span> <span class="num">400</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
 </main>
 <footer>
     <div class="content">
@@ -413,7 +416,7 @@
             <a id="nextFileLink" class="nav" href="d_6e2dbee8102cccb9_copycat_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io">coverage.py v7.1.0</a>,
-            created at 2023-06-07 17:51 +0000
+            created at 2023-06-07 18:00 +0000
         </p>
     </div>
 </footer>
