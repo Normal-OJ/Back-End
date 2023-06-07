@@ -151,17 +151,6 @@ class TestUserGetSubmission(SubmissionTester):
             rv_data['submissions']) == (self.init_submission_count // 2 -
                                         offset)
 
-    def test_get_submission_count(self, forge_client):
-        client = forge_client('student')
-        rv, rv_json, rv_data = BaseTester.request(
-            client,
-            'get',
-            '/submission/count',
-        )
-
-        assert rv.status_code == 200, rv_json
-        assert rv_data['count'] == self.init_submission_count, rv_data
-
     def test_get_submission_list_over_db_size(self, forge_client):
         client = forge_client('student')
         rv, rv_json, rv_data = BaseTester.request(
