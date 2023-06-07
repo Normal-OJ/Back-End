@@ -170,7 +170,8 @@ class TestHomework(BaseTester):
         assert rv.status_code == 200, rv_json
         assert len(rv_data) == len(c_data.homework_ids), rv_data
 
-    def test_get_list_of_homework_from_not_exist_course(self, forge_client, course_data):
+    def test_get_list_of_homework_from_not_exist_course(
+            self, forge_client, course_data):
         course_name = 'not_exist_course'
         client = forge_client('admin')
         rv = client.get(f'/course/{course_name}/homework')
@@ -205,13 +206,13 @@ class TestHomework(BaseTester):
         assert rv.status_code == 200
         assert after_len == before_len + 1
 
-    def test_create_homework_name_error(self, forge_client, course_data, monkeypatch):
+    def test_create_homework_name_error(self, forge_client, course_data,
+                                        monkeypatch):
         # It seems that the homework.add doesn't raise NameError
         def mock_homework_add(*args, **kwargs):
             raise NameError('user must be the teacher or ta of this course')
 
         monkeypatch.setattr(Homework, 'add', mock_homework_add)
-
 
         client = forge_client('student')
         rv, rv_json, rv_data = self.request(
@@ -231,7 +232,8 @@ class TestHomework(BaseTester):
                 'end': int(datetime.now().timestamp() + 86400)
             })
         assert rv.status_code == 403, rv_json
-        assert rv_json['message'] == 'user must be the teacher or ta of this course'
+        assert rv_json[
+            'message'] == 'user must be the teacher or ta of this course'
         rv, rv_json, rv_data = self.request(
             client, 'get', f'/course/{course_data.name}/homework')
         after_len = len(rv_data)
@@ -239,13 +241,13 @@ class TestHomework(BaseTester):
         assert rv.status_code == 200, rv_json
         assert after_len == before_len
 
-    def test_create_homework_file_exists_error(self, forge_client, course_data, monkeypatch):
+    def test_create_homework_file_exists_error(self, forge_client, course_data,
+                                               monkeypatch):
         # It seems that the homework.add doesn't raise FileExistsError
         def mock_homework_add(*args, **kwargs):
             raise FileExistsError('homework exists in this course')
 
         monkeypatch.setattr(Homework, 'add', mock_homework_add)
-
 
         client = forge_client('student')
         rv, rv_json, rv_data = self.request(
@@ -379,8 +381,8 @@ class TestHomework(BaseTester):
         assert rv.status_code == 200, rv_json
         assert rv_data['ipFilters'] == []
 
-
-    def test_homework_get_ip_filters_with_permission_denied_user(self, forge_client, course_data):
+    def test_homework_get_ip_filters_with_permission_denied_user(
+            self, forge_client, course_data):
         client = forge_client(course_data.teacher)
         hw = Homework.get_by_id(course_data.homework_ids[0])
         rv, rv_json, rv_data = self.request(
@@ -391,7 +393,8 @@ class TestHomework(BaseTester):
         assert rv.status_code == 403, rv_json
         assert rv_json['message'] == 'Not admin!'
 
-    def test_homework_get_ip_filters_with_not_exist_homework(self, forge_client, course_data):
+    def test_homework_get_ip_filters_with_not_exist_homework(
+            self, forge_client, course_data):
         client = forge_client('admin')
         hw_name = 'not_exist_homework'
         rv, rv_json, rv_data = self.request(
@@ -402,87 +405,91 @@ class TestHomework(BaseTester):
         assert rv.status_code == 404, rv_json
         assert rv_json['message'] == 'Homework does not exist'
 
-    def test_homework_update_ip_filters_with_permission_denied_user(self, forge_client, course_data):
+    def test_homework_update_ip_filters_with_permission_denied_user(
+            self, forge_client, course_data):
         client = forge_client(course_data.teacher)
         hw = Homework.get_by_id(course_data.homework_ids[0])
         rv, rv_json, rv_data = self.request(
             client,
             'patch',
             f'/homework/{course_data.name}/{hw.homework_name}/ip-filters',
-            json={
-                'patches': [{'op': 'add', 'value': '127.0.0.1'}]
-            }
-        )
+            json={'patches': [{
+                'op': 'add',
+                'value': '127.0.0.1'
+            }]})
         assert rv.status_code == 403, rv_json
 
-    def test_homework_update_ip_filters_with_not_exist_homework(self, forge_client, course_data):
+    def test_homework_update_ip_filters_with_not_exist_homework(
+            self, forge_client, course_data):
         client = forge_client('admin')
         hw_name = 'not_exist_homework'
         rv, rv_json, rv_data = self.request(
             client,
             'patch',
             f'/homework/{course_data.name}/{hw_name}/ip-filters',
-            json={
-                'patches': [{'op': 'add', 'value': '127.0.0.1'}]
-            }
-        )
+            json={'patches': [{
+                'op': 'add',
+                'value': '127.0.0.1'
+            }]})
         assert rv.status_code == 404, rv_json
         assert rv_json['message'] == 'Homework does not exist'
 
-    def test_homework_update_ip_filters_not_valid_op(self, forge_client, course_data):
+    def test_homework_update_ip_filters_not_valid_op(self, forge_client,
+                                                     course_data):
         client = forge_client('admin')
         hw = Homework.get_by_id(course_data.homework_ids[0])
         rv, rv_json, rv_data = self.request(
             client,
             'patch',
             f'/homework/{course_data.name}/{hw.homework_name}/ip-filters',
-            json={
-                'patches': [{'op': 'mul', 'value': ''}]
-            }
-        )
+            json={'patches': [{
+                'op': 'mul',
+                'value': ''
+            }]})
         assert rv.status_code == 400, rv_json
         assert rv_json['message'] == 'Invalid operation'
         assert rv_data['op'] == 'mul'
 
-    def test_homework_update_ip_filters_not_valid_value(self, forge_client, course_data):
+    def test_homework_update_ip_filters_not_valid_value(
+            self, forge_client, course_data):
         client = forge_client('admin')
         hw = Homework.get_by_id(course_data.homework_ids[0])
         rv, rv_json, rv_data = self.request(
             client,
             'patch',
             f'/homework/{course_data.name}/{hw.homework_name}/ip-filters',
-            json={
-                'patches': [{'op': 'add'}]
-            }
-        )
+            json={'patches': [{
+                'op': 'add'
+            }]})
         assert rv.status_code == 400, rv_json
         assert rv_json['message'] == 'Value not found'
 
-    def test_homework_update_ip_filters_ValueError(self, forge_client, course_data):
+    def test_homework_update_ip_filters_ValueError(self, forge_client,
+                                                   course_data):
         client = forge_client('admin')
         hw = Homework.get_by_id(course_data.homework_ids[0])
         rv, rv_json, rv_data = self.request(
             client,
             'patch',
             f'/homework/{course_data.name}/{hw.homework_name}/ip-filters',
-            json={
-                'patches': [{'op': 'add', 'value': '256.0.0.1'}]
-            }
-        )
+            json={'patches': [{
+                'op': 'add',
+                'value': '256.0.0.1'
+            }]})
         assert rv.status_code == 400, rv_json
 
-
-    def test_homework_update_ip_filters_update(self, forge_client, course_data):
+    def test_homework_update_ip_filters_update(self, forge_client,
+                                               course_data):
         client = forge_client('admin')
         hw = Homework.get_by_id(course_data.homework_ids[0])
         rv, rv_json, rv_data = self.request(
             client,
             'patch',
             f'/homework/{course_data.name}/{hw.homework_name}/ip-filters',
-            json={
-                'patches': [{'op': 'add', 'value': '127.0.0.1'}]
-            }
-        )
+            json={'patches': [{
+                'op': 'add',
+                'value': '127.0.0.1'
+            }]})
         assert rv.status_code == 200, rv_json
 
         rv, rv_json, rv_data = self.request(
@@ -493,17 +500,18 @@ class TestHomework(BaseTester):
         assert rv.status_code == 200, rv_json
         assert rv_data['ipFilters'] == ['127.0.0.1']
 
-    def test_homework_update_ip_filters_delete(self, forge_client, course_data):
+    def test_homework_update_ip_filters_delete(self, forge_client,
+                                               course_data):
         client = forge_client('admin')
         hw = Homework.get_by_id(course_data.homework_ids[0])
         rv, rv_json, rv_data = self.request(
             client,
             'patch',
             f'/homework/{course_data.name}/{hw.homework_name}/ip-filters',
-            json={
-                'patches': [{'op': 'del', 'value': '127.0.0.1'}]
-            }
-        )
+            json={'patches': [{
+                'op': 'del',
+                'value': '127.0.0.1'
+            }]})
         assert rv.status_code == 200, rv_json
 
         rv, rv_json, rv_data = self.request(
