@@ -1,11 +1,10 @@
 import logging
 import tempfile
-import warnings
 import zipfile
-import pytest
-from datetime import date, datetime
+from copy import copy
+from datetime import datetime
 from random import randint, choice
-from typing import Any, Optional, Union
+from typing import Optional, Union
 from mongo import *
 from mongo.utils import drop_none
 
@@ -15,7 +14,7 @@ __all__ = ('create_submission', )
 def create_submission(
     *,
     user: Union[User, str],
-    problem: Optional[Union[Problem, int]] = None,
+    problem: Optional[Union[Problem, int]],
     lang: Optional[int] = 0,
     timestamp: Optional[float] = None,
     score: Optional[int] = None,
@@ -38,8 +37,7 @@ def create_submission(
         'lang': lang,
         'timestamp': timestamp,
     }
-    sid = Submission.add(**params)
-    submission = Submission(sid)
+    submission = Submission.add(**params)
     if status is None:
         if score is not None:
             status = 0 if score == 100 else choice([1, 3, 4, 5])
@@ -74,3 +72,19 @@ def create_submission(
     }))
     submission.reload()
     return submission
+
+
+def add_fake_output(submission: Submission):
+    status_str = next(s for s, c in submission.status2code.items()
+                      if c == submission.status)
+    single_result = {
+        'exitCode': 0,
+        'status': status_str,
+        'stdout': 'out',
+        'stderr': 'err',
+        'execTime': submission.exec_time,
+        'memoryUsage': submission.memory_usage,
+    }
+    result = [[copy(single_result) for _ in range(t.case_count)]
+              for t in submission.problem.test_case.tasks]
+    submission.process_result(result)

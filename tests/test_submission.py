@@ -7,6 +7,7 @@ from mongo import *
 from mongo import engine
 from .base_tester import BaseTester
 from .utils import *
+from tests import utils
 
 A_NAMES = [
     'teacher',
@@ -150,17 +151,6 @@ class TestUserGetSubmission(SubmissionTester):
         assert len(
             rv_data['submissions']) == (self.init_submission_count // 2 -
                                         offset)
-
-    def test_get_submission_count(self, forge_client):
-        client = forge_client('student')
-        rv, rv_json, rv_data = BaseTester.request(
-            client,
-            'get',
-            '/submission/count',
-        )
-
-        assert rv.status_code == 200, rv_json
-        assert rv_data['count'] == self.init_submission_count, rv_data
 
     def test_get_submission_list_over_db_size(self, forge_client):
         client = forge_client('student')
@@ -1019,3 +1009,45 @@ class TestSubmissionConfig(SubmissionTester):
                 'token': 'AAAAA',
             }]
         }
+
+
+def test_student_cannot_view_WA_submission_output(forge_client, app):
+    student = utils.user.create_user()
+    problem = utils.problem.create_problem(
+        test_case_info=utils.problem.create_test_case_info(
+            language=0,
+            task_len=1,
+        ))
+    WA = 1
+    with app.app_context():
+        submission = utils.submission.create_submission(
+            user=student,
+            problem=problem,
+            status=WA,
+        )
+        utils.submission.add_fake_output(submission)
+    client = forge_client(student.username)
+    rv = client.get(f'/submission/{submission.id}/output/0/0')
+    assert rv.status_code == 403, rv.get_json()
+
+
+def test_student_can_view_CE_submission_output(forge_client, app):
+    student = utils.user.create_user()
+    problem = utils.problem.create_problem(
+        test_case_info=utils.problem.create_test_case_info(
+            language=0,
+            task_len=1,
+        ))
+    CE = 2
+    with app.app_context():
+        submission = utils.submission.create_submission(
+            user=student,
+            problem=problem,
+            status=CE,
+        )
+        utils.submission.add_fake_output(submission)
+    client = forge_client(student.username)
+    rv = client.get(f'/submission/{submission.id}/output/0/0')
+    assert rv.status_code == 200, rv.get_json()
+    expected = submission.get_single_output(0, 0)
+    assert expected == rv.get_json()['data']

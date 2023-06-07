@@ -801,6 +801,32 @@ class TestBatchSignup:
         assert rv.status_code == 400, rv.get_json()
         assert 'input' in rv.get_json()['message']
 
+    def test_signup_with_invalid_role(self, forge_client):
+        client = forge_client('first_admin')
+        rv = client.post(
+            '/auth/batch-signup',
+            json={
+                'newUsers':
+                'username,password,email,role\n'
+                'fakeuser,1234,fake@n0j.tw,a\n'
+            },
+        )
+        assert rv.status_code == 400, rv.get_json()
+        assert 'username' in rv.get_json()['message']
+        assert 'role' in rv.get_json()['message']
+
+    def test_signup_with_used_email(self, forge_client):
+        client = forge_client('first_admin')
+        rv = client.post(
+            '/auth/batch-signup',
+            json={
+                'newUsers':
+                'username,password,email\n'
+                'fakeuser,1234,i.am.first.admin@noj.tw\n'
+            },
+        )
+        assert rv.status_code == 200, rv.get_json()
+
     def test_force_signup_should_override_existent_users(
         self,
         forge_client: ForgeClient,
@@ -847,3 +873,8 @@ class TestBatchSignup:
             login = User.login(u.username, u.password)
             self.cmp_payload_and_user(login, u)
             assert u.username in course.student_nicknames
+
+    def test_get_me_with_invalid_field(self, forge_client):
+        client = forge_client('first_admin')
+        rv = client.get('/auth/me?fields=invalid')
+        assert rv.status_code == 400, rv.get_json()

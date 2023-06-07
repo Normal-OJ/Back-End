@@ -278,11 +278,7 @@ def get_submission(user, submission: Submission):
     return HTTPResponse(data=ret)
 
 
-@submission_api.route(
-    '/<submission>/output/<int:task_no>/<int:case_no>',
-    methods=['GET'],
-)
-@Request.args('text')
+@submission_api.get('/<submission>/output/<int:task_no>/<int:case_no>')
 @login_required
 @Request.doc('submission', Submission)
 def get_submission_output(
@@ -290,23 +286,11 @@ def get_submission_output(
     submission: Submission,
     task_no: int,
     case_no: int,
-    text: Optional[str],
 ):
-    if not submission.permission(user, Submission.Permission.FEEDBACK):
+    if not submission.permission(user, Submission.Permission.VIEW_OUTPUT):
         return HTTPError('permission denied', 403)
-    if text is None:
-        text = True
-    else:
-        try:
-            text = {'true': True, 'false': False}[text]
-        except KeyError:
-            return HTTPError('Invalid `text` value.', 400)
     try:
-        output = submission.get_single_output(
-            task_no,
-            case_no,
-            text=text,
-        )
+        output = submission.get_single_output(task_no, case_no)
     except FileNotFoundError as e:
         return HTTPError(str(e), 400)
     except AttributeError as e:
@@ -340,29 +324,6 @@ def get_submission_pdf(user, submission: Submission, item):
         max_age=0,
         download_name=f'{item}-{submission.id[-6:] or "missing-id"}.pdf',
     )
-
-
-@submission_api.route('/count', methods=['GET'])
-@login_required
-@Request.args('problem_id', 'submission_id', 'username', 'status',
-              'language_type', 'course')
-def get_submission_count(user, problem_id, submission_id, username, status,
-                         language_type, course):
-    try:
-        submissions = Submission.filter(
-            user=user,
-            offset=0,
-            count=-1,
-            problem=problem_id,
-            submission=submission_id,
-            q_user=username,
-            status=status,
-            language_type=language_type,
-            course=course,
-        )
-    except ValueError as e:
-        return HTTPError(str(e), 400)
-    return HTTPResponse('Padoru~', data={'count': len(submissions)})
 
 
 @submission_api.route('/<submission>/complete', methods=['PUT'])

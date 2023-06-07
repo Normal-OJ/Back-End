@@ -728,8 +728,15 @@ class TestProblem(BaseTester):
         assert rv.get_json()['message'] == 'problem [878787] not found'
 
     def test_get_meta(self, client, monkeypatch):
-        from model.problem import sandbox
-        monkeypatch.setattr(sandbox, 'find_by_token', lambda *_: True)
+
+        class MockSandbox:
+            token = 'SandboxToken'
+
+        class MockConfig:
+            sandbox_instances = [MockSandbox()]
+
+        from mongo.sandbox import Submission
+        monkeypatch.setattr(Submission, 'config', MockConfig)
         rv = client.get('/problem/3/meta?token=SandboxToken')
         assert rv.status_code == 200, rv.get_json()
         assert rv.get_json()['data'] == {
@@ -930,9 +937,23 @@ from mongo import Problem
 
 class TestMongoProblem(BaseTester):
 
+    def test_boolen_of_problem(self, problem_ids, monkeypatch):
+        problem = Problem(problem_ids('teacher', 1)[0])
+        assert problem
+
+        def mock_filter_raise_validation_error(*args, **kwargs):
+            raise ValidationError
+
+        from mongoengine.queryset.queryset import QuerySet
+        monkeypatch.setattr(QuerySet, 'filter',
+                            mock_filter_raise_validation_error)
+        problem.proble_id = 878787
+        assert not problem
+
     def test_detailed_info_of_problem_does_not_exist(self):
         problem = Problem(878787)
         assert problem.detailed_info() == {}
+        assert repr(problem) == '{}'
 
     def test_detailed_info_with_nested_value(self, problem_ids):
         problem = Problem(problem_ids('teacher', 1)[0])

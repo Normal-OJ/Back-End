@@ -86,9 +86,10 @@ class Submission(MongoBase, engine=engine.Submission):
         COMMENT = enum.auto()  # teacher or TAs can give comment
         REJUDGE = enum.auto()  # teacher or TAs can rejudge submission
         GRADE = enum.auto()  # teacher or TAs can grade homework
+        VIEW_OUTPUT = enum.auto()
         OTHER = VIEW
         STUDENT = OTHER | UPLOAD | FEEDBACK
-        MANAGER = STUDENT | COMMENT | REJUDGE | GRADE
+        MANAGER = STUDENT | COMMENT | REJUDGE | GRADE | VIEW_OUTPUT
 
     _config = None
 
@@ -166,7 +167,12 @@ class Submission(MongoBase, engine=engine.Submission):
             cls._config.save()
         return cls._config.reload()
 
-    def get_single_output(self, task_no, case_no, text=True):
+    def get_single_output(
+        self,
+        task_no: int,
+        case_no: int,
+        text: bool = True,
+    ):
         try:
             case = self.tasks[task_no].cases[case_no]
         except IndexError:
@@ -177,7 +183,7 @@ class Submission(MongoBase, engine=engine.Submission):
                 ret = {k: zf.read(k) for k in ('stdout', 'stderr')}
                 if text:
                     ret = {k: v.decode('utf-8') for k, v in ret.items()}
-        except AttributeError as e:
+        except AttributeError:
             raise AttributeError('The submission is still in pending')
         return ret
 
@@ -519,7 +525,6 @@ class Submission(MongoBase, engine=engine.Submission):
         offset: int = 0,
         count: int = -1,
         problem: Optional[Union[Problem, int]] = None,
-        submission: Optional[Union[Submission, str]] = None,
         q_user: Optional[Union[User, str]] = None,
         status: Optional[int] = None,
         language_type: Optional[Union[List[int], int]] = None,
@@ -543,8 +548,6 @@ class Submission(MongoBase, engine=engine.Submission):
             problem = Problem(problem).obj
             if problem is None:
                 wont_have_results = True
-        if not isinstance(submission, (str, type(None))):
-            submission = submission.id
         if isinstance(q_user, str):
             q_user = User(q_user)
             if not q_user:
@@ -575,7 +578,6 @@ class Submission(MongoBase, engine=engine.Submission):
         # query args
         q = {
             p_k: problem,
-            'id': submission,
             'status': status,
             'language__in': language_type,
             'user': q_user,
@@ -745,11 +747,18 @@ class Submission(MongoBase, engine=engine.Submission):
             cap = self.Permission.MANAGER
         elif user.username == self.user.username:
             cap = self.Permission.STUDENT
-        elif Problem(self.problem).permission(user=user,
-                                              req=Problem.Permission.VIEW):
+        elif Problem(self.problem).permission(
+                user=user,
+                req=Problem.Permission.VIEW,
+        ):
             cap = self.Permission.OTHER
         else:
             cap = self.Permission(0)
+
+        # students can view outputs of their CE submissions
+        CE = 2
+        if cap & self.Permission.STUDENT and self.status == CE:
+            cap |= self.Permission.VIEW_OUTPUT
 
         cache.set(key, cap.value, 60)
         return cap

@@ -384,7 +384,7 @@ class Problem(MongoBase, engine=engine.Problem):
             test_case=problem.test_case,
         ).save()
 
-    @doc_required('target', Course, null=True)
+    @doc_required('target', Course, src_none_allowed=True)
     def copy_to(
         self,
         user: User,

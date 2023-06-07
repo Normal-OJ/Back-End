@@ -8,7 +8,6 @@ from .response import *
 
 __all__ = (
     'Request',
-    'timing_request',
     'get_ip',
 )
 
@@ -70,14 +69,14 @@ class _Request(type):
 class Request(metaclass=_Request):
 
     @staticmethod
-    def doc(src, des, cls=None, null=False):
+    def doc(src, des, cls=None, src_none_allowed=False):
         '''
         a warpper to `doc_required` for flask route
         '''
 
         def deco(func):
 
-            @doc_required(src, des, cls, null)
+            @doc_required(src, des, cls, src_none_allowed)
             def inner_wrapper(*args, **ks):
                 return func(*args, **ks)
 
@@ -99,31 +98,6 @@ class Request(metaclass=_Request):
             return real_wrapper
 
         return deco
-
-
-def timing_request(func):
-    '''
-    inject the execution time into response
-    the func must return a response with json
-    '''
-
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        # calculate execution time and get the response
-        start = time.time()
-        resp, status_code = func(*args, **kwargs)
-        exec_time = f'{time.time() - start:.2f}s'
-        # load response data
-        data = resp.data
-        data = json.loads(data)
-        # inject execution time into response
-        if data['data'] is None:
-            data['data'] = {}
-        data['data'].update({'__execTime': exec_time})
-        resp.data = json.dumps(data)
-        return resp, status_code
-
-    return wrapper
 
 
 def get_ip() -> str:
