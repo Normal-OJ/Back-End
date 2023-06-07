@@ -128,26 +128,11 @@ def get_homework_list(user, course_name):
                     homework.student_status.get(user.username)
                 })
             data.append(new)
-    except FileNotFoundError:
+    except DoesNotExist:
         return HTTPError('course not exists',
                          404,
                          data={'courseName': course_name})
     return HTTPResponse('get homeworks', data=data)
-
-
-@homework_api.route('/check/<homework_name>')
-@login_required
-@Request.json('course_name')
-def check(user, homework_name, course_name):
-    course = Course(course_name)
-    role = perm(course, user)
-
-    if role <= 1:
-        return HTTPError('students can not call this API', 403)
-    if Homework.get_by_name(course_name, homework_name) is None:
-        return HTTPResponse('homework name can be used', data={'valid': 1})
-    else:
-        return HTTPResponse('homework name exist', data={'valid': 0})
 
 
 @homework_api.route('/<course>/<homework_name>/ip-filters', methods=['GET'])
@@ -199,9 +184,8 @@ def patch_ip_filters(
             IPFilter(value)
         except ValueError as e:
             return HTTPError(str(e), 400)
-    try:
+
         hw.update(push_all__ip_filters=adds)
         hw.update(pull_all__ip_filters=dels)
-    except ValidationError as e:
-        return HTTPError(str(e), 400)
+        hw.save()
     return HTTPResponse()
