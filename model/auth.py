@@ -277,7 +277,7 @@ def add_user(
 
 @auth_api.route('/batch-signup', methods=['POST'])
 @Request.json('new_users: str', 'course', 'force')
-@Request.doc('course', 'course', Course, null=True)
+@Request.doc('course', 'course', Course, src_none_allowed=True)
 @identity_verify(0)
 def batch_signup(
     user,
