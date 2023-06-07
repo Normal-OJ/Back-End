@@ -248,8 +248,8 @@ class ProblemDescription(EmbeddedDocument):
     )
 
     def escape(self):
-        self.description, self.input, self.output, self.hint = (
-            v or html.escape(v) for v in (
+        self.description, self.input, self.output, self.hint = (html.escape(
+            v or '') for v in (
                 self.description,
                 self.input,
                 self.output,

@@ -42,12 +42,6 @@ def create_submission(user, language_type, problem_id):
                 'waitFor': wait_for,
             },
         )  # Too many request
-    # check for fields
-    if problem_id is None:
-        return HTTPError(
-            'problemId is required!',
-            400,
-        )
     # search for problem
     problem = Problem(problem_id)
     if not problem:
@@ -62,18 +56,6 @@ def create_submission(user, language_type, problem_id):
     # ip validation
     if not problem.is_valid_ip(get_ip()):
         return HTTPError('Invalid IP address.', 403)
-    # handwritten problem doesn't need language type
-    if language_type is None:
-        if problem.problem_type != 2:
-            return HTTPError(
-                'post data missing!',
-                400,
-                data={
-                    'languageType': language_type,
-                    'problemId': problem_id
-                },
-            )
-        language_type = 3
     # not allowed language
     if not problem.allowed(language_type):
         return HTTPError(
@@ -454,64 +436,3 @@ def rejudge(user, submission: Submission):
         return HTTPResponse(f'{submission} is sent to judgement.')
     else:
         return HTTPError('Some error occurred, please contact the admin', 500)
-
-
-@submission_api.route('/config', methods=['GET', 'PUT'])
-@login_required
-@identity_verify(0)
-def config(user):
-    config = Submission.config()
-
-    def get_config():
-        ret = config.to_mongo()
-        del ret['_cls']
-        del ret['_id']
-        return HTTPResponse('success.', data=ret)
-
-    @Request.json('rate_limit: int', 'sandbox_instances: list')
-    def modify_config(rate_limit, sandbox_instances):
-        # try to convert json object to Sandbox instance
-        try:
-            sandbox_instances = [
-                *map(
-                    lambda s: engine.Sandbox(**s),
-                    sandbox_instances,
-                )
-            ]
-        except engine.ValidationError as e:
-            return HTTPError(
-                'wrong Sandbox schema',
-                400,
-                data=e.to_dict(),
-            )
-        # skip if during testing
-        if not current_app.config['TESTING']:
-            resps = []
-            # check sandbox status
-            for sb in sandbox_instances:
-                resp = rq.get(f'{sb.url}/status')
-                if not resp.ok:
-                    resps.append((sb.name, resp))
-            # some exception occurred
-            if len(resps) != 0:
-                return HTTPError(
-                    'some error occurred when check sandbox status',
-                    400,
-                    data=[{
-                        'name': name,
-                        'statusCode': resp.status_code,
-                        'response': resp.text,
-                    } for name, resp in resps],
-                )
-        try:
-            config.update(
-                rate_limit=rate_limit,
-                sandbox_instances=sandbox_instances,
-            )
-        except ValidationError as e:
-            return HTTPError(str(e), 400)
-
-        return HTTPResponse('success.')
-
-    methods = {'GET': get_config, 'PUT': modify_config}
-    return methods[request.method]()
