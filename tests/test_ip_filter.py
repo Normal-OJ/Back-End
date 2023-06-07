@@ -3,6 +3,23 @@ import pytest
 from mongo.ip_filter import IPFilter
 
 
+def test_repr():
+    ip_filter = IPFilter('0.0.0.0')
+    assert repr(
+        ip_filter
+    ) == 'IPFilter([OctetMatcher(((0, 0),)), OctetMatcher(((0, 0),)), OctetMatcher(((0, 0),)), OctetMatcher(((0, 0),))])'
+
+
+@pytest.mark.parametrize('_filter', [
+    '666-888.168.0.1',
+    '8.8.111-333.8',
+])
+def test_invlaid_range(_filter):
+    with pytest.raises(ValueError) as err:
+        IPFilter(_filter)
+    assert str(err.value) == 'Invalid number range.'
+
+
 @pytest.mark.parametrize('_filter', [
     '192.168.0.1',
     '8.8.8.8',
@@ -26,6 +43,27 @@ def test_range_filter(_filter):
 ])
 def test_wildcard_filter(_filter):
     IPFilter(_filter)
+
+
+@pytest.mark.parametrize('ip', [
+    '192.*.*.*.1',
+    '140.121.*.1',
+    '444.121.3.1',
+])
+def test_ip_is_not_valid(ip):
+    ip_filter = IPFilter('140.121.*.8-16')
+    assert not ip_filter.is_valid_ip(ip)
+
+
+@pytest.mark.parametrize('ip', [
+    '140.121.1.1',
+    '140.122.1.8',
+    '141.121.1.9',
+    '140.121.1.*',
+])
+def test_ip_is_not_matched(ip):
+    ip_filter = IPFilter('140.121.*.8-16')
+    assert not ip_filter.match(ip)
 
 
 @pytest.mark.parametrize('_filter', [

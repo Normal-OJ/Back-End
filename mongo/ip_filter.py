@@ -47,9 +47,9 @@ class IPFilter:
     def is_valid_ip(self, ip: str) -> bool:
         ip = ip.split('.')
         if len(ip) != 4:
-            raise False
+            return False
         if not all(x.isdecimal() for x in ip):
-            raise False
+            return False
         if not all(0 <= int(x) <= 255 for x in ip):
             return False
         return True
