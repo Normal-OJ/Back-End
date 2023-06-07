@@ -15,9 +15,8 @@ post_api = Blueprint('post_api', __name__)
 @post_api.route('/<course>', methods=['GET'])
 @login_required
 def get_post(user, course):
-    try:
-        target_course = Course(course).obj
-    except engine.DoesNotExist:
+    target_course = Course(course)
+    if not target_course:
         return HTTPError("Course not found.", 404)
     permission = perm(target_course, user)
     if not permission:
@@ -29,15 +28,12 @@ def get_post(user, course):
 @post_api.route('/view/<course>/<target_thread_id>', methods=['GET'])
 @login_required
 def get_single_post(user, course, target_thread_id):
-    try:
-        target_course = Course(course).obj
-    except engine.DoesNotExist:
+    target_course = Course(course)
+    if not target_course:
         return HTTPError("Course not found.", 404)
     permission = perm(target_course, user)
     if not permission:
         return HTTPError('You are not in this course.', 403)
-    if not target_thread_id:
-        return HTTPError('Must contain target_thread_id', 400)
     data = Post.found_post(target_course, target_thread_id)
     return HTTPResponse('Success.', data=data)
 
