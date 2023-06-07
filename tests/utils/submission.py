@@ -15,7 +15,7 @@ __all__ = ('create_submission', )
 def create_submission(
     *,
     user: Union[User, str],
-    problem: Optional[Union[Problem, int]] = None,
+    problem: Optional[Union[Problem, int]],
     lang: Optional[int] = 0,
     timestamp: Optional[float] = None,
     score: Optional[int] = None,

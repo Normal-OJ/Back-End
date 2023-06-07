@@ -342,29 +342,6 @@ def get_submission_pdf(user, submission: Submission, item):
     )
 
 
-@submission_api.route('/count', methods=['GET'])
-@login_required
-@Request.args('problem_id', 'submission_id', 'username', 'status',
-              'language_type', 'course')
-def get_submission_count(user, problem_id, submission_id, username, status,
-                         language_type, course):
-    try:
-        submissions = Submission.filter(
-            user=user,
-            offset=0,
-            count=-1,
-            problem=problem_id,
-            submission=submission_id,
-            q_user=username,
-            status=status,
-            language_type=language_type,
-            course=course,
-        )
-    except ValueError as e:
-        return HTTPError(str(e), 400)
-    return HTTPResponse('Padoru~', data={'count': len(submissions)})
-
-
 @submission_api.route('/<submission>/complete', methods=['PUT'])
 @Request.json('tasks: list', 'token: str')
 @Request.doc('submission', Submission)
