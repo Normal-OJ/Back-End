@@ -185,7 +185,6 @@ def patch_ip_filters(
         except ValueError as e:
             return HTTPError(str(e), 400)
 
-        hw.update(push_all__ip_filters=adds)
-        hw.update(pull_all__ip_filters=dels)
-        hw.save()
+    hw.update(push_all__ip_filters=adds)
+    hw.update(pull_all__ip_filters=dels)
     return HTTPResponse()
