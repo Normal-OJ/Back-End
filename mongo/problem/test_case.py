@@ -17,7 +17,7 @@ class TestCaseRule(abc.ABC):
         '''
         Validate test case
         '''
-        raise NotImplementedError   # pragma: no cover
+        raise NotImplementedError  # pragma: no cover
 
 
 class IncludeDirectory(TestCaseRule):

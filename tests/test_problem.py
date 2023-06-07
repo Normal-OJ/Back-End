@@ -309,7 +309,8 @@ class TestProblem(BaseTester):
         assert rv.status_code == 200
         rv = client_admin.get('/problem/5')
         assert rv.status_code == 200, rv.get_json()
-        assert rv.get_json()['data']['fillInTemplate'] == 'This is a fill in template.'
+        assert rv.get_json(
+        )['data']['fillInTemplate'] == 'This is a fill in template.'
 
     # admin view offline problem (GET /problem/<problem_id>)
     def test_admin_view_offline_problem(self, client_admin):
@@ -605,29 +606,38 @@ class TestProblem(BaseTester):
         }
 
     def test_update_problem_test_case_with_non_zip_file(self, client_admin):
-        rv = client_admin.put('/problem/manage/3', data=get_file('bogay/0000.in'))
+        rv = client_admin.put('/problem/manage/3',
+                              data=get_file('bogay/0000.in'))
         assert rv.status_code == 400, rv.get_json()
         assert rv.get_json()['message'] == 'File is not a zip file'
 
-    def test_update_problem_test_case_with_ambiguous_test_case(self, client_admin, monkeypatch):
+    def test_update_problem_test_case_with_ambiguous_test_case(
+            self, client_admin, monkeypatch):
         from mongo.problem.problem import SimpleIO, ContextIO
         monkeypatch.setattr(SimpleIO, 'validate', lambda *_: None)
         monkeypatch.setattr(ContextIO, 'validate', lambda *_: None)
-        rv = client_admin.put('/problem/manage/3', data=get_file('bogay/test_case.zip'))
+        rv = client_admin.put('/problem/manage/3',
+                              data=get_file('bogay/test_case.zip'))
         assert rv.status_code == 400, rv.get_json()
         assert rv.get_json()['message'] == 'ambiguous test case format'
 
-    def test_update_problem_test_case_raise_does_not_exist_error(self, client_admin, monkeypatch):
+    def test_update_problem_test_case_raise_does_not_exist_error(
+            self, client_admin, monkeypatch):
+
         def mock_update_test_case(*_):
             raise DoesNotExist('Error from mock update_test_case.')
+
         from mongo.problem import Problem
         monkeypatch.setattr(Problem, 'update_test_case', mock_update_test_case)
-        rv = client_admin.put('/problem/manage/3', data=get_file('bogay/test_case.zip'))
+        rv = client_admin.put('/problem/manage/3',
+                              data=get_file('bogay/test_case.zip'))
         assert rv.status_code == 404, rv.get_json()
         assert rv.get_json()['message'] == 'Error from mock update_test_case.'
 
-    def test_update_problem_test_case_with_unknown_content_type(self, client_admin):
-        rv = client_admin.put('/problem/manage/3', headers={'Content-type': 'unknown/content-type'})
+    def test_update_problem_test_case_with_unknown_content_type(
+            self, client_admin):
+        rv = client_admin.put('/problem/manage/3',
+                              headers={'Content-type': 'unknown/content-type'})
         assert rv.status_code == 400, rv.get_json()
         assert rv.get_json()['message'] == 'Unknown content type'
         assert rv.get_json()['data']['contentType'] == 'unknown/content-type'
@@ -690,7 +700,8 @@ class TestProblem(BaseTester):
         assert rv.status_code == 401, rv.get_json()
         assert rv.get_json()['message'] == 'Invalid sandbox token'
 
-    def test_get_chechsum_with_problem_does_not_exist(self, client, monkeypatch):
+    def test_get_chechsum_with_problem_does_not_exist(self, client,
+                                                      monkeypatch):
         from model.problem import sandbox
         monkeypatch.setattr(sandbox, 'find_by_token', lambda *_: True)
         rv = client.get('/problem/878787/checksum?token=SandboxToken')
@@ -721,7 +732,14 @@ class TestProblem(BaseTester):
         monkeypatch.setattr(sandbox, 'find_by_token', lambda *_: True)
         rv = client.get('/problem/3/meta?token=SandboxToken')
         assert rv.status_code == 200, rv.get_json()
-        assert rv.get_json()['data'] == {'tasks': [{'caseCount': 1, 'memoryLimit': 1000, 'taskScore': 100, 'timeLimit': 1000}]}
+        assert rv.get_json()['data'] == {
+            'tasks': [{
+                'caseCount': 1,
+                'memoryLimit': 1000,
+                'taskScore': 100,
+                'timeLimit': 1000
+            }]
+        }
 
     def test_admin_update_problem_test_case_with_invalid_data(
         self,
@@ -791,10 +809,15 @@ class TestProblem(BaseTester):
         )
         assert rv.status_code == 403
 
-    def test_teacher_cannot_copy_problem_from_other_course(self, forge_client, make_course):
+    def test_teacher_cannot_copy_problem_from_other_course(
+            self, forge_client, make_course):
         c_data = make_course('teacher-2')
         client_teacher = forge_client('teacher-2')
-        rv = client_teacher.post('/problem/copy', json={'problemId': 3, 'target': c_data.name})
+        rv = client_teacher.post('/problem/copy',
+                                 json={
+                                     'problemId': 3,
+                                     'target': c_data.name
+                                 })
         assert rv.status_code == 403, rv.get_json()
         assert rv.get_json()['message'] == 'Problem can not view.'
 
@@ -913,12 +936,16 @@ class TestMongoProblem(BaseTester):
 
     def test_detailed_info_with_nested_value(self, problem_ids):
         problem = Problem(problem_ids('teacher', 1)[0])
-        assert problem.detailed_info(nested__info='testCase__language') == {'nested': {'info': 2}}
-    
+        assert problem.detailed_info(nested__info='testCase__language') == {
+            'nested': {
+                'info': 2
+            }
+        }
+
     def test_negtive_language_is_not_allowed(self, problem_ids):
         problem = Problem(problem_ids('teacher', 1)[0])
         assert problem.allowed(-1) == False
-    
+
     def test_high_score_with_cache(self, problem_ids, monkeypatch):
         from mongo.problem.problem import RedisCache
         monkeypatch.setattr(RedisCache, 'get', lambda *_: b'87')
@@ -927,9 +954,10 @@ class TestMongoProblem(BaseTester):
 
     def test_get_problem_list_with_course_does_not_exist(self, problem_ids):
         problem = Problem(problem_ids('teacher', 1)[0])
-        plist = problem.get_problem_list('teacher', course='CourseDoesNotExist')
+        plist = problem.get_problem_list('teacher',
+                                         course='CourseDoesNotExist')
         assert plist == []
-    
+
     def test_edit_problem_without_100_scores_in_total(self, problem_ids):
         request_json = {
             'courses': [],
@@ -973,7 +1001,7 @@ class TestIncludeDirectory(BaseTester):
         with pytest.raises(BadTestCase) as err:
             rule.validate(None)
         assert str(err.value) == 'test case is None'
-    
+
     def test_validate_with_path_does_not_exist(self):
         rule = IncludeDirectory(Problem(87), 'path/does/not/exist', False)
         with pytest.raises(BadTestCase) as err:
@@ -1006,7 +1034,7 @@ class TestSimpleIO(BaseTester):
         with pytest.raises(BadTestCase) as err:
             rule.validate(None)
         assert str(err.value) == 'test case is None'
-    
+
     def test_validate_with_excludes_raise_bad_test_case_error(self):
         zip = 'tests/problem_test_case/bogay/test_case.zip'
         rule = SimpleIO(Problem(87), ['0000'])
@@ -1025,7 +1053,7 @@ class TestContextIO(BaseTester):
         with pytest.raises(BadTestCase) as err:
             rule.validate(None)
         assert str(err.value) == 'test case is None'
-    
+
     def test_validate_with_test_case_is_not_dir(self, monkeypatch):
         zip = 'tests/problem_test_case/bogay/test_case.zip'
         rule = ContextIO(Problem(87))
@@ -1035,7 +1063,7 @@ class TestContextIO(BaseTester):
         with pytest.raises(BadTestCase) as err:
             rule.validate(zip)
         assert str(err.value) == 'test-case is not a directory'
-    
+
     def test_validate_with_extra_test_case_dir(self, problem_ids):
         pid = problem_ids('teacher', 1)[0]
         rule = ContextIO(Problem(pid))
