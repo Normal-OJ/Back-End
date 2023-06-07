@@ -6,6 +6,8 @@ from flask.testing import FlaskClient
 from tests.base_tester import BaseTester, random_string
 from tests.conftest import ForgeClient
 from mongo import *
+from tests import utils
+from datetime import datetime, timedelta
 
 
 @dataclass
@@ -543,3 +545,273 @@ class TestHomework(BaseTester):
             f'/homework/{course_data.homework_ids[0]}',
         )
         assert rv.status_code == 404, rv_json
+
+
+from mongo.homework import check_penalty, Error
+
+
+class TestHomeworkCheckPenalty(BaseTester):
+
+    def test_check_penalty_illeaga_rule(self):
+        res = check_penalty('os')
+        assert res == Error.Illegal_penalty
+
+    def test_check_penalty_invalid_rule(self):
+        res = check_penalty('1:2')
+        assert res == Error.Invalid_penalty
+
+
+from mongo.homework import Homework
+
+
+class TestHomeworkMongo(BaseTester):
+
+    def test_homework_is_valid_ip_empty(self):
+        c = utils.course.create_course()
+        u = c.teacher
+        hw_name = 'shibainu1'
+        hw = Homework.add(u, course_name=c, hw_name=hw_name)
+        res = Homework(hw).is_valid_ip('127.0.0.1')
+        assert res == True
+
+    def test_homework_is_valid_ip_not_empty(self):
+        c = utils.course.create_course()
+        u = c.teacher
+        hw_name = 'shibainu2'
+        hw = Homework.add(u, course_name=c, hw_name=hw_name)
+        hw.update(push_all__ip_filters=['127.0.0.1'])
+        hw.reload()
+        hw = Homework(hw)
+        res = hw.is_valid_ip('127.0.0.2')
+        assert res == False
+
+    def test_add_permission(self):
+        c = utils.course.create_course(students=1)
+        student_name = list(c.student_nicknames.keys())[0]
+        student = User(student_name)
+        hw_name = 'shibainu3'
+        with pytest.raises(PermissionError) as err:
+            hw = Homework.add(student, course_name=c, hw_name=hw_name)
+        assert str(err.value) == 'user is not teacher or ta'
+
+    def test_add_duplicate(self):
+        c = utils.course.create_course()
+        u = c.teacher
+        hw_name = 'shibainu4'
+        hw = Homework.add(u, course_name=c, hw_name=hw_name)
+        with pytest.raises(NotUniqueError) as err:
+            hw = Homework.add(u, course_name=c, hw_name=hw_name)
+        assert str(err.value) == 'homework exist'
+
+    def test_add_homework_with_illeagal_penalty(self):
+        c = utils.course.create_course()
+        u = c.teacher
+        hw_name = 'shibainu5'
+        with pytest.raises(ValueError) as err:
+            hw = Homework.add(u, course_name=c, hw_name=hw_name, penalty='os')
+        assert str(err.value) == 'Illegal penalty'
+
+    def test_add_homework_with_invalid_penalty(self):
+        c = utils.course.create_course()
+        u = c.teacher
+        hw_name = 'shibainu6'
+        with pytest.raises(ValueError) as err:
+            hw = Homework.add(u, course_name=c, hw_name=hw_name, penalty='1:2')
+        assert str(err.value) == 'Invalid penalty'
+
+    def test_add_problem_to_homework_with_not_exist_problem(self):
+        c = utils.course.create_course()
+        u = c.teacher
+        hw_name = 'shibainu7'
+        with pytest.raises(DoesNotExist) as err:
+            hw = Homework.add(u,
+                              course_name=c,
+                              hw_name=hw_name,
+                              problem_ids=[7122])
+        assert str(err.value) == 'some problems not found!'
+
+    def test_add_problem_to_homework_with_penalty(self):
+        c = utils.course.create_course()
+        u = c.teacher
+        hw_name = 'shibainu8'
+        hw = Homework.add(u, course_name=c, hw_name=hw_name, penalty='1')
+        assert hw.penalty == '1'
+
+    def test_update_homework_with_permission_denied_user(self):
+        c = utils.course.create_course(students=1)
+        u = c.teacher
+        hw_name = 'shibainu9'
+        hw = Homework.add(u, course_name=c, hw_name=hw_name)
+        hw = Homework(hw)
+        student_name = list(c.student_nicknames.keys())[0]
+        student = User(student_name)
+        with pytest.raises(PermissionError) as err:
+            hw.update(student,
+                      homework_id=hw.id,
+                      markdown=hw.markdown,
+                      new_hw_name=hw.homework_name,
+                      penalty=hw.penalty,
+                      problem_ids=hw.problem_ids)
+        assert str(err.value) == 'user is not teacher or ta'
+
+    def test_update_homework_with_penalty(self):
+        c = utils.course.create_course()
+        u = c.teacher
+        hw_name = 'shibainu10'
+        hw = Homework.add(u, course_name=c, hw_name=hw_name)
+        hw = Homework(hw)
+        hw.update(u,
+                  homework_id=hw.id,
+                  markdown=hw.markdown,
+                  new_hw_name=None,
+                  penalty='1',
+                  problem_ids=hw.problem_ids)
+        hw.reload()
+        assert hw.penalty == '1'
+
+    def test_update_homework_with_not_allowed_penalty(self):
+        c = utils.course.create_course()
+        u = c.teacher
+        hw_name = 'shibainu11'
+        hw = Homework.add(u, course_name=c, hw_name=hw_name)
+        hw = Homework(hw)
+        with pytest.raises(ValueError) as err:
+            hw.update(u,
+                      homework_id=hw.id,
+                      markdown=hw.markdown,
+                      new_hw_name=None,
+                      penalty='os',
+                      problem_ids=hw.problem_ids)
+        assert str(err.value) == 'Illegal penalty'
+
+        with pytest.raises(ValueError) as err:
+            hw.update(u,
+                      homework_id=hw.id,
+                      markdown=hw.markdown,
+                      new_hw_name=None,
+                      penalty='1:2',
+                      problem_ids=hw.problem_ids)
+        assert str(err.value) == 'Invalid penalty'
+
+    def test_update_homework_with_duplicate_name(self):
+        c = utils.course.create_course()
+        u = c.teacher
+        hw_name = 'shibainu12'
+        hw2_name = 'shibainu13'
+        hw = Homework.add(u, course_name=c, hw_name=hw_name)
+        hw = Homework(hw)
+        hw2 = Homework.add(u, course_name=c, hw_name=hw2_name)
+        hw2 = Homework(hw2)
+        with pytest.raises(NotUniqueError) as err:
+            hw.update(u,
+                      homework_id=hw2.id,
+                      markdown=hw2.markdown,
+                      new_hw_name=hw.homework_name,
+                      penalty=hw2.penalty,
+                      problem_ids=hw2.problem_ids)
+        assert str(err.value) == 'homework exist'
+
+    def test_update_homework_with_not_exist_problemids(self):
+        c = utils.course.create_course()
+        u = c.teacher
+        hw_name = 'shibainu14'
+        hw = Homework.add(u, course_name=c, hw_name=hw_name)
+        hw = Homework(hw)
+        problem_ids = [7122] * 10
+        hw.update(u,
+                  homework_id=hw.id,
+                  markdown=hw.markdown,
+                  new_hw_name=None,
+                  penalty=hw.penalty,
+                  problem_ids=problem_ids)
+        assert hw.problem_ids == []
+
+    def test_update_homework_delete_problemids(self):
+        c = utils.course.create_course()
+        u = c.teacher
+        hw_name = 'shibainu15'
+        problem = utils.problem.create_problem()
+        hw = Homework.add(u,
+                          course_name=c,
+                          hw_name=hw_name,
+                          problem_ids=[problem.id])
+        problem.delete()
+        hw = Homework(hw)
+        hw.update(u,
+                  homework_id=hw.id,
+                  markdown=hw.markdown,
+                  new_hw_name=None,
+                  penalty=hw.penalty,
+                  problem_ids=[])
+        assert hw.problem_ids == [problem.id]
+
+    def test_delete_problems(self):
+        c = utils.course.create_course()
+        u = c.teacher
+        hw_name = 'shibainu16'
+        problem = utils.problem.create_problem()
+        hw = Homework.add(u,
+                          course_name=c,
+                          hw_name=hw_name,
+                          problem_ids=[problem.id])
+        problem.delete()
+        hw = Homework(hw)
+        hw.delete_problems(course=c, user=u)
+        assert hw.problem_ids == [problem.id]
+
+    def test_add_student(self):
+        c = utils.course.create_course(students=1)
+        u = c.teacher
+        hw_name = 'shibainu17'
+        hw = Homework.add(u, course_name=c, hw_name=hw_name)
+        hw = Homework(hw)
+        student_name = list(c.student_nicknames.keys())[0]
+        student = User(student_name)
+        hw.add_student([student])
+        assert student_name in hw.student_status
+
+        with pytest.raises(ValueError) as err:
+            hw.add_student([student])
+        assert str(err.value) == 'Student already in homework'
+
+    def test_remove_student_not_exist(self):
+        c = utils.course.create_course(students=1)
+        u = c.teacher
+        hw_name = 'shibainu18'
+        hw = Homework.add(u, course_name=c, hw_name=hw_name)
+        hw = Homework(hw)
+        student_name = list(c.student_nicknames.keys())[0]
+        student = User(student_name)
+        with pytest.raises(ValueError) as err:
+            hw.remove_student([student])
+        assert str(err.value) == 'Student not in homework'
+
+    def test_do_penalty(self, app):
+        c = utils.course.create_course(students=1)
+        u = c.teacher
+        hw_name = 'shibainu19'
+        due_time = datetime.today() - timedelta(days=1)
+        due_time = due_time.timestamp()
+
+        problem = utils.problem.create_problem()
+        # TODO: complex penalty rules
+        hw = Homework.add(u,
+                          course_name=c,
+                          hw_name=hw_name,
+                          end=due_time,
+                          penalty='1',
+                          problem_ids=[problem.id])
+        hw = Homework(hw)
+        student_name = list(c.student_nicknames.keys())[0]
+        student = User(student_name)
+
+        hw.add_student(students=[student])
+        with app.app_context():
+            submission = utils.submission.create_submission(user=student,
+                                                            problem=problem)
+
+        stat = hw.student_status[student_name][str(problem.id)]
+        if 'rawScore' not in stat:
+            stat['rawScore'] = 0
+        stat['submissionIds'].append(submission.id)
+        score, raw_score = hw.do_penalty(submission, stat)
