@@ -1051,3 +1051,18 @@ def test_student_can_view_CE_submission_output(forge_client, app):
     assert rv.status_code == 200, rv.get_json()
     expected = submission.get_single_output(0, 0)
     assert expected == rv.get_json()['data']
+
+
+def test_cannot_view_output_out_of_index(app, forge_client):
+    with app.app_context():
+        user = utils.user.create_user()
+        course = utils.course.create_course()
+        problem = utils.problem.create_problem(course=course)
+        submission = utils.submission.create_submission(
+            user=user,
+            problem=problem,
+        )
+    client = forge_client(course.teacher.username)
+    rv = client.get(f'/submission/{submission.id}/output/100/100')
+    assert rv.status_code == 400, rv.get_json()
+    assert rv.get_json()['message'] == 'task not exist'
