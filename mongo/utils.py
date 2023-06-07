@@ -1,14 +1,15 @@
 import abc
 import hashlib
 import os
+from flask import current_app
 import redis
 from functools import wraps
 from typing import Dict, Optional, Any, TYPE_CHECKING
 from . import engine
 
 if TYPE_CHECKING:
-    from .user import User
-    from .problem import Problem
+    from .user import User  # pragma: no cover
+    from .problem import Problem  # pragma: no cover
 
 __all__ = (
     'hash_id',
@@ -41,28 +42,28 @@ class Cache(abc.ABC):
         '''
         check whether a value exists
         '''
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     @abc.abstractmethod
     def get(self, key: str):
         '''
         get value by key
         '''
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     @abc.abstractmethod
     def set(self, key: str, value, ex: Optional[int] = None):
         '''
         set a value and set expire time in seconds
         '''
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     @abc.abstractmethod
     def delete(self, key: str):
         '''
         delete a value by key
         '''
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
 
 class RedisCache(Cache):
@@ -110,7 +111,7 @@ def doc_required(
     src,
     des,
     cls=None,
-    null=False,
+    src_none_allowed=False,
 ):
     '''
     query db to inject document into functions.
@@ -141,7 +142,7 @@ def doc_required(
                 raise TypeError('cls must be a type')
             # process `None`
             if src_param is None:
-                if not null:
+                if not src_none_allowed:
                     raise ValueError('src can not be None')
                 doc = None
             elif not isinstance(src_param, cls):
