@@ -29,13 +29,13 @@ def check_penalty(penalty: Optional[str]) -> int:
             try:
                 int(i)
             except:
-                return 1
+                return Error.Illegal_penalty
     try:
         score = 0
         overtime = 0
         exec(penalty)
     except:
-        return 2
+        return Error.Invalid_penalty
     return 0
 
 
@@ -77,12 +77,12 @@ class Homework(MongoBase, engine=engine.Homework):
         penalty_stat = check_penalty(penalty)
         if penalty_stat == Error.Illegal_penalty:
             raise ValueError("Illegal penalty")
-        elif penalty_stat == Error.Illegal_penalty:
+        elif penalty_stat == Error.Invalid_penalty:
             raise ValueError("Invalid penalty")
 
         problems = [*map(Problem, problem_ids)]
         if not all(problems):
-            raise engine.DoesNotExist(f'some problems not found!')
+            raise engine.DoesNotExist('some problems not found!')
         homework = cls.engine(
             homework_name=hw_name,
             course_id=str(course_id),
@@ -128,14 +128,14 @@ class Homework(MongoBase, engine=engine.Homework):
         course = engine.Course.objects.get(id=homework.course_id)
         # check user is teacher or ta
         if perm(course, user) <= 1:
-            raise PermissionError('user is not tacher or ta')
+            raise PermissionError('user is not teacher or ta')
         # check the new_name hasn't been use in this course
 
         if penalty is not None:
             penalty_stat = check_penalty(penalty)
             if penalty_stat == Error.Illegal_penalty:
                 raise ValueError("Illegal penalty")
-            elif penalty_stat == Error.Illegal_penalty:
+            elif penalty_stat == Error.Invalid_penalty:
                 raise ValueError("Invalid penalty")
             else:
                 homework.penalty = penalty
@@ -163,8 +163,8 @@ class Homework(MongoBase, engine=engine.Homework):
         student_status = homework.student_status
         # add
         for pid in new_ids:
-            problem = Problem(pid).obj
-            if problem is None:
+            problem = Problem(pid)
+            if not problem:
                 continue
             homework.update(push__problem_ids=pid)
             problem.update(push__homeworks=homework)
@@ -172,8 +172,8 @@ class Homework(MongoBase, engine=engine.Homework):
                 student_status[key][str(pid)] = cls.default_problem_status()
         # delete
         for pid in drop_ids:
-            problem = Problem(pid).obj
-            if problem is None:
+            problem = Problem(pid)
+            if not problem:
                 continue
             homework.update(pull__problem_ids=pid)
             problem.update(pull__homeworks=homework)
@@ -193,8 +193,8 @@ class Homework(MongoBase, engine=engine.Homework):
         if perm(course, user) <= 1:
             raise PermissionError('user is not teacher or ta')
         for pid in self.problem_ids:
-            problem = Problem(pid).obj
-            if problem is None:
+            problem = Problem(pid)
+            if not problem:
                 continue
             problem.update(pull__homeworks=self.obj)
         self.delete()
