@@ -321,4 +321,7 @@ def get_me(user: User, fields: Optional[str]):
         fields = default
     else:
         fields = fields.split(',')
-    return HTTPResponse(data=user.properties(*fields))
+    try:
+        return HTTPResponse(data=user.properties(*fields))
+    except ValueError as e:
+        return HTTPError(str(e), 400)
