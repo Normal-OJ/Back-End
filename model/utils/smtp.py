@@ -7,14 +7,10 @@ import threading
 
 __all__ = ['send_noreply']
 
-SMTP_SERVER = os.environ.get('SMTP_SERVER')
-SMTP_ADMIN = os.environ.get('SMTP_ADMIN')
-SMTP_ADMIN_PASSWORD = os.environ.get('SMTP_PASSWORD')
-SMTP_NOREPLY = os.environ.get('SMTP_NOREPLY')
-SMTP_NOREPLY_PASSWORD = os.environ.get('SMTP_NOREPLY_PASSWORD')
-
 
 def send(from_addr, password, to_addrs, subject, text, html):
+    SMTP_SERVER = os.environ.get('SMTP_SERVER')
+
     if SMTP_SERVER is None:
         return
     with SMTP(SMTP_SERVER, 587) as server:
@@ -29,6 +25,9 @@ def send(from_addr, password, to_addrs, subject, text, html):
 
 
 def send_noreply(to_addrs, subject, text, html=None):
+    SMTP_NOREPLY = os.environ.get('SMTP_NOREPLY')
+    SMTP_NOREPLY_PASSWORD = os.environ.get('SMTP_NOREPLY_PASSWORD')
+
     args = (SMTP_NOREPLY, SMTP_NOREPLY_PASSWORD, to_addrs, subject, text, html
             or text)
     threading.Thread(target=send, args=args).start()
