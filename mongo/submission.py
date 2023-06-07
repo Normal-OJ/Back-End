@@ -519,7 +519,6 @@ class Submission(MongoBase, engine=engine.Submission):
         offset: int = 0,
         count: int = -1,
         problem: Optional[Union[Problem, int]] = None,
-        submission: Optional[Union[Submission, str]] = None,
         q_user: Optional[Union[User, str]] = None,
         status: Optional[int] = None,
         language_type: Optional[Union[List[int], int]] = None,
@@ -543,8 +542,6 @@ class Submission(MongoBase, engine=engine.Submission):
             problem = Problem(problem).obj
             if problem is None:
                 wont_have_results = True
-        if not isinstance(submission, (str, type(None))):
-            submission = submission.id
         if isinstance(q_user, str):
             q_user = User(q_user)
             if not q_user:
@@ -575,7 +572,6 @@ class Submission(MongoBase, engine=engine.Submission):
         # query args
         q = {
             p_k: problem,
-            'id': submission,
             'status': status,
             'language__in': language_type,
             'user': q_user,
