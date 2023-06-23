@@ -23,7 +23,7 @@ class Announcement(MongoBase, engine=engine.Announcement):
         course = Course(course_name)
         if not course:
             return []
-        if not perm(course, user):
+        if not course.permission(user, Course.Permission.VIEW):
             return []
         anns = engine.Announcement.objects(
             course=course.obj,
@@ -41,7 +41,7 @@ class Announcement(MongoBase, engine=engine.Announcement):
         pinned,
         course: Course,
     ):
-        if perm(course, creator) < 2:
+        if not course.permission(creator, Course.Permission.GRADE):
             return None
         ann = engine.Announcement(
             title=title,

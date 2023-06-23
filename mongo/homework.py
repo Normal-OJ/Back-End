@@ -3,7 +3,7 @@ from . import engine
 from .user import User
 from .base import MongoBase
 from .course import Course
-from .utils import perm, doc_required
+from .utils import doc_required
 from .problem.problem import Problem
 from .ip_filter import IPFilter
 from datetime import datetime
@@ -64,7 +64,7 @@ class Homework(MongoBase, engine=engine.Homework):
         penalty: Optional[str] = '',
     ):
         # check user is teacher or ta
-        if perm(course, user) <= 1:
+        if not course.permission(user, Course.Permission.GRADE):
             raise PermissionError('user is not teacher or ta')
         course_id = course.id
         if cls.engine.objects(
@@ -125,9 +125,9 @@ class Homework(MongoBase, engine=engine.Homework):
         scoreboard_status: Optional[int] = None,
     ):
         homework = cls.engine.objects.get(id=homework_id)
-        course = engine.Course.objects.get(id=homework.course_id)
+        course = Course(engine.Course.objects.get(id=homework.course_id))
         # check user is teacher or ta
-        if perm(course, user) <= 1:
+        if not course.permission(user, Course.Permission.GRADE):
             raise PermissionError('user is not teacher or ta')
         # check the new_name hasn't been use in this course
 
@@ -190,7 +190,7 @@ class Homework(MongoBase, engine=engine.Homework):
         course: Course,
     ):
         # check user is teacher or ta
-        if perm(course, user) <= 1:
+        if not course.permission(user, Course.Permission.GRADE):
             raise PermissionError('user is not teacher or ta')
         for pid in self.problem_ids:
             problem = Problem(pid)

@@ -142,10 +142,9 @@ def get_report(user, course, problem_id):
         problem = Problem(int(problem_id))
     except ValueError:
         return HTTPError('problemId must be integer', 400)
-    course = Course(course)
-    permission = perm(course, user)
 
-    if permission < 2:
+    course = Course(course)
+    if not course.permission(user, Course.Permission.GRADE):
         return HTTPError('Forbidden.', 403)
     if not problem:
         return HTTPError('Problem not exist.', 404)
@@ -190,7 +189,6 @@ def detect(user, course, problem_id, student_nicknames):
 
     course = Course(course)
     problem = Problem(problem_id)
-    permission = perm(course, user)
 
     # Check if student is in course
     student_dict = {}
@@ -202,7 +200,7 @@ def detect(user, course, problem_id, student_nicknames):
     if not student_dict:
         return HTTPResponse('Empty student list.', 404)
     # some privilege or exist check
-    if permission < 2:
+    if not course.permission(user, Course.Permission.GRADE):
         return HTTPError('Forbidden.', 403)
     if not problem:
         return HTTPError('Problem not exist.', 404)

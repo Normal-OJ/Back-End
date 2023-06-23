@@ -85,8 +85,9 @@ def anncmnt(user, course_name=None, ann_id=None):
         ann = Announcement(ann_id)
         if not ann:
             return HTTPError('Announcement Not Found', 404)
-        course = ann.course
-        if perm(course, user) < 2:
+
+        course = Course(ann.course)
+        if not course.permission(user, Course.Permission.GRADE):
             return HTTPError('Failed to Update Announcement', 403)
         try:
             ann.update(
@@ -110,8 +111,9 @@ def anncmnt(user, course_name=None, ann_id=None):
         ann = Announcement(ann_id)
         if not ann:
             return HTTPError('Announcement Not Found', 404)
-        course = ann.course
-        if perm(course, user) < 2:
+
+        course = Course(ann.course)
+        if not course.permission(user, Course.Permission.GRADE):
             return HTTPError('Failed to Delete Announcement', 403)
         ann.update(status=1)
         return HTTPResponse('Deleted')

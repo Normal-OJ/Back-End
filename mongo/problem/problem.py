@@ -1,12 +1,7 @@
 from .. import engine
 from ..base import MongoBase
 from ..course import *
-from ..utils import (
-    RedisCache,
-    doc_required,
-    drop_none,
-    perm,
-)
+from ..utils import (RedisCache, doc_required, drop_none)
 from ..user import User
 from .exception import BadTestCase
 from .test_case import (
@@ -167,10 +162,13 @@ class Problem(MongoBase, engine=engine.Problem):
             user_cap |= self.Permission.MANAGE
             user_cap |= self.Permission.VIEW
 
-        for course in self.courses:
-            permission = 1 if course.course_name == 'Public' else perm(
-                course, user)
-            if permission and (self.problem_status == 0 or permission >= 2):
+        for course in map(Course, self.courses):
+            capability = course.own_permission(user)
+            if course.course_name == 'Public':
+                capability |= Course.Permission.VIEW
+
+            if capability and (self.problem_status == 0 or course.permission(
+                    user, Course.Permission.GRADE)):
                 user_cap |= self.Permission.VIEW
 
         return user_cap

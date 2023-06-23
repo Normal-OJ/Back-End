@@ -18,8 +18,7 @@ def get_post(user, course):
     target_course = Course(course)
     if not target_course:
         return HTTPError("Course not found.", 404)
-    permission = perm(target_course, user)
-    if not permission:
+    if not target_course.permission(user, Course.Permission.VIEW):
         return HTTPError('You are not in this course.', 403)
     data = Post.found_post(target_course)
     return HTTPResponse('Success.', data=data)
@@ -31,8 +30,7 @@ def get_single_post(user, course, target_thread_id):
     target_course = Course(course)
     if not target_course:
         return HTTPError("Course not found.", 404)
-    permission = perm(target_course, user)
-    if not permission:
+    if not target_course.permission(user, Course.Permission.VIEW):
         return HTTPError('You are not in this course.', 403)
     data = Post.found_post(target_course, target_thread_id)
     return HTTPResponse('Success.', data=data)
@@ -44,6 +42,7 @@ def get_single_post(user, course, target_thread_id):
 def modify_post(user, course, title, content, target_thread_id):
     if course == 'Public':
         return HTTPError('You can not add post in system.', 403)
+
     if course and target_thread_id:
         return HTTPError(
             'Request is fail,course or target_thread_id must be none.', 400)
@@ -51,7 +50,7 @@ def modify_post(user, course, title, content, target_thread_id):
         course_obj = Course(course)
         if not course_obj:
             return HTTPError('Course not exist.', 404)
-        permission = perm(course_obj, user)
+        target_course = course_obj
     elif target_thread_id:
         try:
             target_thread = engine.PostThread.objects.get(id=target_thread_id)
@@ -64,12 +63,13 @@ def modify_post(user, course, title, content, target_thread_id):
             target_thread_id = target_thread.id
         if target_thread.status:  # 1 is deleted
             return HTTPResponse('Forbidden,the post/reply is deleted.', 403)
-        target_course = target_thread.course_id
-        permission = perm(target_course, user)
+        target_course = Course(target_thread.course_id)
     else:
         return HTTPError(
             'Request is fail,course and target_thread_id are both none.', 400)
-    if not permission:
+
+    capability = target_course.own_permission(user)
+    if not (capability & Course.Permission.VIEW):
         return HTTPError('You are not in this course.', 403)
     if request.method == 'POST':
         # add reply
@@ -83,13 +83,13 @@ def modify_post(user, course, title, content, target_thread_id):
             return HTTPError(
                 "Request is fail,you should provide target_thread_id replace course.",
                 400)
-        r = Post.edit_post(target_thread, user, content, title, permission)
+        r = Post.edit_post(target_thread, user, content, title, capability)
     if request.method == 'DELETE':
         if course:
             return HTTPError(
                 "Request is fail,you should provide target_thread_id replace course.",
                 400)
-        r = Post.delete_post(target_thread, user, permission)
+        r = Post.delete_post(target_thread, user, capability)
     if r is not None:
         return HTTPError(r, 403)
     return HTTPResponse('success.')
