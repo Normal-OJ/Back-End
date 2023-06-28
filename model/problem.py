@@ -21,6 +21,10 @@ def permission_error_response():
     return HTTPError('Not enough permission', 403)
 
 
+def online_error_response():
+    return HTTPError('Problem is unavailable', 403)
+
+
 @problem_api.route('/', methods=['GET'])
 @login_required
 @Request.args(
@@ -89,6 +93,8 @@ def view_problem_list(
 def view_problem(user: User, problem: Problem):
     if not problem.permission(user=user, req=problem.Permission.VIEW):
         return permission_error_response()
+    if not problem.permission(user=user, req=problem.Permission.ONLINE):
+        return online_error_response()
     # ip validation
     if not problem.is_valid_ip(get_ip()):
         return HTTPError('Invalid IP address.', 403)
@@ -124,6 +130,8 @@ def get_problem_detailed(user, problem: Problem):
     '''
     if not problem.permission(user, problem.Permission.MANAGE):
         return permission_error_response()
+    if not problem.permission(user=user, req=problem.Permission.ONLINE):
+        return online_error_response()
     info = problem.detailed_info(
         'courses',
         'problemName',
@@ -183,6 +191,8 @@ def create_problem(user: User, **ks):
 def delete_problem(user: User, problem: Problem):
     if not problem.permission(user, problem.Permission.MANAGE):
         return permission_error_response()
+    if not problem.permission(user=user, req=problem.Permission.ONLINE):
+        return online_error_response()
     problem.delete()
     return HTTPResponse()
 
@@ -228,6 +238,9 @@ def manage_problem(user: User, problem: Problem):
 
     if not problem.permission(user, problem.Permission.MANAGE):
         return permission_error_response()
+    if not problem.permission(user=user, req=problem.Permission.ONLINE):
+        return online_error_response()
+
     # edit problem
     try:
         # modify problem meta
@@ -259,6 +272,8 @@ def manage_problem(user: User, problem: Problem):
 def get_test_case(user: User, problem: Problem):
     if not problem.permission(user, problem.Permission.MANAGE):
         return permission_error_response()
+    if not problem.permission(user=user, req=problem.Permission.ONLINE):
+        return online_error_response()
     return send_file(
         problem.test_case.case_zip,
         mimetype='application/zip',
@@ -365,6 +380,8 @@ def publish_problem(user, problem: Problem):
 def problem_stats(user: User, problem: Problem):
     if not problem.permission(user, problem.Permission.VIEW):
         return permission_error_response()
+    if not problem.permission(user=user, req=problem.Permission.ONLINE):
+        return online_error_response()
     ret = {}
     students = []
     for course in problem.courses:

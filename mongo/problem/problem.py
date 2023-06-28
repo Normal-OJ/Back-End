@@ -28,6 +28,7 @@ class Problem(MongoBase, engine=engine.Problem):
 
     class Permission(enum.IntFlag):
         VIEW = enum.auto()
+        ONLINE = enum.auto()
         MANAGE = enum.auto()
 
     def detailed_info(self, *ks, **kns) -> Dict[str, Any]:
@@ -157,19 +158,35 @@ class Problem(MongoBase, engine=engine.Problem):
         """
 
         user_cap = self.Permission(0)
+        for course in map(Course, self.courses):
+            # public course
+            if course.course_name == 'Public':
+                user_cap |= self.Permission.VIEW
+                user_cap |= self.Permission.ONLINE
+            else:
+                # inherit course permission
+                if course.permission(user, Course.Permission.VIEW):
+                    user_cap |= self.Permission.VIEW
+
+                # online problem
+                if self.problem_status == 0:
+                    check_public_problem = True
+                    for homework in course.homeworks:
+                        if self.problem_id in homework.problem_ids:
+                            check_public_problem = False
+                            # current time after homework then online problem
+                            if datetime.now() >= homework.duration.start:
+                                user_cap |= self.Permission.ONLINE
+
+                    # problem does not belong to any homework
+                    if check_public_problem:
+                        user_cap |= self.Permission.ONLINE
+
         # Admin, Teacher && is owner
         if user.role == 0 or self.owner == user.username:
-            user_cap |= self.Permission.MANAGE
             user_cap |= self.Permission.VIEW
-
-        for course in map(Course, self.courses):
-            capability = course.own_permission(user)
-            if course.course_name == 'Public':
-                capability |= Course.Permission.VIEW
-
-            if capability and (self.problem_status == 0 or course.permission(
-                    user, Course.Permission.GRADE)):
-                user_cap |= self.Permission.VIEW
+            user_cap |= self.Permission.ONLINE
+            user_cap |= self.Permission.MANAGE
 
         return user_cap
 
@@ -208,7 +225,7 @@ class Problem(MongoBase, engine=engine.Problem):
         })
         problems = [
             p for p in engine.Problem.objects(**ks).order_by('problemId')
-            if cls(p).permission(user=user, req=cls.Permission.VIEW)
+            if cls(p).permission(user=user, req=cls.Permission.ONLINE)
         ]
         # truncate
         if offset < 0 or (offset >= len(problems) and len(problems)):
