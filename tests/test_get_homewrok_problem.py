@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 import pytest
 from mongo import *
-from unittest.mock import MagicMock
+from unittest.mock import patch
 from flask.testing import FlaskClient
 from tests.base_tester import BaseTester, random_string
 from tests.conftest import ForgeClient
@@ -22,7 +22,7 @@ class CourseData:
 
     @property
     def homework_name(self):
-        return f'{self.name} {id(self)} Test HW'
+        return f"{self.name} {id(self)} Test HW"
 
 
 @pytest.fixture
@@ -32,13 +32,13 @@ def course_data(
 ):
     BaseTester.setup_class()
     cd = CourseData(
-        name='Programming_I',
-        teacher='Po-Wen-Chi',
+        name="Programming_I",
+        teacher="Po-Wen-Chi",
         students={
-            'Yin-Da-Chen': 'ala',
-            'Bo-Chieh-Chuang': 'bogay'
+            "Yin-Da-Chen": "ala",
+            "Bo-Chieh-Chuang": "bogay"
         },
-        tas=['Tzu-Wei-Yu'],
+        tas=["Tzu-Wei-Yu"],
     )
 
     # add course
@@ -46,18 +46,18 @@ def course_data(
 
     # add students and TA
     client_admin.set_cookie(
-        'test.test',
-        'piann',
-        User('admin').secret,
+        "test.test",
+        "piann",
+        User("admin").secret,
     )
     rv = client_admin.put(
-        f'/course/{cd.name}',
+        f"/course/{cd.name}",
         json={
-            'TAs': cd.tas,
-            'studentNicknames': cd.students
+            "TAs": cd.tas,
+            "studentNicknames": cd.students
         },
     )
-    client_admin.delete_cookie('test.test', 'piann')
+    client_admin.delete_cookie("test.test", "piann")
     assert rv.status_code == 200, rv.get_json()
 
     # add homework
@@ -67,8 +67,8 @@ def course_data(
     hw = Homework.add(
         user=User(cd.teacher).obj,
         course_name=cd.name,
-        markdown=f'# {cd.homework_name}\n\n{random_string()}',
-        hw_name=cd.homework_name + '_1',
+        markdown=f"# {cd.homework_name}\n\n{random_string()}",
+        hw_name=cd.homework_name + "_1",
         start=int((datetime.now() - timedelta(days=7)).timestamp()),
         end=int((datetime.now() + timedelta(days=7)).timestamp()),
         problem_ids=homework_problem_ids,
@@ -93,64 +93,50 @@ class TestGetHomeworkProblem(BaseTester):
         forge_client: ForgeClient,
         course_data: CourseData,
     ):
-        client = forge_client('Bo-Chieh-Chuang')
+        client = forge_client("Bo-Chieh-Chuang")
         rv, rv_json, rv_data = self.request(
-            client, 'get',
-            f'problem?offset=0&count=5&course={course_data.name}')
+            client, "get",
+            f"problem?offset=0&count=5&course={course_data.name}")
 
         print(rv_json)
 
         assert rv.status_code == 200
-        assert rv_json['status'] == 'ok'
-        assert rv_json['message'] == 'Success.'
+        assert rv_json["status"] == "ok"
+        assert rv_json["message"] == "Success."
         assert len(rv_data) == 2
 
+    @patch("mongo.problem.problem.datetime")
     def test_student_get_homework_problems_before_start(
-            self, forge_client: ForgeClient, course_data: CourseData):
-        # update homework duration
-        Homework.update(
-            user=User(course_data.teacher).obj,
-            homework_id=course_data.homework_ids[0],
-            markdown=None,
-            new_hw_name=None,
-            problem_ids=course_data.homework_problem_ids,
-            penalty=None,
-            start=int((datetime.now() + timedelta(days=7)).timestamp()),
-            end=int((datetime.now() + timedelta(days=14)).timestamp()),
-        )
+            self, mock_datetime, forge_client: ForgeClient,
+            course_data: CourseData):
+        mock_datetime.now.return_value = datetime.now() - timedelta(days=14)
 
-        client = forge_client('Bo-Chieh-Chuang')
+        client = forge_client("Bo-Chieh-Chuang")
         rv, rv_json, rv_data = self.request(
-            client, 'get',
-            f'problem?offset=0&count=5&course={course_data.name}')
+            client, "get",
+            f"problem?offset=0&count=5&course={course_data.name}")
 
         print(rv_json)
 
         assert rv.status_code == 200
-        assert rv_json['status'] == 'ok'
-        assert rv_json['message'] == 'Success.'
-        assert len(rv_data) == 1
+        assert rv_json["status"] == "ok"
+        assert rv_json["message"] == "Success."
 
-    def test_student_view_offline_problem(self, forge_client: ForgeClient,
+        for data in rv_data:
+            assert data["problemId"] not in course_data.homework_problem_ids
+
+    @patch("mongo.problem.problem.datetime")
+    def test_student_view_offline_problem(self, mock_datetime,
+                                          forge_client: ForgeClient,
                                           course_data: CourseData):
-        # update homework duration
-        Homework.update(
-            user=User(course_data.teacher).obj,
-            homework_id=course_data.homework_ids[0],
-            markdown=None,
-            new_hw_name=None,
-            problem_ids=course_data.homework_problem_ids,
-            penalty=None,
-            start=int((datetime.now() + timedelta(days=7)).timestamp()),
-            end=int((datetime.now() + timedelta(days=14)).timestamp()),
-        )
+        mock_datetime.now.return_value = datetime.now() - timedelta(days=14)
 
-        client = forge_client('Bo-Chieh-Chuang')
+        client = forge_client("Bo-Chieh-Chuang")
         rv, rv_json, rv_data = self.request(
-            client, 'get', f'/problem/2?course={course_data.name}')
+            client, "get", f"/problem/2?course={course_data.name}")
 
         print(rv_json)
 
         assert rv.status_code == 403
-        assert rv_json['status'] == 'err'
-        assert rv_json['message'] == 'Problem is unavailable'
+        assert rv_json["status"] == "err"
+        assert rv_json["message"] == "Problem is unavailable"
