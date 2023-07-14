@@ -159,28 +159,23 @@ class Problem(MongoBase, engine=engine.Problem):
 
         user_cap = self.Permission(0)
         for course in map(Course, self.courses):
-            # public course
-            if course.course_name == 'Public':
+            # inherit course permission
+            if course.permission(user, Course.Permission.VIEW):
                 user_cap |= self.Permission.VIEW
-                user_cap |= self.Permission.ONLINE
-            else:
-                # inherit course permission
-                if course.permission(user, Course.Permission.VIEW):
-                    user_cap |= self.Permission.VIEW
 
-                # online problem
-                if self.problem_status == 0:
-                    check_public_problem = True
-                    for homework in course.homeworks:
-                        if self.problem_id in homework.problem_ids:
-                            check_public_problem = False
-                            # current time after homework then online problem
-                            if datetime.now() >= homework.duration.start:
-                                user_cap |= self.Permission.ONLINE
+            # online problem
+            if self.problem_status == 0:
+                check_public_problem = True
+                for homework in course.homeworks:
+                    if self.problem_id in homework.problem_ids:
+                        check_public_problem = False
+                        # current time after homework then online problem
+                        if datetime.now() >= homework.duration.start:
+                            user_cap |= self.Permission.ONLINE
 
-                    # problem does not belong to any homework
-                    if check_public_problem:
-                        user_cap |= self.Permission.ONLINE
+                # problem does not belong to any homework
+                if check_public_problem:
+                    user_cap |= self.Permission.ONLINE
 
         # Admin, Teacher && is owner
         if user.role == 0 or self.owner == user.username:
