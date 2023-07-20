@@ -27,9 +27,9 @@ __all__ = ('Problem', )
 class Problem(MongoBase, engine=engine.Problem):
 
     class Permission(enum.IntFlag):
-        VIEW = enum.auto()
-        ONLINE = enum.auto()
-        MANAGE = enum.auto()
+        VIEW = enum.auto()  # user view permission
+        ONLINE = enum.auto()  # user can view problem or not
+        MANAGE = enum.auto()  # user manage problem permission
 
     def detailed_info(self, *ks, **kns) -> Dict[str, Any]:
         '''
@@ -190,7 +190,7 @@ class Problem(MongoBase, engine=engine.Problem):
         check whether user own `req` permission
         """
 
-        return bool(self.own_permission(user=user) & req)
+        return (self.own_permission(user=user) & req) == req
 
     @classmethod
     def get_problem_list(
