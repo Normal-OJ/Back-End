@@ -6,6 +6,8 @@ import pytest
 from mongo import (
     User,
     Problem,
+    Course,
+    engine,
 )
 from mongo.problem import BadTestCase
 
@@ -229,3 +231,32 @@ def test_context_io_extra_file_in_unallowed_path():
             match=r'.*(extra-input|extra-output),*',
     ):
         p.update_test_case(f)
+
+
+def test_student_cannot_view_hidden_problem():
+    c = utils.course.create_course()
+    u = utils.user.create_user(course=c)
+    p = utils.problem.create_problem(
+        status=engine.Problem.Visibility.HIDDEN,
+        course=c,
+    )
+
+    assert c.permission(u, Course.Permission.VIEW)
+    assert not p.permission(
+        u,
+        Problem.Permission.VIEW | Problem.Permission.ONLINE,
+    )
+
+
+def test_teacher_can_manage_hidden_problem():
+    u = utils.user.create_user(role=engine.User.Role.TEACHER)
+    c = utils.course.create_course(teacher=u)
+    p = utils.problem.create_problem(
+        status=engine.Problem.Visibility.HIDDEN,
+        course=c,
+    )
+
+    assert p.permission(
+        u,
+        Problem.Permission.MANAGE | Problem.Permission.ONLINE,
+    )

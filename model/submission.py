@@ -15,7 +15,6 @@ from mongo import *
 from mongo import engine
 from mongo.utils import (
     RedisCache,
-    perm,
     drop_none,
 )
 from .utils import *
@@ -85,11 +84,14 @@ def create_submission(user, language_type, problem_id):
             },
         )
     # check if the user has used all his quota
-    if problem.obj.quota != -1 and max(
-            perm(course, user)
-            for course in problem.obj.courses) < 2 and problem.submit_count(
-                user) >= problem.obj.quota:
-        return HTTPError('you have used all your quotas', 403)
+    if problem.obj.quota != -1:
+        no_grade_permission = not any(
+            c.permission(user=user, req=Course.Permission.GRADE)
+            for c in map(Course, problem.courses))
+
+        run_out_of_quota = problem.submit_count(user) >= problem.quota
+        if no_grade_permission and run_out_of_quota:
+            return HTTPError('you have used all your quotas', 403)
     user.problem_submission[str(problem_id)] = problem.submit_count(user) + 1
     user.save()
     # insert submission to DB

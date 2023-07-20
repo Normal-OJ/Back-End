@@ -1,12 +1,7 @@
 from .. import engine
 from ..base import MongoBase
 from ..course import *
-from ..utils import (
-    RedisCache,
-    doc_required,
-    drop_none,
-    perm,
-)
+from ..utils import (RedisCache, doc_required, drop_none)
 from ..user import User
 from .exception import BadTestCase
 from .test_case import (
@@ -32,8 +27,9 @@ __all__ = ('Problem', )
 class Problem(MongoBase, engine=engine.Problem):
 
     class Permission(enum.IntFlag):
-        VIEW = enum.auto()
-        MANAGE = enum.auto()
+        VIEW = enum.auto()  # user view permission
+        ONLINE = enum.auto()  # user can view problem or not
+        MANAGE = enum.auto()  # user manage problem permission
 
     def detailed_info(self, *ks, **kns) -> Dict[str, Any]:
         '''
@@ -162,16 +158,30 @@ class Problem(MongoBase, engine=engine.Problem):
         """
 
         user_cap = self.Permission(0)
+        for course in map(Course, self.courses):
+            # inherit course permission
+            if course.permission(user, Course.Permission.VIEW):
+                user_cap |= self.Permission.VIEW
+
+            # online problem
+            if self.problem_status == 0:
+                check_public_problem = True
+                for homework in course.homeworks:
+                    if self.problem_id in homework.problem_ids:
+                        check_public_problem = False
+                        # current time after homework then online problem
+                        if datetime.now() >= homework.duration.start:
+                            user_cap |= self.Permission.ONLINE
+
+                # problem does not belong to any homework
+                if check_public_problem:
+                    user_cap |= self.Permission.ONLINE
+
         # Admin, Teacher && is owner
         if user.role == 0 or self.owner == user.username:
-            user_cap |= self.Permission.MANAGE
             user_cap |= self.Permission.VIEW
-
-        for course in self.courses:
-            permission = 1 if course.course_name == 'Public' else perm(
-                course, user)
-            if permission and (self.problem_status == 0 or permission >= 2):
-                user_cap |= self.Permission.VIEW
+            user_cap |= self.Permission.ONLINE
+            user_cap |= self.Permission.MANAGE
 
         return user_cap
 
@@ -180,7 +190,7 @@ class Problem(MongoBase, engine=engine.Problem):
         check whether user own `req` permission
         """
 
-        return bool(self.own_permission(user=user) & req)
+        return (self.own_permission(user=user) & req) == req
 
     @classmethod
     def get_problem_list(
@@ -210,7 +220,7 @@ class Problem(MongoBase, engine=engine.Problem):
         })
         problems = [
             p for p in engine.Problem.objects(**ks).order_by('problemId')
-            if cls(p).permission(user=user, req=cls.Permission.VIEW)
+            if cls(p).permission(user=user, req=cls.Permission.ONLINE)
         ]
         # truncate
         if offset < 0 or (offset >= len(problems) and len(problems)):

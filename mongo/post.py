@@ -82,18 +82,19 @@ class Post():
                   user,
                   content,
                   title,
-                  permission,
+                  capability,
                   delete=0):
         # permission
         author = target_thread.author
         # Permission check (use by edit or delete)
-        if delete == 1:  # deete
-            if permission == 1 and user != author:  # teacher,ta,author can delete
+        if delete == 1:  # delete
+            # teacher, ta, author can delete
+            if user != author and not (capability & Course.Permission.GRADE):
                 return 'Forbidden, you don\'t have enough permission to delete it.'
             target_thread.status = 1
         else:  #  edit
-            author = target_thread.author
-            if user != author and permission < 4:  # only author or admin can edit
+            # only author or admin can edit
+            if user != author and not (capability & Course.Permission.MODIFY):
                 return 'Forbidden, you don\'t have enough permission to edit it.'
         # update thread
         updated_time = datetime.now()
@@ -111,8 +112,8 @@ class Post():
             target_post.save()
 
     @classmethod
-    def delete_post(cls, target_thread, user, permission):
+    def delete_post(cls, target_thread, user, capability):
         content = '*Content was deleted.*'
         title = '*The Post was deleted*'
-        return Post.edit_post(target_thread, user, content, title, permission,
+        return Post.edit_post(target_thread, user, content, title, capability,
                               1)

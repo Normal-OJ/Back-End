@@ -26,7 +26,7 @@ from .user import User
 from .problem import Problem
 from .homework import Homework
 from .course import Course
-from .utils import (RedisCache, perm)
+from .utils import RedisCache
 
 __all__ = [
     'SubmissionConfig',
@@ -743,7 +743,9 @@ class Submission(MongoBase, engine=engine.Submission):
             return self.Permission(int(v))
 
         # Calculate
-        if max(perm(course, user) for course in self.problem.courses) >= 2:
+        if max(
+                course.own_permission(user) for course in map(
+                    Course, self.problem.courses)) & Course.Permission.GRADE:
             cap = self.Permission.MANAGER
         elif user.username == self.user.username:
             cap = self.Permission.STUDENT
