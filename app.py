@@ -1,3 +1,4 @@
+import os
 import logging
 from flask import Flask
 from model import *
@@ -7,7 +8,9 @@ from mongo import *
 def app():
     # Create a flask app
     app = Flask(__name__)
+    app.config['PREFERRED_URL_SCHEME'] = 'https'
     app.url_map.strict_slashes = False
+    setup_smtp(app)
     # Register flask blueprint
     api2prefix = [
         (auth_api, '/auth'),
@@ -58,3 +61,23 @@ def app():
         app.logger.setLevel(logger.level)
 
     return app
+
+
+def setup_smtp(app: Flask):
+    logger = logging.getLogger('gunicorn.error')
+    if os.getenv('SMTP_SERVER') is None:
+        logger.info(
+            '\'SMTP_SERVER\' is not set. email-related function will be disabled'
+        )
+        return
+    if os.getenv('SMTP_NOREPLY') is None:
+        raise RuntimeError('missing required configuration \'SMTP_NOREPLY\'')
+    if os.getenv('SMTP_NOREPLY_PASSWORD') is None:
+        logger.info('\'SMTP_NOREPLY\' set but \'SMTP_NOREPLY_PASSWORD\' not')
+    # config for external URLs
+    server_name = os.getenv('SERVER_NAME')
+    if server_name is None:
+        raise RuntimeError('missing required configuration \'SERVER_NAME\'')
+    app.config['SERVER_NAME'] = server_name
+    if (application_root := os.getenv('APPLICATION_ROOT')) is not None:
+        app.config['APPLICATION_ROOT'] = application_root
