@@ -100,6 +100,7 @@ class TestUserGetSubmission(SubmissionTester):
             'memoryUsage',
             'languageType',
             'timestamp',
+            'ipAddr',
         }
         for s in rv_data['submissions']:
             assert len(excepted_field_names - set(s.keys())) == 0
@@ -210,6 +211,7 @@ class TestUserGetSubmission(SubmissionTester):
                 'runTime',
                 'memoryUsage',
                 'code',
+                'ipAddr',
             }
             missing_field = except_fields - set(rv_data.keys())
             assert len(missing_field) == 0, missing_field
