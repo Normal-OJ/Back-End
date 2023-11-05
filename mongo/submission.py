@@ -533,6 +533,7 @@ class Submission(MongoBase, engine=engine.Submission):
         after: Optional[datetime] = None,
         sort_by: Optional[str] = None,
         with_count: bool = False,
+        ip_addr: Optional[str] = None,
     ):
         if before is not None and after is not None:
             if after > before:
@@ -581,6 +582,7 @@ class Submission(MongoBase, engine=engine.Submission):
             'status': status,
             'language__in': language_type,
             'user': q_user,
+            'ip_addr': ip_addr,
             'timestamp__lte': before,
             'timestamp__gte': after,
         }
@@ -606,6 +608,7 @@ class Submission(MongoBase, engine=engine.Submission):
         username: str,
         lang: int,
         timestamp: Optional[date] = None,
+        ip_addr: Optional[str] = None,
     ) -> 'Submission':
         '''
         Insert a new submission into db
@@ -625,12 +628,11 @@ class Submission(MongoBase, engine=engine.Submission):
         if timestamp is None:
             timestamp = datetime.now()
         # create a new submission
-        submission = engine.Submission(
-            problem=problem.obj,
-            user=user.obj,
-            language=lang,
-            timestamp=timestamp,
-        )
+        submission = engine.Submission(problem=problem.obj,
+                                       user=user.obj,
+                                       language=lang,
+                                       timestamp=timestamp,
+                                       ip_addr=ip_addr)
         submission.save()
         return cls(submission.id)
 
@@ -671,6 +673,7 @@ class Submission(MongoBase, engine=engine.Submission):
             'submissionId': str(self.id),
             'timestamp': self.timestamp.timestamp(),
             'lastSend': self.last_send.timestamp(),
+            'ipAddr': self.ip_addr,
         }
         old = [
             '_id',
@@ -678,6 +681,7 @@ class Submission(MongoBase, engine=engine.Submission):
             'code',
             'comment',
             'tasks',
+            'ip_addr',
         ]
         # delete old keys
         for o in old:

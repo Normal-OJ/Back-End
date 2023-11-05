@@ -390,6 +390,7 @@ class Submission(Document):
     code = ZipField(required=True, null=True, max_size=10**7)
     last_send = DateTimeField(db_field='lastSend', default=datetime.now)
     comment = FileField(default=None, null=True)
+    ip_addr = StringField(default=None, null=True)
 
 
 @escape_markdown.apply
