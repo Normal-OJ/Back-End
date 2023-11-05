@@ -42,9 +42,9 @@ def course_data(
     Course.add_course(cd.name, cd.teacher)
     # add students and TA
     client_admin.set_cookie(
-        'test.test',
         'piann',
         User('admin').secret,
+        domain='test.test',
     )
     rv = client_admin.put(
         f'/course/{cd.name}',
@@ -53,7 +53,7 @@ def course_data(
             'studentNicknames': cd.students
         },
     )
-    client_admin.delete_cookie('test.test', 'piann')
+    client_admin.delete_cookie('piann', domain='test.test')
     assert rv.status_code == 200, rv.get_json()
     # add homework
     hw = Homework.add(

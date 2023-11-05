@@ -111,9 +111,9 @@ class TestSignup:
 
     def test_directly_add_user_by_admin(self, client):
         client.set_cookie(
-            'test.test',
             'piann',
             User('first_admin').secret,
+            domain='test.test',
         )
         name = secrets.token_hex()[:12]
         assert not User(name), name
@@ -127,7 +127,7 @@ class TestSignup:
             },
         )
         assert rv.status_code == 200, rv.get_json()
-        client.delete_cookie('test.test', 'piann')
+        client.delete_cookie('piann', domain='test.test')
         rv = client.post(
             '/auth/session',
             json={
@@ -285,7 +285,7 @@ class TestActive:
             raise engine.DoesNotExist('Public Course Not Exists')
 
         monkeypatch.setattr(User, 'activate', raise_public_course_not_exists)
-        client.set_cookie('test.test', 'piann', test_token)
+        client.set_cookie('piann', test_token, domain='test.test')
         rv = client.post(f'/auth/active',
                          json={
                              'profile': {},
@@ -296,7 +296,7 @@ class TestActive:
 
     def test_update(self, client, test_token):
         # Update
-        client.set_cookie('test.test', 'piann', test_token)
+        client.set_cookie('piann', test_token, domain='test.test')
         rv = client.post(
             f'/auth/active',
             json={
@@ -313,7 +313,7 @@ class TestActive:
         assert json['message'] == 'User Is Now Active'
 
     def test_update_with_activated_user(self, client, test_token):
-        client.set_cookie('test.test', 'piann', test_token)
+        client.set_cookie('piann', test_token, domain='test.test')
         rv = client.post(f'/auth/active',
                          json={
                              'profile': {},
@@ -422,7 +422,7 @@ class TestResendEmail:
                              'email': f'{name}@test.test',
                          })
         assert rv.status_code == 200
-        client.delete_cookie('test.test', 'pinna')
+        client.delete_cookie('pinna', domain='test.test')
         rv = client.post('/auth/resend-email',
                          json={'email': f'{name}@test.test'})
         assert rv.status_code == 400, rv.get_json()
@@ -502,7 +502,7 @@ class TestLogout:
 
     def test_logout(self, client, test_token):
         # Logout
-        client.set_cookie('test.test', 'piann', test_token)
+        client.set_cookie('piann', test_token, domain='test.test')
         rv = client.get('/auth/session')
         json = rv.get_json()
         assert rv.status_code == 200
@@ -514,7 +514,7 @@ def test_get_self_data(client):
     rv = client.get('/auth/me')
     assert rv.status_code == 403
     test_user = User('test')
-    client.set_cookie('test.test', 'piann', test_user.secret)
+    client.set_cookie('piann', test_user.secret, domain='test.test')
     rv = client.get(
         '/auth/me',
         query_string='fields=username,displayedName',
@@ -577,7 +577,7 @@ class TestChangePassword:
                          })
         assert rv.status_code == 200, rv.get_json()
         assert rv.get_json()['message'] == 'Password Has Been Changed'
-        client.set_cookie('test.test', 'piann', old_secret)
+        client.set_cookie('piann', old_secret, domain='test.test')
         rv = client.get('/auth/me')
         assert rv.status_code == 403, rv.get_json()
         assert rv.get_json()['message'] == 'Authorization Expired'
