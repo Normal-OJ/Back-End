@@ -1,5 +1,5 @@
 # Ref: https://github.com/adamwojt/ur_l/blob/c748fff814f8cffcc979020008aab460a0de9d50/python_docker/Dockerfile
-FROM python:3.8-slim as python-base
+FROM python:3.11-slim as python-base
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=off \
@@ -17,7 +17,7 @@ FROM python-base as builder-base
 RUN apt-get update && apt-get install --no-install-recommends -y curl
 
 # Install Poetry - respects $POETRY_VERSION & $POETRY_HOME
-ENV POETRY_VERSION=1.3.2
+ENV POETRY_VERSION=1.6.1
 RUN curl -sSL https://install.python-poetry.org | python - 
 
 # We copy our Python requirements here to cache them

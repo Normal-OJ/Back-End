@@ -46,7 +46,7 @@ class ForgeClient(Protocol):
 def forge_client(client: FlaskClient):
 
     def seted_cookie(username: str) -> FlaskClient:
-        client.set_cookie('test.test', 'piann', User(username).secret)
+        client.set_cookie('piann', User(username).secret, domain='test.test')
         return client
 
     return seted_cookie
@@ -121,7 +121,7 @@ def make_course(forge_client):
         )
         assert rv.status_code == 200, rv.get_json()
 
-        client.cookie_jar.clear()
+        client._cookies.clear()
         return c_data
 
     return make_course
@@ -261,6 +261,7 @@ def submit_once(app, get_source):
                     username=name,
                     lang=lang,
                     timestamp=now,
+                    ip_addr="127.0.0.1",
                 )
             except engine.DoesNotExist as e:
                 assert False, str(e)

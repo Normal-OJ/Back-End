@@ -22,6 +22,7 @@ def create_submission(
     exec_time: Optional[int] = None,
     memory_usage: Optional[int] = None,
     code: Optional[str] = '',
+    ip_addr: Optional[str] = '',
 ) -> Submission:
     if isinstance(user, str):
         user = User(user)
@@ -36,6 +37,7 @@ def create_submission(
         'username': user.username,
         'lang': lang,
         'timestamp': timestamp,
+        'ip_addr': ip_addr
     }
     submission = Submission.add(**params)
     if status is None:
@@ -69,6 +71,7 @@ def create_submission(
         'score': score,
         'exec_time': exec_time,
         'memory_usage': memory_usage,
+        'ip_addr': ip_addr
     }))
     submission.reload()
     return submission
@@ -84,6 +87,7 @@ def add_fake_output(submission: Submission):
         'stderr': 'err',
         'execTime': submission.exec_time,
         'memoryUsage': submission.memory_usage,
+        'ipAddr': submission.ip_addr
     }
     result = [[copy(single_result) for _ in range(t.case_count)]
               for t in submission.problem.test_case.tasks]

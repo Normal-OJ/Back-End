@@ -96,12 +96,11 @@ def create_submission(user, language_type, problem_id):
     user.save()
     # insert submission to DB
     try:
-        submission = Submission.add(
-            problem_id=problem_id,
-            username=user.username,
-            lang=language_type,
-            timestamp=now,
-        )
+        submission = Submission.add(problem_id=problem_id,
+                                    username=user.username,
+                                    lang=language_type,
+                                    timestamp=now,
+                                    ip_addr=request.remote_addr)
     except ValidationError:
         return HTTPError('invalid data!', 400)
     except engine.DoesNotExist as e:
@@ -126,17 +125,8 @@ def create_submission(user, language_type, problem_id):
 
 @submission_api.route('/', methods=['GET'])
 @login_required
-@Request.args(
-    'offset',
-    'count',
-    'problem_id',
-    'username',
-    'status',
-    'language_type',
-    'course',
-    'before',
-    'after',
-)
+@Request.args('offset', 'count', 'problem_id', 'username', 'status',
+              'language_type', 'course', 'before', 'after', 'ip_addr')
 def get_submission_list(
     user,
     offset,
@@ -148,6 +138,7 @@ def get_submission_list(
     before,
     after,
     language_type,
+    ip_addr,
 ):
     '''
     get the list of submission data
@@ -160,6 +151,22 @@ def get_submission_list(
             return int(val)
         except ValueError:
             raise ValueError(f'can not convert {name} to integer')
+
+    def parse_str(val: Optional[str], name: str):
+        if val is None:
+            return None
+        try:
+            return str(val)
+        except ValueError:
+            raise ValueError(f'can not convert {name} to string')
+
+    def parse_timestamp(val: Optional[int], name: str):
+        if val is None:
+            return None
+        try:
+            return datetime.fromtimestamp(val)
+        except ValueError:
+            raise ValueError(f'can not convert {name} to timestamp')
 
     cache_key = (
         'SUBMISSION_LIST_API',
@@ -174,6 +181,7 @@ def get_submission_list(
         before,
         after,
     )
+
     cache_key = '_'.join(map(str, cache_key))
     cache = RedisCache()
     # check cache
@@ -187,12 +195,10 @@ def get_submission_list(
         count = parse_int(count, 'count')
         problem_id = parse_int(problem_id, 'problemId')
         status = parse_int(status, 'status')
-        before = parse_int(before, 'before')
-        if before is not None:
-            before = datetime.fromtimestamp(before)
-        after = parse_int(after, 'after')
-        if after is not None:
-            after = datetime.fromtimestamp(after)
+        before = parse_timestamp(before, 'before')
+        after = parse_timestamp(after, 'after')
+        ip_addr = parse_str(ip_addr, 'ip_addr')
+
         if language_type is not None:
             try:
                 language_type = list(map(int, language_type.split(',')))
@@ -216,6 +222,7 @@ def get_submission_list(
                 'course': course,
                 'before': before,
                 'after': after,
+                'ip_addr': ip_addr
             })
             submissions, submission_count = Submission.filter(
                 **params,
