@@ -116,7 +116,7 @@ def session():
             - 403 Login Failed
         '''
         try:
-            user = User.login(username, password)
+            user = User.login(request, username, password)
         except DoesNotExist:
             return HTTPError('Login Failed', 403)
         if not user.active:
