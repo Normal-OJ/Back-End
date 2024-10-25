@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from hmac import compare_digest
 from typing import Any, Dict, List, TYPE_CHECKING, Optional
 
-from . import engine, course
+from . import engine, course, login_record
 from .utils import *
 from .base import *
 
@@ -121,7 +121,7 @@ class User(MongoBase, engine=engine.User):
         self.reload()
 
     @classmethod
-    def login(cls, username, password):
+    def login(cls, request, username, password):
         try:
             user = cls.get_by_username(username)
         except engine.DoesNotExist:
@@ -129,7 +129,9 @@ class User(MongoBase, engine=engine.User):
         user_id = hash_id(user.username, password)
         if (compare_digest(user.user_id, user_id)
                 or compare_digest(user.user_id2, user_id)):
+            login_record.LoginRecord.record_login(user_id, request.remote_addr, True)
             return user
+        login_record.LoginRecord.record_login(user_id, request.remote_addr, False)
         raise engine.DoesNotExist
 
     @classmethod
