@@ -254,7 +254,7 @@ class ProblemDescription(EmbeddedDocument):
                 self.input,
                 self.output,
                 self.hint,
-            ))
+        ))
         _io = zip(self.sample_input, self.sample_output)
         for i, (ip, op) in enumerate(_io):
             self.sample_input[i] = ip or html.escape(ip)
@@ -460,3 +460,10 @@ class SubmissionConfig(Config):
         ],
         db_field='sandboxInstances',
     )
+
+
+class LoginRecords(Document):
+    user_id = StringField(db_field='userId', max_length=24, required=True)
+    success = BooleanField(default=False)
+    ip_addr = StringField(default=None, null=True)
+    last_login = DateTimeField(default=datetime.min)
