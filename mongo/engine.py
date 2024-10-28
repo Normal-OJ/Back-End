@@ -460,3 +460,9 @@ class SubmissionConfig(Config):
         ],
         db_field='sandboxInstances',
     )
+
+
+class LoginRecords(Document):
+    user_id = StringField(required=True)
+    ip_addr = StringField(required=True)
+    timestamp = DateTimeField(required=True, default=datetime.now)
