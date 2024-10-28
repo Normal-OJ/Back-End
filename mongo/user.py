@@ -98,7 +98,7 @@ class User(MongoBase, engine=engine.User):
             new_student_nicknames = {
                 **course.student_nicknames,
                 **{u.username: u.username
-                    for u in registered_users}
+                   for u in registered_users}
             }
             course.update_student_namelist(new_student_nicknames)
         return new_users
