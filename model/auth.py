@@ -116,7 +116,7 @@ def session():
             - 403 Login Failed
         '''
         try:
-            user = User.login(username, password)
+            user = User.login(username, password, request.remote_addr)
         except DoesNotExist:
             return HTTPError('Login Failed', 403)
         if not user.active:
@@ -152,7 +152,7 @@ def signup(username, password, email):
 @Request.json('old_password: str', 'new_password: str')
 def change_password(user, old_password, new_password):
     try:
-        User.login(user.username, old_password)
+        User.login(user.username, old_password, request.remote_addr)
     except DoesNotExist:
         return HTTPError('Wrong Password', 403)
     user.change_password(new_password)
