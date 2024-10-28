@@ -97,8 +97,10 @@ class User(MongoBase, engine=engine.User):
         if course is not None:
             new_student_nicknames = {
                 **course.student_nicknames,
-                **{u.username: u.username
-                   for u in registered_users}
+                **{
+                    u.username: u.username
+                    for u in registered_users
+                }
             }
             course.update_student_namelist(new_student_nicknames)
         return new_users
@@ -129,16 +131,11 @@ class User(MongoBase, engine=engine.User):
         user_id = hash_id(user.username, password)
         if (compare_digest(user.user_id, user_id)
                 or compare_digest(user.user_id2, user_id)):
-            engine.LoginRecords(
-                user_id=user_id,
-                ip_addr=ip_addr,
-                success=True
-            ).save(force_insert=True)
+            engine.LoginRecords(user_id=user_id, ip_addr=ip_addr,
+                                success=True).save(force_insert=True)
             return user
-        engine.LoginRecords(
-            user_id=user_id,
-            ip_addr=ip_addr
-        ).save(force_insert=True)
+        engine.LoginRecords(user_id=user_id,
+                            ip_addr=ip_addr).save(force_insert=True)
         raise engine.DoesNotExist
 
     @classmethod

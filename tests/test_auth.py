@@ -786,7 +786,8 @@ class TestBatchSignup:
             },
         )
         assert rv.status_code == 200, rv.get_json()
-        login = User.login(except_user.username, except_user.password, "127.0.0.1")
+        login = User.login(except_user.username, except_user.password,
+                           "127.0.0.1")
         assert login == User.get_by_username(except_user.username)
 
     def test_signup_with_invalid_input_format(self, forge_client):

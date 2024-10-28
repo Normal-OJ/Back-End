@@ -207,7 +207,8 @@ def test_admin_can_read_user_under_specific_course(forge_client):
 def test_admin_can_update_user_password(forge_client):
     password = secrets.token_hex()
     user = utils.user.create_user(password=password)
-    assert User.login(user.username, password, "127.0.0.1").username == user.username
+    assert User.login(user.username, password,
+                      "127.0.0.1").username == user.username
 
     client = forge_client('first_admin')
     new_password = password + secrets.token_hex(4)
@@ -224,7 +225,8 @@ def test_admin_can_update_user_password(forge_client):
     with pytest.raises(engine.DoesNotExist):
         User.login(user.username, password, "127.0.0.1")
     # should use new one
-    assert User.login(user.username, new_password, "127.0.0.1").username == user.username
+    assert User.login(user.username, new_password,
+                      "127.0.0.1").username == user.username
 
 
 def test_admin_can_update_user_display_name(forge_client):
