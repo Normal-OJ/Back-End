@@ -465,4 +465,5 @@ class SubmissionConfig(Config):
 class LoginRecords(Document):
     user_id = StringField(required=True)
     ip_addr = StringField(required=True)
+    success = BooleanField(required=True, default=False)
     timestamp = DateTimeField(required=True, default=datetime.now)
