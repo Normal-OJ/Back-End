@@ -755,7 +755,7 @@ class TestBatchSignup:
         )
         assert rv.status_code == 200, rv.get_json()
         for u in excepted_users:
-            login = User.login(u.username, u.password, 127.0.0.1)
+            login = User.login(u.username, u.password, "127.0.0.1")
             assert login == User.get_by_username(u.username)
             assert login.profile.displayed_name == u.displayed_name
 
