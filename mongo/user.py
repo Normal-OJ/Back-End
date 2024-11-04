@@ -121,7 +121,7 @@ class User(MongoBase, engine=engine.User):
         self.reload()
 
     @classmethod
-    def login(cls, username, password):
+    def login(cls, username, password, ip_addr):
         try:
             user = cls.get_by_username(username)
         except engine.DoesNotExist:
@@ -129,7 +129,11 @@ class User(MongoBase, engine=engine.User):
         user_id = hash_id(user.username, password)
         if (compare_digest(user.user_id, user_id)
                 or compare_digest(user.user_id2, user_id)):
+            engine.LoginRecords(user_id=user_id, ip_addr=ip_addr,
+                                success=True).save(force_insert=True)
             return user
+        engine.LoginRecords(user_id=user_id,
+                            ip_addr=ip_addr).save(force_insert=True)
         raise engine.DoesNotExist
 
     @classmethod

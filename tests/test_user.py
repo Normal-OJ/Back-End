@@ -42,7 +42,7 @@ def test_admin_can_create_user(forge_client):
     )
     assert rv.status_code == 200, rv_json
 
-    u = User.login(payload.username, payload.password)
+    u = User.login(payload.username, payload.password, "127.0.0.1")
     assert u.email == payload.email
 
 
@@ -96,7 +96,7 @@ def test_non_admin_cannot_create_user(forge_client, role: engine.User.Role):
     )
     assert rv.status_code == 403, rv_json
     with pytest.raises(engine.DoesNotExist):
-        User.login(payload.username, payload.password)
+        User.login(payload.username, payload.password, "127.0.0.1")
 
 
 def test_admin_can_read_user_list(forge_client):
@@ -207,7 +207,8 @@ def test_admin_can_read_user_under_specific_course(forge_client):
 def test_admin_can_update_user_password(forge_client):
     password = secrets.token_hex()
     user = utils.user.create_user(password=password)
-    assert User.login(user.username, password).username == user.username
+    assert User.login(user.username, password,
+                      "127.0.0.1").username == user.username
 
     client = forge_client('first_admin')
     new_password = password + secrets.token_hex(4)
@@ -222,9 +223,10 @@ def test_admin_can_update_user_password(forge_client):
 
     # can't login with old password
     with pytest.raises(engine.DoesNotExist):
-        User.login(user.username, password)
+        User.login(user.username, password, "127.0.0.1")
     # should use new one
-    assert User.login(user.username, new_password).username == user.username
+    assert User.login(user.username, new_password,
+                      "127.0.0.1").username == user.username
 
 
 def test_admin_can_update_user_display_name(forge_client):
