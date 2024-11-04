@@ -902,3 +902,35 @@ def test_verify_link_with_subdirectory(app):
     expected_url = f'https://{server_name}{subdirectory}/auth/active/{u.cookie}'
     with app.app_context():
         assert expected_url == get_verify_link(u)
+
+
+def test_login_recorded_after_login(client):
+    password = 'pass'
+    u = utils.user.create_user(password=password)
+    resp = client.post(
+        '/auth/session',
+        json={
+            'username': u.username,
+            'password': password,
+        },
+    )
+    assert resp.status_code == 200
+
+    record = engine.LoginRecords.objects(user_id=u.id)
+    assert len(record) == 1
+
+
+def test_login_recorded_after_failed_login(client):
+    u = utils.user.create_user()
+    password = secrets.token_hex()
+    resp = client.post(
+        '/auth/session',
+        json={
+            'username': u.username,
+            'password': password,
+        },
+    )
+    assert resp.status_code == 403
+
+    record = engine.LoginRecords.objects(user_id=u.id, success=False)
+    assert len(record) == 1
