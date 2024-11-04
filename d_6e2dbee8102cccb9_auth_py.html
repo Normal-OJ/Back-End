@@ -65,7 +65,7 @@
             <a id="nextFileLink" class="nav" href="d_6e2dbee8102cccb9_copycat_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.3.2">coverage.py v7.3.2</a>,
-            created at 2024-09-12 03:42 +0000
+            created at 2024-11-04 12:11 +0000
         </p>
         <aside class="hidden">
             <button type="button" class="button_next_chunk" data-shortcut="j"/>
@@ -198,7 +198,7 @@
     <p class="pln"><span class="n"><a id="t116" href="#t116">116</a></span><span class="t"><span class="str">            - 403 Login Failed</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t117" href="#t117">117</a></span><span class="t"><span class="str">        '''</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t118" href="#t118">118</a></span><span class="t">        <span class="key">try</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t119" href="#t119">119</a></span><span class="t">            <span class="nam">user</span> <span class="op">=</span> <span class="nam">User</span><span class="op">.</span><span class="nam">login</span><span class="op">(</span><span class="nam">username</span><span class="op">,</span> <span class="nam">password</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t119" href="#t119">119</a></span><span class="t">            <span class="nam">user</span> <span class="op">=</span> <span class="nam">User</span><span class="op">.</span><span class="nam">login</span><span class="op">(</span><span class="nam">username</span><span class="op">,</span> <span class="nam">password</span><span class="op">,</span> <span class="nam">request</span><span class="op">.</span><span class="nam">remote_addr</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t120" href="#t120">120</a></span><span class="t">        <span class="key">except</span> <span class="nam">DoesNotExist</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t121" href="#t121">121</a></span><span class="t">            <span class="key">return</span> <span class="nam">HTTPError</span><span class="op">(</span><span class="str">'Login Failed'</span><span class="op">,</span> <span class="num">403</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t122" href="#t122">122</a></span><span class="t">        <span class="key">if</span> <span class="key">not</span> <span class="nam">user</span><span class="op">.</span><span class="nam">active</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
@@ -234,7 +234,7 @@
     <p class="run"><span class="n"><a id="t152" href="#t152">152</a></span><span class="t"><span class="op">@</span><span class="nam">Request</span><span class="op">.</span><span class="nam">json</span><span class="op">(</span><span class="str">'old_password: str'</span><span class="op">,</span> <span class="str">'new_password: str'</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t153" href="#t153">153</a></span><span class="t"><span class="key">def</span> <span class="nam">change_password</span><span class="op">(</span><span class="nam">user</span><span class="op">,</span> <span class="nam">old_password</span><span class="op">,</span> <span class="nam">new_password</span><span class="op">)</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t154" href="#t154">154</a></span><span class="t">    <span class="key">try</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t155" href="#t155">155</a></span><span class="t">        <span class="nam">User</span><span class="op">.</span><span class="nam">login</span><span class="op">(</span><span class="nam">user</span><span class="op">.</span><span class="nam">username</span><span class="op">,</span> <span class="nam">old_password</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t155" href="#t155">155</a></span><span class="t">        <span class="nam">User</span><span class="op">.</span><span class="nam">login</span><span class="op">(</span><span class="nam">user</span><span class="op">.</span><span class="nam">username</span><span class="op">,</span> <span class="nam">old_password</span><span class="op">,</span> <span class="nam">request</span><span class="op">.</span><span class="nam">remote_addr</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t156" href="#t156">156</a></span><span class="t">    <span class="key">except</span> <span class="nam">DoesNotExist</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t157" href="#t157">157</a></span><span class="t">        <span class="key">return</span> <span class="nam">HTTPError</span><span class="op">(</span><span class="str">'Wrong Password'</span><span class="op">,</span> <span class="num">403</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t158" href="#t158">158</a></span><span class="t">    <span class="nam">user</span><span class="op">.</span><span class="nam">change_password</span><span class="op">(</span><span class="nam">new_password</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
@@ -429,7 +429,7 @@
             <a id="nextFileLink" class="nav" href="d_6e2dbee8102cccb9_copycat_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.3.2">coverage.py v7.3.2</a>,
-            created at 2024-09-12 03:42 +0000
+            created at 2024-11-04 12:11 +0000
         </p>
     </div>
 </footer>
