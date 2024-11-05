@@ -16,7 +16,7 @@ blinker = "^1.5"
 PyJWT = "^2.5"
 requests = "^2.31"
 mosspy = "^1.0"
-redis = "^4.3"
+redis = "^4.4"
 pymongo = "^4.5.0"
 
 [tool.poetry.group.dev.dependencies]
