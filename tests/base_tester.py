@@ -1,6 +1,7 @@
 import secrets
 import typing
 from typing import Literal, Tuple, Dict, Any, Union
+import mongomock
 from mongoengine import connect
 from mongo import *
 from flask.testing import FlaskClient
@@ -28,13 +29,17 @@ def random_string(k=None):
 
 
 class BaseTester:
-    MONGO_HOST = 'mongomock://localhost'
+    MONGO_HOST = 'mongodb://localhost'
     DB = 'normal-oj'
     USER_CONFIG = 'tests/user.json'
 
     @classmethod
     def drop_db(cls):
-        conn = connect(cls.DB, host=cls.MONGO_HOST)
+        conn = connect(
+            cls.DB,
+            host=cls.MONGO_HOST,
+            mongo_client_class=mongomock.MongoClient,
+        )
         conn.drop_database(cls.DB)
 
     @classmethod
