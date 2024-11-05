@@ -92,7 +92,7 @@ class User(MongoBase, engine=engine.User):
                 except engine.DoesNotExist:
                     new_user = cls.get_by_email(u['email'])
                 if force:
-                    new_user.force_update(u)
+                    new_user.force_update(u, course)
             registered_users.append(new_user)
         if course is not None:
             new_student_nicknames = {
@@ -103,7 +103,7 @@ class User(MongoBase, engine=engine.User):
             course.update_student_namelist(new_student_nicknames)
         return new_users
 
-    def force_update(self, new_user: Dict[str, Any]):
+    def force_update(self, new_user: Dict[str, Any], course: Optional[Course]):
         '''
         Force update an existent user in batch update procedure
         '''
@@ -113,10 +113,15 @@ class User(MongoBase, engine=engine.User):
             self.update(role=role)
         if (password := new_user.get('password')) is not None:
             self.change_password(password)
+        if (email := new_user.get('email')) is not None:
+            self.update(email=email,
+                        md5=hashlib.md5(email.encode()).hexdigest())
+        if course is not None:
+            self.update(add_to_set__courses=course.id)
         self.reload()
 
     @classmethod
-    def login(cls, username, password):
+    def login(cls, username, password, ip_addr):
         try:
             user = cls.get_by_username(username)
         except engine.DoesNotExist:
@@ -124,7 +129,17 @@ class User(MongoBase, engine=engine.User):
         user_id = hash_id(user.username, password)
         if (compare_digest(user.user_id, user_id)
                 or compare_digest(user.user_id2, user_id)):
+            engine.LoginRecords(
+                user_id=user.id,
+                ip_addr=ip_addr,
+                success=True,
+            ).save(force_insert=True)
             return user
+        engine.LoginRecords(
+            user_id=user.id,
+            ip_addr=ip_addr,
+            success=False,
+        ).save(force_insert=True)
         raise engine.DoesNotExist
 
     @classmethod

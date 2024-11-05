@@ -633,7 +633,7 @@ class TestBatchSignup:
             assert user.profile.displayed_name == payload.displayed_name
         if payload.role is not None:
             assert user.role == payload.role
-        login = User.login(payload.username, payload.password)
+        login = User.login(payload.username, payload.password, "127.0.0.1")
         assert login.username == payload.username
 
     @classmethod
@@ -677,7 +677,7 @@ class TestBatchSignup:
         assert rv.status_code == 200, rv.get_json()
         # Ensure the users has been registered
         for u in excepted_users:
-            login = User.login(u.username, u.password)
+            login = User.login(u.username, u.password, "127.0.0.1")
             assert login == User.get_by_username(u.username)
 
     def test_sign_up_with_invalid_csv(self, monkeypatch, forge_client):
@@ -738,7 +738,7 @@ class TestBatchSignup:
         assert rv.status_code == 200, rv.get_json()
         course = Course(course_name)
         for u in excepted_users:
-            login = User.login(u.username, u.password)
+            login = User.login(u.username, u.password, "127.0.0.1")
             assert login == User.get_by_username(u.username)
             assert u.username in course.student_nicknames
 
@@ -755,7 +755,7 @@ class TestBatchSignup:
         )
         assert rv.status_code == 200, rv.get_json()
         for u in excepted_users:
-            login = User.login(u.username, u.password)
+            login = User.login(u.username, u.password, "127.0.0.1")
             assert login == User.get_by_username(u.username)
             assert login.profile.displayed_name == u.displayed_name
 
@@ -772,7 +772,7 @@ class TestBatchSignup:
         )
         assert rv.status_code == 200, rv.get_json()
         for u in excepted_users:
-            login = User.login(u.username, u.password)
+            login = User.login(u.username, u.password, "127.0.0.1")
             assert login == User.get_by_username(u.username)
             assert login.role == u.role
 
@@ -786,7 +786,8 @@ class TestBatchSignup:
             },
         )
         assert rv.status_code == 200, rv.get_json()
-        login = User.login(except_user.username, except_user.password)
+        login = User.login(except_user.username, except_user.password,
+                           "127.0.0.1")
         assert login == User.get_by_username(except_user.username)
 
     def test_signup_with_invalid_input_format(self, forge_client):
@@ -848,9 +849,9 @@ class TestBatchSignup:
         # ensure they can't login with updated payload
         for u in existent_users:
             with pytest.raises(engine.DoesNotExist):
-                User.login(u.username, u.password)
+                User.login(u.username, u.password, "127.0.0.1")
             with pytest.raises(engine.DoesNotExist):
-                User.login(u.email, u.password)
+                User.login(u.email, u.password, "127.0.0.1")
 
         excepted_users = [
             *(self.signup_input() for _ in range(5)),
@@ -871,7 +872,7 @@ class TestBatchSignup:
 
         course.reload()
         for u in excepted_users:
-            login = User.login(u.username, u.password)
+            login = User.login(u.username, u.password, "127.0.0.1")
             self.cmp_payload_and_user(login, u)
             assert u.username in course.student_nicknames
 
@@ -901,3 +902,35 @@ def test_verify_link_with_subdirectory(app):
     expected_url = f'https://{server_name}{subdirectory}/auth/active/{u.cookie}'
     with app.app_context():
         assert expected_url == get_verify_link(u)
+
+
+def test_login_recorded_after_login(client):
+    password = 'pass'
+    u = utils.user.create_user(password=password)
+    resp = client.post(
+        '/auth/session',
+        json={
+            'username': u.username,
+            'password': password,
+        },
+    )
+    assert resp.status_code == 200
+
+    record = engine.LoginRecords.objects(user_id=u.id)
+    assert len(record) == 1
+
+
+def test_login_recorded_after_failed_login(client):
+    u = utils.user.create_user()
+    password = secrets.token_hex()
+    resp = client.post(
+        '/auth/session',
+        json={
+            'username': u.username,
+            'password': password,
+        },
+    )
+    assert resp.status_code == 403
+
+    record = engine.LoginRecords.objects(user_id=u.id, success=False)
+    assert len(record) == 1
