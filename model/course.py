@@ -14,43 +14,41 @@ __all__ = ['course_api']
 course_api = Blueprint('course_api', __name__)
 
 
-@course_api.route('/', methods=['GET', 'POST', 'PUT', 'DELETE'])
+@course_api.get('/')
 @login_required
 def get_courses(user):
+    data = [{
+        'course': c.course_name,
+        'teacher': c.teacher.info,
+    } for c in Course.get_user_courses(user)]
+    return HTTPResponse('Success.', data=data)
 
-    @Request.json('course', 'new_course', 'teacher')
-    @identity_verify(0, 1)
-    def modify_courses(user, course, new_course, teacher):
-        r = None
-        if user.role == 1:
-            teacher = user.username
-        try:
-            if request.method == 'POST':
-                r = Course.add_course(course, teacher)
-            if request.method == 'PUT':
-                co = Course(course)
-                co.edit_course(user, new_course, teacher)
-            if request.method == 'DELETE':
-                co = Course(course)
-                co.delete_course(user)
-        except ValueError:
-            return HTTPError('Not allowed name.', 400)
-        except NotUniqueError:
-            return HTTPError('Course exists.', 400)
-        except PermissionError:
-            return HTTPError('Forbidden.', 403)
-        except engine.DoesNotExist as e:
-            return HTTPError(f'{e} not found.', 404)
-        return HTTPResponse('Success.')
 
-    if request.method == 'GET':
-        data = [{
-            'course': c.course_name,
-            'teacher': c.teacher.info,
-        } for c in Course.get_user_courses(user)]
-        return HTTPResponse('Success.', data=data)
-    else:
-        return modify_courses()
+@course_api.route('/', methods=['POST', 'PUT', 'DELETE'])
+@Request.json('course', 'new_course', 'teacher')
+@identity_verify(0, 1)
+def modify_courses(user, course, new_course, teacher):
+    r = None
+    if user.role == 1:
+        teacher = user.username
+    try:
+        if request.method == 'POST':
+            r = Course.add_course(course, teacher)
+        if request.method == 'PUT':
+            co = Course(course)
+            co.edit_course(user, new_course, teacher)
+        if request.method == 'DELETE':
+            co = Course(course)
+            co.delete_course(user)
+    except ValueError:
+        return HTTPError('Not allowed name.', 400)
+    except NotUniqueError:
+        return HTTPError('Course exists.', 400)
+    except PermissionError:
+        return HTTPError('Forbidden.', 403)
+    except engine.DoesNotExist as e:
+        return HTTPError(f'{e} not found.', 404)
+    return HTTPResponse('Success.')
 
 
 @course_api.route('/<course_name>', methods=['GET', 'PUT'])

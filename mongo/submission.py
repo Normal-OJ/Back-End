@@ -466,8 +466,14 @@ class Submission(MongoBase, engine=engine.Submission):
         User(self.username).add_submission(self)
         # update homework data
         for homework in self.problem.homeworks:
-
-            stat = homework.student_status[self.username][str(self.problem_id)]
+            try:
+                stat = homework.student_status[self.username][str(
+                    self.problem_id)]
+            except KeyError:
+                self.logger.warning(
+                    f'{self} not in {homework} [user={self.username}, problem={self.problem_id}]'
+                )
+                continue
             if self.handwritten:
                 continue
             if 'rawScore' not in stat:

@@ -6,6 +6,8 @@ from tests import utils
 
 import pytest
 
+import secrets
+
 
 class TestAdminCourse(BaseTester):
     '''Test courses panel used my admins
@@ -13,53 +15,63 @@ class TestAdminCourse(BaseTester):
 
     def test_add_with_invalid_username(self, client_admin):
         # add a course with non-existent username
-        rv = client_admin.post('/course',
-                               json={
-                                   'course': 'math',
-                                   'teacher': 'adminn'
-                               })
+        rv = client_admin.post(
+            '/course',
+            json={
+                'course': 'math',
+                'teacher': secrets.token_hex(4),
+            },
+        )
         json = rv.get_json()
         assert json['message'] == 'User not found.'
         assert rv.status_code == 404
 
     def test_add_with_invalid_course_name(self, client_admin):
         # add a course with not allowed course name
-        rv = client_admin.post('/course',
-                               json={
-                                   'course': '體育',
-                                   'teacher': 'admin'
-                               })
+        rv = client_admin.post(
+            '/course',
+            json={
+                'course': '體育',
+                'teacher': 'admin',
+            },
+        )
         json = rv.get_json()
         assert json['message'] == 'Not allowed name.'
         assert rv.status_code == 400
 
     def test_add(self, client_admin):
         # add courses
-        rv = client_admin.post('/course',
-                               json={
-                                   'course': 'math',
-                                   'teacher': 'admin'
-                               })
+        rv = client_admin.post(
+            '/course',
+            json={
+                'course': 'math',
+                'teacher': 'admin',
+            },
+        )
         json = rv.get_json()
         assert rv.status_code == 200
 
-        rv = client_admin.post('/course',
-                               json={
-                                   'course': 'history',
-                                   'teacher': 'teacher'
-                               })
+        rv = client_admin.post(
+            '/course',
+            json={
+                'course': 'history',
+                'teacher': 'teacher',
+            },
+        )
         json = rv.get_json()
         assert rv.status_code == 200
 
     def test_add_with_existent_course_name(self, client_admin):
         # add a course with existent name
-        rv = client_admin.post('/course',
-                               json={
-                                   'course': 'math',
-                                   'teacher': 'admin'
-                               })
+        rv = client_admin.post(
+            '/course',
+            json={
+                'course': 'math',
+                'teacher': 'admin',
+            },
+        )
         json = rv.get_json()
-        assert json['message'] == 'Course exists.'
+        assert json['message'] == 'Course exists.', json
         assert rv.status_code == 400
 
     def test_edit_with_invalid_course_name(self, client_admin):

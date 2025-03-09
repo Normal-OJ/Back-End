@@ -10,7 +10,18 @@ from zipfile import ZipFile, BadZipFile
 __all__ = [*mongoengine.__all__]
 
 MONGO_HOST = os.environ.get('MONGO_HOST', 'mongomock://localhost')
-connect('normal-oj', host=MONGO_HOST)
+
+# FIXME: we should use config to check whether is in testing
+if MONGO_HOST.startswith('mongomock'):
+    import mongomock
+    MONGO_HOST = MONGO_HOST.replace('mongomock', 'mongodb')
+    connect(
+        'normal-oj',
+        host=MONGO_HOST,
+        mongo_client_class=mongomock.MongoClient,
+    )
+else:
+    connect('normal-oj', host=MONGO_HOST)
 
 
 def handler(event):

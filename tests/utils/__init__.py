@@ -1,3 +1,5 @@
+import mongomock
+
 from mongo import *
 from mongo import engine
 from . import user
@@ -55,8 +57,8 @@ def problem_result(pid):
 
 
 def drop_db(
-    host: str = 'mongomock://localhost',
+    host: str = 'mongodb://localhost',
     db: str = 'normal-oj',
 ):
-    conn = connect(db, host=host)
+    conn = connect(db, host=host, mongo_client_class=mongomock.MongoClient)
     conn.drop_database(db)
