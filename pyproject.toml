@@ -21,6 +21,8 @@ redis = "^4.4"
 # <4.9.0 to fix mongomock GridFS integration
 # see: https://github.com/mongomock/mongomock/issues/903
 pymongo = "^4.5.0,<4.9.0"
+minio = "^7.2.15"
+python-ulid = "^3.0.0"
 
 [tool.poetry]
 requires-poetry = ">=2.0"
@@ -34,6 +36,7 @@ yapf = "^0.32"
 fakeredis = "^1.9"
 toml = "^0.10"
 pytest-cov = "^3.0"
+pytest-minio-mock = "^0.4.16"
 
 [build-system]
 requires = ["poetry-core"]
