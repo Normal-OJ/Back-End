@@ -17,7 +17,7 @@ FROM python-base as builder-base
 RUN apt-get update && apt-get install --no-install-recommends -y curl
 
 # Install Poetry - respects $POETRY_VERSION & $POETRY_HOME
-ENV POETRY_VERSION=1.6.1
+ENV POETRY_VERSION=2.1.1
 RUN curl -sSL https://install.python-poetry.org | python - 
 
 # We copy our Python requirements here to cache them
