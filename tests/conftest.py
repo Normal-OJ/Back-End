@@ -7,26 +7,32 @@ import mongomock.gridfs
 
 import pytest
 import random
+import pytest_minio_mock
 from datetime import datetime
 from zipfile import ZipFile
 from collections import defaultdict
+from mongo.config import MINIO_BUCKET
+from mongo.utils import MinioClient
 from tests.base_tester import random_string
 from tests.test_problem import get_file
 from tests import utils
 
 
 @pytest.fixture
-def app(tmp_path):
+def app(tmp_path, minio_mock):
     from app import app as flask_app
     app = flask_app()
     app.config['TESTING'] = True
     app.config['SERVER_NAME'] = 'test.test'
     mongomock.gridfs.enable_gridfs_integration()
+
     # modify submission config for testing
     # use tmp dir to save user source code
     submission_tmp_dir = (tmp_path / Submission.config().TMP_DIR).absolute()
     submission_tmp_dir.mkdir(exist_ok=True)
     Submission.config().TMP_DIR = submission_tmp_dir
+
+    MinioClient().client.make_bucket(MINIO_BUCKET)
     return app
 
 

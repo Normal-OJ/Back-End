@@ -1,4 +1,5 @@
 from __future__ import annotations
+import io
 import os
 import pathlib
 import secrets
@@ -19,6 +20,7 @@ from flask import current_app
 from tempfile import NamedTemporaryFile
 from datetime import date, datetime
 from zipfile import ZipFile, is_zipfile
+from ulid import ULID
 
 from . import engine
 from .base import MongoBase
@@ -26,7 +28,7 @@ from .user import User
 from .problem import Problem
 from .homework import Homework
 from .course import Course
-from .utils import RedisCache
+from .utils import RedisCache, MinioClient
 
 __all__ = [
     'SubmissionConfig',
@@ -144,7 +146,6 @@ class Submission(MongoBase, engine=engine.Submission):
         lang2ext = {0: '.c', 1: '.cpp', 2: '.py'}
         return lang2ext[self.language]
 
-    @property
     def main_code_path(self) -> str:
         # handwritten submission didn't provide this function
         if self.handwritten:
@@ -154,7 +155,7 @@ class Submission(MongoBase, engine=engine.Submission):
         path = self.tmp_dir / f'main{ext}'
         # check whether the code has been generated
         if not path.exists():
-            with ZipFile(self.code) as zf:
+            with self._get_code_zip() as zf:
                 path.write_text(zf.read(f'main{ext}').decode('utf-8'))
         # return absolute path
         return str(path.absolute())
@@ -274,13 +275,21 @@ class Submission(MongoBase, engine=engine.Submission):
             raise FileNotFoundError('it seems that comment haven\'t upload')
         return self.comment.read()
 
-    def check_code(self, file):
+    def _check_code(self, file):
         if not file:
             return 'no file'
         if not is_zipfile(file):
             return 'not a valid zip file'
+
+        # HACK: hard-coded config
+        MAX_SIZE = 10**7
         with ZipFile(file) as zf:
             infos = zf.infolist()
+
+            size = sum(i.file_size for i in infos)
+            if size > MAX_SIZE:
+                return 'code file size too large'
+
             if len(infos) != 1:
                 return 'more than one file in zip'
             name, ext = os.path.splitext(infos[0].filename)
@@ -293,7 +302,7 @@ class Submission(MongoBase, engine=engine.Submission):
                     if pdf.read(5) != b'%PDF-':
                         return 'only accept PDF file.'
         file.seek(0)
-        return True
+        return None
 
     def rejudge(self) -> bool:
         '''
@@ -311,9 +320,31 @@ class Submission(MongoBase, engine=engine.Submission):
             return True
         return self.send()
 
+    def _generate_obj_path(self):
+        return f'submissions/{ULID()}.zip'
+
+    def _put_code(self, code_file) -> str:
+        '''
+        put code file to minio, return the object name
+        '''
+        if (err := self._check_code(code_file)) is not None:
+            raise ValueError(err)
+
+        minio_client = MinioClient()
+        path = self._generate_obj_path()
+        minio_client.client.put_object(
+            minio_client.bucket,
+            path,
+            code_file,
+            -1,
+            part_size=5 * 1024 * 1024,
+            content_type='application/zip',
+        )
+        return path
+
     def submit(self, code_file) -> bool:
         '''
-        prepara data for submit code to sandbox and then send it
+        prepare data for submit code to sandbox and then send it
 
         Args:
             code_file: a zip file contains user's code
@@ -321,13 +352,11 @@ class Submission(MongoBase, engine=engine.Submission):
         # unexisted id
         if not self:
             raise engine.DoesNotExist(f'{self}')
-        # save source
-        res = self.check_code(code_file)
-        if res is not True:
-            raise ValueError(res)
-        self.code.put(code_file)
-        self.update(status=-1, last_send=datetime.now())
-        self.save()
+        self.update(
+            status=-1,
+            last_send=datetime.now(),
+            code_minio_path=self._put_code(code_file),
+        )
         self.reload()
         self.logger.debug(f'{self} code updated.')
         # delete old handwritten submission
@@ -364,7 +393,7 @@ class Submission(MongoBase, engine=engine.Submission):
             raise TestCaseNotFound(self.problem.problem_id)
         # setup post body
         files = {
-            'src': self.code,
+            'src': io.BytesIO(b"".join(self._get_code_raw())),
         }
         # look for the target sandbox
         tar = self.target_sandbox()
@@ -722,13 +751,35 @@ class Submission(MongoBase, engine=engine.Submission):
                         case['stderr'] = zf.read('stderr').decode('utf-8')
         return [task.to_dict() for task in tasks]
 
+    def _get_code_raw(self):
+        if self.code_minio_path is None:
+            # fallback to read from gridfs
+            return [self.code.read()]
+
+        minio_client = MinioClient()
+
+        try:
+            resp = minio_client.client.get_object(minio_client.bucket,
+                                                  self.code_minio_path)
+            return [resp.read()]
+        finally:
+            if 'resp' in locals():
+                resp.close()
+                resp.release_conn()
+
+    def _get_code_zip(self):
+        return ZipFile(io.BytesIO(b"".join(self._get_code_raw())))
+
     def get_code(self, path: str, binary=False) -> Union[str, bytes]:
+        if self.code is None and self.code_minio_path is None:
+            return None
+
         # read file
         try:
-            with ZipFile(self.code) as zf:
+            with self._get_code_zip() as zf:
                 data = zf.read(path)
         # file not exists in the zip or code haven't been uploaded
-        except (KeyError, AttributeError):
+        except KeyError:
             return None
         # decode byte if need
         if not binary:

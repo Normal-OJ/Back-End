@@ -1,11 +1,13 @@
 import abc
 import hashlib
 import os
-from flask import current_app
-import redis
 from functools import wraps
 from typing import Dict, Optional, Any, TYPE_CHECKING
+from flask import current_app
+from minio import Minio
+import redis
 from . import engine
+from .config import MINIO_HOST, MINIO_SECRET_KEY, MINIO_ACCESS_KEY, MINIO_BUCKET
 
 if TYPE_CHECKING:
     from .user import User  # pragma: no cover
@@ -168,3 +170,14 @@ def doc_required(
 
 def drop_none(d: Dict):
     return {k: v for k, v in d.items() if v is not None}
+
+
+class MinioClient:
+
+    def __init__(self):
+        self.client = Minio(
+            MINIO_HOST,
+            access_key=MINIO_ACCESS_KEY,
+            secret_key=MINIO_SECRET_KEY,
+        )
+        self.bucket = MINIO_BUCKET
