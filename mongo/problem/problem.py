@@ -1,15 +1,5 @@
-from .. import engine
-from ..base import MongoBase
-from ..course import *
-from ..utils import (RedisCache, doc_required, drop_none)
-from ..user import User
-from .exception import BadTestCase
-from .test_case import (
-    SimpleIO,
-    ContextIO,
-    IncludeDirectory,
-    TestCaseRule,
-)
+import json
+import enum
 from datetime import datetime
 from typing import (
     Any,
@@ -18,8 +8,20 @@ from typing import (
     List,
     Optional,
 )
-import json
-import enum
+from io import BytesIO
+from ulid import ULID
+from .. import engine
+from ..base import MongoBase
+from ..course import *
+from ..utils import (RedisCache, doc_required, drop_none, MinioClient)
+from ..user import User
+from .exception import BadTestCase
+from .test_case import (
+    SimpleIO,
+    ContextIO,
+    IncludeDirectory,
+    TestCaseRule,
+)
 
 __all__ = ('Problem', )
 
@@ -54,6 +56,9 @@ class Problem(MongoBase, engine=engine.Problem):
         # case zip can not be serialized
         if 'caseZip' in _ret['testCase']:
             del _ret['testCase']['caseZip']
+        # skip minio path
+        if 'caseZipMinioPath' in _ret['testCase']:
+            del _ret['testCase']['caseZipMinioPath']
         # convert couse document to course name
         _ret['courses'] = [course.course_name for course in self.courses]
         ret = {}
@@ -321,6 +326,7 @@ class Problem(MongoBase, engine=engine.Problem):
                 test_case = engine.ProblemTestCase.from_json(
                     json.dumps(test_case_info))
                 test_case.case_zip = problem.test_case.case_zip
+                test_case.case_zip_minio_path = problem.test_case.case_zip_minio_path
             problem.update(
                 allowed_language=allowed_language,
                 can_view_stdout=can_view_stdout,
@@ -365,21 +371,28 @@ class Problem(MongoBase, engine=engine.Problem):
             raise BadTestCase(
                 f'invalid test case format\n\n{excs[0]}\n\n{excs[1]}')
 
-        # save zip file
+        self._save_test_case_zip(test_case)
+
+    def _save_test_case_zip(self, test_case: BinaryIO):
+        '''
+        save test case zip file
+        '''
         test_case.seek(0)
-        # check whether the test case exists
-        if self.test_case.case_zip.grid_id is None:
-            # if no, put data to a new file
-            write_func = self.test_case.case_zip.put
-        else:
-            # else, replace original file with a new one
-            write_func = self.test_case.case_zip.replace
-        write_func(
+        minio_client = MinioClient()
+        path = self._generate_test_case_obj_path()
+        minio_client.client.put_object(
+            minio_client.bucket,
+            path,
             test_case,
+            -1,
+            part_size=5 * 1024 * 1024,
             content_type='application/zip',
         )
-        # update problem obj
-        self.save()
+        self.update(test_case__case_zip_minio_path=path)
+        self.reload('test_case')
+
+    def _generate_test_case_obj_path(self):
+        return f'problem-test-case/{ULID()}.zip'
 
     @classmethod
     def copy_problem(cls, user, problem_id):
@@ -439,3 +452,23 @@ class Problem(MongoBase, engine=engine.Problem):
         problem.courses = [course]
         problem.owner = 'first_admin'
         problem.save()
+
+    def is_test_case_ready(self) -> bool:
+        return (self.test_case.case_zip is not None
+                or self.test_case.case_zip_minio_path is not None)
+
+    def get_test_case(self) -> BinaryIO:
+        if self.test_case.case_zip is not None:
+            return self.test_case.case_zip
+
+        minio_client = MinioClient()
+        try:
+            resp = minio_client.client.get_object(
+                minio_client.bucket,
+                self.test_case.case_zip_minio_path,
+            )
+            return BytesIO(resp.read())
+        finally:
+            if 'resp' in locals():
+                resp.close()
+                resp.release_conn()

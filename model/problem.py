@@ -275,7 +275,7 @@ def get_test_case(user: User, problem: Problem):
     if not problem.permission(user=user, req=problem.Permission.ONLINE):
         return online_error_response()
     return send_file(
-        problem.test_case.case_zip,
+        problem.get_test_case(),
         mimetype='application/zip',
         as_attachment=True,
         download_name=f'testdata-{problem.id}.zip',
@@ -290,7 +290,7 @@ def get_testdata(token: str, problem: Problem):
     if sandbox.find_by_token(token) is None:
         return HTTPError('Invalid sandbox token', 401)
     return send_file(
-        problem.test_case.case_zip,
+        problem.get_test_case(),
         mimetype='application/zip',
         as_attachment=True,
         download_name=f'testdata-{problem.id}.zip',
@@ -309,7 +309,8 @@ def get_checksum(token: str, problem_id: int):
         'tasks':
         [json.loads(task.to_json()) for task in problem.test_case.tasks]
     }).encode()
-    content = problem.test_case.case_zip.read() + meta
+    # TODO: use etag of bucket object
+    content = problem.get_test_case().read() + meta
     digest = hashlib.md5(content).hexdigest()
     return HTTPResponse(data=digest)
 

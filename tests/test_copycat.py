@@ -286,7 +286,12 @@ class TestCopyCat(BaseTester):
         assert problem.cpp_report_url == 'https://mock.moss/cc'
         assert problem.python_report_url == 'https://mock.moss/python'
 
-    def test_get_report_task_with_invail_url(self, monkeypatch, problem_ids):
+    def test_get_report_task_with_invail_url(
+        self,
+        monkeypatch,
+        problem_ids,
+        app,
+    ):
         pid = problem_ids("teacher", 1, True)[0]
         user = User('teacher')
         from model.copycat import mosspy

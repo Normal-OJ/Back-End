@@ -10,6 +10,14 @@ from mongo import (
     engine,
 )
 from mongo.problem import BadTestCase
+from mongo.utils import MinioClient
+from mongo.config import MINIO_BUCKET
+from mongo.problem.test_case import (ContextIO, SimpleIO, IncludeDirectory)
+
+
+@pytest.fixture(autouse=True)
+def setup_minio(minio_mock):
+    MinioClient().client.make_bucket(MINIO_BUCKET)
 
 
 def setup_module(_):
@@ -260,3 +268,164 @@ def test_teacher_can_manage_hidden_problem():
         u,
         Problem.Permission.MANAGE | Problem.Permission.ONLINE,
     )
+
+
+class TestSimpleIO:
+
+    def test_validate_with_none_test_case(self):
+        rule = SimpleIO(Problem(87))
+        with pytest.raises(BadTestCase) as err:
+            rule.validate(None)
+        assert str(err.value) == 'test case is None'
+
+    def test_validate_with_excludes_raise_bad_test_case_error(self):
+        zip = 'tests/problem_test_case/bogay/test_case.zip'
+        rule = SimpleIO(Problem(87), ['0000'])
+        with pytest.raises(BadTestCase) as err:
+            rule.validate(zip)
+        assert str(err.value) == 'I/O data not equal to meta provided'
+
+
+class TestContextIO:
+
+    def test_validate_with_none_test_case(self):
+        rule = ContextIO(Problem(87))
+        with pytest.raises(BadTestCase) as err:
+            rule.validate(None)
+        assert str(err.value) == 'test case is None'
+
+    def test_validate_with_test_case_is_not_dir(self, monkeypatch):
+        zip = 'tests/problem_test_case/bogay/test_case.zip'
+        rule = ContextIO(Problem(87))
+        from mongo.problem.test_case import zipfile
+        monkeypatch.setattr(zipfile.Path, 'exists', lambda _: True)
+        monkeypatch.setattr(zipfile.Path, 'is_dir', lambda _: False)
+        with pytest.raises(BadTestCase) as err:
+            rule.validate(zip)
+        assert str(err.value) == 'test-case is not a directory'
+
+    def test_validate_with_extra_test_case_dir(self, problem_ids):
+        pid = problem_ids('teacher', 1)[0]
+        rule = ContextIO(Problem(pid))
+        zip = 'tests/problem_test_case/alardutp/test_case.zip'
+        with pytest.raises(BadTestCase) as err:
+            rule.validate(zip)
+        assert str(err.value) == 'extra test case directory found: extra'
+
+
+class TestIncludeDirectory:
+
+    def test_validate_with_none_test_case(self):
+        rule = IncludeDirectory(Problem(87), 'path/to/include/dir')
+        with pytest.raises(BadTestCase) as err:
+            rule.validate(None)
+        assert str(err.value) == 'test case is None'
+
+    def test_validate_with_path_does_not_exist(self):
+        rule = IncludeDirectory(Problem(87), 'path/does/not/exist', False)
+        with pytest.raises(BadTestCase) as err:
+            zip = 'tests/problem_test_case/bogay/test_case.zip'
+            rule.validate(zip)
+        assert str(err.value) == 'directory path/does/not/exist does not exist'
+
+    def test_validate_with_non_directory_path(self):
+        file = '0000.in'
+        rule = IncludeDirectory(Problem(87), file, False)
+        with pytest.raises(BadTestCase) as err:
+            zip = 'tests/problem_test_case/bogay/test_case.zip'
+            rule.validate(zip)
+        assert str(err.value) == f'{file} is not a directory'
+
+    def test_validate(self):
+        dir = 'dir/'
+        rule = IncludeDirectory(Problem(87), dir, False)
+        zip = 'tests/problem_test_case/alardutp/test_case.zip'
+        assert rule.validate(zip)
+
+
+class TestMongoProblem:
+
+    def test_boolen_of_problem(self, problem_ids, monkeypatch):
+        problem = Problem(problem_ids('teacher', 1)[0])
+        assert problem
+
+        def mock_filter_raise_validation_error(*args, **kwargs):
+            raise engine.ValidationError
+
+        from mongoengine.queryset.queryset import QuerySet
+        monkeypatch.setattr(QuerySet, 'filter',
+                            mock_filter_raise_validation_error)
+        problem.proble_id = 878787
+        assert not problem
+
+    def test_detailed_info_of_problem_does_not_exist(self):
+        problem = Problem(878787)
+        assert problem.detailed_info() == {}
+        assert repr(problem) == '{}'
+
+    def test_detailed_info_with_nested_value(self, problem_ids):
+        problem = Problem(problem_ids('teacher', 1)[0])
+        assert problem.detailed_info(nested__info='testCase__language') == {
+            'nested': {
+                'info': 2
+            }
+        }
+
+    def test_negtive_language_is_not_allowed(self, problem_ids):
+        problem = Problem(problem_ids('teacher', 1)[0])
+        assert not problem.allowed(-1)
+
+    def test_high_score_with_cache(self, problem_ids, monkeypatch):
+        from mongo.problem.problem import RedisCache
+        monkeypatch.setattr(RedisCache, 'get', lambda *_: b'87')
+        problem = Problem(problem_ids('teacher', 1)[0])
+        utils.user.create_user(username='student')
+        assert problem.get_high_score(user='student') == 87
+
+    def test_get_problem_list_with_course_does_not_exist(self, problem_ids):
+        problem = Problem(problem_ids('teacher', 1)[0])
+        plist = problem.get_problem_list('teacher',
+                                         course='CourseDoesNotExist')
+        assert plist == []
+
+    def test_edit_problem_without_100_scores_in_total(self, problem_ids):
+        request_json = {
+            'courses': [],
+            'status': 1,
+            'type': 0,
+            'problem_name': 'Problem title',
+            'description': {
+                'description': 'Test description.',
+                'input': '',
+                'output': '',
+                'hint': '',
+                'sampleInput': [],
+                'sampleOutput': []
+            },
+            'tags': [],
+            'test_case_info': {
+                'language':
+                1,
+                'fillInTemplate':
+                '',
+                'tasks': [{
+                    'caseCount': 1,
+                    'taskScore': 87,
+                    'memoryLimit': 1000,
+                    'timeLimit': 1000
+                }]
+            }
+        }
+        pid = problem_ids('teacher', 1)[0]
+        with pytest.raises(ValueError):
+            Problem.edit_problem(User('teacher'), pid, **request_json)
+
+    def test_copy_problem(self, problem_ids):
+        pid = problem_ids('teacher', 1)[0]
+        teacher = utils.user.create_user(
+            username='teacher-2',
+            role=engine.User.Role.TEACHER,
+        )
+        Problem.copy_problem(teacher, pid)
+        new_problem = Problem.get_problem_list(teacher)[-1]
+        assert Problem(pid).problem_name == new_problem.problem_name

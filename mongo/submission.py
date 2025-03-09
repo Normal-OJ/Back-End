@@ -389,7 +389,7 @@ class Submission(MongoBase, engine=engine.Submission):
             logging.warning(f'try to send a handwritten {self}')
             return False
         # TODO: Ensure problem is ready to submitted
-        if self.problem.test_case.case_zip is None:
+        if not Problem(self.problem).is_test_case_ready():
             raise TestCaseNotFound(self.problem.problem_id)
         # setup post body
         files = {
@@ -658,7 +658,7 @@ class Submission(MongoBase, engine=engine.Submission):
         problem = Problem(problem_id)
         if not problem:
             raise engine.DoesNotExist(f'{problem} dose not exist')
-        if problem.test_case.case_zip is None:
+        if not problem.is_test_case_ready():
             raise TestCaseNotFound(problem_id)
         if timestamp is None:
             timestamp = datetime.now()
