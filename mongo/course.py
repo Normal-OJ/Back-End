@@ -86,6 +86,10 @@ class Course(MongoBase, engine=engine.Course):
         if not te:
             raise engine.DoesNotExist('User')
 
+        # HACK: not sure why the unique index is not work during the test
+        if Course(new_course):
+            raise engine.NotUniqueError('Course')
+
         self.course_name = new_course
         if te.obj != self.teacher:
             self.remove_user(self.teacher)
@@ -199,6 +203,9 @@ class Course(MongoBase, engine=engine.Course):
         if teacher.role >= 2:
             raise PermissionError(
                 f'{teacher} is not permitted to create a course')
+        # HACK: not sure why the unique index is not work during the test
+        if cls(course):
+            raise engine.NotUniqueError('Course')
         co = cls.engine(
             course_name=course,
             teacher=teacher.obj,
