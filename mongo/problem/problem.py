@@ -1,6 +1,6 @@
 import json
 import enum
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import (
     Any,
     BinaryIO,
@@ -8,6 +8,7 @@ from typing import (
     List,
     Optional,
 )
+from dataclasses import dataclass
 from io import BytesIO
 from ulid import ULID
 from .. import engine
@@ -24,6 +25,12 @@ from .test_case import (
 )
 
 __all__ = ('Problem', )
+
+
+@dataclass
+class UploadInfo:
+    urls: List[str]
+    upload_id: str
 
 
 class Problem(MongoBase, engine=engine.Problem):
@@ -344,6 +351,34 @@ class Problem(MongoBase, engine=engine.Problem):
             ValueError: if test case is None or problem_id is invalid
             engine.DoesNotExist
         '''
+        self._validate_test_case(test_case)
+        test_case.seek(0)
+        self._save_test_case_zip(test_case)
+
+    def _save_test_case_zip(self, test_case: BinaryIO):
+        '''
+        save test case zip file
+        '''
+        minio_client = MinioClient()
+        path = self._generate_test_case_obj_path()
+        minio_client.client.put_object(
+            minio_client.bucket,
+            path,
+            test_case,
+            -1,
+            part_size=5 * 1024 * 1024,
+            content_type='application/zip',
+        )
+        self.update(test_case__case_zip_minio_path=path)
+        self.reload('test_case')
+
+    def _generate_test_case_obj_path(self):
+        return f'problem-test-case/{ULID()}.zip'
+
+    def _validate_test_case(self, test_case: BinaryIO):
+        '''
+        validate test case, raise BadTestCase if invalid
+        '''
         rules: List[TestCaseRule] = [
             IncludeDirectory(self, 'include'),
             IncludeDirectory(self, 'share'),
@@ -370,29 +405,6 @@ class Problem(MongoBase, engine=engine.Problem):
         elif len(excs) == 2:
             raise BadTestCase(
                 f'invalid test case format\n\n{excs[0]}\n\n{excs[1]}')
-
-        self._save_test_case_zip(test_case)
-
-    def _save_test_case_zip(self, test_case: BinaryIO):
-        '''
-        save test case zip file
-        '''
-        test_case.seek(0)
-        minio_client = MinioClient()
-        path = self._generate_test_case_obj_path()
-        minio_client.client.put_object(
-            minio_client.bucket,
-            path,
-            test_case,
-            -1,
-            part_size=5 * 1024 * 1024,
-            content_type='application/zip',
-        )
-        self.update(test_case__case_zip_minio_path=path)
-        self.reload('test_case')
-
-    def _generate_test_case_obj_path(self):
-        return f'problem-test-case/{ULID()}.zip'
 
     @classmethod
     def copy_problem(cls, user, problem_id):
@@ -454,11 +466,11 @@ class Problem(MongoBase, engine=engine.Problem):
         problem.save()
 
     def is_test_case_ready(self) -> bool:
-        return (self.test_case.case_zip is not None
+        return (self.test_case.case_zip.grid_id is not None
                 or self.test_case.case_zip_minio_path is not None)
 
     def get_test_case(self) -> BinaryIO:
-        if self.test_case.case_zip is not None:
+        if self.test_case.case_zip.grid_id is not None:
             return self.test_case.case_zip
 
         minio_client = MinioClient()
@@ -472,3 +484,54 @@ class Problem(MongoBase, engine=engine.Problem):
             if 'resp' in locals():
                 resp.close()
                 resp.release_conn()
+
+    # TODO: hope minio SDK to provide more high-level API
+    def generate_urls_for_uploading_test_case(
+        self,
+        length: int,
+        part_size: int,
+    ) -> UploadInfo:
+        # TODO: handle failed uploading
+        path = self._generate_test_case_obj_path()
+        self.update(test_case__case_zip_minio_path=path)
+
+        minio_client = MinioClient()
+        upload_id = minio_client.client._create_multipart_upload(
+            minio_client.bucket,
+            path,
+            headers={'Content-Type': 'application/zip'},
+        )
+        part_count = (length + part_size - 1) // part_size
+
+        def get(i: int):
+            return minio_client.client.get_presigned_url(
+                'PUT',
+                minio_client.bucket,
+                path,
+                expires=timedelta(minutes=30),
+                extra_query_params={
+                    'partNumber': str(i + 1),
+                    'uploadId': upload_id
+                },
+            )
+
+        return UploadInfo(
+            urls=[get(i) for i in range(part_count)],
+            upload_id=upload_id,
+        )
+
+    def complete_test_case_upload(self, upload_id, parts: list):
+        minio_client = MinioClient()
+        minio_client.client._complete_multipart_upload(
+            minio_client.bucket,
+            self.test_case.case_zip_minio_path,
+            upload_id,
+            parts,
+        )
+
+        try:
+            test_case = self.get_test_case()
+            self._validate_test_case(test_case)
+        except BadTestCase:
+            self.update(test_case__case_zip_minio_path=None)
+            raise

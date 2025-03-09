@@ -1,6 +1,7 @@
 import json
 import hashlib
 import statistics
+from dataclasses import asdict
 from flask import Blueprint, request, send_file
 from urllib import parse
 from zipfile import BadZipFile
@@ -263,6 +264,52 @@ def manage_problem(user: User, problem: Problem):
         )
     except engine.DoesNotExist:
         return HTTPError('Course not found.', 404)
+
+
+@problem_api.post('/<int:problem>/initiate-test-case-upload')
+@identity_verify(0, 1)
+@Request.doc('problem', Problem)
+@Request.json('length: int', 'part_size: int')
+def initiate_test_case_upload(
+    user: User,
+    problem: Problem,
+    length: int,
+    part_size: int,
+):
+    if not problem.permission(user, problem.Permission.MANAGE):
+        return permission_error_response()
+    if not problem.permission(user=user, req=problem.Permission.ONLINE):
+        return online_error_response()
+    upload_info = problem.generate_urls_for_uploading_test_case(
+        length, part_size)
+    return HTTPResponse(data=asdict(upload_info))
+
+
+@problem_api.post('/<int:problem>/complete-test-case-upload')
+@identity_verify(0, 1)
+@Request.doc('problem', Problem)
+@Request.json('upload_id', 'parts: list')
+def complete_test_case_upload(
+    user: User,
+    problem: Problem,
+    upload_id: str,
+    parts: list,
+):
+    if not problem.permission(user, problem.Permission.MANAGE):
+        return permission_error_response()
+    if not problem.permission(user=user, req=problem.Permission.ONLINE):
+        return online_error_response()
+    # convert parts to list[Part]
+    from minio.datatypes import Part
+    parts = [
+        Part(part_number=part['PartNumber'], etag=part['ETag'])
+        for part in parts
+    ]
+    try:
+        problem.complete_test_case_upload(upload_id, parts)
+    except BadTestCase as e:
+        return HTTPError(str(e), 400)
+    return HTTPResponse(status_code=201)
 
 
 @problem_api.route('/<int:problem_id>/test-case', methods=['GET'])
