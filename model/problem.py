@@ -1,6 +1,7 @@
 import json
 import hashlib
 import statistics
+from dataclasses import asdict
 from flask import Blueprint, request, send_file
 from urllib import parse
 from zipfile import BadZipFile
@@ -265,6 +266,52 @@ def manage_problem(user: User, problem: Problem):
         return HTTPError('Course not found.', 404)
 
 
+@problem_api.post('/<int:problem>/initiate-test-case-upload')
+@identity_verify(0, 1)
+@Request.doc('problem', Problem)
+@Request.json('length: int', 'part_size: int')
+def initiate_test_case_upload(
+    user: User,
+    problem: Problem,
+    length: int,
+    part_size: int,
+):
+    if not problem.permission(user, problem.Permission.MANAGE):
+        return permission_error_response()
+    if not problem.permission(user=user, req=problem.Permission.ONLINE):
+        return online_error_response()
+    upload_info = problem.generate_urls_for_uploading_test_case(
+        length, part_size)
+    return HTTPResponse(data=asdict(upload_info))
+
+
+@problem_api.post('/<int:problem>/complete-test-case-upload')
+@identity_verify(0, 1)
+@Request.doc('problem', Problem)
+@Request.json('upload_id', 'parts: list')
+def complete_test_case_upload(
+    user: User,
+    problem: Problem,
+    upload_id: str,
+    parts: list,
+):
+    if not problem.permission(user, problem.Permission.MANAGE):
+        return permission_error_response()
+    if not problem.permission(user=user, req=problem.Permission.ONLINE):
+        return online_error_response()
+    # convert parts to list[Part]
+    from minio.datatypes import Part
+    parts = [
+        Part(part_number=part['PartNumber'], etag=part['ETag'])
+        for part in parts
+    ]
+    try:
+        problem.complete_test_case_upload(upload_id, parts)
+    except BadTestCase as e:
+        return HTTPError(str(e), 400)
+    return HTTPResponse(status_code=201)
+
+
 @problem_api.route('/<int:problem_id>/test-case', methods=['GET'])
 @problem_api.route('/<int:problem_id>/testcase', methods=['GET'])
 @login_required
@@ -275,7 +322,7 @@ def get_test_case(user: User, problem: Problem):
     if not problem.permission(user=user, req=problem.Permission.ONLINE):
         return online_error_response()
     return send_file(
-        problem.test_case.case_zip,
+        problem.get_test_case(),
         mimetype='application/zip',
         as_attachment=True,
         download_name=f'testdata-{problem.id}.zip',
@@ -290,7 +337,7 @@ def get_testdata(token: str, problem: Problem):
     if sandbox.find_by_token(token) is None:
         return HTTPError('Invalid sandbox token', 401)
     return send_file(
-        problem.test_case.case_zip,
+        problem.get_test_case(),
         mimetype='application/zip',
         as_attachment=True,
         download_name=f'testdata-{problem.id}.zip',
@@ -309,7 +356,8 @@ def get_checksum(token: str, problem_id: int):
         'tasks':
         [json.loads(task.to_json()) for task in problem.test_case.tasks]
     }).encode()
-    content = problem.test_case.case_zip.read() + meta
+    # TODO: use etag of bucket object
+    content = problem.get_test_case().read() + meta
     digest = hashlib.md5(content).hexdigest()
     return HTTPResponse(data=digest)
 

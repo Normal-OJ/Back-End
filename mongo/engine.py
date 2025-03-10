@@ -240,6 +240,11 @@ class ProblemTestCase(EmbeddedDocument):
         defautl=None,
         null=True,
     )
+    case_zip_minio_path = StringField(
+        null=True,
+        max_length=256,
+        db_field='caseZipMinioPath',
+    )
 
 
 class ProblemDescription(EmbeddedDocument):
@@ -399,6 +404,11 @@ class Submission(Document):
     exec_time = IntField(default=-1, db_field='runTime')
     memory_usage = IntField(default=-1, db_field='memoryUsage')
     code = ZipField(required=True, null=True, max_size=10**7)
+    code_minio_path = StringField(
+        null=True,
+        max_length=256,
+        db_field='codeMinioPath',
+    )
     last_send = DateTimeField(db_field='lastSend', default=datetime.now)
     comment = FileField(default=None, null=True)
     ip_addr = StringField(default=None, null=True)

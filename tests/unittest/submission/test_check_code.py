@@ -25,7 +25,7 @@ class TestSubmissionCheckCode:
                 user=user,
                 problem=problem,
             )
-            result = submission.check_code(None)
+            result = submission._check_code(None)
             assert result == 'no file'
 
     def test_with_non_zip_file(self, app):
@@ -36,7 +36,7 @@ class TestSubmissionCheckCode:
                 user=user,
                 problem=problem,
             )
-            result = submission.check_code(
+            result = submission._check_code(
                 io.BytesIO(b'this is not a zip file'))
             assert result == 'not a valid zip file'
 
@@ -53,7 +53,7 @@ class TestSubmissionCheckCode:
                 zf.writestr('main.c', '#include <stdio.h>\n')
                 zf.writestr('main.py', 'import os\n')
             code = code.getvalue()
-            result = submission.check_code(io.BytesIO(code))
+            result = submission._check_code(io.BytesIO(code))
             assert result == 'more than one file in zip'
 
     def test_with_filename_is_not_main(self, app):
@@ -68,5 +68,5 @@ class TestSubmissionCheckCode:
             with ZipFile(code, 'x') as zf:
                 zf.writestr('m4in.c', '#include <stdio.h>\n')
             code = code.getvalue()
-            result = submission.check_code(io.BytesIO(code))
+            result = submission._check_code(io.BytesIO(code))
             assert result == 'only accept file with name \'main\''

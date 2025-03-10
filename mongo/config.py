@@ -1,0 +1,6 @@
+import os
+
+MINIO_HOST = os.getenv('MINIO_HOST', "localhost:9000")
+MINIO_ACCESS_KEY = os.getenv('MINIO_ACCESS_KEY')
+MINIO_SECRET_KEY = os.getenv('MINIO_SECRET_KEY')
+MINIO_BUCKET = os.getenv('MINIO_BUCKET', "normal-oj-testing")

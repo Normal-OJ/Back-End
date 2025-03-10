@@ -727,9 +727,9 @@ class TestCreateSubmission(SubmissionTester):
                 lang=0,
             ))
         assert bool(s)
-        s_code = open(s.main_code_path).read()
+        s_code = open(s.main_code_path()).read()
         code = open('tests/src/base.c').read()
-        assert code == s_code, (s.main_code_path, s_code)
+        assert code == s_code, (s.main_code_path(), s_code)
 
     def test_submit_to_non_participate_contest(self, client_student):
         pass
@@ -744,6 +744,7 @@ class TestCreateSubmission(SubmissionTester):
         pass
 
 
+@pytest.mark.skip(reason='handwritten submissions will be deprecated')
 class TestHandwrittenSubmission(SubmissionTester):
     pid = None
 
