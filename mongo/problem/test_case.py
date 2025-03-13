@@ -69,7 +69,10 @@ class SimpleIO(TestCaseRule):
                 got.discard(ex)
         expected = self.expected_test_case_filenames()
         if got != expected:
-            raise BadTestCase('I/O data not equal to meta provided')
+            extra = list(got - expected)
+            missing = list(expected - got)
+            raise BadTestCase(
+                f'I/O data not equal to meta provided: {extra=}, {missing=}')
         # reset
         test_case.seek(0)
         return True

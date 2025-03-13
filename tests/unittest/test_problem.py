@@ -283,7 +283,7 @@ class TestSimpleIO:
         rule = SimpleIO(Problem(87), ['0000'])
         with pytest.raises(BadTestCase) as err:
             rule.validate(zip)
-        assert str(err.value) == 'I/O data not equal to meta provided'
+        assert str(err.value).startswith('I/O data not equal to meta provided')
 
 
 class TestContextIO:
