@@ -753,20 +753,21 @@ class Submission(MongoBase, engine=engine.Submission):
         return [task.to_dict() for task in tasks]
 
     def _get_code_raw(self):
-        if self.code_minio_path is None:
-            # fallback to read from gridfs
-            return [self.code.read()]
+        if self.code_minio_path is not None:
+            minio_client = MinioClient()
+            try:
+                resp = minio_client.client.get_object(
+                    minio_client.bucket,
+                    self.code_minio_path,
+                )
+                return [resp.read()]
+            finally:
+                if 'resp' in locals():
+                    resp.close()
+                    resp.release_conn()
 
-        minio_client = MinioClient()
-
-        try:
-            resp = minio_client.client.get_object(minio_client.bucket,
-                                                  self.code_minio_path)
-            return [resp.read()]
-        finally:
-            if 'resp' in locals():
-                resp.close()
-                resp.release_conn()
+        # fallback to read from gridfs
+        return [self.code.read()]
 
     def _get_code_zip(self):
         return ZipFile(io.BytesIO(b"".join(self._get_code_raw())))
