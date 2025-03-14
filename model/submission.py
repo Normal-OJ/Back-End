@@ -377,7 +377,7 @@ def update_submission(user, submission: Submission, code):
         return HTTPError('empty file', 400)
     code.seek(0)
     # has been uploaded
-    if submission.code:
+    if submission.has_code():
         return HTTPError(
             f'{submission} has been uploaded source file!',
             403,
