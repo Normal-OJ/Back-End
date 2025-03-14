@@ -731,17 +731,32 @@ class TestCreateSubmission(SubmissionTester):
         code = open('tests/src/base.c').read()
         assert code == s_code, (s.main_code_path(), s_code)
 
-    def test_submit_to_non_participate_contest(self, client_student):
-        pass
-
-    def test_submit_outside_when_user_in_contest(self, client_student):
-        '''
-        submit a problem outside the contest when user is in contest
-        '''
-        pass
-
-    def test_submit_to_not_enrolled_course(self, client_student):
-        pass
+    def test_reupload_code_should_fail(
+        self,
+        submit_once,
+        forge_client,
+        get_source,
+    ):
+        submission_id = submit_once(
+            name='student',
+            pid=self.pid,
+            filename='base.c',
+            lang=0,
+        )
+        client = forge_client('student')
+        rv, rv_json, rv_data = BaseTester.request(
+            client,
+            'put',
+            f'/submission/{submission_id}',
+            data={
+                'code': (
+                    get_source('base.c'),
+                    'code',
+                ),
+            },
+        )
+        assert rv.status_code == 403, rv_json
+        assert 'has been uploaded' in str(rv_json['message'])
 
 
 @pytest.mark.skip(reason='handwritten submissions will be deprecated')

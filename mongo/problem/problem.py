@@ -470,20 +470,21 @@ class Problem(MongoBase, engine=engine.Problem):
                 or self.test_case.case_zip_minio_path is not None)
 
     def get_test_case(self) -> BinaryIO:
-        if self.test_case.case_zip.grid_id is not None:
-            return self.test_case.case_zip
+        if self.test_case.case_zip_minio_path is not None:
+            minio_client = MinioClient()
+            try:
+                resp = minio_client.client.get_object(
+                    minio_client.bucket,
+                    self.test_case.case_zip_minio_path,
+                )
+                return BytesIO(resp.read())
+            finally:
+                if 'resp' in locals():
+                    resp.close()
+                    resp.release_conn()
 
-        minio_client = MinioClient()
-        try:
-            resp = minio_client.client.get_object(
-                minio_client.bucket,
-                self.test_case.case_zip_minio_path,
-            )
-            return BytesIO(resp.read())
-        finally:
-            if 'resp' in locals():
-                resp.close()
-                resp.release_conn()
+        # fallback to legacy GridFS storage
+        return self.test_case.case_zip
 
     # TODO: hope minio SDK to provide more high-level API
     def generate_urls_for_uploading_test_case(
@@ -491,6 +492,7 @@ class Problem(MongoBase, engine=engine.Problem):
         length: int,
         part_size: int,
     ) -> UploadInfo:
+        # TODO: update url after uploading completed
         # TODO: handle failed uploading
         path = self._generate_test_case_obj_path()
         self.update(test_case__case_zip_minio_path=path)
@@ -520,7 +522,7 @@ class Problem(MongoBase, engine=engine.Problem):
             upload_id=upload_id,
         )
 
-    def complete_test_case_upload(self, upload_id, parts: list):
+    def complete_test_case_upload(self, upload_id: str, parts: list):
         minio_client = MinioClient()
         minio_client.client._complete_multipart_upload(
             minio_client.bucket,

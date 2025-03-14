@@ -68,6 +68,12 @@ class TestCaseNotFound(Exception):
         return f'{Problem(self.problem_id)}\'s testcase is not found'
 
 
+class SubmissionCodeNotFound(Exception):
+    '''
+    when a submission's code is not found
+    '''
+
+
 class SubmissionConfig(MongoBase, engine=engine.SubmissionConfig):
     TMP_DIR = pathlib.Path(
         os.getenv(
@@ -143,7 +149,7 @@ class Submission(MongoBase, engine=engine.Submission):
 
     @property
     def main_code_ext(self):
-        lang2ext = {0: '.c', 1: '.cpp', 2: '.py'}
+        lang2ext = {0: '.c', 1: '.cpp', 2: '.py', 3: '.pdf'}
         return lang2ext[self.language]
 
     def main_code_path(self) -> str:
@@ -155,7 +161,9 @@ class Submission(MongoBase, engine=engine.Submission):
         path = self.tmp_dir / f'main{ext}'
         # check whether the code has been generated
         if not path.exists():
-            with self._get_code_zip() as zf:
+            if (z := self._get_code_zip()) is None:
+                raise SubmissionCodeNotFound
+            with z as zf:
                 path.write_text(zf.read(f'main{ext}').decode('utf-8'))
         # return absolute path
         return str(path.absolute())
@@ -753,31 +761,36 @@ class Submission(MongoBase, engine=engine.Submission):
         return [task.to_dict() for task in tasks]
 
     def _get_code_raw(self):
-        if self.code_minio_path is None:
-            # fallback to read from gridfs
-            return [self.code.read()]
-
-        minio_client = MinioClient()
-
-        try:
-            resp = minio_client.client.get_object(minio_client.bucket,
-                                                  self.code_minio_path)
-            return [resp.read()]
-        finally:
-            if 'resp' in locals():
-                resp.close()
-                resp.release_conn()
-
-    def _get_code_zip(self):
-        return ZipFile(io.BytesIO(b"".join(self._get_code_raw())))
-
-    def get_code(self, path: str, binary=False) -> Union[str, bytes]:
-        if self.code is None and self.code_minio_path is None:
+        if self.code.grid_id is None and self.code_minio_path is None:
             return None
 
+        if self.code_minio_path is not None:
+            minio_client = MinioClient()
+            try:
+                resp = minio_client.client.get_object(
+                    minio_client.bucket,
+                    self.code_minio_path,
+                )
+                return [resp.read()]
+            finally:
+                if 'resp' in locals():
+                    resp.close()
+                    resp.release_conn()
+
+        # fallback to read from gridfs
+        return [self.code.read()]
+
+    def _get_code_zip(self):
+        if (raw := self._get_code_raw()) is None:
+            return None
+        return ZipFile(io.BytesIO(b"".join(raw)))
+
+    def get_code(self, path: str, binary=False) -> Union[str, bytes]:
         # read file
         try:
-            with self._get_code_zip() as zf:
+            if (z := self._get_code_zip()) is None:
+                raise SubmissionCodeNotFound
+            with z as zf:
                 data = zf.read(path)
         # file not exists in the zip or code haven't been uploaded
         except KeyError:
@@ -796,6 +809,9 @@ class Submission(MongoBase, engine=engine.Submission):
         '''
         ext = self.main_code_ext
         return self.get_code(f'main{ext}')
+
+    def has_code(self) -> bool:
+        return self._get_code_zip() is not None
 
     def own_permission(self, user) -> Permission:
         key = f'SUBMISSION_PERMISSION_{self.id}_{user.id}_{self.problem.id}'
