@@ -1,5 +1,5 @@
 # Ref: https://github.com/adamwojt/ur_l/blob/c748fff814f8cffcc979020008aab460a0de9d50/python_docker/Dockerfile
-FROM python:3.11-slim as python-base
+FROM python:3.11-slim AS python-base
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=off \
@@ -13,7 +13,7 @@ ENV PYTHONUNBUFFERED=1 \
 ENV PATH="$POETRY_HOME/bin:$VENV_PATH/bin:$PATH"
 
 # builder-base is used to build dependencies
-FROM python-base as builder-base
+FROM python-base AS builder-base
 RUN apt-get update && apt-get install --no-install-recommends -y curl
 
 # Install Poetry - respects $POETRY_VERSION & $POETRY_HOME
@@ -28,7 +28,7 @@ RUN poetry install --only main
 
 # 'development' stage installs all dev deps and can be used to develop code.
 # For example using docker-compose to mount local volume under /app
-FROM python-base as development
+FROM python-base AS development
 ENV FLASK_DEBUG=True
 
 # Copying poetry and venv into image
@@ -48,7 +48,7 @@ CMD ["gunicorn", "app:app()", "-c", "gunicorn.conf.dev.py"]
 
 # 'production' stage uses the clean 'python-base' stage and copyies
 # in only our runtime deps that were installed in the 'builder-base'
-FROM python-base as production
+FROM python-base AS production
 
 COPY --from=builder-base $VENV_PATH $VENV_PATH
 COPY ./ /app
