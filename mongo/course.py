@@ -180,8 +180,10 @@ class Course(MongoBase, engine=engine.Course):
                 'user': User(item['_id']).info,
                 'sum': sum_of_score,
                 'avg': sum_of_score / len(problem_ids),
-                **{f'{score["pid"]}': score
-                   for score in item['scores']},
+                **{
+                    f'{score["pid"]}': score
+                    for score in item['scores']
+                },
             })
             unrecorded_users.remove(item['_id'])
         for u in unrecorded_users:
