@@ -97,8 +97,10 @@ class User(MongoBase, engine=engine.User):
         if course is not None:
             new_student_nicknames = {
                 **course.student_nicknames,
-                **{u.username: u.username
-                   for u in registered_users}
+                **{
+                    u.username: u.username
+                    for u in registered_users
+                }
             }
             course.update_student_namelist(new_student_nicknames)
         return new_users

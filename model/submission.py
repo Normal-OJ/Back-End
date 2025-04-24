@@ -443,9 +443,9 @@ def comment_submission(user, submission: Submission, comment):
 @login_required
 @Request.doc('submission', Submission)
 def rejudge(user, submission: Submission):
-    if submission.status == -2 or (
-            submission.status == -1 and
-        (datetime.now() - submission.last_send).seconds < 300):
+    if submission.status == -2 or (submission.status == -1 and
+                                   (datetime.now() -
+                                    submission.last_send).seconds < 300):
         return HTTPError(f'{submission} haven\'t be judged', 403)
     if not submission.permission(user, Submission.Permission.REJUDGE):
         return HTTPError('forbidden.', 403)
