@@ -51,12 +51,14 @@ To run NOJ (see the README of the root project), configure the following environ
 
 ### MinIO Configuration
 
-Without [MinIO](https://min.io/), you cannot create Problems and Submissions. You can skip this if you will not develop features related to Problems and Submissions.
+Without [MinIO](https://min.io/), you cannot create Problems and Submissions.
 
-- `MINIO_ENDPOINT`: The endpoint for the MinIO server.
+We have set up the default values of these four variables in `docker-compose.override.yml`, if you need to develop locally with MinIO, make sure to configure them properly [based on the README in NOJ root project](https://github.com/Normal-OJ/Normal-OJ/blob/master/README.md#setup-minio). You can skip this if you will not develop features related to Problems and Submissions.
+
+- `MINIO_HOST`: The host for the MinIO server.
 - `MINIO_ACCESS_KEY`: The access key for MinIO.
 - `MINIO_SECRET_KEY`: The secret key for MinIO.
-- `MINIO_BUCKET_NAME`: The bucket name used in MinIO.
+- `MINIO_BUCKET`: The bucket name used in MinIO.
 
 ### SMTP Configuration
 

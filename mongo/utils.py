@@ -7,7 +7,7 @@ from flask import current_app
 from minio import Minio
 import redis
 from . import engine
-from .config import MINIO_HOST, MINIO_SECRET_KEY, MINIO_ACCESS_KEY, MINIO_BUCKET
+from .config import FLASK_DEBUG, MINIO_HOST, MINIO_SECRET_KEY, MINIO_ACCESS_KEY, MINIO_BUCKET
 
 if TYPE_CHECKING:
     from .user import User  # pragma: no cover
@@ -179,5 +179,6 @@ class MinioClient:
             MINIO_HOST,
             access_key=MINIO_ACCESS_KEY,
             secret_key=MINIO_SECRET_KEY,
+            secure=not FLASK_DEBUG,
         )
         self.bucket = MINIO_BUCKET
