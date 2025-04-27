@@ -526,3 +526,94 @@ class TestMongoCourse(BaseTester):
         course = Course('Public')
         course.edit_course(User('admin'), 'OldPublic', 'admin')
         assert Course.get_public().course_name == 'Public'
+
+
+class TestCourseSummary(BaseTester):
+
+    def test_course_summary(self, client_admin, app):
+        client_admin.post('/course',
+                          json={
+                              'course': 'math',
+                              'teacher': 'admin'
+                          })
+        client_admin.post('/course',
+                          json={
+                              'course': 'history',
+                              'teacher': 'teacher'
+                          })
+
+        math_course = Course('math')
+        history_course = Course('history')
+
+        math_problem = utils.problem.create_problem(
+            course=math_course.course_name, owner=User('admin'))
+        history_problem = utils.problem.create_problem(
+            course=history_course.course_name, owner=User('teacher'))
+
+        math_course.add_user(User('student'))
+        history_course.add_user(User('student'))
+
+        Homework.add(
+            user=User('admin'),
+            course_name=math_course.course_name,
+            markdown='',
+            hw_name='HW1',
+            start=0,
+            end=0,
+            problem_ids=[math_problem.id],
+            scoreboard_status=0,
+        )
+
+        with app.app_context():
+            utils.submission.create_submission(
+                user=User('student'),
+                problem=math_problem,
+                score=100,
+            )
+            utils.submission.create_submission(
+                user=User('student'),
+                problem=history_problem,
+                score=100,
+            )
+            utils.submission.create_submission(
+                user=User('teacher'),
+                problem=history_problem,
+                score=0,
+            )
+
+        rv = client_admin.get('/course/summary')
+        json = rv.get_json()
+
+        assert rv.status_code == 200, json
+        assert json['data']['courseCount'] == 3  # Includes 'Public' course
+        assert len(json['data']['breakdown']) == 3
+
+        breakdown = sorted(json['data']['breakdown'],
+                           key=lambda x: x['course'])
+        expected_breakdown = sorted(
+            [
+                {
+                    'course': 'Public',
+                    'userCount':
+                    1,  # In testing, we have only one user `first_admin`
+                    'homeworkCount': 0,
+                    'submissionCount': 0,
+                    'problemCount': 0,
+                },
+                {
+                    'course': 'math',
+                    'userCount': 2,
+                    'homeworkCount': 1,
+                    'submissionCount': 1,
+                    'problemCount': 1,
+                },
+                {
+                    'course': 'history',
+                    'userCount': 2,
+                    'homeworkCount': 0,
+                    'submissionCount': 2,
+                    'problemCount': 1,
+                },
+            ],
+            key=lambda x: x['course'])
+        assert breakdown == expected_breakdown, breakdown

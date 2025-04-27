@@ -70,6 +70,19 @@ def get_user_list(
     return HTTPResponse(data=user_list)
 
 
+@user_api.get('/summary')
+def get_user_summary():
+    user_count = engine.User.objects.count()
+    breakdown = [{
+        "role": role.name.lower(),
+        "count": engine.User.objects(role=role.value).count()
+    } for role in engine.User.Role]
+    return HTTPResponse(data={
+        "userCount": user_count,
+        "breakdown": breakdown,
+    })
+
+
 @user_api.post('/')
 @Request.json('username: str', 'password: str', 'email: str')
 def add_user(

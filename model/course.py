@@ -24,6 +24,22 @@ def get_courses(user):
     return HTTPResponse('Success.', data=data)
 
 
+@course_api.get('/summary')
+@identity_verify(0)
+def get_courses_summary(user):
+    courses = [Course(c) for c in Course.get_all()]
+    summary = {"courseCount": len(courses), "breakdown": []}
+
+    for course in courses:
+        # The user is admin, it won't filter out any problems (it's required)
+        problems = Problem.get_problem_list(user, course=course.course_name)
+        course_summary = course.get_course_summary(problems)
+        course_summary["problemCount"] = len(problems)
+        summary["breakdown"].append(course_summary)
+
+    return HTTPResponse("Success.", data=summary)
+
+
 @course_api.route('/', methods=['POST', 'PUT', 'DELETE'])
 @Request.json('course', 'new_course', 'teacher')
 @identity_verify(0, 1)

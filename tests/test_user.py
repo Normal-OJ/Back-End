@@ -324,3 +324,36 @@ def test_client_can_make_cors_preflight_request(client):
     # see more: https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS#preflight_requests_and_credentials
     rv = client.options('/user')
     assert rv.status_code == 200
+
+
+def test_user_summary(forge_client):
+    utils.user.create_user_many(3, role=engine.User.Role.STUDENT)
+    utils.user.create_user_many(2, role=engine.User.Role.TEACHER)
+
+    client = forge_client('first_admin')
+    rv, rv_json, _ = BaseTester.request(client, 'get', '/user/summary')
+
+    assert rv.status_code == 200, rv_json
+
+    rv_json = rv_json['data']
+    assert rv_json[
+        'userCount'] == 6, rv_json  # 3 students + 2 teachers + 1 admin
+    assert len(rv_json['breakdown']) == 3, rv_json
+
+    breakdown = sorted(rv_json['breakdown'], key=lambda x: x['role'])
+    expected_breakdown = sorted([
+        {
+            'role': 'student',
+            'count': 3
+        },
+        {
+            'role': 'teacher',
+            'count': 2
+        },
+        {
+            'role': 'admin',
+            'count': 1
+        },
+    ],
+                                key=lambda x: x['role'])
+    assert breakdown == expected_breakdown, breakdown

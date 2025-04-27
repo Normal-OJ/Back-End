@@ -74,6 +74,18 @@ class Course(MongoBase, engine=engine.Course):
         else:
             return cls.get_all()
 
+    def get_course_summary(self, problems: list):
+        return {
+            "course":
+            self.course_name,
+            "userCount":
+            engine.User.objects(courses=self.id).count(),
+            "homeworkCount":
+            engine.Homework.objects(course_id=str(self.id)).count(),
+            "submissionCount":
+            engine.Submission.objects(problem__in=problems).count(),
+        }
+
     def edit_course(self, user, new_course, teacher):
         if re.match(r'^[a-zA-Z0-9._\- ]+$', new_course) is None:
             raise ValueError
