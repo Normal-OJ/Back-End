@@ -115,8 +115,9 @@ def session():
             - 400 Incomplete Data
             - 403 Login Failed
         '''
+        ip_addr = request.headers.get('cf-connecting-ip', request.remote_addr)
         try:
-            user = User.login(username, password, request.remote_addr)
+            user = User.login(username, password, ip_addr)
         except DoesNotExist:
             return HTTPError('Login Failed', 403)
         if not user.active:
@@ -151,8 +152,9 @@ def signup(username, password, email):
 @login_required
 @Request.json('old_password: str', 'new_password: str')
 def change_password(user, old_password, new_password):
+    ip_addr = request.headers.get('cf-connecting-ip', request.remote_addr)
     try:
-        User.login(user.username, old_password, request.remote_addr)
+        User.login(user.username, old_password, ip_addr)
     except DoesNotExist:
         return HTTPError('Wrong Password', 403)
     user.change_password(new_password)

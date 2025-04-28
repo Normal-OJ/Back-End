@@ -95,12 +95,13 @@ def create_submission(user, language_type, problem_id):
     user.problem_submission[str(problem_id)] = problem.submit_count(user) + 1
     user.save()
     # insert submission to DB
+    ip_addr = request.headers.get('cf-connecting-ip', request.remote_addr)
     try:
         submission = Submission.add(problem_id=problem_id,
                                     username=user.username,
                                     lang=language_type,
                                     timestamp=now,
-                                    ip_addr=request.remote_addr)
+                                    ip_addr=ip_addr)
     except ValidationError:
         return HTTPError('invalid data!', 400)
     except engine.DoesNotExist as e:
