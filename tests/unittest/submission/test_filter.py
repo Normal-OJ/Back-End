@@ -29,8 +29,8 @@ def test_param_before():
         user=admin,
         before=datetime.now(),
     )) == 1
-    time.sleep(0.01)
     before = datetime.now()
+    time.sleep(0.01)
     for _ in range(16):
         Submission.add(
             problem_id=problem_id,
