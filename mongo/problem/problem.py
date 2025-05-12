@@ -1,5 +1,6 @@
 import json
 import enum
+from hashlib import md5
 from datetime import datetime, timedelta
 from typing import (
     Any,
@@ -485,6 +486,69 @@ class Problem(MongoBase, engine=engine.Problem):
 
         # fallback to legacy GridFS storage
         return self.test_case.case_zip
+
+    def migrate_gridfs_to_minio(self):
+        '''
+        migrate test case from gridfs to minio
+        '''
+        if self.test_case.case_zip.grid_id is None:
+            self.logger.info(
+                f"no test case to migrate. problem={self.problem_id}")
+            return
+
+        if self.test_case.case_zip_minio_path is None:
+            self.logger.info(
+                f"uploading test case to minio. problem={self.problem_id}")
+            self._save_test_case_zip(self.test_case.case_zip)
+            self.logger.info(
+                f"test case uploaded to minio. problem={self.problem_id} path={self.test_case.case_zip_minio_path}"
+            )
+
+        if self.check_test_case_consistency():
+            self.logger.info(
+                f"removing test case in gridfs. problem={self.problem_id}")
+            self._remove_test_case_in_mongodb()
+        else:
+            self.logger.warning(
+                f"data inconsistent after migration, keeping test case in gridfs. problem={self.problem_id}"
+            )
+
+    def _remove_test_case_in_mongodb(self):
+        self.test_case.case_zip.delete()
+        self.save()
+        self.reload('test_case')
+
+    def check_test_case_consistency(self):
+        minio_client = MinioClient()
+        try:
+            resp = minio_client.client.get_object(
+                minio_client.bucket,
+                self.test_case.case_zip_minio_path,
+            )
+            minio_data = resp.read()
+        finally:
+            if 'resp' in locals():
+                resp.close()
+                resp.release_conn()
+
+        gridfs_data = self.test_case.case_zip.read()
+        if gridfs_data is None:
+            self.logger.warning(
+                f"gridfs test case is None but proxy is not updated. problem={self.problem_id}"
+            )
+            return False
+
+        minio_checksum = md5(minio_data).hexdigest()
+        gridfs_checksum = md5(gridfs_data).hexdigest()
+
+        self.logger.info(
+            f"calculated minio checksum. problem={self.problem_id} checksum={minio_checksum}"
+        )
+        self.logger.info(
+            f"calculated gridfs checksum. problem={self.problem_id} checksum={gridfs_checksum}"
+        )
+
+        return minio_checksum == gridfs_checksum
 
     # TODO: hope minio SDK to provide more high-level API
     def generate_urls_for_uploading_test_case(
