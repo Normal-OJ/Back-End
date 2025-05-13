@@ -14,7 +14,7 @@ from typing import (
 import enum
 import tempfile
 import requests as rq
-import itertools
+from hashlib import md5
 from bson.son import SON
 from flask import current_app
 from tempfile import NamedTemporaryFile
@@ -849,3 +849,62 @@ class Submission(MongoBase, engine=engine.Submission):
         """
 
         return bool(self.own_permission(user) & req)
+
+    def migrate_code_to_minio(self):
+        """
+        migrate code from gridfs to minio
+        """
+        # nothing to migrate
+        if self.code is None or self.code.grid_id is None:
+            self.logger.info(f"no code to migrate. submission={self.id}")
+            return
+
+        # upload code to minio
+        if self.code_minio_path is None:
+            self.logger.info(f"uploading code to minio. submission={self.id}")
+            self.update(
+                code_minio_path=self._put_code(self.code),
+            )
+            self.reload()
+            self.logger.info(f"code uploaded to minio. submission={self.id} path={self.code_minio_path}")
+
+        # remove code in gridfs if it is consistent
+        if self._check_code_consistency():
+            self.logger.info(f"data consistency validated, removing code in gridfs. submission={self.id}")
+            self._remove_code_in_mongodb()
+        else:
+            self.logger.warning(f"data inconsistent, keeping code in gridfs. submission={self.id}")
+
+    def _remove_code_in_mongodb(self):
+        self.code.delete()
+        self.save()
+        self.reload('code')
+
+    def _check_code_consistency(self):
+        """
+        check whether the submission is consistent
+        """
+        if self.code is None or self.code.grid_id is None:
+            return False
+        gridfs_code = self.code.read()
+        if gridfs_code is None:
+            # if file is deleted but GridFS proxy is not updated
+            return False
+        gridfs_checksum = md5(gridfs_code).hexdigest()
+        self.logger.info(f"calculated grid checksum. submission={self.id} checksum={gridfs_checksum}")
+
+        minio_client = MinioClient()
+        try:
+            resp = minio_client.client.get_object(
+                minio_client.bucket,
+                self.code_minio_path,
+            )
+            minio_code = resp.read()
+        finally:
+            if 'resp' in locals():
+                resp.close()
+                resp.release_conn()
+
+        minio_checksum = md5(minio_code).hexdigest()
+        self.logger.info(f"calculated minio checksum. submission={self.id} checksum={minio_checksum}")
+        return minio_checksum == gridfs_checksum
