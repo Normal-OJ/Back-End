@@ -10,7 +10,7 @@ dynamic = ["dependencies"]
 
 [tool.poetry.dependencies]
 python = "^3.11"
-Flask = "^3.0.3"
+Flask = "^3.1.1"
 gunicorn = "^23.0.0"
 mongoengine = "^0.29.1"
 blinker = "^1.5"
