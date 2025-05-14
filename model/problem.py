@@ -461,3 +461,14 @@ def problem_stats(user: User, problem: Problem):
     ]
     ret['top10MemoryUsage'] = top_10_memory_submissions
     return HTTPResponse('Success.', data=ret)
+
+
+@problem_api.post('/<int:problem_id>/migrate-test-case')
+@login_required
+@identity_verify(0) # admin only
+@Request.doc('problem_id', 'problem', Problem)
+def problem_migrate_test_case(user: User, problem: Problem):
+    if not problem.permission(user, problem.Permission.MANAGE):
+        return permission_error_response()
+    problem.migrate_gridfs_to_minio()
+    return HTTPResponse('Success.')

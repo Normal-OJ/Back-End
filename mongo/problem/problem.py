@@ -1,5 +1,6 @@
 import json
 import enum
+from hashlib import md5
 from datetime import datetime, timedelta
 from typing import (
     Any,
@@ -485,6 +486,42 @@ class Problem(MongoBase, engine=engine.Problem):
 
         # fallback to legacy GridFS storage
         return self.test_case.case_zip
+
+    def migrate_gridfs_to_minio(self):
+        '''
+        migrate test case from gridfs to minio
+        '''
+        if self.test_case.case_zip.grid_id is None:
+            return
+
+        if self.test_case.case_zip_minio_path is not None:
+            # data consistent, can be safely deleted
+            if self.check_test_case_consistency():
+                self._remove_test_case_in_mongodb()
+            return
+
+        self._save_test_case_zip(self.test_case.case_zip)
+        self._remove_test_case_in_mongodb()
+
+    def _remove_test_case_in_mongodb(self):
+        self.test_case.case_zip.delete()
+        self.test_case.update(case_zip__grid_id=None)
+
+    def check_test_case_consistency(self):
+        minio_client = MinioClient()
+        try:
+            resp = minio_client.client.get_object(
+                minio_client.bucket,
+                self.test_case.case_zip_minio_path,
+            )
+        finally:
+            if 'resp' in locals():
+                resp.close()
+                resp.release_conn()
+
+        minio_checksum = md5(resp.read()).hexdigest()
+        gridfs_checksum = md5(self.test_case.case_zip.read()).hexdigest()
+        return minio_checksum == gridfs_checksum
 
     # TODO: hope minio SDK to provide more high-level API
     def generate_urls_for_uploading_test_case(
