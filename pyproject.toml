@@ -15,7 +15,7 @@ gunicorn = "^23.0.0"
 mongoengine = "^0.29.1"
 blinker = "^1.5"
 PyJWT = "^2.5"
-requests = "^2.31"
+requests = "^2.32"
 mosspy = "^1.0"
 redis = "^4.4"
 # <4.9.0 to fix mongomock GridFS integration
