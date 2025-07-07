@@ -92,3 +92,4 @@ def add_fake_output(submission: Submission):
     result = [[copy(single_result) for _ in range(t.case_count)]
               for t in submission.problem.test_case.tasks]
     submission.process_result(result)
+    submission.reload()

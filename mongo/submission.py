@@ -10,6 +10,7 @@ from typing import (
     Optional,
     Union,
     List,
+    TypedDict,
 )
 import enum
 import tempfile
@@ -72,6 +73,14 @@ class SubmissionCodeNotFound(Exception):
     '''
     when a submission's code is not found
     '''
+
+
+class SubmissionResultOutput(TypedDict):
+    '''
+    output of a submission result, including stdout and stderr
+    '''
+    stdout: str | bytes
+    stderr: str | bytes
 
 
 class SubmissionConfig(MongoBase, engine=engine.SubmissionConfig):
@@ -181,20 +190,40 @@ class Submission(MongoBase, engine=engine.Submission):
         task_no: int,
         case_no: int,
         text: bool = True,
-    ):
+    ) -> SubmissionResultOutput:
         try:
             case = self.tasks[task_no].cases[case_no]
         except IndexError:
             raise FileNotFoundError('task not exist')
         ret = {}
         try:
-            with ZipFile(case.output) as zf:
+            with ZipFile(self._get_output_raw(case)) as zf:
                 ret = {k: zf.read(k) for k in ('stdout', 'stderr')}
                 if text:
                     ret = {k: v.decode('utf-8') for k, v in ret.items()}
         except AttributeError:
             raise AttributeError('The submission is still in pending')
         return ret
+
+    def _get_output_raw(self, case: engine.CaseResult) -> io.BytesIO:
+        '''
+        get a output blob of a submission result
+        '''
+        if case.output_minio_path is not None:
+            # get from minio
+            minio_client = MinioClient()
+            try:
+                resp = minio_client.client.get_object(
+                    minio_client.bucket,
+                    case.output_minio_path,
+                )
+                return io.BytesIO(resp.read())
+            finally:
+                if 'resp' in locals():
+                    resp.close()
+                    resp.release_conn()
+        # fallback to gridfs
+        return case.output
 
     def delete_output(self, *args):
         '''
@@ -206,6 +235,8 @@ class Submission(MongoBase, engine=engine.Submission):
         for task in self.tasks:
             for case in task.cases:
                 case.output.delete()
+                case.output_minio_path = None
+        self.save()
 
     def delete(self, *keeps):
         '''
@@ -328,7 +359,7 @@ class Submission(MongoBase, engine=engine.Submission):
             return True
         return self.send()
 
-    def _generate_obj_path(self):
+    def _generate_code_minio_path(self):
         return f'submissions/{ULID()}.zip'
 
     def _put_code(self, code_file) -> str:
@@ -339,7 +370,7 @@ class Submission(MongoBase, engine=engine.Submission):
             raise ValueError(err)
 
         minio_client = MinioClient()
-        path = self._generate_obj_path()
+        path = self._generate_code_minio_path()
         minio_client.client.put_object(
             minio_client.bucket,
             path,
@@ -451,6 +482,7 @@ class Submission(MongoBase, engine=engine.Submission):
                 # convert status into integer
                 case['status'] = self.status2code.get(case['status'], -3)
         # process task
+        minio_client = MinioClient()
         for i, cases in enumerate(tasks):
             # save stdout/stderr
             fds = ['stdout', 'stderr']
@@ -465,13 +497,22 @@ class Submission(MongoBase, engine=engine.Submission):
                             )
                         zf.writestr(fd, content)
                 tf.seek(0)
-                case['output'] = tf
+                # upload to minio
+                output_minio_path = self._generate_output_minio_path(i, j)
+                minio_client.client.put_object(
+                    minio_client.bucket,
+                    output_minio_path,
+                    io.BytesIO(tf.read()),
+                    -1,
+                    part_size=5 * 1024 * 1024,  # 5MB
+                    content_type='application/zip',
+                )
                 # convert dict to document
                 cases[j] = engine.CaseResult(
                     status=case['status'],
                     exec_time=case['execTime'],
                     memory_usage=case['memoryUsage'],
-                    output=case['output'],
+                    output_minio_path=output_minio_path,
                 )
             status = max(c.status for c in cases)
             exec_time = max(c.exec_time for c in cases)
@@ -497,6 +538,12 @@ class Submission(MongoBase, engine=engine.Submission):
         self.reload()
         self.finish_judging()
         return True
+
+    def _generate_output_minio_path(self, task_no: int, case_no: int) -> str:
+        '''
+        generate a output file path for minio
+        '''
+        return f'submissions/task{task_no:02d}_case{case_no:02d}_{ULID()}.zip'
 
     def finish_judging(self):
         # update user's submission
@@ -749,15 +796,12 @@ class Submission(MongoBase, engine=engine.Submission):
         Get all results (including stdout/stderr) of this submission
         '''
         tasks = [task.to_mongo() for task in self.tasks]
-        for task in tasks:
-            for case in task.cases:
-                # extract zip file
-                output = case.pop('output', None)
-                if output is not None:
-                    output = engine.GridFSProxy(output)
-                    with ZipFile(output) as zf:
-                        case['stdout'] = zf.read('stdout').decode('utf-8')
-                        case['stderr'] = zf.read('stderr').decode('utf-8')
+        for i, task in enumerate(tasks):
+            for j, case in enumerate(task.cases):
+                output = self.get_single_output(i, j)
+                case['stdout'] = output['stdout']
+                case['stderr'] = output['stderr']
+                del case['output']  # non-serializable field
         return [task.to_dict() for task in tasks]
 
     def _get_code_raw(self):
@@ -862,18 +906,22 @@ class Submission(MongoBase, engine=engine.Submission):
         # upload code to minio
         if self.code_minio_path is None:
             self.logger.info(f"uploading code to minio. submission={self.id}")
-            self.update(
-                code_minio_path=self._put_code(self.code),
-            )
+            self.update(code_minio_path=self._put_code(self.code), )
             self.reload()
-            self.logger.info(f"code uploaded to minio. submission={self.id} path={self.code_minio_path}")
+            self.logger.info(
+                f"code uploaded to minio. submission={self.id} path={self.code_minio_path}"
+            )
 
         # remove code in gridfs if it is consistent
         if self._check_code_consistency():
-            self.logger.info(f"data consistency validated, removing code in gridfs. submission={self.id}")
+            self.logger.info(
+                f"data consistency validated, removing code in gridfs. submission={self.id}"
+            )
             self._remove_code_in_mongodb()
         else:
-            self.logger.warning(f"data inconsistent, keeping code in gridfs. submission={self.id}")
+            self.logger.warning(
+                f"data inconsistent, keeping code in gridfs. submission={self.id}"
+            )
 
     def _remove_code_in_mongodb(self):
         self.code.delete()
@@ -891,7 +939,9 @@ class Submission(MongoBase, engine=engine.Submission):
             # if file is deleted but GridFS proxy is not updated
             return False
         gridfs_checksum = md5(gridfs_code).hexdigest()
-        self.logger.info(f"calculated grid checksum. submission={self.id} checksum={gridfs_checksum}")
+        self.logger.info(
+            f"calculated grid checksum. submission={self.id} checksum={gridfs_checksum}"
+        )
 
         minio_client = MinioClient()
         try:
@@ -906,5 +956,7 @@ class Submission(MongoBase, engine=engine.Submission):
                 resp.release_conn()
 
         minio_checksum = md5(minio_code).hexdigest()
-        self.logger.info(f"calculated minio checksum. submission={self.id} checksum={minio_checksum}")
+        self.logger.info(
+            f"calculated minio checksum. submission={self.id} checksum={minio_checksum}"
+        )
         return minio_checksum == gridfs_checksum

@@ -465,7 +465,7 @@ def problem_stats(user: User, problem: Problem):
 
 @problem_api.post('/<int:problem_id>/migrate-test-case')
 @login_required
-@identity_verify(0) # admin only
+@identity_verify(0)  # admin only
 @Request.doc('problem_id', 'problem', Problem)
 def problem_migrate_test_case(user: User, problem: Problem):
     if not problem.permission(user, problem.Permission.MANAGE):

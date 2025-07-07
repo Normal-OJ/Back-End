@@ -526,14 +526,15 @@ def config(user):
     methods = {'GET': get_config, 'PUT': modify_config}
     return methods[request.method]()
 
+
 @submission_api.post('/<submission>/migrate-code')
 @login_required
 @identity_verify(0)
 @Request.doc('submission', Submission)
 def migrate_code(user: User, submission: Submission):
     if not submission.permission(
-        user,
-        Submission.Permission.MANAGER,
+            user,
+            Submission.Permission.MANAGER,
     ):
         return HTTPError('forbidden.', 403)
 

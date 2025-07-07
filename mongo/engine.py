@@ -365,6 +365,11 @@ class CaseResult(EmbeddedDocument):
         null=True,
         max_size=11**9,
     )
+    output_minio_path = StringField(
+        null=True,
+        max_length=256,
+        db_field='outputMinioPath',
+    )
 
 
 class TaskResult(EmbeddedDocument):

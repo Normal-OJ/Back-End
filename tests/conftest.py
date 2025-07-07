@@ -7,19 +7,33 @@ import mongomock.gridfs
 
 import pytest
 import random
-import pytest_minio_mock
 from datetime import datetime
 from zipfile import ZipFile
 from collections import defaultdict
-from mongo.config import MINIO_BUCKET
-from mongo.utils import MinioClient
 from tests.base_tester import random_string
 from tests.test_problem import get_file
 from tests import utils
+from testcontainers.minio import MinioContainer
+import mongo.config
+
+
+# use a tmp minio for entire test session
+@pytest.fixture(autouse=True, scope='session')
+def setup_minio():
+    with MinioContainer(
+            image='quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z') as minio:
+        cfg = minio.get_config()
+        mongo.config.MINIO_ACCESS_KEY = cfg['access_key']
+        mongo.config.MINIO_SECRET_KEY = cfg['secret_key']
+        mongo.config.MINIO_HOST = cfg['endpoint']
+        # TODO: Should we override this?
+        mongo.config.FLASK_DEBUG = True
+        minio.get_client().make_bucket(mongo.config.MINIO_BUCKET)
+        yield
 
 
 @pytest.fixture
-def app(tmp_path, minio_mock):
+def app(tmp_path):
     from app import app as flask_app
     app = flask_app()
     app.config['TESTING'] = True
@@ -32,7 +46,6 @@ def app(tmp_path, minio_mock):
     submission_tmp_dir.mkdir(exist_ok=True)
     Submission.config().TMP_DIR = submission_tmp_dir
 
-    MinioClient().client.make_bucket(MINIO_BUCKET)
     return app
 
 
