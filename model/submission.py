@@ -452,14 +452,12 @@ def rejudge(user, submission: Submission):
         return HTTPError('forbidden.', 403)
     try:
         success = submission.rejudge()
-    except FileExistsError:
-        exit(10086)
     except ValueError as e:
         return HTTPError(str(e), 400)
     except JudgeQueueFullError as e:
         return HTTPResponse(str(e), 202)
     except ValidationError as e:
-        return HTTPError(str(e), data=e.to_dict())
+        return HTTPError(str(e), 422, data=e.to_dict())
     if success:
         return HTTPResponse(f'{submission} is sent to judgement.')
     else:
