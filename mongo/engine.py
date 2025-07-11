@@ -365,6 +365,11 @@ class CaseResult(EmbeddedDocument):
         null=True,
         max_size=11**9,
     )
+    output_minio_path = StringField(
+        null=True,
+        max_length=256,
+        db_field='outputMinioPath',
+    )
 
 
 class TaskResult(EmbeddedDocument):
@@ -403,7 +408,7 @@ class Submission(Document):
     tasks = EmbeddedDocumentListField(TaskResult, default=list)
     exec_time = IntField(default=-1, db_field='runTime')
     memory_usage = IntField(default=-1, db_field='memoryUsage')
-    code = ZipField(required=True, null=True, max_size=10**7)
+    code = ZipField(null=True, max_size=10**7)
     code_minio_path = StringField(
         null=True,
         max_length=256,

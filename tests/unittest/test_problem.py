@@ -10,14 +10,7 @@ from mongo import (
     engine,
 )
 from mongo.problem import BadTestCase
-from mongo.utils import MinioClient
-from mongo.config import MINIO_BUCKET
 from mongo.problem.test_case import (ContextIO, SimpleIO, IncludeDirectory)
-
-
-@pytest.fixture(autouse=True)
-def setup_minio(minio_mock):
-    MinioClient().client.make_bucket(MINIO_BUCKET)
 
 
 def setup_module(_):
