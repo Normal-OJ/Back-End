@@ -360,7 +360,7 @@ class Submission(MongoBase, engine=engine.Submission):
         return self.send()
 
     def _generate_code_minio_path(self):
-        return f'submissions/{ULID()}.zip'
+        return f'submissions/{self.id}_{ULID()}.zip'
 
     def _put_code(self, code_file) -> str:
         '''
@@ -543,7 +543,7 @@ class Submission(MongoBase, engine=engine.Submission):
         '''
         generate a output file path for minio
         '''
-        return f'submissions/task{task_no:02d}_case{case_no:02d}_{ULID()}.zip'
+        return f'submissions/{self.id}_task{task_no:02d}_case{case_no:02d}_{ULID()}.zip'
 
     def finish_judging(self):
         # update user's submission
@@ -958,5 +958,99 @@ class Submission(MongoBase, engine=engine.Submission):
         minio_checksum = md5(minio_code).hexdigest()
         self.logger.info(
             f"calculated minio checksum. submission={self.id} checksum={minio_checksum}"
+        )
+        return minio_checksum == gridfs_checksum
+
+    def migrate_output_to_minio(self):
+        """
+        migrate output from gridfs to minio
+        """
+        for (i, task) in enumerate(self.tasks):
+            for (j, case) in enumerate(task.cases):
+                self._migrate_case_output_to_minio(case, i, j)
+
+    def _migrate_case_output_to_minio(
+        self,
+        case: engine.CaseResult,
+        i: int,
+        j: int,
+    ):
+        """
+        migrate a single case output to minio
+        """
+        minio_client = MinioClient()
+
+        if case.output is None or case.output.grid_id is None:
+            self.logger.info(
+                f"no output to migrate. submission={self.id} task={i} case={j}"
+            )
+            return
+
+        if case.output_minio_path is None:
+            self.logger.info(
+                f"uploading output to minio. submission={self.id} task={i} case={j}"
+            )
+            output_minio_path = self._generate_output_minio_path(i, j)
+            minio_client.client.put_object(
+                minio_client.bucket,
+                output_minio_path,
+                io.BytesIO(case.output.read()),
+                -1,
+                part_size=5 * 1024 * 1024,  # 5MB
+                content_type='application/zip',
+            )
+            case.output_minio_path = output_minio_path
+            self.save()
+            self.logger.info(
+                f"output uploaded to minio. submission={self.id} task={i} case={j}"
+            )
+
+        # remove output in gridfs if it is consistent
+        if self._check_case_output_consistency(case, i, j):
+            self.logger.info(
+                f"data consistency validated, removing output in gridfs. submission={self.id} task={i} case={j}"
+            )
+            case.output.delete()
+            self.save()
+        else:
+            self.logger.warning(
+                f"data inconsistent, keeping output in gridfs. submission={self.id} task={i} case={j}"
+            )
+
+    def _check_case_output_consistency(
+        self,
+        case: engine.CaseResult,
+        i: int,
+        j: int,
+    ):
+        """
+        check whether the case output is consistent
+        """
+        if case.output is None or case.output.grid_id is None:
+            return False
+        gridfs_output = case.output.read()
+        if gridfs_output is None:
+            # if file is deleted but GridFS proxy is not updated
+            return False
+        gridfs_checksum = md5(gridfs_output).hexdigest()
+        self.logger.info(
+            f"calculated grid checksum. submission={self.id} task={i} case={j} checksum={gridfs_checksum}"
+        )
+
+        minio_client = MinioClient()
+        try:
+            resp = minio_client.client.get_object(
+                minio_client.bucket,
+                case.output_minio_path,
+            )
+            minio_output = resp.read()
+        finally:
+            if 'resp' in locals():
+                resp.close()
+                resp.release_conn()
+
+        minio_checksum = md5(minio_output).hexdigest()
+        self.logger.info(
+            f"calculated minio checksum. submission={self.id} task={i} case={j} checksum={minio_checksum}"
         )
         return minio_checksum == gridfs_checksum
