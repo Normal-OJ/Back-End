@@ -538,3 +538,18 @@ def migrate_code(user: User, submission: Submission):
 
     submission.migrate_code_to_minio()
     return HTTPResponse('ok')
+
+
+@submission_api.post('/<submission>/migrate-output')
+@login_required
+@identity_verify(0)
+@Request.doc('submission', Submission)
+def migrate_output(user: User, submission: Submission):
+    if not submission.permission(
+            user,
+            Submission.Permission.MANAGER,
+    ):
+        return HTTPError('forbidden.', 403)
+
+    submission.migrate_output_to_minio()
+    return HTTPResponse('ok')
