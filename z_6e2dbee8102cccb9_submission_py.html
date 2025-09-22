@@ -54,9 +54,9 @@
             </div>
         </aside>
         <h2>
-            <span class="text">298 statements &nbsp;</span>
-            <button type="button" class="run button_toggle_run" value="run" data-shortcut="r" title="Toggle lines run">195<span class="text"> run</span></button>
-            <button type="button" class="mis show_mis button_toggle_mis" value="mis" data-shortcut="m" title="Toggle lines missing">103<span class="text"> missing</span></button>
+            <span class="text">307 statements &nbsp;</span>
+            <button type="button" class="run button_toggle_run" value="run" data-shortcut="r" title="Toggle lines run">200<span class="text"> run</span></button>
+            <button type="button" class="mis show_mis button_toggle_mis" value="mis" data-shortcut="m" title="Toggle lines missing">107<span class="text"> missing</span></button>
             <button type="button" class="exc show_exc button_toggle_exc" value="exc" data-shortcut="x" title="Toggle lines excluded">0<span class="text"> excluded</span></button>
         </h2>
         <p class="text">
@@ -65,7 +65,7 @@
             <a id="nextFileLink" class="nav" href="z_6e2dbee8102cccb9_test_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.9.2">coverage.py v7.9.2</a>,
-            created at 2025-07-11 18:37 +0000
+            created at 2025-09-22 16:34 +0000
         </p>
         <aside class="hidden">
             <button type="button" class="button_next_chunk" data-shortcut="j"></button>
@@ -620,6 +620,21 @@
     <p class="pln"><span class="n"><a id="t538" href="#t538">538</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="mis show_mis"><span class="n"><a id="t539" href="#t539">539</a></span><span class="t">    <span class="nam">submission</span><span class="op">.</span><span class="nam">migrate_code_to_minio</span><span class="op">(</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="mis show_mis"><span class="n"><a id="t540" href="#t540">540</a></span><span class="t">    <span class="key">return</span> <span class="nam">HTTPResponse</span><span class="op">(</span><span class="str">'ok'</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="pln"><span class="n"><a id="t541" href="#t541">541</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
+    <p class="pln"><span class="n"><a id="t542" href="#t542">542</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t543" href="#t543">543</a></span><span class="t"><span class="op">@</span><span class="nam">submission_api</span><span class="op">.</span><span class="nam">post</span><span class="op">(</span><span class="str">'/&lt;submission>/migrate-output'</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t544" href="#t544">544</a></span><span class="t"><span class="op">@</span><span class="nam">login_required</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t545" href="#t545">545</a></span><span class="t"><span class="op">@</span><span class="nam">identity_verify</span><span class="op">(</span><span class="num">0</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t546" href="#t546">546</a></span><span class="t"><span class="op">@</span><span class="nam">Request</span><span class="op">.</span><span class="nam">doc</span><span class="op">(</span><span class="str">'submission'</span><span class="op">,</span> <span class="nam">Submission</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t547" href="#t547">547</a></span><span class="t"><span class="key">def</span> <span class="nam">migrate_output</span><span class="op">(</span><span class="nam">user</span><span class="op">:</span> <span class="nam">User</span><span class="op">,</span> <span class="nam">submission</span><span class="op">:</span> <span class="nam">Submission</span><span class="op">)</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
+    <p class="mis show_mis"><span class="n"><a id="t548" href="#t548">548</a></span><span class="t">    <span class="key">if</span> <span class="key">not</span> <span class="nam">submission</span><span class="op">.</span><span class="nam">permission</span><span class="op">(</span>&nbsp;</span><span class="r"></span></p>
+    <p class="pln"><span class="n"><a id="t549" href="#t549">549</a></span><span class="t">            <span class="nam">user</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
+    <p class="pln"><span class="n"><a id="t550" href="#t550">550</a></span><span class="t">            <span class="nam">Submission</span><span class="op">.</span><span class="nam">Permission</span><span class="op">.</span><span class="nam">MANAGER</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
+    <p class="pln"><span class="n"><a id="t551" href="#t551">551</a></span><span class="t">    <span class="op">)</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
+    <p class="mis show_mis"><span class="n"><a id="t552" href="#t552">552</a></span><span class="t">        <span class="key">return</span> <span class="nam">HTTPError</span><span class="op">(</span><span class="str">'forbidden.'</span><span class="op">,</span> <span class="num">403</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="pln"><span class="n"><a id="t553" href="#t553">553</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
+    <p class="mis show_mis"><span class="n"><a id="t554" href="#t554">554</a></span><span class="t">    <span class="nam">submission</span><span class="op">.</span><span class="nam">migrate_output_to_minio</span><span class="op">(</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="mis show_mis"><span class="n"><a id="t555" href="#t555">555</a></span><span class="t">    <span class="key">return</span> <span class="nam">HTTPResponse</span><span class="op">(</span><span class="str">'ok'</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
 </main>
 <footer>
     <div class="content">
@@ -629,7 +644,7 @@
             <a class="nav" href="z_6e2dbee8102cccb9_test_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.9.2">coverage.py v7.9.2</a>,
-            created at 2025-07-11 18:37 +0000
+            created at 2025-09-22 16:34 +0000
         </p>
     </div>
 </footer>
