@@ -26,22 +26,3 @@ class TestDuration:
     def test_in(self):
         d = Duration()
         assert datetime.datetime.now() in d
-
-
-from mongo.engine import ProblemDescription
-
-
-class TestProblemDescription:
-
-    def test_escape(self):
-        pd = ProblemDescription()
-        pd.description = '<h1>description</h1>'
-        pd.input = 'input'
-        pd.output = 'output'
-        pd.hint = '<script>hint</script>'
-        pd.sample_input = ['123', '456']
-        pd.sample_output = ['789', '101']
-        pd.escape()
-        import html
-        assert pd.description == html.escape('<h1>description</h1>')
-        assert pd.hint == html.escape('<script>hint</script>')

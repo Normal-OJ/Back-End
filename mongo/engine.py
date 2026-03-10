@@ -1,8 +1,6 @@
 from mongoengine import *
-from mongoengine import signals
 import mongoengine
 import os
-import html
 from enum import IntEnum
 from datetime import datetime
 from zipfile import ZipFile, BadZipFile
@@ -22,29 +20,6 @@ if MONGO_HOST.startswith('mongomock'):
     )
 else:
     connect('normal-oj', host=MONGO_HOST)
-
-
-def handler(event):
-    '''
-    Signal decorator to allow use of callback functions as class decorators.
-    reference: http://docs.mongoengine.org/guide/signals.html
-    '''
-
-    def decorator(fn):
-
-        def apply(cls):
-            event.connect(fn, sender=cls)
-            return cls
-
-        fn.apply = apply
-        return fn
-
-    return decorator
-
-
-@handler(signals.pre_save)
-def escape_markdown(sender, document):
-    document.markdown = html.escape(document.markdown)
 
 
 class ZipField(FileField):
@@ -172,7 +147,6 @@ class User(Document):
         }
 
 
-@escape_markdown.apply
 class Homework(Document):
 
     homework_name = StringField(
@@ -263,26 +237,7 @@ class ProblemDescription(EmbeddedDocument):
         db_field='sampleOutput',
     )
 
-    def escape(self):
-        self.description, self.input, self.output, self.hint = (html.escape(
-            v or '') for v in (
-                self.description,
-                self.input,
-                self.output,
-                self.hint,
-            ))
-        _io = zip(self.sample_input, self.sample_output)
-        for i, (ip, op) in enumerate(_io):
-            self.sample_input[i] = ip or html.escape(ip)
-            self.sample_output[i] = op or html.escape(op)
 
-
-@handler(signals.pre_save)
-def problem_desc_escape(sender, document):
-    document.description.escape()
-
-
-@problem_desc_escape.apply
 class Problem(Document):
 
     class Visibility:
@@ -419,7 +374,6 @@ class Submission(Document):
     ip_addr = StringField(default=None, null=True)
 
 
-@escape_markdown.apply
 class Message(Document):
     timestamp = DateTimeField(default=datetime.now)
     sender = StringField(max_length=16, required=True)
@@ -429,7 +383,6 @@ class Message(Document):
     markdown = StringField(max_length=100000, required=True)
 
 
-@escape_markdown.apply
 class Announcement(Document):
     status = IntField(default=0, choices=[0, 1])  # not delete / delete
     title = StringField(max_length=64, required=True)
@@ -442,7 +395,6 @@ class Announcement(Document):
     pinned = BooleanField(default=False)
 
 
-@escape_markdown.apply
 class PostThread(Document):
     markdown = StringField(default='', required=True, max_length=100000)
     author = ReferenceField('User', db_field='author')
