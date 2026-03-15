@@ -487,7 +487,7 @@ class Submission(MongoBase, engine=engine.Submission):
             # save stdout/stderr
             fds = ['stdout', 'stderr']
             for j, case in enumerate(cases):
-                tf = NamedTemporaryFile(delete=False)
+                tf = NamedTemporaryFile(delete=True)
                 with ZipFile(tf, 'w') as zf:
                     for fd in fds:
                         content = case.pop(fd)
