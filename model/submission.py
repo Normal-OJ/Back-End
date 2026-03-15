@@ -464,65 +464,64 @@ def rejudge(user, submission: Submission):
         return HTTPError('Some error occurred, please contact the admin', 500)
 
 
-@submission_api.route('/config', methods=['GET', 'PUT'])
+@submission_api.get('/config')
 @login_required
 @identity_verify(0)
-def config(user):
+def get_config(user):
     config = Submission.config()
+    ret = config.to_mongo()
+    del ret['_cls']
+    del ret['_id']
+    return HTTPResponse('success.', data=ret)
 
-    def get_config():
-        ret = config.to_mongo()
-        del ret['_cls']
-        del ret['_id']
-        return HTTPResponse('success.', data=ret)
 
-    @Request.json('rate_limit: int', 'sandbox_instances: list')
-    def modify_config(rate_limit, sandbox_instances):
-        # try to convert json object to Sandbox instance
-        try:
-            sandbox_instances = [
-                *map(
-                    lambda s: engine.Sandbox(**s),
-                    sandbox_instances,
-                )
-            ]
-        except engine.ValidationError as e:
+@submission_api.put('/config')
+@login_required
+@identity_verify(0)
+@Request.json('rate_limit: int', 'sandbox_instances: list')
+def update_config(user, rate_limit, sandbox_instances):
+    config = Submission.config()
+    # try to convert json object to Sandbox instance
+    try:
+        sandbox_instances = [
+            *map(
+                lambda s: engine.Sandbox(**s),
+                sandbox_instances,
+            )
+        ]
+    except engine.ValidationError as e:
+        return HTTPError(
+            'wrong Sandbox schema',
+            400,
+            data=e.to_dict(),
+        )
+    # skip if during testing
+    if not current_app.config['TESTING']:
+        resps = []
+        # check sandbox status
+        for sb in sandbox_instances:
+            resp = rq.get(f'{sb.url}/status')
+            if not resp.ok:
+                resps.append((sb.name, resp))
+        # some exception occurred
+        if len(resps) != 0:
             return HTTPError(
-                'wrong Sandbox schema',
+                'some error occurred when check sandbox status',
                 400,
-                data=e.to_dict(),
+                data=[{
+                    'name': name,
+                    'statusCode': resp.status_code,
+                    'response': resp.text,
+                } for name, resp in resps],
             )
-        # skip if during testing
-        if not current_app.config['TESTING']:
-            resps = []
-            # check sandbox status
-            for sb in sandbox_instances:
-                resp = rq.get(f'{sb.url}/status')
-                if not resp.ok:
-                    resps.append((sb.name, resp))
-            # some exception occurred
-            if len(resps) != 0:
-                return HTTPError(
-                    'some error occurred when check sandbox status',
-                    400,
-                    data=[{
-                        'name': name,
-                        'statusCode': resp.status_code,
-                        'response': resp.text,
-                    } for name, resp in resps],
-                )
-        try:
-            config.update(
-                rate_limit=rate_limit,
-                sandbox_instances=sandbox_instances,
-            )
-        except ValidationError as e:
-            return HTTPError(str(e), 400)
-
-        return HTTPResponse('success.')
-
-    methods = {'GET': get_config, 'PUT': modify_config}
-    return methods[request.method]()
+    try:
+        config.update(
+            rate_limit=rate_limit,
+            sandbox_instances=sandbox_instances,
+        )
+    except ValidationError as e:
+        return HTTPError(str(e), 400)
+    return HTTPResponse('success.')
 
 
 @submission_api.post('/<submission>/migrate-code')

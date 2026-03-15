@@ -86,48 +86,39 @@ def identity_verify(*roles):
 
 def get_verify_link(user: User) -> str:
     return url_for(
-        'auth_api.active',
+        'auth_api.active_redirect',
         _external=True,
         token=user.cookie,
     )
 
 
-@auth_api.route('/session', methods=['GET', 'POST'])
-def session():
-    '''Create a session or remove a session.
-    Request methods:
-        GET: Logout
-        POST: Login
+@auth_api.get('/session')
+def logout():
+    '''Logout a user.
+    Returns:
+        - 200 Logout Success
     '''
+    cookies = {'jwt': None, 'piann': None}
+    return HTTPResponse('Goodbye', cookies=cookies)
 
-    def logout():
-        '''Logout a user.
-        Returns:
-            - 200 Logout Success
-        '''
-        cookies = {'jwt': None, 'piann': None}
-        return HTTPResponse('Goodbye', cookies=cookies)
 
-    @Request.json('username: str', 'password: str')
-    def login(username, password):
-        '''Login a user.
-        Returns:
-            - 400 Incomplete Data
-            - 403 Login Failed
-        '''
-        ip_addr = request.headers.get('cf-connecting-ip', request.remote_addr)
-        try:
-            user = User.login(username, password, ip_addr)
-        except DoesNotExist:
-            return HTTPError('Login Failed', 403)
-        if not user.active:
-            return HTTPError('Invalid User', 403)
-        cookies = {'piann_httponly': user.secret, 'jwt': user.cookie}
-        return HTTPResponse('Login Success', cookies=cookies)
-
-    methods = {'GET': logout, 'POST': login}
-
-    return methods[request.method]()
+@auth_api.post('/session')
+@Request.json('username: str', 'password: str')
+def login(username, password):
+    '''Login a user.
+    Returns:
+        - 400 Incomplete Data
+        - 403 Login Failed
+    '''
+    ip_addr = request.headers.get('cf-connecting-ip', request.remote_addr)
+    try:
+        user = User.login(username, password, ip_addr)
+    except DoesNotExist:
+        return HTTPError('Login Failed', 403)
+    if not user.active:
+        return HTTPError('Invalid User', 403)
+    cookies = {'piann_httponly': user.secret, 'jwt': user.cookie}
+    return HTTPResponse('Login Success', cookies=cookies)
 
 
 @auth_api.route('/signup', methods=['POST'])
@@ -201,46 +192,40 @@ def resend_email(email):
     return HTTPResponse('Email Has Been Resent')
 
 
-@auth_api.route('/active', methods=['POST'])
-@auth_api.route('/active/<token>', methods=['GET'])
-def active(token=None):
-    '''Activate a user.
+@auth_api.get('/active/<token>')
+def active_redirect(token):
+    '''Redirect user to active page.
     '''
+    json = jwt_decode(token)
+    if json is None:
+        return HTTPError('Invalid Token', 403)
+    user = User(json['data']['username'])
+    cookies = {'piann_httponly': user.secret, 'jwt': user.cookie}
+    return HTTPRedirect('/email_verify', cookies=cookies)
 
-    @Request.json('profile: dict', 'agreement: bool')
-    @Request.cookies(vars_dict={'token': 'piann'})
-    def update(profile, agreement, token):
-        '''User: active: false -> true
-        '''
-        if agreement is not True:
-            return HTTPError('Not Confirm the Agreement', 403)
-        json = jwt_decode(token)
-        if json is None or not json.get('secret'):
-            return HTTPError('Invalid Token.', 403)
-        user = User(json['data']['username'])
-        if not user:
-            return HTTPError('User Not Exists', 400)
-        if user.active:
-            return HTTPError('User Has Been Actived', 400)
-        try:
-            user.activate(profile)
-        except engine.DoesNotExist as e:
-            return HTTPError(str(e), 404)
-        cookies = {'jwt': user.cookie}
-        return HTTPResponse('User Is Now Active', cookies=cookies)
 
-    def redir():
-        '''Redirect user to active page.
-        '''
-        json = jwt_decode(token)
-        if json is None:
-            return HTTPError('Invalid Token', 403)
-        user = User(json['data']['username'])
-        cookies = {'piann_httponly': user.secret, 'jwt': user.cookie}
-        return HTTPRedirect('/email_verify', cookies=cookies)
-
-    methods = {'GET': redir, 'POST': update}
-    return methods[request.method]()
+@auth_api.post('/active')
+@Request.json('profile: dict', 'agreement: bool')
+@Request.cookies(vars_dict={'token': 'piann'})
+def activate_user(profile, agreement, token):
+    '''User: active: false -> true
+    '''
+    if agreement is not True:
+        return HTTPError('Not Confirm the Agreement', 403)
+    json = jwt_decode(token)
+    if json is None or not json.get('secret'):
+        return HTTPError('Invalid Token.', 403)
+    user = User(json['data']['username'])
+    if not user:
+        return HTTPError('User Not Exists', 400)
+    if user.active:
+        return HTTPError('User Has Been Actived', 400)
+    try:
+        user.activate(profile)
+    except engine.DoesNotExist as e:
+        return HTTPError(str(e), 404)
+    cookies = {'jwt': user.cookie}
+    return HTTPResponse('User Is Now Active', cookies=cookies)
 
 
 @auth_api.route('/password-recovery', methods=['POST'])

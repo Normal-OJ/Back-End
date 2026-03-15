@@ -1,5 +1,5 @@
 from typing import List
-from flask import Blueprint, request
+from flask import Blueprint
 from mongo import *
 from mongo import engine
 from .utils import *
@@ -11,61 +11,39 @@ __all__ = ['homework_api']
 homework_api = Blueprint('homework_api', __name__)
 
 
-@homework_api.route('/', methods=['POST'])
-@homework_api.route('/<homework_id>', methods=['PUT', 'DELETE', 'GET'])
+@homework_api.post('/')
 @login_required
-def homework_entry(user, homework_id=None):
-    '''
-    apply a operation to single homework
-    '''
-
-    @Request.json('name', 'course_name', 'markdown', 'start', 'end',
-                  'problem_ids', 'scoreboard_status', 'penalty')
-    def add_homework(course_name, name, markdown, start, end, problem_ids,
-                     scoreboard_status, penalty):
-        try:
-            homework = Homework.add(
-                user=user,
-                hw_name=name,
-                markdown=markdown,
-                scoreboard_status=scoreboard_status,
-                course_name=course_name,
-                problem_ids=problem_ids or [],
-                start=start,
-                end=end,
-                penalty=penalty,
-            )
-        except NameError:
-            return HTTPError('user must be the teacher or ta of this course',
-                             403)
-        except FileExistsError:
-            return HTTPError('homework exists in this course', 400)
-        return HTTPResponse('Add homework Success')
-
-    @Request.json('name', 'markdown', 'start', 'end', 'problem_ids',
-                  'scoreboard_status', 'penalty')
-    def update_homework(name, markdown, start, end, problem_ids,
-                        scoreboard_status, penalty):
-        homework = Homework.update(
+@Request.json('name', 'course_name', 'markdown', 'start', 'end', 'problem_ids',
+              'scoreboard_status', 'penalty')
+def create_homework(user, course_name, name, markdown, start, end, problem_ids,
+                    scoreboard_status, penalty):
+    try:
+        homework = Homework.add(
             user=user,
-            homework_id=homework_id,
+            hw_name=name,
             markdown=markdown,
-            new_hw_name=name,
+            scoreboard_status=scoreboard_status,
+            course_name=course_name,
+            problem_ids=problem_ids or [],
             start=start,
             end=end,
-            problem_ids=problem_ids,
-            scoreboard_status=scoreboard_status,
             penalty=penalty,
         )
-        return HTTPResponse('Update homework Success')
+    except NameError:
+        return HTTPError('user must be the teacher or ta of this course', 403)
+    except FileExistsError:
+        return HTTPError('homework exists in this course', 400)
+    except engine.DoesNotExist as e:
+        return HTTPError(str(e), 404)
+    except (PermissionError, engine.NotUniqueError) as e:
+        return HTTPError(str(e), 403)
+    return HTTPResponse('Add homework Success')
 
-    def delete_homework():
-        homework = Homework(homework_id)
-        homework = homework.delete_problems(user=user,
-                                            course=homework.course_id)
-        return HTTPResponse('Delete homework Success')
 
-    def get_homework():
+@homework_api.get('/<homework_id>')
+@login_required
+def get_homework(user, homework_id):
+    try:
         homework = Homework.get_by_id(homework_id)
         ret = {
             'name':
@@ -84,21 +62,50 @@ def homework_entry(user, homework_id=None):
             'penalty':
             homework.penalty if hasattr(homework, 'penalty') else None,
         }
-        return HTTPResponse('get homework', data=ret)
-
-    handler = {
-        'GET': get_homework,
-        'POST': add_homework,
-        'PUT': update_homework,
-        'DELETE': delete_homework
-    }
-
-    try:
-        return handler[request.method]()
     except engine.DoesNotExist as e:
         return HTTPError(str(e), 404)
     except (PermissionError, engine.NotUniqueError) as e:
         return HTTPError(str(e), 403)
+    return HTTPResponse('get homework', data=ret)
+
+
+@homework_api.put('/<homework_id>')
+@login_required
+@Request.json('name', 'markdown', 'start', 'end', 'problem_ids',
+              'scoreboard_status', 'penalty')
+def update_homework(user, homework_id, name, markdown, start, end, problem_ids,
+                    scoreboard_status, penalty):
+    try:
+        homework = Homework.update(
+            user=user,
+            homework_id=homework_id,
+            markdown=markdown,
+            new_hw_name=name,
+            start=start,
+            end=end,
+            problem_ids=problem_ids,
+            scoreboard_status=scoreboard_status,
+            penalty=penalty,
+        )
+    except engine.DoesNotExist as e:
+        return HTTPError(str(e), 404)
+    except (PermissionError, engine.NotUniqueError) as e:
+        return HTTPError(str(e), 403)
+    return HTTPResponse('Update homework Success')
+
+
+@homework_api.delete('/<homework_id>')
+@login_required
+def delete_homework(user, homework_id):
+    try:
+        homework = Homework(homework_id)
+        homework = homework.delete_problems(user=user,
+                                            course=homework.course_id)
+    except engine.DoesNotExist as e:
+        return HTTPError(str(e), 404)
+    except (PermissionError, engine.NotUniqueError) as e:
+        return HTTPError(str(e), 403)
+    return HTTPResponse('Delete homework Success')
 
 
 @course_api.route('/<course_name>/homework', methods=['GET'])
