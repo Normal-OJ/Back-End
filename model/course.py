@@ -4,6 +4,14 @@ from flask import Blueprint, request
 from mongo import *
 from .auth import *
 from .utils import *
+from .schemas import (
+    ModifyCoursesBody,
+    UpdateCourseBody,
+    AddGradeBody,
+    UpdateGradeBody,
+    DeleteGradeBody,
+    GetCourseScoreboardQuery,
+)
 from mongo.utils import *
 from mongo.course import *
 from mongo import engine
@@ -41,9 +49,12 @@ def get_courses_summary(user):
 
 
 @course_api.route('/', methods=['POST', 'PUT', 'DELETE'])
-@Request.json('course', 'new_course', 'teacher')
+@parse_body(ModifyCoursesBody)
 @identity_verify(0, 1)
-def modify_courses(user, course, new_course, teacher):
+def modify_courses(user, body: ModifyCoursesBody):
+    course = body.course
+    new_course = body.new_course
+    teacher = body.teacher
     r = None
     if user.role == 1:
         teacher = user.username
@@ -90,8 +101,10 @@ def get_course(user, course_name):
 
 @course_api.put('/<course_name>')
 @login_required
-@Request.json('TAs', 'student_nicknames')
-def update_course(user, course_name, TAs, student_nicknames):
+@parse_body(UpdateCourseBody)
+def update_course(user, course_name, body: UpdateCourseBody):
+    TAs = body.TAs
+    student_nicknames = body.student_nicknames
     course = Course(course_name)
 
     if not course:
@@ -149,8 +162,11 @@ def get_grade(user, course_name, student):
 
 @course_api.post('/<course_name>/grade/<student>')
 @login_required
-@Request.json('title', 'content', 'score')
-def add_grade(user, course_name, student, title, content, score):
+@parse_body(AddGradeBody)
+def add_grade(user, course_name, student, body: AddGradeBody):
+    title = body.title
+    content = body.content
+    score = body.score
     course = Course(course_name)
 
     if not course:
@@ -178,8 +194,12 @@ def add_grade(user, course_name, student, title, content, score):
 
 @course_api.put('/<course_name>/grade/<student>')
 @login_required
-@Request.json('title', 'new_title', 'content', 'score')
-def update_grade(user, course_name, student, title, new_title, content, score):
+@parse_body(UpdateGradeBody)
+def update_grade(user, course_name, student, body: UpdateGradeBody):
+    title = body.title
+    new_title = body.new_title
+    content = body.content
+    score = body.score
     course = Course(course_name)
 
     if not course:
@@ -213,8 +233,9 @@ def update_grade(user, course_name, student, title, new_title, content, score):
 
 @course_api.delete('/<course_name>/grade/<student>')
 @login_required
-@Request.json('title')
-def delete_grade(user, course_name, student, title):
+@parse_body(DeleteGradeBody)
+def delete_grade(user, course_name, student, body: DeleteGradeBody):
+    title = body.title
     course = Course(course_name)
 
     if not course:
@@ -237,17 +258,15 @@ def delete_grade(user, course_name, student, title):
     return HTTPResponse('Success.')
 
 
-@course_api.route('/<course_name>/scoreboard', methods=['GET'])
+@course_api.get('/<course_name>/scoreboard')
 @login_required
-@Request.args('pids: str', 'start', 'end')
+@parse_query(GetCourseScoreboardQuery)
 @Request.doc('course_name', 'course', Course)
-def get_course_scoreboard(
-    user,
-    pids: str,
-    start: Optional[str],
-    end: Optional[str],
-    course: Course,
-):
+def get_course_scoreboard(user, query: GetCourseScoreboardQuery,
+                          course: Course):
+    pids = query.pids
+    start = query.start
+    end = query.end
     try:
         pids = pids.split(',')
         pids = [int(pid.strip()) for pid in pids]

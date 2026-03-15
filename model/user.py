@@ -6,6 +6,7 @@ from mongo.utils import drop_none
 from mongo import *
 from .utils import *
 from .auth import identity_verify, login_required
+from .schemas import AddUserBody, UpdateUserBody, GetUserListQuery
 
 __all__ = ['user_api']
 
@@ -32,13 +33,12 @@ def before_request():
 
 
 @user_api.get('/')
-@Request.args('offset', 'count', 'course', 'role')
-def get_user_list(
-    offset: Optional[str],
-    count: Optional[str],
-    course: Optional[str],
-    role: Optional[str],
-):
+@parse_query(GetUserListQuery)
+def get_user_list(query: GetUserListQuery):
+    offset = query.offset
+    count = query.count
+    course = query.course
+    role = query.role
     try:
         if offset is not None:
             offset = int(offset)
@@ -84,21 +84,17 @@ def get_user_summary():
 
 
 @user_api.post('/')
-@Request.json('username: str', 'password: str', 'email: str')
-def add_user(
-    username: str,
-    password: str,
-    email: str,
-):
+@parse_body(AddUserBody)
+def add_user(body: AddUserBody):
     '''
     Directly add a user without activation required.
     This operation only allow admin to use.
     '''
     try:
         User.signup(
-            username,
-            password,
-            email,
+            body.username,
+            body.password,
+            body.email,
         ).activate()
     except ValidationError as ve:
         return HTTPError('Signup Failed', 400, data=ve.to_dict())
@@ -112,23 +108,17 @@ def add_user(
 @user_api.patch('/<username>')
 @login_required
 @Request.doc('username', 'target_user', User)
-@Request.json('password', 'displayed_name', 'role')
-def update_user(
-    user: User,
-    target_user: User,
-    password,
-    displayed_name,
-    role,
-):
+@parse_body(UpdateUserBody)
+def update_user(user: User, target_user: User, body: UpdateUserBody):
     # TODO: notify admin & user (by email, SMS, etc.)
-    if password is not None:
-        target_user.change_password(password)
+    if body.password is not None:
+        target_user.change_password(body.password)
         current_app.logger.info(
             'admin changed user password '
             f'[actor={user.username}, user={target_user.username}]', )
     payload = drop_none({
-        'profile__displayed_name': displayed_name,
-        'role': role,
+        'profile__displayed_name': body.displayed_name,
+        'role': body.role,
     })
     if len(payload):
         fields = [*payload.keys()]

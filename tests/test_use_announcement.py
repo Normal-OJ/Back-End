@@ -90,7 +90,7 @@ class TestAnnouncement(BaseTester):
     def test_edit_does_not_exist(self, client_admin):
         rv = client_admin.put('/ann',
                               json={
-                                  'annId': 878787878787878787878787,
+                                  'annId': '000000000000000000000000',
                                   'title': 'lol (edit)',
                                   'markdown': 'im good',
                                   'pinned': True
@@ -153,7 +153,7 @@ class TestAnnouncement(BaseTester):
     def test_delete_does_not_exist(self, client_admin):
         rv = client_admin.delete('/ann',
                                  json={
-                                     'annId': 878787878787878787878787,
+                                     'annId': '000000000000000000000000',
                                  })
         assert rv.status_code == 404, rv.get_json()
         assert rv.get_json()['message'] == 'Announcement Not Found'

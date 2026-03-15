@@ -12,6 +12,15 @@ from mongo.utils import drop_none
 from mongo.problem import *
 from .auth import *
 from .utils import *
+from .schemas import (
+    ViewProblemListQuery,
+    ProblemBody,
+    InitiateTestCaseUploadBody,
+    CompleteTestCaseUploadBody,
+    GetTestdataQuery,
+    CloneProblemBody,
+    PublishProblemBody,
+)
 
 __all__ = ['problem_api']
 
@@ -26,25 +35,16 @@ def online_error_response():
     return HTTPError('Problem is unavailable', 403)
 
 
-@problem_api.route('/', methods=['GET'])
+@problem_api.get('/')
 @login_required
-@Request.args(
-    'offset',
-    'count',
-    'problem_id',
-    'tags',
-    'name',
-    'course',
-)
-def view_problem_list(
-    user,
-    offset,
-    count,
-    tags,
-    problem_id,
-    name,
-    course,
-):
+@parse_query(ViewProblemListQuery)
+def view_problem_list(user, query: ViewProblemListQuery):
+    offset = query.offset
+    count = query.count
+    tags = query.tags
+    problem_id = query.problem_id
+    name = query.name
+    course = query.course
     # casting args
     try:
         if offset is not None:
@@ -154,25 +154,12 @@ def get_problem_detailed(user, problem: Problem):
     )
 
 
-@problem_api.route('/manage', methods=['POST'])
+@problem_api.post('/manage')
 @identity_verify(0, 1)
-@Request.json(
-    'type',
-    'courses: list',
-    'status',
-    'type',
-    'description',
-    'tags',
-    'problem_name',
-    'quota',
-    'test_case_info',
-    'can_view_stdout',
-    'allowed_language',
-    'default_code',
-)
-def create_problem(user: User, **ks):
+@parse_body(ProblemBody)
+def create_problem(user: User, body: ProblemBody):
     try:
-        pid = Problem.add(user=user, **ks)
+        pid = Problem.add(user=user, **body.model_dump())
     except ValidationError as e:
         return HTTPError(
             'Invalid or missing arguments.',
@@ -198,30 +185,17 @@ def delete_problem(user: User, problem: Problem):
     return HTTPResponse()
 
 
-@problem_api.route('/manage/<int:problem>', methods=['PUT'])
+@problem_api.put('/manage/<int:problem>')
 @identity_verify(0, 1)
 @Request.doc('problem', Problem)
 def manage_problem(user: User, problem: Problem):
 
-    @Request.json(
-        'type',
-        'courses: list',
-        'status',
-        'type',
-        'description',
-        'tags',
-        'problem_name',
-        'quota',
-        'test_case_info',
-        'can_view_stdout',
-        'allowed_language',
-        'default_code',
-    )
-    def modify_problem(**p_ks):
+    @parse_body(ProblemBody)
+    def modify_problem(body: ProblemBody):
         Problem.edit_problem(
             user=user,
             problem_id=problem.id,
-            **drop_none(p_ks),
+            **drop_none(body.model_dump()),
         )
         return HTTPResponse()
 
@@ -269,13 +243,11 @@ def manage_problem(user: User, problem: Problem):
 @problem_api.post('/<int:problem>/initiate-test-case-upload')
 @identity_verify(0, 1)
 @Request.doc('problem', Problem)
-@Request.json('length: int', 'part_size: int')
-def initiate_test_case_upload(
-    user: User,
-    problem: Problem,
-    length: int,
-    part_size: int,
-):
+@parse_body(InitiateTestCaseUploadBody)
+def initiate_test_case_upload(user: User, problem: Problem,
+                              body: InitiateTestCaseUploadBody):
+    length = body.length
+    part_size = body.part_size
     if not problem.permission(user, problem.Permission.MANAGE):
         return permission_error_response()
     if not problem.permission(user=user, req=problem.Permission.ONLINE):
@@ -288,22 +260,19 @@ def initiate_test_case_upload(
 @problem_api.post('/<int:problem>/complete-test-case-upload')
 @identity_verify(0, 1)
 @Request.doc('problem', Problem)
-@Request.json('upload_id', 'parts: list')
-def complete_test_case_upload(
-    user: User,
-    problem: Problem,
-    upload_id: str,
-    parts: list,
-):
+@parse_body(CompleteTestCaseUploadBody)
+def complete_test_case_upload(user: User, problem: Problem,
+                              body: CompleteTestCaseUploadBody):
     if not problem.permission(user, problem.Permission.MANAGE):
         return permission_error_response()
     if not problem.permission(user=user, req=problem.Permission.ONLINE):
         return online_error_response()
+    upload_id = body.upload_id
     # convert parts to list[Part]
     from minio.datatypes import Part
     parts = [
         Part(part_number=part['PartNumber'], etag=part['ETag'])
-        for part in parts
+        for part in body.parts
     ]
     try:
         problem.complete_test_case_upload(upload_id, parts)
@@ -330,10 +299,11 @@ def get_test_case(user: User, problem: Problem):
 
 
 # FIXME: Find a better name
-@problem_api.route('/<int:problem_id>/testdata', methods=['GET'])
-@Request.args('token: str')
+@problem_api.get('/<int:problem_id>/testdata')
+@parse_query(GetTestdataQuery)
 @Request.doc('problem_id', 'problem', Problem)
-def get_testdata(token: str, problem: Problem):
+def get_testdata(query: GetTestdataQuery, problem: Problem):
+    token = query.token
     if sandbox.find_by_token(token) is None:
         return HTTPError('Invalid sandbox token', 401)
     return send_file(
@@ -344,9 +314,10 @@ def get_testdata(token: str, problem: Problem):
     )
 
 
-@problem_api.route('/<int:problem_id>/checksum', methods=['GET'])
-@Request.args('token: str')
-def get_checksum(token: str, problem_id: int):
+@problem_api.get('/<int:problem_id>/checksum')
+@parse_query(GetTestdataQuery)
+def get_checksum(query: GetTestdataQuery, problem_id: int):
+    token = query.token
     if sandbox.find_by_token(token) is None:
         return HTTPError('Invalid sandbox token', 401)
     problem = Problem(problem_id)
@@ -362,9 +333,10 @@ def get_checksum(token: str, problem_id: int):
     return HTTPResponse(data=digest)
 
 
-@problem_api.route('/<int:problem_id>/meta', methods=['GET'])
-@Request.args('token: str')
-def get_meta(token: str, problem_id: int):
+@problem_api.get('/<int:problem_id>/meta')
+@parse_query(GetTestdataQuery)
+def get_meta(query: GetTestdataQuery, problem_id: int):
+    token = query.token
     if sandbox.find_by_token(token) is None:
         return HTTPError('Invalid sandbox token', 401)
     problem = Problem(problem_id)
@@ -386,23 +358,23 @@ def high_score(user: User, problem: Problem):
     })
 
 
-@problem_api.route('/clone', methods=['POST'])
-@problem_api.route('/copy', methods=['POST'])
+@problem_api.post('/clone')
+@problem_api.post('/copy')
 @identity_verify(0, 1)
-@Request.json('problem_id: int', 'target', 'status')
-@Request.doc('problem_id', 'problem', Problem)
-def clone_problem(
-    user: User,
-    problem: Problem,
-    target,
-    status,
-):
+@parse_body(CloneProblemBody)
+def clone_problem(user: User, body: CloneProblemBody):
+    try:
+        problem = Problem(body.problem_id)
+        if not problem:
+            return HTTPError(f'Problem not found', 404)
+    except engine.DoesNotExist as e:
+        return HTTPError(str(e), 404)
     if not problem.permission(user, problem.Permission.VIEW):
         return HTTPError('Problem can not view.', 403)
-    override = drop_none({'status': status})
+    override = drop_none({'status': body.status})
     new_problem_id = problem.copy_to(
         user=user,
-        target=target,
+        target=body.target,
         **override,
     )
     return HTTPResponse(
@@ -411,11 +383,16 @@ def clone_problem(
     )
 
 
-@problem_api.route('/publish', methods=['POST'])
+@problem_api.post('/publish')
 @identity_verify(0, 1)
-@Request.json('problem_id')
-@Request.doc('problem_id', 'problem', Problem)
-def publish_problem(user, problem: Problem):
+@parse_body(PublishProblemBody)
+def publish_problem(user, body: PublishProblemBody):
+    try:
+        problem = Problem(body.problem_id)
+        if not problem:
+            return HTTPError(f'Problem not found', 404)
+    except engine.DoesNotExist as e:
+        return HTTPError(str(e), 404)
     if user.role == 1 and problem.owner != user.username:
         return HTTPError('Not the owner.', 403)
     Problem.release_problem(problem.problem_id)

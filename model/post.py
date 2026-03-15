@@ -3,6 +3,7 @@ from mongo import *
 from mongo import engine
 from .auth import *
 from .utils import *
+from .schemas import ModifyPostBody
 from mongo.utils import *
 from mongo.post import *
 from mongo.course import *
@@ -37,9 +38,13 @@ def get_single_post(user, course, target_thread_id):
 
 
 @post_api.route('/', methods=['POST', 'PUT', 'DELETE'])
-@Request.json('course', 'title', 'content', 'target_thread_id')
+@parse_body(ModifyPostBody)
 @login_required
-def modify_post(user, course, title, content, target_thread_id):
+def modify_post(user, body: ModifyPostBody):
+    course = body.course
+    title = body.title
+    content = body.content
+    target_thread_id = body.target_thread_id
     if course == 'Public':
         return HTTPError('You can not add post in system.', 403)
 

@@ -4,6 +4,7 @@ from mongo import *
 from mongo.utils import *
 from .utils import *
 from .auth import *
+from .schemas import GetReportQuery, DetectBody
 
 import mosspy
 import threading
@@ -126,10 +127,12 @@ def get_report_by_url(url: str):
         return 'No report.'
 
 
-@copycat_api.route('/', methods=['GET'])
+@copycat_api.get('/')
 @login_required
-@Request.args('course', 'problem_id')
-def get_report(user, course, problem_id):
+@parse_query(GetReportQuery)
+def get_report(user, query: GetReportQuery):
+    course = query.course
+    problem_id = query.problem_id
     if not (problem_id and course):
         return HTTPError(
             'missing arguments! (In HTTP GET argument format)',
@@ -175,10 +178,13 @@ def get_report(user, course, problem_id):
         )
 
 
-@copycat_api.route('/', methods=['POST'])
+@copycat_api.post('/')
 @login_required
-@Request.json('course', 'problem_id', 'student_nicknames')
-def detect(user, course, problem_id, student_nicknames):
+@parse_body(DetectBody)
+def detect(user, body: DetectBody):
+    course = body.course
+    problem_id = body.problem_id
+    student_nicknames = body.student_nicknames
     if not (problem_id and course and type(student_nicknames) is dict):
         return HTTPError(
             'missing arguments! (In Json format)',

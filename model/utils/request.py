@@ -2,12 +2,15 @@ import time
 import json
 from functools import wraps
 from flask import request, current_app
+from pydantic import ValidationError as PydanticValidationError
 from mongo import engine
 from mongo.utils import doc_required
 from .response import *
 
 __all__ = (
     'Request',
+    'parse_body',
+    'parse_query',
     'get_ip',
 )
 
@@ -98,6 +101,45 @@ class Request(metaclass=_Request):
             return real_wrapper
 
         return deco
+
+
+def parse_body(schema_cls):
+    """Replaces @Request.json — validates JSON request body against a Pydantic schema."""
+
+    def decorator(func):
+
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            data = request.get_json(silent=True) or {}
+            try:
+                kwargs['body'] = schema_cls.model_validate(data)
+            except PydanticValidationError as e:
+                return HTTPError('Invalid request body', 400, data=e.errors())
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
+def parse_query(schema_cls):
+    """Replaces @Request.args — validates query string against a Pydantic schema."""
+
+    def decorator(func):
+
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            try:
+                kwargs['query'] = schema_cls.model_validate(dict(request.args))
+            except PydanticValidationError as e:
+                return HTTPError('Invalid query parameters',
+                                 400,
+                                 data=e.errors())
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
 
 
 def get_ip() -> str:

@@ -3,6 +3,7 @@ from flask import Blueprint
 from mongo import *
 from .auth import *
 from .utils import *
+from .schemas import EditProfileBody, EditConfigBody
 
 __all__ = ['profile_api']
 
@@ -27,11 +28,13 @@ def view_profile(user, username=None):
     return HTTPResponse('Profile exist.', data=data)
 
 
-@profile_api.route('/', methods=['POST'])
+@profile_api.post('/')
 @login_required
-@Request.json('bio', vars_dict={'displayed_name': 'displayedName'})
-def edit_profile(user, displayed_name, bio):
+@parse_body(EditProfileBody)
+def edit_profile(user, body: EditProfileBody):
     profile = user.obj.profile or {}
+    displayed_name = body.displayed_name
+    bio = body.bio
 
     if displayed_name is not None:
         profile[
@@ -45,17 +48,17 @@ def edit_profile(user, displayed_name, bio):
     return HTTPResponse('Uploaded.', cookies=cookies)
 
 
-@profile_api.route('/config', methods=['PUT'])
+@profile_api.put('/config')
 @login_required
-@Request.json('font_size', 'theme', 'indent_type', 'tab_size', 'language')
-def edit_config(user, font_size, theme, indent_type, tab_size, language):
+@parse_body(EditConfigBody)
+def edit_config(user, body: EditConfigBody):
     try:
         config = {
-            'font_size': font_size,
-            'theme': theme,
-            'indent_type': indent_type,
-            'tab_size': tab_size,
-            'language': language
+            'font_size': body.font_size,
+            'theme': body.theme,
+            'indent_type': body.indent_type,
+            'tab_size': body.tab_size,
+            'language': body.language
         }
         user.obj.update(editor_config=config)
     except ValidationError as ve:
