@@ -25,12 +25,22 @@ def setup_minio():
     )
     proc = subprocess.run(
         [
-            'docker', 'run', '-d',
-            '--name', container_name,
-            '-p', '19000:9000',
-            '-e', 'MINIO_ROOT_USER=minioadmin',
-            '-e', 'MINIO_ROOT_PASSWORD=minioadmin',
-            'minio/minio:latest', 'server', '/data', '--address', ':9000',
+            'docker',
+            'run',
+            '-d',
+            '--name',
+            container_name,
+            '-p',
+            '19000:9000',
+            '-e',
+            'MINIO_ROOT_USER=minioadmin',
+            '-e',
+            'MINIO_ROOT_PASSWORD=minioadmin',
+            'minio/minio:latest',
+            'server',
+            '/data',
+            '--address',
+            ':9000',
         ],
         capture_output=True,
         text=True,
@@ -41,7 +51,8 @@ def setup_minio():
     for _ in range(30):
         try:
             import urllib.request
-            urllib.request.urlopen('http://localhost:19000/minio/health/live', timeout=2)
+            urllib.request.urlopen('http://localhost:19000/minio/health/live',
+                                   timeout=2)
             break
         except Exception:
             _time.sleep(1)
@@ -66,6 +77,7 @@ def setup_minio():
 
     subprocess.run(['docker', 'rm', '-f', container_name], capture_output=True)
 
+
 import fakeredis
 
 A_NAMES = ['teacher', 'admin']
@@ -89,7 +101,8 @@ def shared_fakeredis(monkeypatch):
     shared_client = fakeredis.FakeStrictRedis(server=server)
     from mongo.utils import RedisCache
     monkeypatch.setattr(
-        RedisCache, 'client',
+        RedisCache,
+        'client',
         property(lambda self: shared_client),
     )
 
@@ -140,9 +153,10 @@ class TestRunnerAuth:
         assert rv.status_code == 403
 
     def test_invalid_token_returns_403(self, client):
-        rv = client.get('/runner/jobs', headers={
-            'X-Runner-Token': 'wrong-token',
-        })
+        rv = client.get('/runner/jobs',
+                        headers={
+                            'X-Runner-Token': 'wrong-token',
+                        })
         assert rv.status_code == 403
 
     def test_valid_token_returns_200(self, client):
@@ -260,7 +274,8 @@ class TestGetJobCode:
         assert rv.status_code == 200
         assert rv.content_type == 'application/zip'
 
-    def test_code_download_by_non_claimer_returns_403(self, client, submission_id):
+    def test_code_download_by_non_claimer_returns_403(self, client,
+                                                      submission_id):
         # Claim by one runner
         client.post(
             f'/runner/jobs/{submission_id}/claim',

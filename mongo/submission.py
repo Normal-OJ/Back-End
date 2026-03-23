@@ -435,8 +435,7 @@ class Submission(MongoBase, engine=engine.Submission):
         # Pull mode: just mark as pending, runners will pick it up
         runner_mode = os.getenv('RUNNER_MODE', 'push')
         if runner_mode == 'pull':
-            self.logger.info(
-                f'{self} queued for runner pickup (pull mode)')
+            self.logger.info(f'{self} queued for runner pickup (pull mode)')
             return True
         # Push mode (original behavior)
         # TODO: Ensure problem is ready to submitted
