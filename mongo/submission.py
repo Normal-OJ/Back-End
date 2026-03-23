@@ -423,10 +423,22 @@ class Submission(MongoBase, engine=engine.Submission):
     def send(self) -> bool:
         '''
         send code to sandbox
+
+        Supports two modes:
+        - push (default): actively sends submission to a sandbox instance
+        - pull: marks submission as pending for runners to pick up
+          (set RUNNER_MODE=pull environment variable to enable)
         '''
         if self.handwritten:
             logging.warning(f'try to send a handwritten {self}')
             return False
+        # Pull mode: just mark as pending, runners will pick it up
+        runner_mode = os.getenv('RUNNER_MODE', 'push')
+        if runner_mode == 'pull':
+            self.logger.info(
+                f'{self} queued for runner pickup (pull mode)')
+            return True
+        # Push mode (original behavior)
         # TODO: Ensure problem is ready to submitted
         # if not Problem(self.problem).is_test_case_ready():
         #     raise TestCaseNotFound(self.problem.problem_id)

@@ -372,6 +372,17 @@ class Submission(Document):
     last_send = DateTimeField(db_field='lastSend', default=datetime.now)
     comment = FileField(default=None, null=True)
     ip_addr = StringField(default=None, null=True)
+    # Runner (pull-based) fields
+    claimed_by = StringField(
+        null=True,
+        default=None,
+        db_field='claimedBy',
+    )
+    claimed_at = DateTimeField(
+        null=True,
+        default=None,
+        db_field='claimedAt',
+    )
 
 
 class Message(Document):
