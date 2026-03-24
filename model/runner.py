@@ -17,7 +17,7 @@ CLAIM_TIMEOUT_SECONDS = 600
 
 def _verify_runner_token(req):
     """Verify the runner token from request headers or params."""
-    token = req.headers.get('X-Runner-Token') or req.args.get('token', '')
+    token = req.headers.get('X-Runner-Token', '')
     config = Submission.config()
     for sb in config.sandbox_instances:
         if secrets.compare_digest(token, sb.token):
@@ -44,6 +44,7 @@ def get_pending_jobs():
 
     Similar to GitHub Actions: runner asks "any work for me?"
     """
+    from mongoengine.queryset.visitor import Q
     now = datetime.now()
     claim_deadline = now - timedelta(seconds=CLAIM_TIMEOUT_SECONDS)
 
@@ -52,16 +53,12 @@ def get_pending_jobs():
     # 2. Not claimed, OR claim has expired
     # 3. Not handwritten (language != 3)
     pending = engine.Submission.objects(
-        status=-1,
-        language__ne=3,
-    ).order_by('last_send')
+        Q(status=-1) & Q(language__ne=3)
+        & (Q(claimed_by=None) | Q(claimed_at=None)
+           | Q(claimed_at__lte=claim_deadline)), ).order_by('last_send')
 
     jobs = []
     for sub in pending:
-        # Skip if actively claimed by another runner
-        if (sub.claimed_by is not None and sub.claimed_at is not None
-                and sub.claimed_at > claim_deadline):
-            continue
         # Skip if no code uploaded yet
         if sub.code_minio_path is None and (sub.code is None
                                             or sub.code.grid_id is None):
@@ -87,29 +84,31 @@ def claim_job(submission_id: str):
     Similar to GitHub Actions: runner picks up a job from the queue.
     Uses optimistic locking via claimed_at to prevent double-claiming.
     """
-    try:
-        sub = engine.Submission.objects.get(id=submission_id)
-    except engine.DoesNotExist:
-        return HTTPError('submission not found', 404)
-
-    if sub.status != -1:
-        return HTTPError('submission is not pending', 409)
-
+    from mongoengine.queryset.visitor import Q
     now = datetime.now()
     claim_deadline = now - timedelta(seconds=CLAIM_TIMEOUT_SECONDS)
-
-    # Check if already claimed by an active runner
-    if (sub.claimed_by is not None and sub.claimed_at is not None
-            and sub.claimed_at > claim_deadline):
-        return HTTPError('already claimed by another runner', 409)
-
     runner_name = _get_runner_name(request)
 
-    # Claim the job
-    sub.update(
-        claimed_by=runner_name,
-        claimed_at=now,
-    )
+    # Atomic conditional update to prevent race conditions
+    updated = engine.Submission.objects(
+        Q(id=submission_id) & Q(status=-1)
+        & (Q(claimed_by=None) | Q(claimed_at=None)
+           | Q(claimed_at__lte=claim_deadline)), ).update_one(
+               set__claimed_by=runner_name,
+               set__claimed_at=now,
+           )
+
+    if updated == 0:
+        # Either not found, not pending, or already claimed
+        try:
+            sub = engine.Submission.objects.get(id=submission_id)
+        except engine.DoesNotExist:
+            return HTTPError('submission not found', 404)
+        if sub.status != -1:
+            return HTTPError('submission is not pending', 409)
+        return HTTPError('already claimed by another runner', 409)
+
+    sub = engine.Submission.objects.get(id=submission_id)
 
     # Generate and assign a token for result callback
     token = Submission.assign_token(submission_id)
@@ -197,8 +196,6 @@ def get_job_testdata(submission_id: str):
         return HTTPError('not claimed by this runner', 403)
 
     problem = sub.problem
-    submission = Submission(submission_id)
-    # Use the existing problem testdata download logic
     test_case = problem.test_case
     if test_case.case_zip_minio_path is not None:
         minio_client = MinioClient()
@@ -242,6 +239,16 @@ def on_job_complete(submission_id: str):
     token = data.get('token')
     if tasks is None or token is None:
         return HTTPError('missing tasks or token', 400)
+
+    # Verify the completing runner is the one that claimed this job
+    try:
+        sub = engine.Submission.objects.get(id=submission_id)
+    except engine.DoesNotExist:
+        return HTTPError('submission not found', 404)
+
+    runner_name = _get_runner_name(request)
+    if sub.claimed_by != runner_name:
+        return HTTPError('not claimed by this runner', 403)
 
     submission = Submission(submission_id)
     if not submission:
