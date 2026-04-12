@@ -67,7 +67,7 @@ def modify_courses(user, course, new_course, teacher):
     return HTTPResponse('Success.')
 
 
-@course_api.route('/<course_name>', methods=['GET', 'PUT'])
+@course_api.get('/<course_name>')
 @login_required
 def get_course(user, course_name):
     course = Course(course_name)
@@ -78,48 +78,54 @@ def get_course(user, course_name):
     if not course.permission(user, Course.Permission.VIEW):
         return HTTPError('You are not in this course.', 403)
 
-    @Request.json('TAs', 'student_nicknames')
-    def modify_course(TAs, student_nicknames):
-        if not course.permission(user, Course.Permission.MODIFY):
-            return HTTPError('Forbidden.', 403)
-        else:
-            tas = []
-            for ta in TAs:
-                permit_user = User(ta).obj
-                if not User(ta):
-                    return HTTPResponse(f'User: {ta} not found.', 404)
-                tas.append(permit_user)
-
-            for permit_user in set(course.tas) - set(tas):
-                course.remove_user(permit_user)
-            for permit_user in set(tas) - set(course.tas):
-                course.add_user(permit_user)
-            course.tas = tas
-
-        try:
-            course.update_student_namelist(student_nicknames)
-        except engine.DoesNotExist as e:
-            return HTTPError(str(e), 404)
-        return HTTPResponse('Success.')
-
-    if request.method == 'GET':
-        return HTTPResponse(
-            'Success.',
-            data={
-                "teacher": course.teacher.info,
-                "TAs": [ta.info for ta in course.tas],
-                "students":
-                [User(name).info for name in course.student_nicknames]
-            },
-        )
-    else:
-        return modify_course()
+    return HTTPResponse(
+        'Success.',
+        data={
+            "teacher": course.teacher.info,
+            "TAs": [ta.info for ta in course.tas],
+            "students": [User(name).info for name in course.student_nicknames]
+        },
+    )
 
 
-@course_api.route('/<course_name>/grade/<student>',
-                  methods=['GET', 'POST', 'PUT', 'DELETE'])
+@course_api.put('/<course_name>')
 @login_required
-def grading(user, course_name, student):
+@Request.json('TAs', 'student_nicknames')
+def update_course(user, course_name, TAs, student_nicknames):
+    course = Course(course_name)
+
+    if not course:
+        return HTTPError('Course not found.', 404)
+
+    if not course.permission(user, Course.Permission.VIEW):
+        return HTTPError('You are not in this course.', 403)
+
+    if not course.permission(user, Course.Permission.MODIFY):
+        return HTTPError('Forbidden.', 403)
+
+    tas = []
+    for ta in TAs:
+        permit_user = User(ta).obj
+        if not User(ta):
+            return HTTPResponse(f'User: {ta} not found.', 404)
+        tas.append(permit_user)
+
+    for permit_user in set(course.tas) - set(tas):
+        course.remove_user(permit_user)
+    for permit_user in set(tas) - set(course.tas):
+        course.add_user(permit_user)
+    course.tas = tas
+
+    try:
+        course.update_student_namelist(student_nicknames)
+    except engine.DoesNotExist as e:
+        return HTTPError(str(e), 404)
+    return HTTPResponse('Success.')
+
+
+@course_api.get('/<course_name>/grade/<student>')
+@login_required
+def get_grade(user, course_name, student):
     course = Course(course_name)
 
     if not course:
@@ -128,75 +134,107 @@ def grading(user, course_name, student):
         return HTTPError('You are not in this course.', 403)
     if student not in course.student_nicknames.keys():
         return HTTPError('The student is not in the course.', 404)
-    if course.permission(user, Course.Permission.SCORE) and \
-        (user.username != student or request.method != 'GET'):
+    if course.permission(user,
+                         Course.Permission.SCORE) and user.username != student:
         return HTTPError('You can only view your score.', 403)
 
-    def get_score():
-        return HTTPResponse(
-            'Success.',
-            data=[{
-                'title': score['title'],
-                'content': score['content'],
-                'score': score['score'],
-                'timestamp': score['timestamp'].timestamp()
-            } for score in course.student_scores.get(student, [])])
+    return HTTPResponse('Success.',
+                        data=[{
+                            'title': score['title'],
+                            'content': score['content'],
+                            'score': score['score'],
+                            'timestamp': score['timestamp'].timestamp()
+                        } for score in course.student_scores.get(student, [])])
 
-    @Request.json('title', 'content', 'score')
-    def add_score(title, content, score):
-        score_list = course.student_scores.get(student, [])
-        if title in [score['title'] for score in score_list]:
+
+@course_api.post('/<course_name>/grade/<student>')
+@login_required
+@Request.json('title', 'content', 'score')
+def add_grade(user, course_name, student, title, content, score):
+    course = Course(course_name)
+
+    if not course:
+        return HTTPError('Course not found.', 404)
+    if not course.permission(user, Course.Permission.VIEW):
+        return HTTPError('You are not in this course.', 403)
+    if student not in course.student_nicknames.keys():
+        return HTTPError('The student is not in the course.', 404)
+    if course.permission(user, Course.Permission.SCORE):
+        return HTTPError('You can only view your score.', 403)
+
+    score_list = course.student_scores.get(student, [])
+    if title in [score['title'] for score in score_list]:
+        return HTTPError('This title is taken.', 400)
+    score_list.append({
+        'title': title,
+        'content': content,
+        'score': score,
+        'timestamp': datetime.now()
+    })
+    course.student_scores[student] = score_list
+    course.save()
+    return HTTPResponse('Success.')
+
+
+@course_api.put('/<course_name>/grade/<student>')
+@login_required
+@Request.json('title', 'new_title', 'content', 'score')
+def update_grade(user, course_name, student, title, new_title, content, score):
+    course = Course(course_name)
+
+    if not course:
+        return HTTPError('Course not found.', 404)
+    if not course.permission(user, Course.Permission.VIEW):
+        return HTTPError('You are not in this course.', 403)
+    if student not in course.student_nicknames.keys():
+        return HTTPError('The student is not in the course.', 404)
+    if course.permission(user, Course.Permission.SCORE):
+        return HTTPError('You can only view your score.', 403)
+
+    score_list = course.student_scores.get(student, [])
+    title_list = [score['title'] for score in score_list]
+    if title not in title_list:
+        return HTTPError('Score not found.', 404)
+    index = title_list.index(title)
+    if new_title is not None:
+        if new_title in title_list:
             return HTTPError('This title is taken.', 400)
-        score_list.append({
-            'title': title,
-            'content': content,
-            'score': score,
-            'timestamp': datetime.now()
-        })
-        course.student_scores[student] = score_list
-        course.save()
-        return HTTPResponse('Success.')
-
-    @Request.json('title', 'new_title', 'content', 'score')
-    def modify_score(title, new_title, content, score):
-        score_list = course.student_scores.get(student, [])
-        title_list = [score['title'] for score in score_list]
-        if title not in title_list:
-            return HTTPError('Score not found.', 404)
-        index = title_list.index(title)
-        if new_title is not None:
-            if new_title in title_list:
-                return HTTPError('This title is taken.', 400)
-            title = new_title
-        score_list[index] = {
-            'title': title,
-            'content': content,
-            'score': score,
-            'timestamp': datetime.now()
-        }
-        course.student_scores[student] = score_list
-        course.save()
-        return HTTPResponse('Success.')
-
-    @Request.json('title')
-    def delete_score(title):
-        score_list = course.student_scores.get(student, [])
-        title_list = [score['title'] for score in score_list]
-        if title not in title_list:
-            return HTTPError('Score not found.', 404)
-        index = title_list.index(title)
-        del score_list[index]
-        course.student_scores[student] = score_list
-        course.save()
-        return HTTPResponse('Success.')
-
-    methods = {
-        'GET': get_score,
-        'POST': add_score,
-        'PUT': modify_score,
-        'DELETE': delete_score
+        title = new_title
+    score_list[index] = {
+        'title': title,
+        'content': content,
+        'score': score,
+        'timestamp': datetime.now()
     }
-    return methods[request.method]()
+    course.student_scores[student] = score_list
+    course.save()
+    return HTTPResponse('Success.')
+
+
+@course_api.delete('/<course_name>/grade/<student>')
+@login_required
+@Request.json('title')
+def delete_grade(user, course_name, student, title):
+    course = Course(course_name)
+
+    if not course:
+        return HTTPError('Course not found.', 404)
+    if not course.permission(user, Course.Permission.VIEW):
+        return HTTPError('You are not in this course.', 403)
+    if student not in course.student_nicknames.keys():
+        return HTTPError('The student is not in the course.', 404)
+    if course.permission(user, Course.Permission.SCORE):
+        return HTTPError('You can only view your score.', 403)
+
+    score_list = course.student_scores.get(student, [])
+    title_list = [score['title'] for score in score_list]
+    if title not in title_list:
+        return HTTPError('Score not found.', 404)
+    index = title_list.index(title)
+    del score_list[index]
+    course.student_scores[student] = score_list
+    course.save()
+    return HTTPResponse('Success.')
 
 
 @course_api.route('/<course_name>/scoreboard', methods=['GET'])
