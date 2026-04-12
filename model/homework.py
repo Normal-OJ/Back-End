@@ -1,10 +1,10 @@
-from typing import List
 from flask import Blueprint
 from mongo import *
 from mongo import engine
 from .utils import *
 from .auth import login_required
 from .course import course_api
+from .schemas import CreateHomeworkBody, UpdateHomeworkBody, PatchIpFiltersBody
 
 __all__ = ['homework_api']
 
@@ -13,21 +13,19 @@ homework_api = Blueprint('homework_api', __name__)
 
 @homework_api.post('/')
 @login_required
-@Request.json('name', 'course_name', 'markdown', 'start', 'end', 'problem_ids',
-              'scoreboard_status', 'penalty')
-def create_homework(user, course_name, name, markdown, start, end, problem_ids,
-                    scoreboard_status, penalty):
+@parse_body(CreateHomeworkBody)
+def create_homework(user, body: CreateHomeworkBody):
     try:
         homework = Homework.add(
             user=user,
-            hw_name=name,
-            markdown=markdown,
-            scoreboard_status=scoreboard_status,
-            course_name=course_name,
-            problem_ids=problem_ids or [],
-            start=start,
-            end=end,
-            penalty=penalty,
+            hw_name=body.name,
+            markdown=body.markdown,
+            scoreboard_status=body.scoreboard_status,
+            course_name=body.course_name,
+            problem_ids=body.problem_ids or [],
+            start=body.start,
+            end=body.end,
+            penalty=body.penalty,
         )
     except NameError:
         return HTTPError('user must be the teacher or ta of this course', 403)
@@ -71,21 +69,19 @@ def get_homework(user, homework_id):
 
 @homework_api.put('/<homework_id>')
 @login_required
-@Request.json('name', 'markdown', 'start', 'end', 'problem_ids',
-              'scoreboard_status', 'penalty')
-def update_homework(user, homework_id, name, markdown, start, end, problem_ids,
-                    scoreboard_status, penalty):
+@parse_body(UpdateHomeworkBody)
+def update_homework(user, homework_id, body: UpdateHomeworkBody):
     try:
         homework = Homework.update(
             user=user,
             homework_id=homework_id,
-            markdown=markdown,
-            new_hw_name=name,
-            start=start,
-            end=end,
-            problem_ids=problem_ids,
-            scoreboard_status=scoreboard_status,
-            penalty=penalty,
+            markdown=body.markdown,
+            new_hw_name=body.name,
+            start=body.start,
+            end=body.end,
+            problem_ids=body.problem_ids,
+            scoreboard_status=body.scoreboard_status,
+            penalty=body.penalty,
         )
     except engine.DoesNotExist as e:
         return HTTPError(str(e), 404)
@@ -160,12 +156,12 @@ def get_ip_filters(
 
 @homework_api.route('/<course>/<homework_name>/ip-filters', methods=['PATCH'])
 @login_required
-@Request.json('patches:list')
+@parse_body(PatchIpFiltersBody)
 def patch_ip_filters(
     user,
     course: str,
     homework_name: str,
-    patches: List,
+    body: PatchIpFiltersBody,
 ):
     if user.role != 0:
         return HTTPError('Not admin!', 403)
@@ -175,7 +171,7 @@ def patch_ip_filters(
         return HTTPError('Homework does not exist', 404)
     adds = []
     dels = []
-    for patch in patches:
+    for patch in body.patches:
         op = patch.get('op')
         if op not in {'add', 'del'}:
             return HTTPError('Invalid operation', 400, data={'op': op})

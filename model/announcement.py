@@ -5,6 +5,7 @@ from mongo import *
 from mongo.utils import *
 from .auth import *
 from .utils import *
+from .schemas import CreateAnnouncementBody, UpdateAnnouncementBody, DeleteAnnouncementBody
 from .course import *
 
 __all__ = ['ann_api']
@@ -56,16 +57,16 @@ def get_announcements(user, course_name=None, ann_id=None):
 
 @ann_api.post('/')
 @login_required
-@Request.json('title', 'markdown', 'course_name', 'pinned')
-def create_announcement(user, title, markdown, course_name, pinned):
+@parse_body(CreateAnnouncementBody)
+def create_announcement(user, body: CreateAnnouncementBody):
     # Create a new announcement
     try:
         ann = Announcement.new_ann(
-            title=title,
+            title=body.title,
             creator=user.obj,
-            markdown=markdown,
-            pinned=pinned,
-            course=course_name or 'Public',
+            markdown=body.markdown,
+            pinned=body.pinned,
+            course=body.course_name or 'Public',
         )
     except ValidationError as ve:
         return HTTPError('Failed to Create Announcement',
@@ -82,10 +83,10 @@ def create_announcement(user, title, markdown, course_name, pinned):
 
 @ann_api.put('/')
 @login_required
-@Request.json('ann_id', 'title', 'markdown', 'pinned')
-def update_announcement(user, ann_id, title, markdown, pinned):
+@parse_body(UpdateAnnouncementBody)
+def update_announcement(user, body: UpdateAnnouncementBody):
     # Update an announcement
-    ann = Announcement(ann_id)
+    ann = Announcement(body.ann_id)
     if not ann:
         return HTTPError('Announcement Not Found', 404)
 
@@ -94,11 +95,11 @@ def update_announcement(user, ann_id, title, markdown, pinned):
         return HTTPError('Failed to Update Announcement', 403)
     try:
         ann.update(
-            title=title,
-            markdown=markdown,
+            title=body.title,
+            markdown=body.markdown,
             update_time=datetime.now(),
             updater=user.obj,
-            pinned=pinned,
+            pinned=body.pinned,
         )
     except ValidationError as ve:
         return HTTPError(
@@ -111,10 +112,10 @@ def update_announcement(user, ann_id, title, markdown, pinned):
 
 @ann_api.delete('/')
 @login_required
-@Request.json('ann_id')
-def delete_announcement(user, ann_id):
+@parse_body(DeleteAnnouncementBody)
+def delete_announcement(user, body: DeleteAnnouncementBody):
     # Delete an announcement
-    ann = Announcement(ann_id)
+    ann = Announcement(body.ann_id)
     if not ann:
         return HTTPError('Announcement Not Found', 404)
 

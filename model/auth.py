@@ -11,6 +11,19 @@ from mongo import *
 from mongo import engine
 from mongo.utils import hash_id
 from .utils import *
+from .schemas import (
+    LoginBody,
+    SignupBody,
+    ChangePasswordBody,
+    CheckUsernameBody,
+    CheckEmailBody,
+    ResendEmailBody,
+    ActivateUserBody,
+    PasswordRecoveryBody,
+    AuthAddUserBody,
+    BatchSignupBody,
+    GetMeQuery,
+)
 
 import string
 
@@ -103,8 +116,8 @@ def logout():
 
 
 @auth_api.post('/session')
-@Request.json('username: str', 'password: str')
-def login(username, password):
+@parse_body(LoginBody)
+def login(body: LoginBody):
     '''Login a user.
     Returns:
         - 400 Incomplete Data
@@ -112,7 +125,7 @@ def login(username, password):
     '''
     ip_addr = request.headers.get('cf-connecting-ip', request.remote_addr)
     try:
-        user = User.login(username, password, ip_addr)
+        user = User.login(body.username, body.password, ip_addr)
     except DoesNotExist:
         return HTTPError('Login Failed', 403)
     if not user.active:
@@ -121,11 +134,11 @@ def login(username, password):
     return HTTPResponse('Login Success', cookies=cookies)
 
 
-@auth_api.route('/signup', methods=['POST'])
-@Request.json('username: str', 'password: str', 'email: str')
-def signup(username, password, email):
+@auth_api.post('/signup')
+@parse_body(SignupBody)
+def signup(body: SignupBody):
     try:
-        user = User.signup(username, password, email)
+        user = User.signup(body.username, body.password, body.email)
     except ValidationError as ve:
         return HTTPError('Signup Failed', 400, data=ve.to_dict())
     except NotUniqueError:
@@ -135,41 +148,41 @@ def signup(username, password, email):
     verify_link = get_verify_link(user)
     text = VERIFY_TEXT.format(url=verify_link)
     html = VERIFY_HTML.format(url=verify_link)
-    send_noreply([email], '[N-OJ] Varify Your Email', text, html)
+    send_noreply([body.email], '[N-OJ] Varify Your Email', text, html)
     return HTTPResponse('Signup Success')
 
 
-@auth_api.route('/change-password', methods=['POST'])
+@auth_api.post('/change-password')
 @login_required
-@Request.json('old_password: str', 'new_password: str')
-def change_password(user, old_password, new_password):
+@parse_body(ChangePasswordBody)
+def change_password(user, body: ChangePasswordBody):
     ip_addr = request.headers.get('cf-connecting-ip', request.remote_addr)
     try:
-        User.login(user.username, old_password, ip_addr)
+        User.login(user.username, body.old_password, ip_addr)
     except DoesNotExist:
         return HTTPError('Wrong Password', 403)
-    user.change_password(new_password)
+    user.change_password(body.new_password)
     cookies = {'piann_httponly': user.secret}
     return HTTPResponse('Password Has Been Changed', cookies=cookies)
 
 
-@auth_api.route('/check/<item>', methods=['POST'])
+@auth_api.post('/check/<item>')
 def check(item):
     '''Checking when the user is registing.
     '''
 
-    @Request.json('username: str')
-    def check_username(username):
+    @parse_body(CheckUsernameBody)
+    def check_username(body: CheckUsernameBody):
         try:
-            User.get_by_username(username)
+            User.get_by_username(body.username)
         except DoesNotExist:
             return HTTPResponse('Username Can Be Used', data={'valid': 1})
         return HTTPResponse('User Exists', data={'valid': 0})
 
-    @Request.json('email: str')
-    def check_email(email):
+    @parse_body(CheckEmailBody)
+    def check_email(body: CheckEmailBody):
         try:
-            User.get_by_email(email)
+            User.get_by_email(body.email)
         except DoesNotExist:
             return HTTPResponse('Email Can Be Used', data={'valid': 1})
         return HTTPResponse('Email Has Been Used', data={'valid': 0})
@@ -178,17 +191,17 @@ def check(item):
     return method() if method else HTTPError('Ivalid Checking Type', 400)
 
 
-@auth_api.route('/resend-email', methods=['POST'])
-@Request.json('email: str')
-def resend_email(email):
+@auth_api.post('/resend-email')
+@parse_body(ResendEmailBody)
+def resend_email(body: ResendEmailBody):
     try:
-        user = User.get_by_email(email)
+        user = User.get_by_email(body.email)
     except DoesNotExist:
         return HTTPError('User Not Exists', 400)
     if user.active:
         return HTTPError('User Has Been Actived', 400)
     verify_link = get_verify_link(user)
-    send_noreply([email], '[N-OJ] Varify Your Email', verify_link)
+    send_noreply([body.email], '[N-OJ] Varify Your Email', verify_link)
     return HTTPResponse('Email Has Been Resent')
 
 
@@ -205,12 +218,12 @@ def active_redirect(token):
 
 
 @auth_api.post('/active')
-@Request.json('profile: dict', 'agreement: bool')
+@parse_body(ActivateUserBody)
 @Request.cookies(vars_dict={'token': 'piann'})
-def activate_user(profile, agreement, token):
+def activate_user(body: ActivateUserBody, token):
     '''User: active: false -> true
     '''
-    if agreement is not True:
+    if body.agreement is not True:
         return HTTPError('Not Confirm the Agreement', 403)
     json = jwt_decode(token)
     if json is None or not json.get('secret'):
@@ -221,16 +234,17 @@ def activate_user(profile, agreement, token):
     if user.active:
         return HTTPError('User Has Been Actived', 400)
     try:
-        user.activate(profile)
+        user.activate(body.profile)
     except engine.DoesNotExist as e:
         return HTTPError(str(e), 404)
     cookies = {'jwt': user.cookie}
     return HTTPResponse('User Is Now Active', cookies=cookies)
 
 
-@auth_api.route('/password-recovery', methods=['POST'])
-@Request.json('email: str')
-def password_recovery(email):
+@auth_api.post('/password-recovery')
+@parse_body(PasswordRecoveryBody)
+def password_recovery(body: PasswordRecoveryBody):
+    email = body.email
     try:
         user = User.get_by_email(email)
     except DoesNotExist:
@@ -247,24 +261,19 @@ def password_recovery(email):
     return HTTPResponse('Recovery Email Has Been Sent')
 
 
-@auth_api.route('/user', methods=['POST'])
-@Request.json('username: str', 'password: str', 'email: str')
+@auth_api.post('/user')
+@parse_body(AuthAddUserBody)
 @identity_verify(0)
-def add_user(
-    user,
-    username: str,
-    password: str,
-    email: str,
-):
+def add_user(user, body: AuthAddUserBody):
     '''
     Directly add a user without activation required.
     This operation only allow admin to use.
     '''
     try:
         User.signup(
-            username,
-            password,
-            email,
+            body.username,
+            body.password,
+            body.email,
         ).activate()
     except ValidationError as ve:
         return HTTPError('Signup Failed', 400, data=ve.to_dict())
@@ -275,23 +284,24 @@ def add_user(
     return HTTPResponse()
 
 
-@auth_api.route('/batch-signup', methods=['POST'])
-@Request.json('new_users: str', 'course', 'force')
-@Request.doc('course', 'course', Course, src_none_allowed=True)
+@auth_api.post('/batch-signup')
+@parse_body(BatchSignupBody)
 @identity_verify(0)
-def batch_signup(
-    user,
-    new_users: str,
-    course: Optional[Course],
-    force: Optional[bool],
-):
+def batch_signup(user, body: BatchSignupBody):
+    course = None
+    if body.course is not None:
+        try:
+            course = Course(body.course)
+            if not course:
+                return HTTPError(f'Course not found', 404)
+        except engine.DoesNotExist as e:
+            return HTTPError(str(e), 404)
     try:
-        new_users = [*csv.DictReader(io.StringIO(new_users))]
+        new_users = [*csv.DictReader(io.StringIO(body.new_users))]
     except csv.Error as e:
         current_app.logger.info(f'Error parse csv file [err={e}]')
         return HTTPError('Invalid file content', 400)
-    if force is None:
-        force = False
+    force = body.force if body.force is not None else False
     try:
         new_users = User.batch_signup(
             new_users=new_users,
@@ -303,10 +313,11 @@ def batch_signup(
     return HTTPResponse()
 
 
-@auth_api.route('/me', methods=['GET'])
-@Request.args('fields')
+@auth_api.get('/me')
+@parse_query(GetMeQuery)
 @login_required
-def get_me(user: User, fields: Optional[str]):
+def get_me(user: User, query: GetMeQuery):
+    fields = query.fields
     default = [
         'username',
         'email',

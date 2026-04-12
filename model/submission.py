@@ -19,15 +19,24 @@ from mongo.utils import (
 )
 from .utils import *
 from .auth import *
+from .schemas import (
+    CreateSubmissionBody,
+    GetSubmissionListQuery,
+    OnSubmissionCompleteBody,
+    GradeSubmissionBody,
+    UpdateConfigBody,
+)
 
 __all__ = ['submission_api']
 submission_api = Blueprint('submission_api', __name__)
 
 
-@submission_api.route('/', methods=['POST'])
+@submission_api.post('/')
 @login_required
-@Request.json('language_type: int', 'problem_id: int')
-def create_submission(user, language_type, problem_id):
+@parse_body(CreateSubmissionBody)
+def create_submission(user, body: CreateSubmissionBody):
+    language_type = body.language_type
+    problem_id = body.problem_id
     # the user reach the rate limit for submitting
     now = datetime.now()
     delta = timedelta.total_seconds(now - user.last_submit)
@@ -124,23 +133,20 @@ def create_submission(user, language_type, problem_id):
     )
 
 
-@submission_api.route('/', methods=['GET'])
+@submission_api.get('/')
 @login_required
-@Request.args('offset', 'count', 'problem_id', 'username', 'status',
-              'language_type', 'course', 'before', 'after', 'ip_addr')
-def get_submission_list(
-    user,
-    offset,
-    count,
-    problem_id,
-    username,
-    status,
-    course,
-    before,
-    after,
-    language_type,
-    ip_addr,
-):
+@parse_query(GetSubmissionListQuery)
+def get_submission_list(user, query: GetSubmissionListQuery):
+    offset = query.offset
+    count = query.count
+    problem_id = query.problem_id
+    username = query.username
+    status = query.status
+    course = query.course
+    before = query.before
+    after = query.after
+    language_type = query.language_type
+    ip_addr = query.ip_addr
     '''
     get the list of submission data
     '''
@@ -336,10 +342,13 @@ def get_submission_pdf(user, submission: Submission, item):
     )
 
 
-@submission_api.route('/<submission>/complete', methods=['PUT'])
-@Request.json('tasks: list', 'token: str')
+@submission_api.put('/<submission>/complete')
+@parse_body(OnSubmissionCompleteBody)
 @Request.doc('submission', Submission)
-def on_submission_complete(submission: Submission, tasks, token):
+def on_submission_complete(submission: Submission,
+                           body: OnSubmissionCompleteBody):
+    tasks = body.tasks
+    token = body.token
     if not Submission.verify_token(submission.id, token):
         return HTTPError('i don\'t know you', 403)
     try:
@@ -403,11 +412,13 @@ def update_submission(user, submission: Submission, code):
         return HTTPError('Some error occurred, please contact the admin', 500)
 
 
-@submission_api.route('/<submission>/grade', methods=['PUT'])
+@submission_api.put('/<submission>/grade')
 @login_required
-@Request.json('score: int')
+@parse_body(GradeSubmissionBody)
 @Request.doc('submission', Submission)
-def grade_submission(user: User, submission: Submission, score: int):
+def grade_submission(user: User, submission: Submission,
+                     body: GradeSubmissionBody):
+    score = body.score
     if not submission.permission(user, Submission.Permission.GRADE):
         return HTTPError('forbidden.', 403)
 
@@ -478,8 +489,10 @@ def get_config(user):
 @submission_api.put('/config')
 @login_required
 @identity_verify(0)
-@Request.json('rate_limit: int', 'sandbox_instances: list')
-def update_config(user, rate_limit, sandbox_instances):
+@parse_body(UpdateConfigBody)
+def update_config(user, body: UpdateConfigBody):
+    rate_limit = body.rate_limit
+    sandbox_instances = body.sandbox_instances
     config = Submission.config()
     # try to convert json object to Sandbox instance
     try:

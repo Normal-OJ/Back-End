@@ -21,7 +21,7 @@ class TestSignup:
         json = rv.get_json()
         assert rv.status_code == 400
         assert json['status'] == 'err'
-        assert json['message'] == 'Requested Value With Wrong Type'
+        assert json['message'] == 'Invalid request body'
 
     def test_empty_password(self, client):
         # Signup with empty password
@@ -33,7 +33,7 @@ class TestSignup:
         json = rv.get_json()
         assert rv.status_code == 400
         assert json['status'] == 'err'
-        assert json['message'] == 'Requested Value With Wrong Type'
+        assert json['message'] == 'Invalid request body'
 
     def test_too_long_username(self, client):
         name = secrets.token_hex()[:12]
@@ -226,7 +226,7 @@ class TestActive:
         json = rv.get_json()
         assert rv.status_code == 400
         assert json['status'] == 'err'
-        assert json['message'] == 'Requested Value With Wrong Type'
+        assert json['message'] == 'Invalid request body'
 
     def test_update_without_agreement(self, client):
         # Update without agreement
@@ -238,7 +238,7 @@ class TestActive:
         json = rv.get_json()
         assert rv.status_code == 400
         assert json['status'] == 'err'
-        assert json['message'] == 'Requested Value With Wrong Type'
+        assert json['message'] == 'Invalid request body'
 
     def test_update_without_true_agreement(self, client):
         rv = client.post(f'/auth/active',
@@ -445,7 +445,7 @@ class TestLogin:
         json = rv.get_json()
         assert rv.status_code == 400
         assert json['status'] == 'err'
-        assert json['message'] == 'Requested Value With Wrong Type'
+        assert json['message'] == 'Invalid request body'
 
     def test_wrong_password(self, client):
         # Login with wrong password
