@@ -172,21 +172,20 @@ def test_get_correct_query_result_with_single_problem(context, testcase, app):
     students = [utils.user.create_user(role=2, username=u) for u in students]
     course = utils.course.create_course(students=students)
     problem = utils.problem.create_problem(course=course, owner=course.teacher)
-    with app.app_context():
-        for username, scores in submissions.items():
-            for score in scores:
-                utils.submission.create_submission(
-                    user=username,
-                    problem=problem,
-                    score=score,
-                )
-        data = course.get_scoreboard([problem.id])
-        assert len(data) == len(students), data
-        output = [{
-            **item, 'user': User(item['user']).info
-        } for item in testcase['output']]
-        data = sorted(data, key=lambda x: x['user']['username'])
-        assert data == output
+    for username, scores in submissions.items():
+        for score in scores:
+            utils.submission.create_submission(
+                user=username,
+                problem=problem,
+                score=score,
+            )
+    data = course.get_scoreboard([problem.id])
+    assert len(data) == len(students), data
+    output = [{
+        **item, 'user': User(item['user']).info
+    } for item in testcase['output']]
+    data = sorted(data, key=lambda x: x['user']['username'])
+    assert data == output
 
 
 @pytest.mark.parametrize('testcase', [
@@ -314,24 +313,23 @@ def test_get_correct_query_result_with_multiple_problems(
     course = utils.course.create_course(students=students)
     for _ in range(len(problems)):
         utils.problem.create_problem(course=course, owner=course.teacher)
-    with app.app_context():
-        for username, subs in submissions.items():
-            for s in subs:
-                params = {
-                    param.split('=')[0]: int(param.split('=')[1])
-                    for param in s.split('&')
-                }
-                utils.submission.create_submission(
-                    user=username,
-                    **params,
-                )
-        data = course.get_scoreboard(problems)
-        assert len(data) == len(students), data
-        output = [{
-            **item, 'user': User(item['user']).info
-        } for item in testcase['output']]
-        data = sorted(data, key=lambda x: x['user']['username'])
-        assert data == output
+    for username, subs in submissions.items():
+        for s in subs:
+            params = {
+                param.split('=')[0]: int(param.split('=')[1])
+                for param in s.split('&')
+            }
+            utils.submission.create_submission(
+                user=username,
+                **params,
+            )
+    data = course.get_scoreboard(problems)
+    assert len(data) == len(students), data
+    output = [{
+        **item, 'user': User(item['user']).info
+    } for item in testcase['output']]
+    data = sorted(data, key=lambda x: x['user']['username'])
+    assert data == output
 
 
 t1 = 1648832400
@@ -682,46 +680,42 @@ def test_get_correct_query_result_with_multiple_problems_and_range(
     course = utils.course.create_course(students=students)
     for _ in range(len(problems)):
         utils.problem.create_problem(course=course, owner=course.teacher)
-    with app.app_context():
-        for username, subs in submissions.items():
-            for s in subs:
-                params = {
-                    param.split('=')[0]: int(param.split('=')[1])
-                    for param in s.split('&')
-                }
-                s = utils.submission.create_submission(
-                    user=username,
-                    **params,
-                )
-                if username == 'eve':
-                    print(s.timestamp)
-        data = course.get_scoreboard(problems, testcase['input']['start'],
-                                     testcase['input']['end'])
-        assert len(data) == len(students), data
-        output = [{
-            **item, 'user': User(item['user']).info
-        } for item in testcase['output']]
-        data = sorted(data, key=lambda x: x['user']['username'])
-        assert data == output, data
+    for username, subs in submissions.items():
+        for s in subs:
+            params = {
+                param.split('=')[0]: int(param.split('=')[1])
+                for param in s.split('&')
+            }
+            s = utils.submission.create_submission(
+                user=username,
+                **params,
+            )
+            if username == 'eve':
+                print(s.timestamp)
+    data = course.get_scoreboard(problems, testcase['input']['start'],
+                                 testcase['input']['end'])
+    assert len(data) == len(students), data
+    output = [{
+        **item, 'user': User(item['user']).info
+    } for item in testcase['output']]
+    data = sorted(data, key=lambda x: x['user']['username'])
+    assert data == output, data
 
 
 @pytest.mark.parametrize('query', [{}, {'pids': ''}])
 def test_get_error_for_no_provided_pids(context, forge_client, query: Dict,
                                         app):
-    with app.app_context():
-        client = forge_client(username=context['student'].username)
-        qs = '&'.join(f'{k}={v}' for k, v in query.items())
-        rv = client.get(
-            f'/course/{context["course"].course_name}/scoreboard?{qs}')
-        assert rv.status_code == 400
+    client = forge_client(username=context['student'].username)
+    qs = '&'.join(f'{k}={v}' for k, v in query.items())
+    rv = client.get(f'/course/{context["course"].course_name}/scoreboard?{qs}')
+    assert rv.status_code == 400
 
 
 @pytest.mark.parametrize('pids', ['a', '1,a', '1,2,a', None, 'None', '1,'])
 def test_get_error_for_providing_unparsable_pids(context, forge_client,
                                                  pids: str, app):
-    with app.app_context():
-        client = forge_client(username=context['admin'].username)
-        rv = client.get(
-            f'/course/{context["course"].course_name}/scoreboard?pids={pids}')
-        assert rv.status_code == 400
-        assert rv.json['message'] == 'Error occurred when parsing `pids`.'
+    client = forge_client(username=context['admin'].username)
+    rv = client.get(
+        f'/course/{context["course"].course_name}/scoreboard?pids={pids}')
+    assert rv.status_code == 400
+    assert rv.json()['message'] == 'Error occurred when parsing `pids`.'

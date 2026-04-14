@@ -62,19 +62,18 @@ def test_get_correct_query_result_with_no_submission(context):
 def test_get_correct_query_result_with_multiple_status(context, status, app):
     problem = context['problem']
     student = context['student']
-    with app.app_context():
-        for k, v in status.items():
-            for _ in range(v):
-                utils.submission.create_submission(problem=problem,
-                                                   user=student,
-                                                   status=int(k))
-        ac_user_count = 1 if status.get('0') else 0
-        assert problem.get_ac_user_count() == ac_user_count
-        assert problem.get_tried_user_count() == 1
-        submission_count = problem.get_submission_status()
-        assert all([
-            status.get(str(k), 0) == v for k, v in submission_count.items()
-        ]), submission_count
+    for k, v in status.items():
+        for _ in range(v):
+            utils.submission.create_submission(problem=problem,
+                                               user=student,
+                                               status=int(k))
+    ac_user_count = 1 if status.get('0') else 0
+    assert problem.get_ac_user_count() == ac_user_count
+    assert problem.get_tried_user_count() == 1
+    submission_count = problem.get_submission_status()
+    assert all([
+        status.get(str(k), 0) == v for k, v in submission_count.items()
+    ]), submission_count
 
 
 @pytest.mark.parametrize('role', ['admin', 'teacher', 'student'])
@@ -82,32 +81,30 @@ def test_get_correct_stats_with_ac_submission(context, forge_client, role,
                                               app):
     problem = context['problem']
     student = context['student']
-    with app.app_context():
-        utils.submission.create_submission(
-            problem=problem,
-            user=student,
-            status=0,
-        )
-        client = forge_client(username=context[role].username)
-        rv = client.get(f'/problem/{problem.id}/stats')
-        assert rv.status_code == 200, rv.data
-        data = rv.get_json()['data']
-        assert data['acUserRatio'] == [1, 1]
-        assert data['triedUserCount'] == 1
-        assert data['scoreDistribution'] == [100]
-        assert data['average'] == 100
-        assert data['std'] == None
-        assert data['statusCount'] == {'0': 1}
+    utils.submission.create_submission(
+        problem=problem,
+        user=student,
+        status=0,
+    )
+    client = forge_client(username=context[role].username)
+    rv = client.get(f'/problem/{problem.id}/stats')
+    assert rv.status_code == 200, rv.content
+    data = rv.json()['data']
+    assert data['acUserRatio'] == [1, 1]
+    assert data['triedUserCount'] == 1
+    assert data['scoreDistribution'] == [100]
+    assert data['average'] == 100
+    assert data['std'] == None
+    assert data['statusCount'] == {'0': 1}
 
 
 @pytest.mark.parametrize('role', [1, 2])
 def test_clients_without_permission(context, forge_client, role, app):
     problem = context['problem']
     user_from_other_course = utils.user.create_user(role=role)
-    with app.app_context():
-        client = forge_client(user_from_other_course)
-        rv = client.get(f'/problem/{problem.id}/stats')
-        assert rv.status_code == 403, rv.data
+    client = forge_client(user_from_other_course)
+    rv = client.get(f'/problem/{problem.id}/stats')
+    assert rv.status_code == 403, rv.content
 
 
 @pytest.mark.parametrize('td', [
@@ -215,25 +212,24 @@ def test_multiple_student(context, forge_client, td, app):
         utils.user.create_user(role=2, course=course)
         for _ in range(len(stu_submissions) - 1)
     ]
-    with app.app_context():
-        for i in range(len(stu_submissions)):
-            for s in stu_submissions[i]:
-                utils.submission.create_submission(
-                    problem=problem,
-                    user=students[i],
-                    status=s['status'],
-                    score=s['score'],
-                )
-        client = forge_client(username=context['student'].username)
-        rv = client.get(f'/problem/{problem.id}/stats')
-        assert rv.status_code == 200, rv.data
-        data = rv.get_json()['data']
-        assert data['acUserRatio'] == [td['ac_user'], len(students)]
-        assert data['triedUserCount'] == td['tried_user']
-        assert sorted(data['scoreDistribution']) == sorted(td['high_scores'])
-        assert data['average'] == sum(td['high_scores']) / len(students)
-        assert math.isclose(data['std'], td['std'])
-        assert data['statusCount'] == td['status_count']
+    for i in range(len(stu_submissions)):
+        for s in stu_submissions[i]:
+            utils.submission.create_submission(
+                problem=problem,
+                user=students[i],
+                status=s['status'],
+                score=s['score'],
+            )
+    client = forge_client(username=context['student'].username)
+    rv = client.get(f'/problem/{problem.id}/stats')
+    assert rv.status_code == 200, rv.content
+    data = rv.json()['data']
+    assert data['acUserRatio'] == [td['ac_user'], len(students)]
+    assert data['triedUserCount'] == td['tried_user']
+    assert sorted(data['scoreDistribution']) == sorted(td['high_scores'])
+    assert data['average'] == sum(td['high_scores']) / len(students)
+    assert math.isclose(data['std'], td['std'])
+    assert data['statusCount'] == td['status_count']
 
 
 def test_it_wont_count_teacher_and_admin_score(context, forge_client, app):
@@ -242,95 +238,89 @@ def test_it_wont_count_teacher_and_admin_score(context, forge_client, app):
     student = context['student']
     teacher = context['student']
     admin = context['student']
-    with app.app_context():
-        utils.submission.create_submission(
-            problem=problem,
-            user=student,
-            status=0,
-        )
-        utils.submission.create_submission(
-            problem=problem,
-            user=teacher,
-            status=1,
-            score=50,
-        )
-        utils.submission.create_submission(
-            problem=problem,
-            user=admin,
-            status=0,
-        )
-        client = forge_client(username=context['student'].username)
-        rv = client.get(f'/problem/{problem.id}/stats')
-        assert rv.status_code == 200, rv.data
-        data = rv.get_json()['data']
-        assert data['acUserRatio'] == [1, 1]
-        assert data['triedUserCount'] == 1
-        assert data['average'] == 100
-        assert data['std'] == None
-        assert data['scoreDistribution'] == [100]
-        assert data['statusCount'] == {'0': 2, '1': 1}
+    utils.submission.create_submission(
+        problem=problem,
+        user=student,
+        status=0,
+    )
+    utils.submission.create_submission(
+        problem=problem,
+        user=teacher,
+        status=1,
+        score=50,
+    )
+    utils.submission.create_submission(
+        problem=problem,
+        user=admin,
+        status=0,
+    )
+    client = forge_client(username=context['student'].username)
+    rv = client.get(f'/problem/{problem.id}/stats')
+    assert rv.status_code == 200, rv.content
+    data = rv.json()['data']
+    assert data['acUserRatio'] == [1, 1]
+    assert data['triedUserCount'] == 1
+    assert data['average'] == 100
+    assert data['std'] == None
+    assert data['scoreDistribution'] == [100]
+    assert data['statusCount'] == {'0': 2, '1': 1}
 
 
 def test_top_10_runtime_submissions(context, forge_client, app):
     problem = context['problem']
     student = context['student']
-    with app.app_context():
-        runtimes = [
-            0, 0, 2, 5, 10, 100, 200, 300, 400, 500, 700, 800, 900, 1000
-        ]
-        shuffled_runtimes = runtimes.copy()
-        shuffle(shuffled_runtimes)
-        for v in shuffled_runtimes:
-            utils.submission.create_submission(problem=problem,
-                                               user=student,
-                                               status=0,
-                                               exec_time=v)
-        client = forge_client(username=context['student'].username)
-        rv = client.get(f'/problem/{problem.id}/stats')
-        assert rv.status_code == 200, rv.data
-        data = rv.get_json()['data']
-        top_10_runtimes = [s['runTime'] for s in data['top10RunTime']]
-        assert top_10_runtimes == runtimes[:10]
+    runtimes = [0, 0, 2, 5, 10, 100, 200, 300, 400, 500, 700, 800, 900, 1000]
+    shuffled_runtimes = runtimes.copy()
+    shuffle(shuffled_runtimes)
+    for v in shuffled_runtimes:
+        utils.submission.create_submission(problem=problem,
+                                           user=student,
+                                           status=0,
+                                           exec_time=v)
+    client = forge_client(username=context['student'].username)
+    rv = client.get(f'/problem/{problem.id}/stats')
+    assert rv.status_code == 200, rv.content
+    data = rv.json()['data']
+    top_10_runtimes = [s['runTime'] for s in data['top10RunTime']]
+    assert top_10_runtimes == runtimes[:10]
 
 
 def test_top_10_memory_submissions(context, forge_client, app):
     problem = context['problem']
     student = context['student']
-    with app.app_context():
-        memory = [0, 0, 2, 5, 10, 100, 200, 300, 400, 500, 700, 800, 900, 1000]
-        shuffled_memory = memory.copy()
-        shuffle(shuffled_memory)
-        for v in shuffled_memory:
-            utils.submission.create_submission(problem=problem,
-                                               user=student,
-                                               status=0,
-                                               memory_usage=v)
-        client = forge_client(username=context['student'].username)
-        rv = client.get(f'/problem/{problem.id}/stats')
-        assert rv.status_code == 200, rv.data
-        data = rv.get_json()['data']
-        top_10_memory = [s['memoryUsage'] for s in data['top10MemoryUsage']]
-        assert top_10_memory == memory[:10]
+    memory = [0, 0, 2, 5, 10, 100, 200, 300, 400, 500, 700, 800, 900, 1000]
+    shuffled_memory = memory.copy()
+    shuffle(shuffled_memory)
+    for v in shuffled_memory:
+        utils.submission.create_submission(problem=problem,
+                                           user=student,
+                                           status=0,
+                                           memory_usage=v)
+    client = forge_client(username=context['student'].username)
+    rv = client.get(f'/problem/{problem.id}/stats')
+    assert rv.status_code == 200, rv.content
+    data = rv.json()['data']
+    top_10_memory = [s['memoryUsage'] for s in data['top10MemoryUsage']]
+    assert top_10_memory == memory[:10]
 
 
 def test_cached_highscore(context, forge_client, app):
     problem = context['problem']
     student = context['student']
-    with app.app_context():
-        utils.submission.create_submission(problem=problem,
-                                           user=student,
-                                           status=1,
-                                           score=50)
-        client = forge_client(username=context['student'].username)
-        rv = client.get(f'/problem/{problem.id}/stats')
-        assert rv.status_code == 200, rv.data
-        data = rv.get_json()['data']
-        assert data['scoreDistribution'] == [50]
+    utils.submission.create_submission(problem=problem,
+                                       user=student,
+                                       status=1,
+                                       score=50)
+    client = forge_client(username=context['student'].username)
+    rv = client.get(f'/problem/{problem.id}/stats')
+    assert rv.status_code == 200, rv.content
+    data = rv.json()['data']
+    assert data['scoreDistribution'] == [50]
 
-        cached_rv = client.get(f'/problem/{problem.id}/stats')
-        assert cached_rv.status_code == 200, cached_rv.data
-        cached_data = cached_rv.get_json()['data']
-        assert cached_data['scoreDistribution'] == [50]
+    cached_rv = client.get(f'/problem/{problem.id}/stats')
+    assert cached_rv.status_code == 200, cached_rv.content
+    cached_data = cached_rv.json()['data']
+    assert cached_data['scoreDistribution'] == [50]
 
 
 # def test_performance(context, forge_client, app):
@@ -348,5 +338,5 @@ def test_cached_highscore(context, forge_client, app):
 #             )
 #         client = forge_client(username=context['student'].username)
 #         rv = client.get(f'/problem/{problem.id}/stats')
-#         assert rv.status_code == 200, rv.data
+#         assert rv.status_code == 200, rv.content
 #         assert 0

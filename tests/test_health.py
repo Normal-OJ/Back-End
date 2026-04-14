@@ -25,7 +25,7 @@ def test_health(client, monkeypatch):
     monkeypatch.setattr(MongoClient, '__init__', lambda *_: None)
     monkeypatch.setattr(MongoClient, 'server_info', mock_mongo_success)
     rv = client.get('/health')
-    rv_json = rv.get_json()
+    rv_json = rv.json()
     assert rv.status_code == 200, rv_json
 
 

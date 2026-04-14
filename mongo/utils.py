@@ -1,9 +1,9 @@
 import abc
 import hashlib
+import logging
 import os
 from functools import wraps
 from typing import Dict, Optional, Any, TYPE_CHECKING
-from flask import current_app
 from minio import Minio
 import redis
 from . import engine
@@ -16,11 +16,22 @@ if TYPE_CHECKING:
 
 __all__ = (
     'hash_id',
+    'is_testing',
     'perm',
     'RedisCache',
     'doc_required',
     'drop_none',
 )
+
+
+def is_testing() -> bool:
+    '''Return True if the app is running in test mode.
+
+    Reads the ``TESTING`` environment variable and interprets ``1``, ``true``,
+    and ``yes`` (case-insensitive) as True.  Any other value — including the
+    common mistake of setting ``TESTING=false`` — is treated as False.
+    '''
+    return os.getenv('TESTING', '').lower() in ('1', 'true', 'yes')
 
 
 def hash_id(salt, text):
@@ -159,7 +170,7 @@ def doc_required(
             # replace original paramters
             del ks[src]
             if des in ks:
-                current_app.logger.warning(
+                logging.getLogger(__name__).warning(
                     f'replace a existed argument in {func}')
             ks[des] = doc
             return func(*args, **ks)

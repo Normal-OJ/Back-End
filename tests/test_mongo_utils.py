@@ -62,8 +62,7 @@ def test_doc_required_replace_des(caplog, app):
     def add(course):
         pass
 
-    with app.app_context():
-        add(course_name=None, course="Will Be Replaced")
+    add(course_name=None, course="Will Be Replaced")
 
     assert "WARNING" in caplog.text
     assert "replace a existed argument" in caplog.text

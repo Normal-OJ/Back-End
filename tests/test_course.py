@@ -22,7 +22,7 @@ class TestAdminCourse(BaseTester):
                 'teacher': secrets.token_hex(4),
             },
         )
-        json = rv.get_json()
+        json = rv.json()
         assert json['message'] == 'User not found.'
         assert rv.status_code == 404
 
@@ -35,7 +35,7 @@ class TestAdminCourse(BaseTester):
                 'teacher': 'admin',
             },
         )
-        json = rv.get_json()
+        json = rv.json()
         assert json['message'] == 'Not allowed name.'
         assert rv.status_code == 400
 
@@ -48,7 +48,7 @@ class TestAdminCourse(BaseTester):
                 'teacher': 'admin',
             },
         )
-        json = rv.get_json()
+        json = rv.json()
         assert rv.status_code == 200
 
         rv = client_admin.post(
@@ -58,7 +58,7 @@ class TestAdminCourse(BaseTester):
                 'teacher': 'teacher',
             },
         )
-        json = rv.get_json()
+        json = rv.json()
         assert rv.status_code == 200
 
     def test_add_with_existent_course_name(self, client_admin):
@@ -70,7 +70,7 @@ class TestAdminCourse(BaseTester):
                 'teacher': 'admin',
             },
         )
-        json = rv.get_json()
+        json = rv.json()
         assert json['message'] == 'Course exists.', json
         assert rv.status_code == 400
 
@@ -82,7 +82,7 @@ class TestAdminCourse(BaseTester):
                                   'newCourse': 'PE',
                                   'teacher': 'teacher'
                               })
-        json = rv.get_json()
+        json = rv.json()
         assert json['message'] == 'Course not found.'
         assert rv.status_code == 404
 
@@ -94,7 +94,7 @@ class TestAdminCourse(BaseTester):
                                   'newCourse': 'PE',
                                   'teacher': 'teacherr'
                               })
-        json = rv.get_json()
+        json = rv.json()
         assert json['message'] == 'User not found.'
         assert rv.status_code == 404
 
@@ -106,35 +106,39 @@ class TestAdminCourse(BaseTester):
                                   'newCourse': 'PE',
                                   'teacher': 'teacher'
                               })
-        json = rv.get_json()
+        json = rv.json()
         assert rv.status_code == 200
 
     def test_delete_with_invalid_course_name(self, client_admin):
         # delete a course with non-existent course name
-        rv = client_admin.delete('/course', json={'course': 'art'})
-        json = rv.get_json()
+        rv = client_admin.request("DELETE", '/course', json={'course': 'art'})
+        json = rv.json()
         assert json['message'] == 'Course not found.'
         assert rv.status_code == 404
 
     def test_delete_with_non_owner(self, client_teacher):
         # delete a course with a user that is not the owner nor an admin
-        rv = client_teacher.delete('/course', json={'course': 'math'})
-        json = rv.get_json()
+        rv = client_teacher.request("DELETE",
+                                    '/course',
+                                    json={'course': 'math'})
+        json = rv.json()
         assert json['message'] == 'Forbidden.'
         assert rv.status_code == 403
 
     def test_delete(self, client_admin):
         # delete a course
-        rv = client_admin.delete('/course', json={
-            'course': 'math',
-        })
-        json = rv.get_json()
+        rv = client_admin.request("DELETE",
+                                  '/course',
+                                  json={
+                                      'course': 'math',
+                                  })
+        json = rv.json()
         assert rv.status_code == 200
 
     def test_view(self, client_admin):
         # Get all courses
         rv = client_admin.get('/course')
-        json = rv.get_json()
+        json = rv.json()
         assert rv.status_code == 200
         # The first one is 'Public'
         assert len(json['data']) == 2
@@ -144,7 +148,7 @@ class TestAdminCourse(BaseTester):
     def test_view_with_non_member(self, client_student):
         # Get all courses with a user that is not a member
         rv = client_student.get('/course')
-        json = rv.get_json()
+        json = rv.json()
         assert rv.status_code == 200
         assert json['data'] == []
 
@@ -170,7 +174,7 @@ class TestTeacherCourse(BaseTester):
                                       'student': 'noobs'
                                   }
                               })
-        json = rv.get_json()
+        json = rv.json()
         assert json['message'] == 'Course not found.'
         assert rv.status_code == 404
 
@@ -184,7 +188,7 @@ class TestTeacherCourse(BaseTester):
                                 'student': 'noobs'
                             }
                         })
-        json = rv.get_json()
+        json = rv.json()
         assert json['message'] == 'You are not in this course.'
         assert rv.status_code == 403
 
@@ -197,7 +201,7 @@ class TestTeacherCourse(BaseTester):
                                       'studentt': 'noobs'
                                   }
                               })
-        json = rv.get_json()
+        json = rv.json()
         assert 'User' in json['message']
         assert rv.status_code == 404
 
@@ -221,11 +225,11 @@ class TestTeacherCourse(BaseTester):
                                         'student': 'noobs',
                                     }
                                 })
-        json = rv.get_json()
+        json = rv.json()
         assert rv.status_code == 200
 
         rv = client_teacher.get('/course')
-        json = rv.get_json()
+        json = rv.json()
         print(json)
 
         assert len(json['data']) == 1
@@ -237,8 +241,8 @@ class TestTeacherCourse(BaseTester):
                                     'TAs': ['TADoesNotExist'],
                                     'studentNicknames': {}
                                 })
-        assert rv.status_code == 404, rv.get_json()
-        assert rv.get_json()['message'] == 'User: TADoesNotExist not found.'
+        assert rv.status_code == 404, rv.json()
+        assert rv.json()['message'] == 'User: TADoesNotExist not found.'
 
     def test_modify_with_only_student(self, client_student):
         # modify a course when not TA up
@@ -249,14 +253,14 @@ class TestTeacherCourse(BaseTester):
                                         'student': 'noobs'
                                     }
                                 })
-        json = rv.get_json()
+        json = rv.json()
         assert json['message'] == 'Forbidden.'
         assert rv.status_code == 403
 
     def test_view(self, client_student):
         # view a course
         rv = client_student.get('/course/math')
-        json = rv.get_json()
+        json = rv.json()
         assert rv.status_code == 200
         assert json['data']['TAs'][0]['username'] == 'teacher'
         assert json['data']['teacher']['username'] == 'teacher'
@@ -283,8 +287,8 @@ class TestCourseGrade(BaseTester):
                                    'content': 'hard',
                                    'score': 'A+',
                                })
-        assert rv.status_code == 404, rv.get_json()
-        assert rv.get_json()['message'] == 'Course not found.'
+        assert rv.status_code == 404, rv.json()
+        assert rv.json()['message'] == 'Course not found.'
 
     def test_grading_with_student_does_not_exist(self, client_admin):
         rv = client_admin.post('/course/Public/grade/StudentDoesNotExist',
@@ -293,8 +297,8 @@ class TestCourseGrade(BaseTester):
                                    'content': 'hard',
                                    'score': 'A+',
                                })
-        assert rv.status_code == 404, rv.get_json()
-        assert rv.get_json()['message'] == 'The student is not in the course.'
+        assert rv.status_code == 404, rv.json()
+        assert rv.json()['message'] == 'The student is not in the course.'
 
     def test_add_score(self, client_admin):
         # add scores
@@ -343,7 +347,7 @@ class TestCourseGrade(BaseTester):
                                })
 
         assert rv.status_code == 400
-        json = rv.get_json()
+        json = rv.json()
         assert json['message'] == 'This title is taken.'
 
     def test_modify_score(self, client_admin):
@@ -368,8 +372,8 @@ class TestCourseGrade(BaseTester):
                                   'score': 'E',
                               })
 
-        assert rv.status_code == 400, rv.get_json()
-        assert rv.get_json()['message'] == 'This title is taken.'
+        assert rv.status_code == 400, rv.json()
+        assert rv.json()['message'] == 'This title is taken.'
 
     def test_student_modify_score(self, client_student):
         # modify a score while being a student
@@ -382,7 +386,7 @@ class TestCourseGrade(BaseTester):
                                 })
 
         assert rv.status_code == 403
-        json = rv.get_json()
+        json = rv.json()
         assert json['message'] == 'You can only view your score.'
 
     def test_modify_non_existed_score(self, client_admin):
@@ -396,29 +400,31 @@ class TestCourseGrade(BaseTester):
                               })
 
         assert rv.status_code == 404
-        json = rv.get_json()
+        json = rv.json()
         assert json['message'] == 'Score not found.'
 
     def test_delete_score(self, client_admin):
         # delete a score
-        rv = client_admin.delete('/course/math/grade/student',
-                                 json={'title': 'exam'})
+        rv = client_admin.request("DELETE",
+                                  '/course/math/grade/student',
+                                  json={'title': 'exam'})
 
         assert rv.status_code == 200
 
     def test_delete_score_does_not_exist(self, client_admin):
         # delete a score
-        rv = client_admin.delete('/course/math/grade/student',
-                                 json={'title': 'exam'})
+        rv = client_admin.request("DELETE",
+                                  '/course/math/grade/student',
+                                  json={'title': 'exam'})
 
-        assert rv.status_code == 404, rv.get_json()
-        assert rv.get_json()['message'] == 'Score not found.'
+        assert rv.status_code == 404, rv.json()
+        assert rv.json()['message'] == 'Score not found.'
 
     def test_get_score(self, client_student):
         # get scores
         rv = client_student.get('/course/math/grade/student')
 
-        json = rv.get_json()
+        json = rv.json()
         assert rv.status_code == 200
         assert len(json['data']) == 1
         assert json['data'][0]['title'] == 'exam2 (edit)'
@@ -430,7 +436,7 @@ class TestCourseGrade(BaseTester):
         rv = client_teacher.get('/course/math/grade/student')
 
         assert rv.status_code == 403
-        json = rv.get_json()
+        json = rv.json()
         assert json['message'] == 'You are not in this course.'
 
 
@@ -438,27 +444,26 @@ class TestScoreBoard(BaseTester):
 
     def test_view_with_invalid_pids(self, client_admin):
         rv = client_admin.get(f'/course/Public/scoreboard?pids=invalid,pids')
-        assert rv.status_code == 400, rv.get_json()
-        assert rv.get_json(
-        )['message'] == 'Error occurred when parsing `pids`.'
+        assert rv.status_code == 400, rv.json()
+        assert rv.json()['message'] == 'Error occurred when parsing `pids`.'
 
     def test_view_with_invalid_start(self, client_admin):
         rv = client_admin.get(
             f'/course/Public/scoreboard?pids=1,2,3&start=invalid')
-        assert rv.status_code == 400, rv.get_json()
-        assert rv.get_json()['message'] == 'Type of `start` should be float.'
+        assert rv.status_code == 400, rv.json()
+        assert rv.json()['message'] == 'Type of `start` should be float.'
 
     def test_view_with_invalid_end(self, client_admin):
         rv = client_admin.get(
             f'/course/Public/scoreboard?pids=1,2,3&end=invalid')
-        assert rv.status_code == 400, rv.get_json()
-        assert rv.get_json()['message'] == 'Type of `end` should be float.'
+        assert rv.status_code == 400, rv.json()
+        assert rv.json()['message'] == 'Type of `end` should be float.'
 
     def test_admin_can_view_scoreboard(self, forge_client: ForgeClient):
         course = utils.course.create_course()
         client = forge_client('first_admin')
         rv = client.get(f'/course/{course.course_name}/scoreboard?pids=1,2,3')
-        assert rv.status_code == 200, rv.json
+        assert rv.status_code == 200, rv.json()
 
     def test_teacher_can_view_scoreboard(self, forge_client: ForgeClient):
         course = utils.course.create_course()
@@ -466,7 +471,7 @@ class TestScoreBoard(BaseTester):
         rv = client.get(
             f'/course/{course.course_name}/scoreboard?pids=1,2,3&start=1&end=1'
         )
-        assert rv.status_code == 200, rv.json
+        assert rv.status_code == 200, rv.json()
 
     def test_student_cannot_view_scoreboard(
         self,
@@ -476,7 +481,7 @@ class TestScoreBoard(BaseTester):
         course = utils.course.create_course(students=[user])
         client = forge_client(user.username)
         rv = client.get(f'/course/{course.course_name}/scoreboard?pids=1,2,3')
-        assert rv.status_code == 403, rv.json
+        assert rv.status_code == 403, rv.json()
 
     def test_teacher_role_cannot_view_scoreboard(
         self,
@@ -491,7 +496,7 @@ class TestScoreBoard(BaseTester):
         assert user != course.teacher
         client = forge_client(user.username)
         rv = client.get(f'/course/{course.course_name}/scoreboard?pids=1,2,3')
-        assert rv.status_code == 403, rv.json
+        assert rv.status_code == 403, rv.json()
 
 
 class TestMongoCourse(BaseTester):
@@ -564,25 +569,24 @@ class TestCourseSummary(BaseTester):
             scoreboard_status=0,
         )
 
-        with app.app_context():
-            utils.submission.create_submission(
-                user=User('student'),
-                problem=math_problem,
-                score=100,
-            )
-            utils.submission.create_submission(
-                user=User('student'),
-                problem=history_problem,
-                score=100,
-            )
-            utils.submission.create_submission(
-                user=User('teacher'),
-                problem=history_problem,
-                score=0,
-            )
+        utils.submission.create_submission(
+            user=User('student'),
+            problem=math_problem,
+            score=100,
+        )
+        utils.submission.create_submission(
+            user=User('student'),
+            problem=history_problem,
+            score=100,
+        )
+        utils.submission.create_submission(
+            user=User('teacher'),
+            problem=history_problem,
+            score=0,
+        )
 
         rv = client_admin.get('/course/summary')
-        json = rv.get_json()
+        json = rv.json()
 
         assert rv.status_code == 200, json
         assert json['data']['courseCount'] == 3  # Includes 'Public' course

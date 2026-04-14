@@ -1,6 +1,8 @@
+import os
 from typing import Dict, List, Protocol
-from flask import Flask
-from flask.testing import FlaskClient
+from starlette.testclient import TestClient
+import httpx
+
 from mongo import *
 from mongo import engine
 import mongomock.gridfs
@@ -34,11 +36,12 @@ def setup_minio():
 
 @pytest.fixture
 def app(tmp_path):
-    from app import app as flask_app
-    app = flask_app()
-    app.config['TESTING'] = True
-    app.config['SERVER_NAME'] = 'test.test'
+    os.environ['TESTING'] = '1'
+    from app import app as fastapi_app, _seed_db
     mongomock.gridfs.enable_gridfs_integration()
+
+    # Re-run seed in case a prior setup_class dropped the DB
+    _seed_db()
 
     # modify submission config for testing
     # use tmp dir to save user source code
@@ -46,26 +49,28 @@ def app(tmp_path):
     submission_tmp_dir.mkdir(exist_ok=True)
     Submission.config().TMP_DIR = submission_tmp_dir
 
-    return app
+    return fastapi_app
 
 
 # TODO: share client may cause auth problem
 @pytest.fixture
-def client(app: Flask):
-    return app.test_client()
+def client(app):
+    return TestClient(app,
+                      raise_server_exceptions=False,
+                      follow_redirects=False)
 
 
 class ForgeClient(Protocol):
 
-    def __call__(self, username: str) -> FlaskClient:
+    def __call__(self, username: str) -> TestClient:
         ...
 
 
 @pytest.fixture
-def forge_client(client: FlaskClient):
+def forge_client(client: TestClient):
 
-    def seted_cookie(username: str) -> FlaskClient:
-        client.set_cookie('piann', User(username).secret, domain='test.test')
+    def seted_cookie(username: str) -> TestClient:
+        client.cookies.set('piann', User(username).secret)
         return client
 
     return seted_cookie
@@ -138,9 +143,9 @@ def make_course(forge_client):
                 'studentNicknames': c_data.students
             },
         )
-        assert rv.status_code == 200, rv.get_json()
+        assert rv.status_code == 200, rv.json()
 
-        client._cookies.clear()
+        client.cookies.clear()
         return c_data
 
     return make_course
@@ -193,7 +198,7 @@ def problem_ids():
                 },
             )
             if prob.problem_type != 2:
-                test_case = get_file('default/test_case.zip')['case'][0]
+                test_case = get_file('default/test_case.zip')['case'][1]
                 prob.update_test_case(test_case)
             rets.append(prob.id)
 
@@ -272,20 +277,19 @@ def submit_once(app, get_source):
             filename: source code's zip filename
             lang: language ID
         '''
-        with app.app_context():
-            now = datetime.now()
-            try:
-                submission = Submission.add(
-                    problem_id=pid,
-                    username=name,
-                    lang=lang,
-                    timestamp=now,
-                    ip_addr="127.0.0.1",
-                )
-            except engine.DoesNotExist as e:
-                assert False, str(e)
-            res = submission.submit(get_source(filename))
-            assert res == True
+        now = datetime.now()
+        try:
+            submission = Submission.add(
+                problem_id=pid,
+                username=name,
+                lang=lang,
+                timestamp=now,
+                ip_addr="127.0.0.1",
+            )
+        except engine.DoesNotExist as e:
+            assert False, str(e)
+        res = submission.submit(get_source(filename))
+        assert res == True
         return submission.id
 
     return submit_once

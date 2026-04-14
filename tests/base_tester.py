@@ -1,25 +1,21 @@
 import secrets
-import typing
 from typing import Literal, Tuple, Dict, Any, Union
 import mongomock
 from mongoengine import connect
 from mongo import *
-from flask.testing import FlaskClient
+from starlette.testclient import TestClient
 from .conftest import *
-
-if typing.TYPE_CHECKING:
-    from flask.testing import TestResponse
 
 
 def random_string(k=None):
     '''
-    return a random string 
+    return a random string
 
     Args:
         k:
             the return string's byte length, if None,
-            then use the `secrets` module's default 
-            value. notice that the byte length will 
+            then use the `secrets` module's default
+            value. notice that the byte length will
             not equal string length
 
     Returns:
@@ -81,14 +77,14 @@ class BaseTester:
 
     @staticmethod
     def request(
-        client: FlaskClient,
+        client: TestClient,
         method: Literal['get', 'post', 'put', 'patch', 'delete'],
         url: str,
         **ks,
-    ) -> Tuple['TestResponse', Union[Any, Dict[str, Any]], Union[Any, None]]:
+    ) -> Tuple[Any, Union[Any, Dict[str, Any]], Union[Any, None]]:
         func = getattr(client, method)
-        rv: 'TestResponse' = func(url, **ks)
-        rv_json = rv.get_json()
+        rv = func(url, **ks)
+        rv_json = rv.json()
         if isinstance(rv_json, dict):
             rv_data = rv_json.get('data')
         else:

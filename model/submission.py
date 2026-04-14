@@ -1,24 +1,22 @@
 import io
-from typing import Optional
-import requests as rq
+import os
 import random
 import secrets
 import json
-from flask import (
-    Blueprint,
-    send_file,
-    request,
-    current_app,
-)
+import httpx
+from typing import Optional
+from fastapi import APIRouter, Depends, UploadFile, File
+from fastapi.responses import StreamingResponse, Response
 from datetime import datetime, timedelta
 from mongo import *
 from mongo import engine
 from mongo.utils import (
     RedisCache,
     drop_none,
+    is_testing,
 )
 from .utils import *
-from .auth import *
+from .auth import identity_verify, login_required
 from .schemas import (
     CreateSubmissionBody,
     GetSubmissionListQuery,
@@ -27,17 +25,75 @@ from .schemas import (
     UpdateConfigBody,
 )
 
-__all__ = ['submission_api']
-submission_api = Blueprint('submission_api', __name__)
+__all__ = ['submission_router']
+submission_router = APIRouter()
 
 
-@submission_api.post('/')
-@login_required
-@parse_body(CreateSubmissionBody)
-def create_submission(user, body: CreateSubmissionBody):
+# /config must be defined before /{submission_id} to avoid path conflict
+@submission_router.get('/config')
+def get_config(user: User = identity_verify(0), ):
+    config = Submission.config()
+    ret = config.to_mongo()
+    del ret['_cls']
+    del ret['_id']
+    return HTTPResponse('success.', data=ret)
+
+
+@submission_router.put('/config')
+def update_config(
+        body: UpdateConfigBody,
+        user: User = identity_verify(0),
+):
+    rate_limit = body.rate_limit
+    sandbox_instances = body.sandbox_instances
+    config = Submission.config()
+    try:
+        sandbox_instances = [
+            *map(lambda s: engine.Sandbox(**s), sandbox_instances)
+        ]
+    except engine.ValidationError as e:
+        return HTTPError('wrong Sandbox schema', 400, data=e.to_dict())
+    if not is_testing():
+        resps = []
+        for sb in sandbox_instances:
+            try:
+                resp = httpx.get(f'{sb.url}/status', timeout=5.0)
+            except httpx.RequestError as e:
+                resps.append((sb.name, e))
+                continue
+            if not resp.is_success:
+                resps.append((sb.name, resp))
+        if len(resps) != 0:
+            return HTTPError(
+                'some error occurred when check sandbox status',
+                400,
+                data=[{
+                    'name':
+                    name,
+                    'statusCode':
+                    resp.status_code
+                    if isinstance(resp, httpx.Response) else None,
+                    'response':
+                    resp.text
+                    if isinstance(resp, httpx.Response) else str(resp),
+                } for name, resp in resps],
+            )
+    try:
+        config.update(rate_limit=rate_limit,
+                      sandbox_instances=sandbox_instances)
+    except ValidationError as e:
+        return HTTPError(str(e), 400)
+    return HTTPResponse('success.')
+
+
+@submission_router.post('')
+def create_submission(
+        body: CreateSubmissionBody,
+        user=Depends(login_required),
+        ip: str = Depends(get_ip),
+):
     language_type = body.language_type
     problem_id = body.problem_id
-    # the user reach the rate limit for submitting
     now = datetime.now()
     delta = timedelta.total_seconds(now - user.last_submit)
     if delta <= Submission.config().rate_limit:
@@ -46,31 +102,20 @@ def create_submission(user, body: CreateSubmissionBody):
             'Submit too fast!\n'
             f'Please wait for {wait_for:.2f} seconds to submit.',
             429,
-            data={
-                'waitFor': wait_for,
-            },
-        )  # Too many request
-    # check for fields
-    if problem_id is None:
-        return HTTPError(
-            'problemId is required!',
-            400,
+            data={'waitFor': wait_for},
         )
-    # search for problem
+    if problem_id is None:
+        return HTTPError('problemId is required!', 400)
     problem = Problem(problem_id)
     if not problem:
         return HTTPError('Unexisted problem id.', 404)
-    # problem permissoion
     if not problem.permission(user, Problem.Permission.VIEW):
         return HTTPError('problem permission denied!', 403)
-    # check deadline
     for homework in problem.obj.homeworks:
         if now < homework.duration.start:
             return HTTPError('this homework hasn\'t start.', 403)
-    # ip validation
-    if not problem.is_valid_ip(get_ip()):
+    if not problem.is_valid_ip(ip):
         return HTTPError('Invalid IP address.', 403)
-    # handwritten problem doesn't need language type
     if language_type is None:
         if problem.problem_type != 2:
             return HTTPError(
@@ -82,7 +127,6 @@ def create_submission(user, body: CreateSubmissionBody):
                 },
             )
         language_type = 3
-    # not allowed language
     if not problem.allowed(language_type):
         return HTTPError(
             'not allowed language',
@@ -92,51 +136,42 @@ def create_submission(user, body: CreateSubmissionBody):
                 'got': language_type
             },
         )
-    # check if the user has used all his quota
     if problem.obj.quota != -1:
         no_grade_permission = not any(
             c.permission(user=user, req=Course.Permission.GRADE)
             for c in map(Course, problem.courses))
-
         run_out_of_quota = problem.submit_count(user) >= problem.quota
         if no_grade_permission and run_out_of_quota:
             return HTTPError('you have used all your quotas', 403)
     user.problem_submission[str(problem_id)] = problem.submit_count(user) + 1
     user.save()
-    # insert submission to DB
-    ip_addr = request.headers.get('cf-connecting-ip', request.remote_addr)
     try:
-        submission = Submission.add(problem_id=problem_id,
-                                    username=user.username,
-                                    lang=language_type,
-                                    timestamp=now,
-                                    ip_addr=ip_addr)
+        submission = Submission.add(
+            problem_id=problem_id,
+            username=user.username,
+            lang=language_type,
+            timestamp=now,
+            ip_addr=ip,
+        )
     except ValidationError:
         return HTTPError('invalid data!', 400)
     except engine.DoesNotExist as e:
         return HTTPError(str(e), 404)
     except TestCaseNotFound as e:
         return HTTPError(str(e), 403)
-    # update user
-    user.update(
-        last_submit=now,
-        push__submissions=submission.obj,
-    )
-    # update problem
+    user.update(last_submit=now, push__submissions=submission.obj)
     submission.problem.update(inc__submitter=1)
     return HTTPResponse(
-        'submission recieved.\n'
-        'please send source code with given submission id later.',
-        data={
-            'submissionId': submission.id,
-        },
+        'submission recieved.\nplease send source code with given submission id later.',
+        data={'submissionId': submission.id},
     )
 
 
-@submission_api.get('/')
-@login_required
-@parse_query(GetSubmissionListQuery)
-def get_submission_list(user, query: GetSubmissionListQuery):
+@submission_router.get('')
+def get_submission_list(
+        query: GetSubmissionListQuery = Depends(),
+        user=Depends(login_required),
+):
     offset = query.offset
     count = query.count
     problem_id = query.problem_id
@@ -147,11 +182,8 @@ def get_submission_list(user, query: GetSubmissionListQuery):
     after = query.after
     language_type = query.language_type
     ip_addr = query.ip_addr
-    '''
-    get the list of submission data
-    '''
 
-    def parse_int(val: Optional[int], name: str):
+    def parse_int(val, name):
         if val is None:
             return None
         try:
@@ -159,15 +191,12 @@ def get_submission_list(user, query: GetSubmissionListQuery):
         except ValueError:
             raise ValueError(f'can not convert {name} to integer')
 
-    def parse_str(val: Optional[str], name: str):
+    def parse_str(val, name):
         if val is None:
             return None
-        try:
-            return str(val)
-        except ValueError:
-            raise ValueError(f'can not convert {name} to string')
+        return str(val)
 
-    def parse_timestamp(val: Optional[int], name: str):
+    def parse_timestamp(val, name):
         if val is None:
             return None
         try:
@@ -175,29 +204,26 @@ def get_submission_list(user, query: GetSubmissionListQuery):
         except ValueError:
             raise ValueError(f'can not convert {name} to timestamp')
 
-    cache_key = (
-        'SUBMISSION_LIST_API',
-        user,
-        problem_id,
-        username,
-        status,
-        language_type,
-        course,
-        offset,
-        count,
-        before,
-        after,
-    )
-
-    cache_key = '_'.join(map(str, cache_key))
+    cache_key = '_'.join(
+        map(str, (
+            'SUBMISSION_LIST_API',
+            user,
+            problem_id,
+            username,
+            status,
+            language_type,
+            course,
+            offset,
+            count,
+            before,
+            after,
+        )))
     cache = RedisCache()
-    # check cache
     if cache.exists(cache_key):
         submissions = json.loads(cache.get(cache_key))
         submission_count = submissions['submission_count']
         submissions = submissions['submissions']
     else:
-        # convert args
         offset = parse_int(offset, 'offset')
         count = parse_int(count, 'count')
         problem_id = parse_int(problem_id, 'problemId')
@@ -209,12 +235,9 @@ def get_submission_list(user, query: GetSubmissionListQuery):
         if language_type is not None:
             try:
                 language_type = list(map(int, language_type.split(',')))
-            except ValueError as e:
-                return HTTPError(
-                    'cannot parse integers from languageType',
-                    400,
-                )
-        # students can only get their own submissions
+            except ValueError:
+                return HTTPError('cannot parse integers from languageType',
+                                 400)
         if user.role == User.engine.Role.STUDENT:
             username = user.username
         try:
@@ -229,22 +252,21 @@ def get_submission_list(user, query: GetSubmissionListQuery):
                 'course': course,
                 'before': before,
                 'after': after,
-                'ip_addr': ip_addr
+                'ip_addr': ip_addr,
             })
-            submissions, submission_count = Submission.filter(
-                **params,
-                with_count=True,
-            )
+            submissions, submission_count = Submission.filter(**params,
+                                                              with_count=True)
             submissions = [s.to_dict() for s in submissions]
             cache.set(
                 cache_key,
                 json.dumps({
                     'submissions': submissions,
-                    'submission_count': submission_count,
-                }), 15)
+                    'submission_count': submission_count
+                }),
+                15,
+            )
         except ValueError as e:
             return HTTPError(str(e), 400)
-    # unicorn gifs
     unicorns = [
         'https://media.giphy.com/media/xTiTnLmaxrlBHxsMMg/giphy.gif',
         'https://media.giphy.com/media/26AHG5KGFxSkUWw1i/giphy.gif',
@@ -256,29 +278,25 @@ def get_submission_list(user, query: GetSubmissionListQuery):
         'submissions': submissions,
         'submissionCount': submission_count,
     }
-    return HTTPResponse(
-        'here you are, bro',
-        data=ret,
-    )
+    return HTTPResponse('here you are, bro', data=ret)
 
 
-@submission_api.route('/<submission>', methods=['GET'])
-@login_required
-@Request.doc('submission', Submission)
-def get_submission(user, submission: Submission):
+@submission_router.get('/{submission_id}')
+def get_submission(
+        ip: str = Depends(get_ip),
+        user=Depends(login_required),
+        submission: Submission = get_doc('submission_id', Submission),
+):
     user_feedback_perm = submission.permission(user,
                                                Submission.Permission.FEEDBACK)
-    # check permission
     if submission.handwritten and not user_feedback_perm:
         return HTTPError('forbidden.', 403)
-    # ip validation
     problem = Problem(submission.problem_id)
-    if not problem.is_valid_ip(get_ip()):
+    if not problem.is_valid_ip(ip):
         return HTTPError('Invalid IP address.', 403)
     if not all(submission.timestamp in hw.duration
                for hw in problem.running_homeworks() if hw.ip_filters):
         return HTTPError('You cannot view this submission during quiz.', 403)
-    # serialize submission
     has_code = not submission.handwritten and user_feedback_perm
     has_output = submission.problem.can_view_stdout
     ret = submission.to_dict()
@@ -287,21 +305,17 @@ def get_submission(user, submission: Submission):
             ret['code'] = submission.get_main_code()
         except UnicodeDecodeError:
             ret['code'] = False
-    if has_output:
-        ret['tasks'] = submission.get_detailed_result()
-    else:
-        ret['tasks'] = submission.get_result()
+    ret['tasks'] = submission.get_detailed_result(
+    ) if has_output else submission.get_result()
     return HTTPResponse(data=ret)
 
 
-@submission_api.get('/<submission>/output/<int:task_no>/<int:case_no>')
-@login_required
-@Request.doc('submission', Submission)
+@submission_router.get('/{submission_id}/output/{task_no}/{case_no}')
 def get_submission_output(
-    user,
-    submission: Submission,
-    task_no: int,
-    case_no: int,
+        task_no: int,
+        case_no: int,
+        user=Depends(login_required),
+        submission: Submission = get_doc('submission_id', Submission),
 ):
     if not submission.permission(user, Submission.Permission.VIEW_OUTPUT):
         return HTTPError('permission denied', 403)
@@ -314,14 +328,14 @@ def get_submission_output(
     return HTTPResponse('ok', data=output)
 
 
-@submission_api.route('/<submission>/pdf/<item>', methods=['GET'])
-@login_required
-@Request.doc('submission', Submission)
-def get_submission_pdf(user, submission: Submission, item):
-    # check the permission
+@submission_router.get('/{submission_id}/pdf/{item}')
+def get_submission_pdf(
+        item: str,
+        user=Depends(login_required),
+        submission: Submission = get_doc('submission_id', Submission),
+):
     if not submission.permission(user, Submission.Permission.FEEDBACK):
         return HTTPError('forbidden.', 403)
-    # non-handwritten submissions have no pdf file
     if not submission.handwritten:
         return HTTPError('it is not a handwritten submission.', 400)
     if item not in ['comment', 'upload']:
@@ -331,69 +345,56 @@ def get_submission_pdf(user, submission: Submission, item):
             data = submission.get_comment()
         else:
             data = submission.get_code('main.pdf', binary=True)
-    except FileNotFoundError as e:
+    except FileNotFoundError:
         return HTTPError('File not found.', 404)
-    return send_file(
-        io.BytesIO(data),
-        mimetype='application/pdf',
-        as_attachment=True,
-        max_age=0,
-        download_name=f'{item}-{submission.id[-6:] or "missing-id"}.pdf',
+    return Response(
+        content=data,
+        media_type='application/pdf',
+        headers={
+            'Content-Disposition':
+            (f'attachment; filename="{item}-{submission.id[-6:] or "missing-id"}.pdf"'
+             ),
+            'Cache-Control':
+            'no-store',
+        },
     )
 
 
-@submission_api.put('/<submission>/complete')
-@parse_body(OnSubmissionCompleteBody)
-@Request.doc('submission', Submission)
-def on_submission_complete(submission: Submission,
-                           body: OnSubmissionCompleteBody):
-    tasks = body.tasks
-    token = body.token
-    if not Submission.verify_token(submission.id, token):
+@submission_router.put('/{submission_id}/complete')
+def on_submission_complete(
+        body: OnSubmissionCompleteBody,
+        submission: Submission = get_doc('submission_id', Submission),
+):
+    if not Submission.verify_token(submission.id, body.token):
         return HTTPError('i don\'t know you', 403)
     try:
-        submission.process_result(tasks)
+        submission.process_result(body.tasks)
     except (ValidationError, KeyError) as e:
-        return HTTPError(
-            'invalid data!\n'
-            f'{type(e).__name__}: {e}',
-            400,
-        )
+        return HTTPError(f'invalid data!\n{type(e).__name__}: {e}', 400)
     return HTTPResponse(f'{submission} result recieved.')
 
 
-@submission_api.route('/<submission>', methods=['PUT'])
-@login_required
-@Request.doc('submission', Submission)
-@Request.files('code')
-def update_submission(user, submission: Submission, code):
-    # validate this reques
+@submission_router.put('/{submission_id}')
+async def update_submission(
+        submission_id: str,
+        code: Optional[UploadFile] = File(default=None),
+        user=Depends(login_required),
+        submission: Submission = get_doc('submission_id', Submission),
+):
     if submission.status >= 0:
-        return HTTPError(
-            f'{submission} has finished judgement.',
-            403,
-        )
-    # if user not equal, reject
+        return HTTPError(f'{submission} has finished judgement.', 403)
     if not secrets.compare_digest(submission.user.username, user.username):
         return HTTPError('user not equal!', 403)
-    # if source code not found
     if code is None:
-        return HTTPError(
-            f'can not find the source file',
-            400,
-        )
-    # or empty file
-    if len(code.read()) == 0:
+        return HTTPError('can not find the source file', 400)
+    content = await code.read()
+    if len(content) == 0:
         return HTTPError('empty file', 400)
-    code.seek(0)
-    # has been uploaded
+    code_file = io.BytesIO(content)
     if submission.has_code():
-        return HTTPError(
-            f'{submission} has been uploaded source file!',
-            403,
-        )
+        return HTTPError(f'{submission} has been uploaded source file!', 403)
     try:
-        success = submission.submit(code)
+        success = submission.submit(code_file)
     except FileExistsError:
         exit(10086)
     except ValueError as e:
@@ -412,49 +413,45 @@ def update_submission(user, submission: Submission, code):
         return HTTPError('Some error occurred, please contact the admin', 500)
 
 
-@submission_api.put('/<submission>/grade')
-@login_required
-@parse_body(GradeSubmissionBody)
-@Request.doc('submission', Submission)
-def grade_submission(user: User, submission: Submission,
-                     body: GradeSubmissionBody):
-    score = body.score
+@submission_router.put('/{submission_id}/grade')
+def grade_submission(
+        body: GradeSubmissionBody,
+        user: User = Depends(login_required),
+        submission: Submission = get_doc('submission_id', Submission),
+):
     if not submission.permission(user, Submission.Permission.GRADE):
         return HTTPError('forbidden.', 403)
-
-    if score < 0 or score > 100:
+    if body.score < 0 or body.score > 100:
         return HTTPError('score must be between 0 to 100.', 400)
-
-    # AC if the score is 100, WA otherwise
-    submission.update(score=score, status=(0 if score == 100 else 1))
+    submission.update(score=body.score, status=(0 if body.score == 100 else 1))
     submission.finish_judging()
     return HTTPResponse(f'{submission} score recieved.')
 
 
-@submission_api.route('/<submission>/comment', methods=['PUT'])
-@login_required
-@Request.files('comment')
-@Request.doc('submission', Submission)
-def comment_submission(user, submission: Submission, comment):
+@submission_router.put('/{submission_id}/comment')
+async def comment_submission(
+        submission_id: str,
+        comment: Optional[UploadFile] = File(default=None),
+        user=Depends(login_required),
+        submission: Submission = get_doc('submission_id', Submission),
+):
     if not submission.permission(user, Submission.Permission.COMMENT):
         return HTTPError('forbidden.', 403)
-
     if comment is None:
-        return HTTPError(
-            f'can not find the comment',
-            400,
-        )
+        return HTTPError('can not find the comment', 400)
+    content = await comment.read()
     try:
-        submission.add_comment(comment)
+        submission.add_comment(io.BytesIO(content))
     except ValueError as e:
         return HTTPError(str(e), 400)
     return HTTPResponse(f'{submission} comment recieved.')
 
 
-@submission_api.route('/<submission>/rejudge', methods=['GET'])
-@login_required
-@Request.doc('submission', Submission)
-def rejudge(user, submission: Submission):
+@submission_router.get('/{submission_id}/rejudge')
+def rejudge(
+        user=Depends(login_required),
+        submission: Submission = get_doc('submission_id', Submission),
+):
     if submission.status == -2 or (submission.status == -1 and
                                    (datetime.now() -
                                     submission.last_send).seconds < 300):
@@ -475,93 +472,23 @@ def rejudge(user, submission: Submission):
         return HTTPError('Some error occurred, please contact the admin', 500)
 
 
-@submission_api.get('/config')
-@login_required
-@identity_verify(0)
-def get_config(user):
-    config = Submission.config()
-    ret = config.to_mongo()
-    del ret['_cls']
-    del ret['_id']
-    return HTTPResponse('success.', data=ret)
-
-
-@submission_api.put('/config')
-@login_required
-@identity_verify(0)
-@parse_body(UpdateConfigBody)
-def update_config(user, body: UpdateConfigBody):
-    rate_limit = body.rate_limit
-    sandbox_instances = body.sandbox_instances
-    config = Submission.config()
-    # try to convert json object to Sandbox instance
-    try:
-        sandbox_instances = [
-            *map(
-                lambda s: engine.Sandbox(**s),
-                sandbox_instances,
-            )
-        ]
-    except engine.ValidationError as e:
-        return HTTPError(
-            'wrong Sandbox schema',
-            400,
-            data=e.to_dict(),
-        )
-    # skip if during testing
-    if not current_app.config['TESTING']:
-        resps = []
-        # check sandbox status
-        for sb in sandbox_instances:
-            resp = rq.get(f'{sb.url}/status')
-            if not resp.ok:
-                resps.append((sb.name, resp))
-        # some exception occurred
-        if len(resps) != 0:
-            return HTTPError(
-                'some error occurred when check sandbox status',
-                400,
-                data=[{
-                    'name': name,
-                    'statusCode': resp.status_code,
-                    'response': resp.text,
-                } for name, resp in resps],
-            )
-    try:
-        config.update(
-            rate_limit=rate_limit,
-            sandbox_instances=sandbox_instances,
-        )
-    except ValidationError as e:
-        return HTTPError(str(e), 400)
-    return HTTPResponse('success.')
-
-
-@submission_api.post('/<submission>/migrate-code')
-@login_required
-@identity_verify(0)
-@Request.doc('submission', Submission)
-def migrate_code(user: User, submission: Submission):
-    if not submission.permission(
-            user,
-            Submission.Permission.MANAGER,
-    ):
+@submission_router.post('/{submission_id}/migrate-code')
+def migrate_code(
+        user: User = identity_verify(0),
+        submission: Submission = get_doc('submission_id', Submission),
+):
+    if not submission.permission(user, Submission.Permission.MANAGER):
         return HTTPError('forbidden.', 403)
-
     submission.migrate_code_to_minio()
     return HTTPResponse('ok')
 
 
-@submission_api.post('/<submission>/migrate-output')
-@login_required
-@identity_verify(0)
-@Request.doc('submission', Submission)
-def migrate_output(user: User, submission: Submission):
-    if not submission.permission(
-            user,
-            Submission.Permission.MANAGER,
-    ):
+@submission_router.post('/{submission_id}/migrate-output')
+def migrate_output(
+        user: User = identity_verify(0),
+        submission: Submission = get_doc('submission_id', Submission),
+):
+    if not submission.permission(user, Submission.Permission.MANAGER):
         return HTTPError('forbidden.', 403)
-
     submission.migrate_output_to_minio()
     return HTTPResponse('ok')
