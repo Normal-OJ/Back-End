@@ -84,7 +84,10 @@ class BaseTester:
     ) -> Tuple[Any, Union[Any, Dict[str, Any]], Union[Any, None]]:
         func = getattr(client, method)
         rv = func(url, **ks)
-        rv_json = rv.json()
+        try:
+            rv_json = rv.json()
+        except Exception:
+            rv_json = None
         if isinstance(rv_json, dict):
             rv_data = rv_json.get('data')
         else:
