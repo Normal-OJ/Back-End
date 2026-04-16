@@ -29,7 +29,9 @@ RUN poetry install --only main
 # 'development' stage installs all dev deps and can be used to develop code.
 # For example using docker-compose to mount local volume under /app
 FROM python-base AS development
-ENV FLASK_DEBUG=True
+ENV UVICORN_HOST=0.0.0.0 \
+    UVICORN_PORT=8080 \
+    UVICORN_RELOAD=true
 
 # Copying poetry and venv into image
 COPY --from=builder-base $POETRY_HOME $POETRY_HOME
@@ -44,15 +46,18 @@ WORKDIR /app
 COPY . .
 
 EXPOSE 8080
-CMD ["gunicorn", "app:app()", "-c", "gunicorn.conf.dev.py"]
+CMD ["uvicorn", "app:app", "--proxy-headers", "--forwarded-allow-ips=*"]
 
 # 'production' stage uses the clean 'python-base' stage and copyies
 # in only our runtime deps that were installed in the 'builder-base'
 FROM python-base AS production
+ENV UVICORN_HOST=0.0.0.0 \
+    UVICORN_PORT=8080 \
+    UVICORN_WORKERS=4
 
 COPY --from=builder-base $VENV_PATH $VENV_PATH
 COPY ./ /app
 
 WORKDIR /app
 EXPOSE 8080
-CMD ["gunicorn", "app:app()", "-c", "gunicorn.conf.py"]
+CMD ["uvicorn", "app:app", "--proxy-headers", "--forwarded-allow-ips=*"]
