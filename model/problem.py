@@ -179,8 +179,9 @@ async def manage_problem(
         from io import BytesIO
         form = await request.form()
         case_upload = form.get('case')
-        case = BytesIO(await case_upload.read()) if hasattr(
-            case_upload, 'read') else case_upload
+        if case_upload is None or not hasattr(case_upload, 'read'):
+            return HTTPError('missing or invalid form field: case', 400)
+        case = BytesIO(await case_upload.read())
         try:
             problem.update_test_case(case)
         except engine.DoesNotExist as e:
