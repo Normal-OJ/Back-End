@@ -1,9 +1,10 @@
 import inspect
+import httpx
 from fastapi import Depends, Request
 from mongo import engine
 from .response import NOJException
 
-__all__ = ('get_doc', 'get_ip')
+__all__ = ('get_doc', 'get_ip', 'get_http_client')
 
 
 def get_doc(src_param: str, cls, param_type=str):
@@ -39,6 +40,10 @@ def get_doc(src_param: str, cls, param_type=str):
     dependency.__signature__ = inspect.Signature([param])
     dependency.__annotations__ = {src_param: param_type}
     return Depends(dependency)
+
+
+def get_http_client(request: Request) -> httpx.Client:
+    return request.app.state.http_client
 
 
 def get_ip(request: Request) -> str:

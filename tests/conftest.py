@@ -55,9 +55,9 @@ def app(tmp_path):
 # TODO: share client may cause auth problem
 @pytest.fixture
 def client(app):
-    return TestClient(app,
-                      raise_server_exceptions=False,
-                      follow_redirects=False)
+    with TestClient(app, raise_server_exceptions=False,
+                    follow_redirects=False) as c:
+        yield c
 
 
 class ForgeClient(Protocol):

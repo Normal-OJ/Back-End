@@ -380,6 +380,7 @@ async def update_submission(
         code: Optional[UploadFile] = File(default=None),
         user=Depends(login_required),
         submission: Submission = get_doc('submission_id', Submission),
+        http_client: httpx.Client = Depends(get_http_client),
 ):
     if submission.status >= 0:
         return HTTPError(f'{submission} has finished judgement.', 403)
@@ -394,7 +395,7 @@ async def update_submission(
     if submission.has_code():
         return HTTPError(f'{submission} has been uploaded source file!', 403)
     try:
-        success = submission.submit(code_file)
+        success = submission.submit(code_file, client=http_client)
     except FileExistsError:
         exit(10086)
     except ValueError as e:
@@ -451,6 +452,7 @@ async def comment_submission(
 def rejudge(
         user=Depends(login_required),
         submission: Submission = get_doc('submission_id', Submission),
+        http_client: httpx.Client = Depends(get_http_client),
 ):
     if submission.status == -2 or (submission.status == -1 and
                                    (datetime.now() -
@@ -459,7 +461,7 @@ def rejudge(
     if not submission.permission(user, Submission.Permission.REJUDGE):
         return HTTPError('forbidden.', 403)
     try:
-        success = submission.rejudge()
+        success = submission.rejudge(client=http_client)
     except ValueError as e:
         return HTTPError(str(e), 400)
     except JudgeQueueFullError as e:

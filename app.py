@@ -1,5 +1,7 @@
 import os
 import logging
+from contextlib import asynccontextmanager
+import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
@@ -7,8 +9,15 @@ from model import *
 from mongo import *
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    app.state.http_client = httpx.Client(timeout=httpx.Timeout(5.0, read=30.0))
+    yield
+    app.state.http_client.close()
+
+
 def create_app() -> FastAPI:
-    app = FastAPI()
+    app = FastAPI(lifespan=lifespan)
 
     from model.utils.response import NOJException
 
