@@ -29,7 +29,7 @@ def HTTPResponse(
     status_code: int = 200,
     status: str = 'ok',
     data: Any = None,
-    cookies: dict = {},
+    cookies: dict | None = None,
 ) -> JSONResponse:
     resp = JSONResponse(
         {
@@ -39,16 +39,16 @@ def HTTPResponse(
         },
         status_code=status_code,
     )
-    return _apply_cookies(resp, cookies)
+    return _apply_cookies(resp, cookies or {})
 
 
 def HTTPRedirect(
     location: str,
     status_code: int = 302,
-    cookies: dict = {},
+    cookies: dict | None = None,
 ) -> RedirectResponse:
     resp = RedirectResponse(location, status_code=status_code)
-    return _apply_cookies(resp, cookies)
+    return _apply_cookies(resp, cookies or {})
 
 
 def HTTPError(

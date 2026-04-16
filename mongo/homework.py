@@ -56,7 +56,7 @@ class Homework(MongoBase, engine=engine.Homework):
         user,
         course: Course,
         hw_name: str,
-        problem_ids: List[int] = [],
+        problem_ids: List[int] | None = None,
         markdown: str = '',
         scoreboard_status: int = 0,
         start: Optional[float] = None,
@@ -80,6 +80,7 @@ class Homework(MongoBase, engine=engine.Homework):
         elif penalty_stat == Error.Invalid_penalty:
             raise ValueError("Invalid penalty")
 
+        problem_ids = problem_ids if problem_ids is not None else []
         problems = [*map(Problem, problem_ids)]
         if not all(problems):
             raise engine.DoesNotExist('some problems not found!')
