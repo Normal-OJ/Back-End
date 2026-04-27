@@ -4,7 +4,6 @@ from datetime import datetime, timezone
 from mongo.utils import RedisCache
 from .redis_keys import job_key, JOBS_LEASED
 
-
 # Lua reclaim script:
 #   KEYS[1] = job:<jb_id>
 #   ARGV[1] = expected_owner (rn_id we expect to currently hold the lease)
@@ -35,17 +34,6 @@ redis.call('HINCRBY', KEYS[1], 'attempts', 1)
 return 1
 """
 
-_script_cache = {}
-
-
-def _get_reclaim_script():
-    """Lazily register the script (so we get a fresh script per Redis client)."""
-    rds = RedisCache().client
-    cache_key = id(rds)
-    if cache_key not in _script_cache:
-        _script_cache[cache_key] = rds.register_script(_RECLAIM_LUA)
-    return _script_cache[cache_key]
-
 
 def reclaim_orphan_atomic(
     jb_id: str,
@@ -60,10 +48,14 @@ def reclaim_orphan_atomic(
         0 if owner changed before we could reclaim
        -1 if attempts exhausted (job removed from JOBS_LEASED set)
     """
-    script = _get_reclaim_script()
+    rds = RedisCache().client
+    script = rds.register_script(
+        _RECLAIM_LUA)  # redis-py caches EVALSHA internally
     leased_at = datetime.now(timezone.utc).isoformat()
     return int(
         script(
             keys=[job_key(jb_id)],
-            args=[expected_owner, new_owner, leased_at, max_attempts, JOBS_LEASED],
+            args=[
+                expected_owner, new_owner, leased_at, max_attempts, JOBS_LEASED
+            ],
         ))
