@@ -347,17 +347,15 @@ class Submission(MongoBase, engine=engine.Submission):
         '''
         rejudge this submission
         '''
-        # delete output file
         self.delete_output()
-        # turn back to haven't be judged
         self.update(
             status=-1,
             last_send=datetime.now(),
             tasks=[],
         )
-        if current_app.config['TESTING']:
-            return True
-        return self.send()
+        from dispatch.job import enqueue_job
+        enqueue_job(self)
+        return True
 
     def _generate_code_minio_path(self):
         return f'submissions/{self.id}_{ULID()}.zip'

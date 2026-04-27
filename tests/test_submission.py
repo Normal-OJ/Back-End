@@ -1086,6 +1086,43 @@ def test_cannot_view_output_out_of_index(app, forge_client):
     assert rv.get_json()['message'] == 'task not exist'
 
 
+def test_rejudge_enqueues_new_job_to_pending(app):
+    from mongo.utils import RedisCache
+    from dispatch.redis_keys import JOBS_PENDING
+    from tests.utils.submission import create_submission
+
+    rds = RedisCache().client
+    rds.flushdb()
+
+    with app.app_context():
+        problem = utils.problem.create_problem(
+            test_case_info={
+                'language':
+                0,
+                'fillInTemplate':
+                '',
+                'tasks': [{
+                    'caseCount': 1,
+                    'taskScore': 100,
+                    'memoryLimit': 32768,
+                    'timeLimit': 1000,
+                }],
+            })
+        sub = create_submission(user=problem.owner, problem=problem, lang=0)
+        # The submit() during create_submission already enqueued one job.
+        # Clear pending to focus on rejudge:
+        rds.delete(JOBS_PENDING)
+
+        # Rejudge
+        sub.rejudge()
+
+        # New job in pending
+        assert rds.llen(JOBS_PENDING) == 1
+        # Submission status reset to -1
+        sub.reload()
+        assert sub.status == -1
+
+
 def test_submit_enqueues_job_to_redis_pending(app):
     """After submit(), a job hash should appear in Redis pending queue."""
     from mongo.utils import RedisCache

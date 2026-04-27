@@ -202,6 +202,19 @@ def problem_ids():
     return problem_ids
 
 
+@pytest.fixture(autouse=True)
+def clear_redis_between_tests():
+    """Clear Redis (fakeredis) state between every test to prevent leakage.
+
+    Without this, tests that write to Redis (e.g., dispatch jobs, permission
+    cache) can affect other tests via the shared _FAKE_SERVER singleton.
+    """
+    from mongo.utils import RedisCache
+    RedisCache().client.flushdb()
+    yield
+    RedisCache().client.flushdb()
+
+
 @pytest.fixture
 def save_source(tmp_path):
 
