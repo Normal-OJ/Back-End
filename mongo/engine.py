@@ -310,6 +310,18 @@ class Problem(Document):
         default='',
     )
 
+    @property
+    def test_case_info(self) -> dict:
+        """Return test case metadata as a plain dict (used by dispatch layer)."""
+        tc = self.test_case
+        return {
+            "tasks": [{
+                "caseCount": t.case_count,
+                "memoryLimit": t.memory_limit,
+                "timeLimit": t.time_limit,
+            } for t in (tc.tasks if tc else [])],
+        }
+
 
 class CaseResult(EmbeddedDocument):
     status = IntField(required=True)
