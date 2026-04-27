@@ -1003,30 +1003,14 @@ class TestSubmissionConfig(SubmissionTester):
     def test_edit_config(self, client_admin):
         rv = client_admin.put(
             f'/submission/config',
-            json={
-                'rateLimit':
-                10,
-                'sandboxInstances': [{
-                    'name': 'Test',
-                    'url': 'http://sandbox:6666',
-                    'token': 'AAAAA',
-                }]
-            },
+            json={'rateLimit': 10},
         )
         json = rv.get_json()
         assert rv.status_code == 200, json
         rv = client_admin.get(f'/submission/config')
         json = rv.get_json()
         assert rv.status_code == 200, json
-        assert json['data'] == {
-            'rateLimit':
-            10,
-            'sandboxInstances': [{
-                'name': 'Test',
-                'url': 'http://sandbox:6666',
-                'token': 'AAAAA',
-            }]
-        }
+        assert json['data']['rateLimit'] == 10
 
 
 def test_student_cannot_view_WA_submission_output(forge_client, app):

@@ -1,6 +1,5 @@
 import io
 from typing import Optional
-import requests as rq
 import random
 import secrets
 import json
@@ -8,7 +7,6 @@ from flask import (
     Blueprint,
     send_file,
     request,
-    current_app,
 )
 from datetime import datetime, timedelta
 from mongo import *
@@ -470,50 +468,12 @@ def get_config(user):
 @identity_verify(0)
 @parse_body(UpdateConfigBody)
 def update_config(user, body: UpdateConfigBody):
-    rate_limit = body.rate_limit
-    sandbox_instances = body.sandbox_instances
     config = Submission.config()
-    # try to convert json object to Sandbox instance
     try:
-        sandbox_instances = [
-            *map(
-                lambda s: engine.Sandbox(**s),
-                sandbox_instances,
-            )
-        ]
-    except engine.ValidationError as e:
-        return HTTPError(
-            'wrong Sandbox schema',
-            400,
-            data=e.to_dict(),
-        )
-    # skip if during testing
-    if not current_app.config['TESTING']:
-        resps = []
-        # check sandbox status
-        for sb in sandbox_instances:
-            resp = rq.get(f'{sb.url}/status')
-            if not resp.ok:
-                resps.append((sb.name, resp))
-        # some exception occurred
-        if len(resps) != 0:
-            return HTTPError(
-                'some error occurred when check sandbox status',
-                400,
-                data=[{
-                    'name': name,
-                    'statusCode': resp.status_code,
-                    'response': resp.text,
-                } for name, resp in resps],
-            )
-    try:
-        config.update(
-            rate_limit=rate_limit,
-            sandbox_instances=sandbox_instances,
-        )
+        config.update(rate_limit=body.rate_limit)
     except ValidationError as e:
         return HTTPError(str(e), 400)
-    return HTTPResponse('success.')
+    return HTTPResponse('config updated')
 
 
 @submission_api.post('/<submission>/migrate-code')

@@ -1,4 +1,4 @@
-from typing import Any, List, Optional
+from typing import Optional
 from .base import BaseSchema
 
 
@@ -26,4 +26,3 @@ class GradeSubmissionBody(BaseSchema):
 
 class UpdateConfigBody(BaseSchema):
     rate_limit: int
-    sandbox_instances: List[Any]
