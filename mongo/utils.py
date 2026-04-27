@@ -92,7 +92,10 @@ class RedisCache(Cache):
         if self._client is None:
             if self.PORT is None:
                 import fakeredis
-                self._client = fakeredis.FakeStrictRedis()
+                if not hasattr(RedisCache, '_FAKE_SERVER'):
+                    RedisCache._FAKE_SERVER = fakeredis.FakeServer()
+                self._client = fakeredis.FakeStrictRedis(
+                    server=RedisCache._FAKE_SERVER)
             else:
                 self._client = redis.Redis(connection_pool=self.POOL)
         return self._client
