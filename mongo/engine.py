@@ -431,25 +431,12 @@ class Config(Document):
     name = StringField(required=True, max_length=64, primary_key=True)
 
 
-class Sandbox(EmbeddedDocument):
-    name = StringField(required=True)
-    url = StringField(required=True)
-    token = StringField(required=True)
-
-
 class SubmissionConfig(Config):
     rate_limit = IntField(default=0, db_field='rateLimit')
-    sandbox_instances = EmbeddedDocumentListField(
-        Sandbox,
-        default=[
-            Sandbox(
-                name='Sandbox-0',
-                url='http://sandbox:1450',
-                token='KoNoSandboxDa',
-            ),
-        ],
-        db_field='sandboxInstances',
-    )
+    # DEPRECATED: this field is no longer used since the pull-based dispatch
+    # refactor (2026-04-28). Kept here as ListField (no schema) only to avoid
+    # breaking existing production documents. Remove during PG migration.
+    sandbox_instances = ListField(default=list, db_field='sandboxInstances')
 
 
 class LoginRecords(Document):
