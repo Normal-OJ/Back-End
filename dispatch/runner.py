@@ -71,3 +71,19 @@ def renew_alive(rn_id: str) -> None:
 def is_alive(rn_id: str) -> bool:
     """True if this runner has a non-expired alive key."""
     return bool(RedisCache().client.exists(runner_alive_key(rn_id)))
+
+
+def verify_any_token(rk_token: str) -> bool:
+    """Check if rk_token belongs to any registered runner.
+
+    Used by endpoints that accept rk_token via query string (legacy auth shape
+    inherited from old SANDBOX_TOKEN endpoints — testdata fetching).
+    Linear scan over registered runners; fine for small N. If runner count
+    grows, add a reverse-index of token_hash -> rn_id.
+    """
+    rds = RedisCache().client
+    for rn_id_bytes in rds.smembers(RUNNERS_REGISTERED):
+        rn_id = rn_id_bytes.decode()
+        if verify_token(rn_id, rk_token):
+            return True
+    return False

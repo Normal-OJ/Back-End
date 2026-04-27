@@ -7,7 +7,7 @@ from urllib import parse
 from zipfile import BadZipFile
 from mongo import *
 from mongo import engine
-from mongo import sandbox
+from dispatch import runner as runner_mod
 from mongo.utils import drop_none
 from mongo.problem import *
 from .auth import *
@@ -304,8 +304,8 @@ def get_test_case(user: User, problem: Problem):
 @Request.doc('problem_id', 'problem', Problem)
 def get_testdata(query: GetTestdataQuery, problem: Problem):
     token = query.token
-    if sandbox.find_by_token(token) is None:
-        return HTTPError('Invalid sandbox token', 401)
+    if not runner_mod.verify_any_token(token):
+        return HTTPError('Invalid runner token', 401)
     return send_file(
         problem.get_test_case(),
         mimetype='application/zip',
@@ -318,8 +318,8 @@ def get_testdata(query: GetTestdataQuery, problem: Problem):
 @parse_query(GetTestdataQuery)
 def get_checksum(query: GetTestdataQuery, problem_id: int):
     token = query.token
-    if sandbox.find_by_token(token) is None:
-        return HTTPError('Invalid sandbox token', 401)
+    if not runner_mod.verify_any_token(token):
+        return HTTPError('Invalid runner token', 401)
     problem = Problem(problem_id)
     if not problem:
         return HTTPError(f'{problem} not found', 404)
@@ -337,8 +337,8 @@ def get_checksum(query: GetTestdataQuery, problem_id: int):
 @parse_query(GetTestdataQuery)
 def get_meta(query: GetTestdataQuery, problem_id: int):
     token = query.token
-    if sandbox.find_by_token(token) is None:
-        return HTTPError('Invalid sandbox token', 401)
+    if not runner_mod.verify_any_token(token):
+        return HTTPError('Invalid runner token', 401)
     problem = Problem(problem_id)
     if not problem:
         return HTTPError(f'{problem} not found', 404)

@@ -91,3 +91,17 @@ def test_is_alive_returns_false_when_key_expired():
     rn_id, _ = runner_mod.register(name="x", registration_ip="1.1.1.1")
     RedisCache().client.delete(runner_alive_key(rn_id))
     assert runner_mod.is_alive(rn_id) is False
+
+
+def test_verify_any_token_returns_true_for_registered():
+    _, rk = runner_mod.register(name="r1", registration_ip="1.1.1.1")
+    assert runner_mod.verify_any_token(rk) is True
+
+
+def test_verify_any_token_returns_false_for_unregistered():
+    runner_mod.register(name="r1", registration_ip="1.1.1.1")
+    assert runner_mod.verify_any_token("rk_unknown") is False
+
+
+def test_verify_any_token_returns_false_for_empty_runners_set():
+    assert runner_mod.verify_any_token("rk_anything") is False

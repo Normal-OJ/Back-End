@@ -683,15 +683,15 @@ class TestProblem(BaseTester):
     def test_get_testdata_with_invalid_token(self, client):
         rv = client.get('/problem/3/testdata?token=InvalidToken8787')
         assert rv.status_code == 401, rv.get_json()
-        assert rv.get_json()['message'] == 'Invalid sandbox token'
+        assert rv.get_json()['message'] == 'Invalid runner token'
 
     def test_get_testdata(self, client, monkeypatch):
         # FIXME: it should be impl in mock
         monkeypatch.setattr(
             Problem, 'get_test_case',
             lambda *_: get_file('bogay/test_case.zip')['case'][0])
-        from model.problem import sandbox
-        monkeypatch.setattr(sandbox, 'find_by_token', lambda *_: True)
+        from dispatch import runner as runner_mod
+        monkeypatch.setattr(runner_mod, 'verify_any_token', lambda *_: True)
         rv = client.get('/problem/3/testdata?token=ValidToken')
         assert rv.status_code == 200
         with ZipFile(io.BytesIO(rv.data)) as zf:
@@ -708,12 +708,12 @@ class TestProblem(BaseTester):
     def test_get_checksum_with_invalid_token(self, client):
         rv = client.get('/problem/3/checksum?token=InvalidToken8787')
         assert rv.status_code == 401, rv.get_json()
-        assert rv.get_json()['message'] == 'Invalid sandbox token'
+        assert rv.get_json()['message'] == 'Invalid runner token'
 
     def test_get_checksum_with_problem_does_not_exist(self, client,
                                                       monkeypatch):
-        from model.problem import sandbox
-        monkeypatch.setattr(sandbox, 'find_by_token', lambda *_: True)
+        from dispatch import runner as runner_mod
+        monkeypatch.setattr(runner_mod, 'verify_any_token', lambda *_: True)
         rv = client.get('/problem/878787/checksum?token=SandboxToken')
         assert rv.status_code == 404, rv.get_json()
         assert rv.get_json()['message'] == 'problem [878787] not found'
@@ -723,8 +723,8 @@ class TestProblem(BaseTester):
         monkeypatch.setattr(
             Problem, 'get_test_case',
             lambda *_: get_file('bogay/test_case.zip')['case'][0])
-        from model.problem import sandbox
-        monkeypatch.setattr(sandbox, 'find_by_token', lambda *_: True)
+        from dispatch import runner as runner_mod
+        monkeypatch.setattr(runner_mod, 'verify_any_token', lambda *_: True)
         rv = client.get('/problem/3/checksum?token=SandboxToken')
         assert rv.status_code == 200, rv.get_json()
         assert rv.get_json()['data'] == 'b80aa4fad6b5dea9a5bca3237ac3ba89'
@@ -732,25 +732,18 @@ class TestProblem(BaseTester):
     def test_get_meta_with_invalid_token(self, client):
         rv = client.get('/problem/3/meta?token=InvalidToken8787')
         assert rv.status_code == 401, rv.get_json()
-        assert rv.get_json()['message'] == 'Invalid sandbox token'
+        assert rv.get_json()['message'] == 'Invalid runner token'
 
     def test_get_meta_with_problem_does_not_exist(self, client, monkeypatch):
-        from model.problem import sandbox
-        monkeypatch.setattr(sandbox, 'find_by_token', lambda *_: True)
+        from dispatch import runner as runner_mod
+        monkeypatch.setattr(runner_mod, 'verify_any_token', lambda *_: True)
         rv = client.get('/problem/878787/meta?token=SandboxToken')
         assert rv.status_code == 404, rv.get_json()
         assert rv.get_json()['message'] == 'problem [878787] not found'
 
     def test_get_meta(self, client, monkeypatch):
-
-        class MockSandbox:
-            token = 'SandboxToken'
-
-        class MockConfig:
-            sandbox_instances = [MockSandbox()]
-
-        from mongo.sandbox import Submission
-        monkeypatch.setattr(Submission, 'config', MockConfig)
+        from dispatch import runner as runner_mod
+        monkeypatch.setattr(runner_mod, 'verify_any_token', lambda *_: True)
         rv = client.get('/problem/3/meta?token=SandboxToken')
         assert rv.status_code == 200, rv.get_json()
         assert rv.get_json()['data'] == {
