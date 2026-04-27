@@ -19,14 +19,16 @@ def clear_redis():
 
 
 def test_register_returns_id_and_token():
-    rn_id, rk_token = runner_mod.register(name="my-runner", registration_ip="1.2.3.4")
+    rn_id, rk_token = runner_mod.register(name="my-runner",
+                                          registration_ip="1.2.3.4")
     assert rn_id.startswith("rn_")
     assert rk_token.startswith("rk_")
     assert len(rk_token) > 30  # actually random
 
 
 def test_register_persists_to_redis():
-    rn_id, rk_token = runner_mod.register(name="my-runner", registration_ip="1.2.3.4")
+    rn_id, rk_token = runner_mod.register(name="my-runner",
+                                          registration_ip="1.2.3.4")
     rds = RedisCache().client
 
     # Meta hash exists with name + ip
@@ -76,7 +78,8 @@ def test_renew_alive_resets_ttl():
     assert rds.ttl(runner_alive_key(rn_id)) <= 5
 
     runner_mod.renew_alive(rn_id)
-    assert (RUNNER_ALIVE_TTL_SEC - 5) < rds.ttl(runner_alive_key(rn_id)) <= RUNNER_ALIVE_TTL_SEC
+    assert (RUNNER_ALIVE_TTL_SEC - 5) < rds.ttl(
+        runner_alive_key(rn_id)) <= RUNNER_ALIVE_TTL_SEC
 
 
 def test_is_alive_returns_true_when_key_exists():

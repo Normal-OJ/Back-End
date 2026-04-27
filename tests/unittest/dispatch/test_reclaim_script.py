@@ -19,11 +19,12 @@ def clear_redis():
 
 def _seed_leased_job(jb_id: str, owner: str, attempts: int = 1):
     rds = RedisCache().client
-    rds.hset(job_key(jb_id), mapping={
-        "leased_by": owner,
-        "leased_at": datetime.now(timezone.utc).isoformat(),
-        "attempts": attempts,
-    })
+    rds.hset(job_key(jb_id),
+             mapping={
+                 "leased_by": owner,
+                 "leased_at": datetime.now(timezone.utc).isoformat(),
+                 "attempts": attempts,
+             })
     rds.sadd(JOBS_LEASED, jb_id)
 
 
@@ -49,13 +50,14 @@ def test_reclaim_fails_when_owner_changed():
 
     result = reclaim_orphan_atomic(
         jb_id="jb_1",
-        expected_owner="rn_old",       # we expected rn_old
+        expected_owner="rn_old",  # we expected rn_old
         new_owner="rn_new",
         max_attempts=3,
     )
 
     assert result == 0  # not reclaimed
-    assert RedisCache().client.hget(job_key("jb_1"), "leased_by") == b"rn_someone_else"
+    assert RedisCache().client.hget(job_key("jb_1"),
+                                    "leased_by") == b"rn_someone_else"
 
 
 def test_reclaim_returns_negative_when_max_attempts_reached():
@@ -83,6 +85,6 @@ def test_reclaim_is_atomic_under_concurrent_calls():
     r1 = reclaim_orphan_atomic("jb_1", "rn_old", "rn_new1", max_attempts=3)
     r2 = reclaim_orphan_atomic("jb_1", "rn_old", "rn_new2", max_attempts=3)
 
-    assert r1 == 1   # first wins
-    assert r2 == 0   # second sees owner already changed
+    assert r1 == 1  # first wins
+    assert r2 == 0  # second sees owner already changed
     assert RedisCache().client.hget(job_key("jb_1"), "leased_by") == b"rn_new1"
