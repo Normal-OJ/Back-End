@@ -212,3 +212,51 @@ def test_complete_job_with_unknown_id_returns_not_found():
         process_result=lambda *a, **k: None,
     )
     assert result == "not_found"
+
+
+def test_claim_next_job_marks_submission_je_when_exhausted(app):
+    """When orphan reclaim hits max_attempts, Submission must be marked JE (status=6)."""
+    from bson import ObjectId
+    from datetime import datetime
+    from dispatch.config import MAX_ATTEMPTS
+
+    rds = RedisCache().client
+
+    with app.app_context():
+        from mongo import engine
+
+        # Create a minimal Submission document in MongoDB (mongomock allows
+        # fake ObjectId refs — no real problem/user needed for this test).
+        sub_doc = engine.Submission(
+            problem=ObjectId(),
+            user=ObjectId(),
+            language=0,
+            status=-1,
+            timestamp=datetime.now(),
+        )
+        sub_doc.save()
+        submission_id = str(sub_doc.id)
+
+        # Manually write the job hash (bypasses enqueue_job's problem access).
+        jb_id = "jb_exhaustion_test"
+        rds.hset(
+            job_key(jb_id),
+            mapping={
+                "submission_id": submission_id,
+                "attempts": MAX_ATTEMPTS,
+                "leased_by": "rn_dead",
+            },
+        )
+        rds.sadd(JOBS_LEASED, jb_id)
+        # rn_dead has no alive key — it is already dead.
+
+        rn2, _ = runner_mod.register(name="r2", registration_ip="1.1.1.2")
+        result = job_mod.claim_next_job(rn_id=rn2)
+
+        assert result is None
+        # Submission status must be 6 (JE).
+        # Query only the status field to avoid ref dereference on fake ObjectIds.
+        refreshed = engine.Submission.objects.only("status").get(id=sub_doc.id)
+        assert refreshed.status == 6
+        # Job hash should also be cleaned up.
+        assert rds.hgetall(job_key(jb_id)) == {}

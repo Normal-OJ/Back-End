@@ -84,8 +84,10 @@ def claim_next_job(rn_id: str) -> Optional[dict]:
         )
         if reclaim_result == 1:
             return _build_payload(orphan_id)
+        if reclaim_result == -1:
+            _on_attempts_exhausted(orphan_id)
+            # continue to look at other orphans
         # 0 = lost the race, try next orphan
-        # -1 = exhausted (already cleaned up by Lua); Task 9 will hook in JE marking
     return None
 
 
@@ -99,6 +101,31 @@ def _assign_to_runner(jb_id: str, rn_id: str) -> None:
              })
     rds.hincrby(job_key(jb_id), "attempts", 1)
     rds.sadd(JOBS_LEASED, jb_id)
+
+
+def _on_attempts_exhausted(jb_id: str) -> None:
+    """When a job exhausts max_attempts, mark its Submission as Judge Error.
+
+    Lua script already removed jb_id from JOBS_LEASED set. This function
+    cleans the job hash and updates the Submission's status field.
+    """
+    # Local import to avoid circular dependency at module load time.
+    from mongo import Submission
+
+    rds = RedisCache().client
+    submission_id_bytes = rds.hget(job_key(jb_id), "submission_id")
+    if submission_id_bytes is None:
+        rds.delete(job_key(jb_id))
+        return
+    submission_id = submission_id_bytes.decode()
+    try:
+        sub = Submission(submission_id)
+        if sub:
+            sub.update(status=6)  # JE
+    except Exception:
+        pass
+    finally:
+        rds.delete(job_key(jb_id))
 
 
 def _build_payload(jb_id: str) -> dict:
