@@ -20,11 +20,6 @@ class GetSubmissionListQuery(BaseSchema):
     ip_addr: Optional[str] = None
 
 
-class OnSubmissionCompleteBody(BaseSchema):
-    tasks: List[Any]
-    token: str
-
-
 class GradeSubmissionBody(BaseSchema):
     score: int
 

@@ -22,7 +22,6 @@ from .auth import *
 from .schemas import (
     CreateSubmissionBody,
     GetSubmissionListQuery,
-    OnSubmissionCompleteBody,
     GradeSubmissionBody,
     UpdateConfigBody,
 )
@@ -340,26 +339,6 @@ def get_submission_pdf(user, submission: Submission, item):
         max_age=0,
         download_name=f'{item}-{submission.id[-6:] or "missing-id"}.pdf',
     )
-
-
-@submission_api.put('/<submission>/complete')
-@parse_body(OnSubmissionCompleteBody)
-@Request.doc('submission', Submission)
-def on_submission_complete(submission: Submission,
-                           body: OnSubmissionCompleteBody):
-    tasks = body.tasks
-    token = body.token
-    if not Submission.verify_token(submission.id, token):
-        return HTTPError('i don\'t know you', 403)
-    try:
-        submission.process_result(tasks)
-    except (ValidationError, KeyError) as e:
-        return HTTPError(
-            'invalid data!\n'
-            f'{type(e).__name__}: {e}',
-            400,
-        )
-    return HTTPResponse(f'{submission} result recieved.')
 
 
 @submission_api.route('/<submission>', methods=['PUT'])

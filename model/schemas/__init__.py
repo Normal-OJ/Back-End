@@ -23,7 +23,6 @@ from .announcement import (
 from .submission import (
     CreateSubmissionBody,
     GetSubmissionListQuery,
-    OnSubmissionCompleteBody,
     GradeSubmissionBody,
     UpdateConfigBody,
 )
