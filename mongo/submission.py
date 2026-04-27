@@ -14,7 +14,6 @@ from typing import (
 )
 import enum
 import tempfile
-import requests as rq
 from hashlib import md5
 from bson.son import SON
 from flask import current_app
@@ -260,52 +259,6 @@ class Submission(MongoBase, engine=engine.Submission):
             del_funcs.get(d, default_del_func)(d)
         self.obj.delete()
 
-    def sandbox_resp_handler(self, resp):
-        # judge queue is currently full
-        def on_500(resp):
-            raise JudgeQueueFullError
-
-        # backend send some invalid data
-        def on_400(resp):
-            raise ValueError(resp.text)
-
-        # send a invalid token
-        def on_403(resp):
-            raise ValueError('invalid token')
-
-        h = {
-            500: on_500,
-            403: on_403,
-            400: on_400,
-            200: lambda r: True,
-        }
-        try:
-            return h[resp.status_code](resp)
-        except KeyError:
-            self.logger.error('can not handle response from sandbox')
-            self.logger.error(
-                f'status code: {resp.status_code}\n'
-                f'headers: {resp.headers}\n'
-                f'body: {resp.text}', )
-            return False
-
-    def target_sandbox(self):
-        load = 10**3  # current min load
-        tar = None  # target
-        for sb in self.config().sandbox_instances:
-            resp = rq.get(f'{sb.url}/status')
-            if not resp.ok:
-                self.logger.warning(f'sandbox {sb.name} status exception')
-                self.logger.warning(
-                    f'status code: {resp.status_code}\n '
-                    f'body: {resp.text}', )
-                continue
-            resp = resp.json()
-            if resp['load'] < load:
-                load = resp['load']
-                tar = sb
-        return tar
-
     def get_comment(self) -> bytes:
         '''
         if comment not exist
@@ -419,44 +372,6 @@ class Submission(MongoBase, engine=engine.Submission):
         from dispatch.job import enqueue_job
         enqueue_job(self)
         return True
-
-    def send(self) -> bool:
-        '''
-        send code to sandbox
-        '''
-        if self.handwritten:
-            logging.warning(f'try to send a handwritten {self}')
-            return False
-        # TODO: Ensure problem is ready to submitted
-        # if not Problem(self.problem).is_test_case_ready():
-        #     raise TestCaseNotFound(self.problem.problem_id)
-        # setup post body
-        files = {
-            'src': io.BytesIO(b"".join(self._get_code_raw())),
-        }
-        # look for the target sandbox
-        tar = self.target_sandbox()
-        if tar is None:
-            self.logger.error(f'can not target a sandbox for {repr(self)}')
-            return False
-        # save token for validation
-        Submission.assign_token(self.id, tar.token)
-        post_data = {
-            'token': tar.token,
-            'checker': 'print("not implement yet. qaq")',
-            'problem_id': self.problem_id,
-            'language': self.language,
-        }
-        judge_url = f'{tar.url}/submit/{self.id}'
-        # send submission to snadbox for judgement
-        self.logger.info(f'send {self} to {tar.name}')
-        resp = rq.post(
-            judge_url,
-            data=post_data,
-            files=files,
-        )
-        self.logger.info(f'recieve {self} resp from sandbox')
-        return self.sandbox_resp_handler(resp)
 
     def process_result(self, tasks: list):
         '''
@@ -726,29 +641,6 @@ class Submission(MongoBase, engine=engine.Submission):
                                        ip_addr=ip_addr)
         submission.save()
         return cls(submission.id)
-
-    @classmethod
-    def assign_token(cls, submission_id, token=None):
-        '''
-        generate a token for the submission
-        '''
-        if token is None:
-            token = gen_token()
-        RedisCache().set(gen_key(submission_id), token)
-        return token
-
-    @classmethod
-    def verify_token(cls, submission_id, token):
-        cache = RedisCache()
-        key = gen_key(submission_id)
-        s_token = cache.get(key)
-        if s_token is None:
-            return False
-        s_token = s_token.decode('ascii')
-        valid = secrets.compare_digest(s_token, token)
-        if valid:
-            cache.delete(key)
-        return valid
 
     def to_dict(self) -> Dict[str, Any]:
         ret = self._to_dict()
