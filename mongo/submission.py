@@ -415,10 +415,12 @@ class Submission(MongoBase, engine=engine.Submission):
                         stat['submissionIds'] = []
                         homework.save()
                     submission.delete()
-        # we no need to actually send code to sandbox during testing
-        if current_app.config['TESTING'] or self.handwritten:
+        if self.handwritten:
             return True
-        return self.send()
+        # Enqueue to Redis (replaces the old self.send() / sandbox POST)
+        from dispatch.job import enqueue_job
+        enqueue_job(self)
+        return True
 
     def send(self) -> bool:
         '''

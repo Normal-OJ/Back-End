@@ -105,10 +105,9 @@ def test_next_job_returns_200_with_payload_when_pending(
     app,
     save_source,
 ):
-    """Submit a real submission, enqueue it, then have a runner pull via next-job."""
+    """Submit a real submission; submit() enqueues it so runner can pull via next-job."""
     from tests.utils.submission import create_submission
     from tests.utils.problem import create_problem
-    from dispatch import job as job_mod
     rn_id, rk = runner_mod.register(name="r", registration_ip="1.1.1.1")
 
     with app.app_context():
@@ -118,7 +117,7 @@ def test_next_job_returns_200_with_payload_when_pending(
         )
         save_source("base", b"int main(){}", lang=0)
         sub = create_submission(user=_ADMIN, problem=problem, lang=0)
-        job_mod.enqueue_job(sub)
+        # enqueue_job is now called inside submit(); no manual call needed
 
     rv = client.get(f"/runners/{rn_id}/next-job",
                     headers={"Authorization": f"Bearer {rk}"})
@@ -140,7 +139,6 @@ def test_complete_with_valid_owner_returns_204(
 ):
     from tests.utils.submission import create_submission
     from tests.utils.problem import create_problem
-    from dispatch import job as job_mod
     rn_id, rk = runner_mod.register(name="r", registration_ip="1.1.1.1")
     with app.app_context():
         problem = create_problem(
@@ -149,7 +147,7 @@ def test_complete_with_valid_owner_returns_204(
         )
         save_source("base", b"int main(){}", lang=0)
         sub = create_submission(user=_ADMIN, problem=problem, lang=0)
-        job_mod.enqueue_job(sub)
+        # enqueue_job is now called inside submit(); no manual call needed
 
     # Pull job
     rv = client.get(f"/runners/{rn_id}/next-job",
@@ -172,7 +170,6 @@ def test_complete_with_wrong_owner_returns_409(
 ):
     from tests.utils.submission import create_submission
     from tests.utils.problem import create_problem
-    from dispatch import job as job_mod
     rn1, rk1 = runner_mod.register(name="r1", registration_ip="1.1.1.1")
     rn2, rk2 = runner_mod.register(name="r2", registration_ip="1.1.1.2")
     with app.app_context():
@@ -182,7 +179,7 @@ def test_complete_with_wrong_owner_returns_409(
         )
         save_source("base", b"int main(){}", lang=0)
         sub = create_submission(user=_ADMIN, problem=problem, lang=0)
-        job_mod.enqueue_job(sub)
+        # enqueue_job is now called inside submit(); no manual call needed
 
     rv = client.get(f"/runners/{rn1}/next-job",
                     headers={"Authorization": f"Bearer {rk1}"})

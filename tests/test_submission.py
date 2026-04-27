@@ -1084,3 +1084,40 @@ def test_cannot_view_output_out_of_index(app, forge_client):
     rv = client.get(f'/submission/{submission.id}/output/100/100')
     assert rv.status_code == 400, rv.get_json()
     assert rv.get_json()['message'] == 'task not exist'
+
+
+def test_submit_enqueues_job_to_redis_pending(app):
+    """After submit(), a job hash should appear in Redis pending queue."""
+    from mongo.utils import RedisCache
+    from dispatch.redis_keys import JOBS_PENDING, job_key
+    from tests.utils.submission import create_submission
+
+    rds = RedisCache().client
+    rds.flushdb()
+
+    with app.app_context():
+        problem = utils.problem.create_problem(test_case_info={
+            'language':
+            0,
+            'fillInTemplate':
+            '',
+            'tasks': [{
+                'caseCount': 1,
+                'taskScore': 100,
+                'memoryLimit': 32768,
+                'timeLimit': 1000,
+            }],
+        }, )
+        sub = create_submission(
+            user=problem.owner,
+            problem=problem,
+            lang=0,
+        )
+
+        # One job in pending queue
+        pending = rds.lrange(JOBS_PENDING, 0, -1)
+        assert len(pending) == 1, f"expected 1 pending job, got {len(pending)}"
+        jb_id = pending[0].decode()
+        # Job hash references our submission
+        assert rds.hget(job_key(jb_id),
+                        "submission_id") == str(sub.id).encode()
