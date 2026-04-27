@@ -38,6 +38,7 @@ fakeredis = "^1.9"
 toml = "^0.10"
 pytest-cov = "^3.0"
 testcontainers = {extras = ["minio"], version = "^4.10.0"}
+lupa = "^2.8"
 
 [build-system]
 requires = ["poetry-core"]
