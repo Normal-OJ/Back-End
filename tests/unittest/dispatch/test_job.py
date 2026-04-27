@@ -14,7 +14,9 @@ def clear_redis():
     RedisCache().client.flushdb()
 
 
-def _make_submission(submission_id="sub_1", problem_id=42, language=1,
+def _make_submission(submission_id="sub_1",
+                     problem_id=42,
+                     language=1,
                      code_minio_path="submissions/sub_1.zip"):
     """Build a minimal submission-like object for enqueue_job tests."""
     sub = MagicMock()
@@ -23,7 +25,11 @@ def _make_submission(submission_id="sub_1", problem_id=42, language=1,
     sub.language = language
     sub.code_minio_path = code_minio_path
     sub.problem.test_case_info = {
-        "tasks": [{"caseCount": 3, "memoryLimit": 65536, "timeLimit": 1000}]
+        "tasks": [{
+            "caseCount": 3,
+            "memoryLimit": 65536,
+            "timeLimit": 1000
+        }]
     }
     return sub
 
@@ -87,3 +93,122 @@ def test_claim_next_job_is_fifo():
 
     assert p1["job_id"] == j1
     assert p2["job_id"] == j2
+
+
+# Append after existing tests in test_job.py
+
+from dispatch.redis_keys import runner_alive_key
+from dispatch import runner as runner_mod
+
+
+def test_claim_next_job_reclaims_orphan_when_owner_dead():
+    """Job leased to a runner whose alive key expired should be reclaimable."""
+    # Setup: enqueue + claim by runner1, then expire runner1's alive key
+    sub = _make_submission()
+    jb_id = job_mod.enqueue_job(sub)
+    rn_id, _ = runner_mod.register(name="r1", registration_ip="1.1.1.1")
+    job_mod.claim_next_job(rn_id=rn_id)  # rn1 takes the job
+    # Simulate runner1 dying:
+    RedisCache().client.delete(runner_alive_key(rn_id))
+
+    # Now another runner polls
+    rn2_id, _ = runner_mod.register(name="r2", registration_ip="1.1.1.2")
+    payload = job_mod.claim_next_job(rn_id=rn2_id)
+
+    assert payload is not None
+    assert payload["job_id"] == jb_id
+    rds = RedisCache().client
+    assert rds.hget(job_key(jb_id), "leased_by") == rn2_id.encode()
+    assert int(rds.hget(job_key(jb_id), "attempts")) == 2  # incremented
+
+
+def test_claim_next_job_skips_orphan_with_alive_owner():
+    sub = _make_submission()
+    jb_id = job_mod.enqueue_job(sub)
+    rn1, _ = runner_mod.register(name="r1", registration_ip="1.1.1.1")
+    job_mod.claim_next_job(rn_id=rn1)  # rn1 takes the job; rn1 still alive
+
+    rn2, _ = runner_mod.register(name="r2", registration_ip="1.1.1.2")
+    payload = job_mod.claim_next_job(rn_id=rn2)
+
+    assert payload is None  # no work for rn2 — rn1 is still alive
+    # rn1 still owns the job
+    assert RedisCache().client.hget(job_key(jb_id),
+                                    "leased_by") == rn1.encode()
+
+
+def test_claim_next_job_reclaim_at_max_attempts_returns_signal():
+    """When attempts == MAX_ATTEMPTS, reclaim should signal exhaustion."""
+    sub = _make_submission()
+    jb_id = job_mod.enqueue_job(sub)
+    rn1, _ = runner_mod.register(name="r1", registration_ip="1.1.1.1")
+    job_mod.claim_next_job(rn_id=rn1)
+    # Manually bump attempts to MAX-1 then kill rn1
+    RedisCache().client.hset(job_key(jb_id), "attempts", 3)
+    RedisCache().client.delete(runner_alive_key(rn1))
+
+    rn2, _ = runner_mod.register(name="r2", registration_ip="1.1.1.2")
+    payload = job_mod.claim_next_job(rn_id=rn2)
+
+    # The exhausted job is removed from JOBS_LEASED but the caller (blueprint)
+    # is responsible for marking Submission JE separately. claim_next_job itself
+    # returns None (Task 9 will hook in the JE marking).
+    assert payload is None
+    assert not RedisCache().client.sismember(JOBS_LEASED, jb_id)
+
+
+def test_complete_job_with_correct_owner_succeeds():
+    sub = _make_submission()
+    jb_id = job_mod.enqueue_job(sub)
+    rn_id, _ = runner_mod.register(name="r1", registration_ip="1.1.1.1")
+    job_mod.claim_next_job(rn_id=rn_id)
+
+    process_calls = []
+
+    def fake_process(submission_id, tasks):
+        process_calls.append((submission_id, tasks))
+
+    result = job_mod.complete_job(
+        rn_id=rn_id,
+        jb_id=jb_id,
+        tasks=[{
+            "status": "AC"
+        }],
+        process_result=fake_process,
+    )
+
+    assert result == "ok"
+    assert process_calls == [("sub_1", [{"status": "AC"}])]
+    rds = RedisCache().client
+    # Job cleaned up
+    assert rds.hgetall(job_key(jb_id)) == {}
+    assert not rds.sismember(JOBS_LEASED, jb_id)
+
+
+def test_complete_job_with_wrong_owner_returns_wrong_owner():
+    sub = _make_submission()
+    jb_id = job_mod.enqueue_job(sub)
+    rn1, _ = runner_mod.register(name="r1", registration_ip="1.1.1.1")
+    job_mod.claim_next_job(rn_id=rn1)
+
+    rn2, _ = runner_mod.register(name="r2", registration_ip="1.1.1.2")
+    result = job_mod.complete_job(
+        rn_id=rn2,
+        jb_id=jb_id,
+        tasks=[],
+        process_result=lambda *a, **k: None,
+    )
+
+    assert result == "wrong_owner"
+    # Job NOT cleaned up — still belongs to rn1
+    assert RedisCache().client.exists(job_key(jb_id))
+
+
+def test_complete_job_with_unknown_id_returns_not_found():
+    result = job_mod.complete_job(
+        rn_id="rn_x",
+        jb_id="jb_nonexistent",
+        tasks=[],
+        process_result=lambda *a, **k: None,
+    )
+    assert result == "not_found"
