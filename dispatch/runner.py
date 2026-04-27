@@ -58,7 +58,11 @@ def verify_token(rn_id: str, rk_token: str) -> bool:
 
 
 def renew_alive(rn_id: str) -> None:
-    """Refresh runner alive TTL. Called on every heartbeat."""
+    """Refresh runner alive TTL. Called on every heartbeat.
+
+    Caller MUST verify the runner's token before calling this — does not
+    check existence and will create the key for any rn_id string.
+    """
     RedisCache().client.set(
         runner_alive_key(rn_id), "1", ex=RUNNER_ALIVE_TTL_SEC
     )

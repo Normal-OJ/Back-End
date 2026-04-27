@@ -1,6 +1,7 @@
 import pytest
 from mongo.utils import RedisCache
 from dispatch import runner as runner_mod
+from dispatch.config import RUNNER_ALIVE_TTL_SEC
 from dispatch.redis_keys import (
     RUNNERS_REGISTERED,
     runner_meta_key,
@@ -44,7 +45,7 @@ def test_register_persists_to_redis():
 
     # Initial alive key exists with TTL
     assert rds.exists(runner_alive_key(rn_id))
-    assert 0 < rds.ttl(runner_alive_key(rn_id)) <= 30
+    assert 0 < rds.ttl(runner_alive_key(rn_id)) <= RUNNER_ALIVE_TTL_SEC
 
 
 def test_register_each_call_unique_token():
@@ -75,7 +76,7 @@ def test_renew_alive_resets_ttl():
     assert rds.ttl(runner_alive_key(rn_id)) <= 5
 
     runner_mod.renew_alive(rn_id)
-    assert 25 < rds.ttl(runner_alive_key(rn_id)) <= 30
+    assert (RUNNER_ALIVE_TTL_SEC - 5) < rds.ttl(runner_alive_key(rn_id)) <= RUNNER_ALIVE_TTL_SEC
 
 
 def test_is_alive_returns_true_when_key_exists():
