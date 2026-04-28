@@ -689,7 +689,7 @@ class Submission(MongoBase, engine=engine.Submission):
         '''
         tasks = [task.to_mongo() for task in self.tasks]
         for i, task in enumerate(tasks):
-            for j, case in enumerate(task.cases):
+            for j, case in enumerate(task['cases']):
                 output = self.get_single_output(i, j)
                 case['stdout'] = output['stdout']
                 case['stderr'] = output['stderr']
