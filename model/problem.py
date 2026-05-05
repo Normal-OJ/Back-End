@@ -1,3 +1,4 @@
+import asyncio
 import json
 import hashlib
 import statistics
@@ -147,12 +148,12 @@ async def manage_problem(
         request: Request,
         user: User = identity_verify(0, 1),
 ):
-    problem = Problem(problem_id)
+    problem = await asyncio.to_thread(Problem, problem_id)
     if not problem:
         raise NOJException('Problem not found', 404)
-    if not problem.permission(user, problem.Permission.MANAGE):
+    if not await asyncio.to_thread(problem.permission, user, problem.Permission.MANAGE):
         return permission_error_response()
-    if not problem.permission(user=user, req=problem.Permission.ONLINE):
+    if not await asyncio.to_thread(problem.permission, user=user, req=problem.Permission.ONLINE):
         return online_error_response()
 
     content_type = request.headers.get('content-type', '')
@@ -163,7 +164,8 @@ async def manage_problem(
         except Exception:
             return HTTPError('Invalid or missing arguments.', 400)
         try:
-            Problem.edit_problem(
+            await asyncio.to_thread(
+                Problem.edit_problem,
                 user=user,
                 problem_id=problem.id,
                 **drop_none(body.model_dump()),
@@ -183,7 +185,7 @@ async def manage_problem(
             return HTTPError('missing or invalid form field: case', 400)
         case = BytesIO(await case_upload.read())
         try:
-            problem.update_test_case(case)
+            await asyncio.to_thread(problem.update_test_case, case)
         except engine.DoesNotExist as e:
             return HTTPError(str(e), 404)
         except (ValueError, BadZipFile) as e:

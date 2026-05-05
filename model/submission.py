@@ -375,7 +375,7 @@ def on_submission_complete(
 
 
 @submission_router.put('/{submission_id}')
-async def update_submission(
+def update_submission(
         submission_id: str,
         code: Optional[UploadFile] = File(default=None),
         user=Depends(login_required),
@@ -388,7 +388,7 @@ async def update_submission(
         return HTTPError('user not equal!', 403)
     if code is None:
         return HTTPError('can not find the source file', 400)
-    content = await code.read()
+    content = code.file.read()
     if len(content) == 0:
         return HTTPError('empty file', 400)
     code_file = io.BytesIO(content)
