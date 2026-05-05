@@ -3,6 +3,7 @@ import logging
 from contextlib import asynccontextmanager
 import httpx
 from fastapi import FastAPI, Request
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from model import *
@@ -39,7 +40,7 @@ def create_app() -> FastAPI:
             {
                 'status': 'err',
                 'message': 'Invalid request body',
-                'data': None,
+                'data': jsonable_encoder(exc.errors()),
             },
             status_code=400,
         )
