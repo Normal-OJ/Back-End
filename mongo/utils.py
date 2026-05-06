@@ -8,7 +8,7 @@ from minio import Minio
 import redis
 from . import engine
 from . import config
-from .config import FLASK_DEBUG, MINIO_HOST, MINIO_SECRET_KEY, MINIO_ACCESS_KEY, MINIO_BUCKET
+from .config import FLASK_DEBUG, MINIO_HOST, MINIO_SECRET_KEY, MINIO_ACCESS_KEY, MINIO_BUCKET, MINIO_REGION
 
 if TYPE_CHECKING:
     from .user import User  # pragma: no cover
@@ -192,5 +192,6 @@ class MinioClient:
             access_key=config.MINIO_ACCESS_KEY,
             secret_key=config.MINIO_SECRET_KEY,
             secure=not config.FLASK_DEBUG,
+            region=config.MINIO_REGION,
         )
         self.bucket = config.MINIO_BUCKET

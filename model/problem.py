@@ -151,9 +151,11 @@ async def manage_problem(
     problem = await asyncio.to_thread(Problem, problem_id)
     if not problem:
         raise NOJException('Problem not found', 404)
-    if not await asyncio.to_thread(problem.permission, user, problem.Permission.MANAGE):
+    if not await asyncio.to_thread(problem.permission, user,
+                                   problem.Permission.MANAGE):
         return permission_error_response()
-    if not await asyncio.to_thread(problem.permission, user=user, req=problem.Permission.ONLINE):
+    if not await asyncio.to_thread(
+            problem.permission, user=user, req=problem.Permission.ONLINE):
         return online_error_response()
 
     content_type = request.headers.get('content-type', '')
