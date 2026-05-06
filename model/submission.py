@@ -396,8 +396,8 @@ def update_submission(
         return HTTPError(f'{submission} has been uploaded source file!', 403)
     try:
         success = submission.submit(code_file, client=http_client)
-    except FileExistsError:
-        exit(10086)
+    except FileExistsError as e:
+        return HTTPError(str(e), 409)
     except ValueError as e:
         return HTTPError(str(e), 400)
     except JudgeQueueFullError as e:
