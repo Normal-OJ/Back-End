@@ -1118,7 +1118,7 @@ def test_rejudge_handwritten_submission_does_not_enqueue(app):
     with app.app_context():
         problem = utils.problem.create_problem()
         sub = Submission.add(problem_id=problem.id,
-                             username=problem.owner.username,
+                             username='first_admin',
                              lang=3,
                              ip_addr="127.0.0.1")
         sub.update(status=0)
