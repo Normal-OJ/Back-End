@@ -1116,9 +1116,10 @@ def test_rejudge_handwritten_submission_does_not_enqueue(app):
     rds.flushdb()
 
     with app.app_context():
-        problem = utils.problem.create_problem()
+        admin = utils.user.create_user(role=User.engine.Role.ADMIN)
+        problem = utils.problem.create_problem(owner=admin, course='Public')
         sub = Submission.add(problem_id=problem.id,
-                             username='first_admin',
+                             username=admin.username,
                              lang=3,
                              ip_addr="127.0.0.1")
         sub.update(status=0)
