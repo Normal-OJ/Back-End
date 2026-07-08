@@ -6,7 +6,7 @@ from flask import Blueprint, request
 
 from mongo import Submission
 from mongo.utils import MinioClient
-from .schemas import RegisterRunnerBody, CompleteJobBody
+from .schemas import RegisterRunnerBody, CompleteJobBody, AbortJobBody
 from .utils import HTTPError, HTTPResponse, parse_body, require_runner_token
 
 from dispatch import runner as runner_mod
@@ -87,6 +87,24 @@ def complete(runner_id, job_id, body: CompleteJobBody):
     )
     if result == "wrong_owner":
         return HTTPError("job has been reclaimed by another runner", 409)
+    if result == "stale":
+        return HTTPError("job is no longer current for this submission", 409)
     if result == "not_found":
         return HTTPError("job not found", 404)
     return "", 204
+
+
+@runner_api.put("/<runner_id>/jobs/<job_id>/abort")
+@require_runner_token
+@parse_body(AbortJobBody)
+def abort(runner_id, job_id, body: AbortJobBody):
+    result = job_mod.abort_job(
+        rn_id=runner_id,
+        jb_id=job_id,
+        reason=body.reason or "",
+    )
+    if result in {"wrong_owner", "stale"}:
+        return HTTPError("job has been reclaimed by another runner", 409)
+    if result == "not_found":
+        return HTTPError("job not found", 404)
+    return "", 202

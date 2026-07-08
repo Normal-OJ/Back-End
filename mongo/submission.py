@@ -306,6 +306,8 @@ class Submission(MongoBase, engine=engine.Submission):
             last_send=datetime.now(),
             tasks=[],
         )
+        if self.handwritten:
+            return True
         from dispatch.job import enqueue_job
         enqueue_job(self)
         return True

@@ -9,3 +9,7 @@ class RegisterRunnerBody(BaseSchema):
 
 class CompleteJobBody(BaseSchema):
     tasks: List[Any]
+
+
+class AbortJobBody(BaseSchema):
+    reason: Optional[str] = None

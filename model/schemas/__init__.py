@@ -45,6 +45,7 @@ from .problem import (
     PublishProblemBody,
 )
 from .runner import (
+    AbortJobBody,
     RegisterRunnerBody,
     CompleteJobBody,
 )

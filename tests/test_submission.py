@@ -1107,6 +1107,26 @@ def test_rejudge_enqueues_new_job_to_pending(app):
         assert sub.status == -1
 
 
+def test_rejudge_handwritten_submission_does_not_enqueue(app):
+    from mongo import Submission
+    from mongo.utils import RedisCache
+    from dispatch.redis_keys import JOBS_PENDING
+
+    rds = RedisCache().client
+    rds.flushdb()
+
+    with app.app_context():
+        problem = utils.problem.create_problem()
+        sub = Submission.add(problem_id=problem.id,
+                             username=problem.owner.username,
+                             lang=3,
+                             ip_addr="127.0.0.1")
+        sub.update(status=0)
+
+        assert sub.rejudge() is True
+        assert rds.llen(JOBS_PENDING) == 0
+
+
 def test_submit_enqueues_job_to_redis_pending(app):
     """After submit(), a job hash should appear in Redis pending queue."""
     from mongo.utils import RedisCache

@@ -202,3 +202,34 @@ def test_complete_with_unknown_job_returns_404(client):
         json={"tasks": _VALID_TASKS},
     )
     assert rv.status_code == 404
+
+
+def test_abort_requeues_owned_job(client, app, save_source):
+    from dispatch.redis_keys import JOBS_PENDING, JOBS_LEASED, job_key
+    from tests.utils.submission import create_submission
+    from tests.utils.problem import create_problem
+
+    rn_id, rk = runner_mod.register(name="r", registration_ip="1.1.1.1")
+    with app.app_context():
+        problem = create_problem(
+            owner=_ADMIN,
+            test_case_info=_TEST_CASE_INFO,
+        )
+        save_source("base", b"int main(){}", lang=0)
+        create_submission(user=_ADMIN, problem=problem, lang=0)
+
+    headers = {"Authorization": f"Bearer {rk}"}
+    rv = client.get(f"/runners/{rn_id}/next-job", headers=headers)
+    jb_id = rv.get_json()["data"]["job_id"]
+
+    rv = client.put(
+        f"/runners/{rn_id}/jobs/{jb_id}/abort",
+        headers=headers,
+        json={"reason": "prepare failed"},
+    )
+
+    assert rv.status_code == 202
+    rds = RedisCache().client
+    assert rds.lrange(JOBS_PENDING, 0, -1) == [jb_id.encode()]
+    assert not rds.sismember(JOBS_LEASED, jb_id)
+    assert rds.hget(job_key(jb_id), "last_error") == b"prepare failed"

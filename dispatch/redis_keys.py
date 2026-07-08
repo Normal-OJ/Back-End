@@ -24,3 +24,7 @@ JOBS_LEASED = "jobs:leased"
 
 def job_key(jb_id: str) -> str:
     return f"job:{jb_id}"
+
+
+def submission_current_job_key(submission_id: str) -> str:
+    return f"submission:{submission_id}:current_job"

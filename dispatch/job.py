@@ -7,7 +7,12 @@ from ulid import ULID
 
 from mongo.utils import RedisCache
 from .config import MAX_ATTEMPTS
-from .redis_keys import job_key, JOBS_PENDING, JOBS_LEASED
+from .redis_keys import (
+    job_key,
+    submission_current_job_key,
+    JOBS_PENDING,
+    JOBS_LEASED,
+)
 from .runner import is_alive
 from .scripts import reclaim_orphan_atomic
 
@@ -31,10 +36,11 @@ def enqueue_job(submission) -> str:
     """Create a Job from a Submission and push to pending queue. Returns jb_id."""
     jb_id = f"jb_{ULID()}"
     rds = RedisCache().client
+    submission_id = str(submission.id)
 
     rds.hset(job_key(jb_id),
              mapping={
-                 "submission_id": str(submission.id),
+                 "submission_id": submission_id,
                  "problem_id": submission.problem_id,
                  "language": submission.language,
                  "code_minio_path": submission.code_minio_path,
@@ -43,6 +49,7 @@ def enqueue_job(submission) -> str:
                  "attempts": 0,
                  "created_at": _now_iso(),
              })
+    rds.set(submission_current_job_key(submission_id), jb_id)
     rds.lpush(JOBS_PENDING, jb_id)
     return jb_id
 
@@ -155,7 +162,9 @@ def complete_job(
     tasks: list,
     process_result,
 ) -> str:
-    """Process a completed job. Returns one of: 'ok', 'wrong_owner', 'not_found'.
+    """Process a completed job.
+
+    Returns one of: 'ok', 'wrong_owner', 'not_found', 'stale'.
 
     Args:
         rn_id: The runner claiming completion.
@@ -173,8 +182,43 @@ def complete_job(
         return "wrong_owner"
 
     submission_id = h[b"submission_id"].decode()
+    current_jb_id = rds.get(submission_current_job_key(submission_id))
+    if current_jb_id is not None and current_jb_id.decode() != jb_id:
+        rds.delete(job_key(jb_id))
+        rds.srem(JOBS_LEASED, jb_id)
+        return "stale"
+
     process_result(submission_id, tasks)
 
     rds.delete(job_key(jb_id))
     rds.srem(JOBS_LEASED, jb_id)
+    rds.delete(submission_current_job_key(submission_id))
     return "ok"
+
+
+def abort_job(rn_id: str, jb_id: str, reason: str = "") -> str:
+    """Release a runner-owned job without completing it.
+
+    Returns one of: 'requeued', 'wrong_owner', 'not_found', 'stale'.
+    """
+    rds = RedisCache().client
+    h = rds.hgetall(job_key(jb_id))
+    if not h:
+        return "not_found"
+    leased_by = h.get(b"leased_by")
+    if leased_by is None or leased_by.decode() != rn_id:
+        return "wrong_owner"
+
+    submission_id = h[b"submission_id"].decode()
+    current_jb_id = rds.get(submission_current_job_key(submission_id))
+    if current_jb_id is not None and current_jb_id.decode() != jb_id:
+        rds.delete(job_key(jb_id))
+        rds.srem(JOBS_LEASED, jb_id)
+        return "stale"
+
+    rds.hdel(job_key(jb_id), "leased_by", "leased_at")
+    if reason:
+        rds.hset(job_key(jb_id), "last_error", reason)
+    rds.srem(JOBS_LEASED, jb_id)
+    rds.lpush(JOBS_PENDING, jb_id)
+    return "requeued"

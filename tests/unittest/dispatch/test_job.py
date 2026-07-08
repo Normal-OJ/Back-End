@@ -214,6 +214,46 @@ def test_complete_job_with_unknown_id_returns_not_found():
     assert result == "not_found"
 
 
+def test_complete_job_rejects_stale_submission_job():
+    sub = _make_submission()
+    old_jb_id = job_mod.enqueue_job(sub)
+    new_jb_id = job_mod.enqueue_job(sub)
+    rn_id, _ = runner_mod.register(name="r1", registration_ip="1.1.1.1")
+    job_mod.claim_next_job(rn_id=rn_id)
+
+    process_calls = []
+    result = job_mod.complete_job(
+        rn_id=rn_id,
+        jb_id=old_jb_id,
+        tasks=[{
+            "status": "AC"
+        }],
+        process_result=lambda *args: process_calls.append(args),
+    )
+
+    assert result == "stale"
+    assert process_calls == []
+    assert RedisCache().client.hget(job_key(new_jb_id),
+                                    "submission_id") == b"sub_1"
+
+
+def test_abort_job_requeues_alive_runner_failed_job():
+    sub = _make_submission()
+    jb_id = job_mod.enqueue_job(sub)
+    rn_id, _ = runner_mod.register(name="r1", registration_ip="1.1.1.1")
+    job_mod.claim_next_job(rn_id=rn_id)
+
+    result = job_mod.abort_job(rn_id=rn_id,
+                               jb_id=jb_id,
+                               reason="prepare failed")
+
+    assert result == "requeued"
+    rds = RedisCache().client
+    assert not rds.sismember(JOBS_LEASED, jb_id)
+    assert rds.lrange(JOBS_PENDING, 0, -1) == [jb_id.encode()]
+    assert rds.hget(job_key(jb_id), "last_error") == b"prepare failed"
+
+
 def test_claim_next_job_marks_submission_je_when_exhausted(app):
     """When orphan reclaim hits max_attempts, Submission must be marked JE (status=6)."""
     from bson import ObjectId
