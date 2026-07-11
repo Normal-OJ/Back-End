@@ -66,6 +66,9 @@ class TestSubmissionGetOutput:
             )
             utils.submission.add_fake_output(submission)
             submission.rejudge()
-            with pytest.raises(AttributeError) as err:
+            # rejudge() clears tasks and reloads, so the in-memory object
+            # matches what any fresh read sees: a pending submission with
+            # no task results.
+            with pytest.raises(FileNotFoundError) as err:
                 submission.get_single_output(0, 0)
-            assert str(err.value) == 'The submission is still in pending'
+            assert str(err.value) == 'task not exist'
