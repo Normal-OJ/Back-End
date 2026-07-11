@@ -97,20 +97,22 @@ def enqueue_job(submission) -> str:
     rds = RedisCache().client
     submission_id = str(submission.id)
 
-    rds.hset(job_key(jb_id),
-             mapping={
-                 "submission_id": submission_id,
-                 "problem_id": submission.problem_id,
-                 "language": submission.language,
-                 "code_minio_path": submission.code_minio_path,
-                 "checker": 'print("not implement yet. qaq")',
-                 "tasks_meta_json": json.dumps(_build_tasks_meta(submission)),
-                 "attempts": 0,
-                 "state": "pending",
-                 "created_at": _now_iso(),
-             })
-    rds.set(submission_current_job_key(submission_id), jb_id)
-    rds.lpush(JOBS_PENDING, jb_id)
+    pipe = rds.pipeline(transaction=True)
+    pipe.hset(job_key(jb_id),
+              mapping={
+                  "submission_id": submission_id,
+                  "problem_id": submission.problem_id,
+                  "language": submission.language,
+                  "code_minio_path": submission.code_minio_path,
+                  "checker": 'print("not implement yet. qaq")',
+                  "tasks_meta_json": json.dumps(_build_tasks_meta(submission)),
+                  "attempts": 0,
+                  "state": "pending",
+                  "created_at": _now_iso(),
+              })
+    pipe.set(submission_current_job_key(submission_id), jb_id)
+    pipe.lpush(JOBS_PENDING, jb_id)
+    pipe.execute()
     return jb_id
 
 
