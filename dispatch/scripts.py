@@ -142,6 +142,9 @@ local state = redis.call('HGET', KEYS[1], 'state')
 if state and state ~= 'leased' then
     return 0
 end
+if redis.call('HEXISTS', KEYS[1], 'je_pending') == 1 then
+    return 0
+end
 redis.call('HSET', KEYS[1], 'lease_deadline', ARGV[2])
 return 1
 """
@@ -158,4 +161,49 @@ def renew_lease_atomic(jb_id: str, rn_id: str, lease_ttl_sec: int) -> int:
         script(
             keys=[job_key(jb_id)],
             args=[rn_id, lease_deadline.isoformat()],
+        ))
+
+
+# Lua requeue-stuck script:
+#   KEYS[1] = job:<jb_id>
+#   ARGV[1] = jb_id
+#   ARGV[2] = max_attempts (string-encoded int)
+#   ARGV[3] = jobs_pending_list_name
+#   ARGV[4] = jobs_leased_set_name
+# Return:
+#    1 = requeued to pending
+#    0 = skipped (state changed / gone)
+#   -1 = attempts exhausted (removed from leased set; caller finalizes)
+_REQUEUE_STUCK_LUA = """
+if redis.call('EXISTS', KEYS[1]) == 0 then
+    return 0
+end
+if redis.call('HGET', KEYS[1], 'state') ~= 'completing' then
+    return 0
+end
+
+local attempts = tonumber(redis.call('HGET', KEYS[1], 'attempts')) or 0
+if attempts >= tonumber(ARGV[2]) then
+    redis.call('SREM', ARGV[4], ARGV[1])
+    return -1
+end
+
+redis.call('HDEL', KEYS[1], 'leased_by', 'leased_at', 'lease_deadline')
+redis.call('HSET', KEYS[1], 'state', 'pending')
+redis.call('SREM', ARGV[4], ARGV[1])
+redis.call('LPUSH', ARGV[3], ARGV[1])
+return 1
+"""
+
+
+def requeue_stuck_completing(jb_id: str, max_attempts: int) -> int:
+    """Atomically requeue a job stuck in 'completing' (backend died mid
+    process_result). Caller must have checked the lease is expired.
+    Returns 1 requeued, 0 skipped, -1 attempts exhausted."""
+    rds = RedisCache().client
+    script = rds.register_script(_REQUEUE_STUCK_LUA)
+    return int(
+        script(
+            keys=[job_key(jb_id)],
+            args=[jb_id, max_attempts, JOBS_PENDING, JOBS_LEASED],
         ))

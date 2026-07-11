@@ -21,6 +21,7 @@ from .scripts import (
     claim_pending_atomic,
     reclaim_orphan_atomic,
     renew_lease_atomic,
+    requeue_stuck_completing,
 )
 
 logger = logging.getLogger(__name__)
@@ -138,6 +139,14 @@ def claim_next_job(rn_id: str) -> Optional[dict]:
         orphan_id = orphan_id_bytes.decode()
         owner_bytes = rds.hget(job_key(orphan_id), "leased_by")
         state = rds.hget(job_key(orphan_id), "state")
+        if state == b"completing":
+            # Backend died mid-result-processing if the (extended) lease
+            # has expired; hand the job back so it can be re-executed.
+            if _is_lease_expired(rds.hget(job_key(orphan_id),
+                                          "lease_deadline")):
+                if requeue_stuck_completing(orphan_id, MAX_ATTEMPTS) == -1:
+                    _on_attempts_exhausted(orphan_id)
+            continue
         if state is not None and state != b"leased":
             continue
         if owner_bytes is None:
@@ -210,6 +219,7 @@ def _mark_exhausted_locked(rds, submission_id: str, jb_id: str) -> str:
     except Exception:
         logger.exception(
             f"failed to mark submission {submission_id} JE (job {jb_id})")
+        rds.hset(job_key(jb_id), "je_pending", 1)
         rds.sadd(JOBS_LEASED, jb_id)
         return "error"
     rds.delete(job_key(jb_id))
@@ -305,7 +315,11 @@ def complete_job(
             rds.srem(JOBS_LEASED, jb_id)
             return "stale"
 
-        rds.hset(job_key(jb_id), "state", "completing")
+        rds.hset(job_key(jb_id),
+                 mapping={
+                     "state": "completing",
+                     "lease_deadline": _lease_deadline(),
+                 })
         try:
             process_result(submission_id, tasks)
         except Exception:

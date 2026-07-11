@@ -176,7 +176,7 @@ def test_claim_next_job_reclaim_at_max_attempts_returns_signal(app):
         jb_id = job_mod.enqueue_job(sub)
         rn1, _ = runner_mod.register(name="r1", registration_ip="1.1.1.1")
         job_mod.claim_next_job(rn_id=rn1)
-        # Manually bump attempts to MAX-1 then kill rn1
+        # Manually set attempts to MAX then kill rn1
         RedisCache().client.hset(job_key(jb_id), "attempts", 3)
         RedisCache().client.delete(runner_alive_key(rn1))
 
@@ -455,3 +455,105 @@ def test_claim_pending_skips_non_pending_duplicate(app):
     assert claim_pending_atomic(rn_id, 600) is None
     # Original job hash must not be stolen.
     assert rds.hget(job_key(jb_id), "leased_by") == b"rn_other"
+
+
+def test_requeue_stuck_completing_requeues_job():
+    """Direct unit test of the Lua script: a job stuck in 'completing' with
+    attempts below MAX gets handed back to pending, and leaves no leftover
+    lease fields."""
+    from dispatch.scripts import requeue_stuck_completing
+    from dispatch.config import MAX_ATTEMPTS
+
+    rds = RedisCache().client
+    jb_id = "jb_stuck_completing"
+    rds.hset(job_key(jb_id),
+             mapping={
+                 "submission_id": "s",
+                 "attempts": 1,
+                 "leased_by": "rn_dead_backend",
+                 "state": "completing",
+                 "lease_deadline": "2000-01-01T00:00:00+00:00",
+             })
+    rds.sadd(JOBS_LEASED, jb_id)
+
+    result = requeue_stuck_completing(jb_id, MAX_ATTEMPTS)
+
+    assert result == 1
+    assert rds.hget(job_key(jb_id), "state") == b"pending"
+    assert rds.lrange(JOBS_PENDING, 0, -1) == [jb_id.encode()]
+    assert not rds.sismember(JOBS_LEASED, jb_id)
+    assert rds.hget(job_key(jb_id), "leased_by") is None
+    assert rds.hget(job_key(jb_id), "lease_deadline") is None
+
+
+def test_claim_next_job_marks_je_for_stuck_completing_at_max_attempts(app):
+    """An expired-completing job that already exhausted MAX_ATTEMPTS must be
+    finalized as JE (status=6) via claim_next_job's orphan scan, mirroring
+    test_claim_next_job_marks_submission_je_when_exhausted's seeding with a
+    real engine.Submission."""
+    from bson import ObjectId
+    from datetime import datetime
+    from dispatch.config import MAX_ATTEMPTS
+
+    rds = RedisCache().client
+
+    with app.app_context():
+        from mongo import engine
+
+        sub_doc = engine.Submission(
+            problem=ObjectId(),
+            user=ObjectId(),
+            language=0,
+            status=-1,
+            timestamp=datetime.now(),
+        )
+        sub_doc.save()
+        submission_id = str(sub_doc.id)
+
+        jb_id = "jb_stuck_completing_exhausted"
+        rds.hset(
+            job_key(jb_id),
+            mapping={
+                "submission_id": submission_id,
+                "attempts": MAX_ATTEMPTS,
+                "leased_by": "rn_dead_backend",
+                "state": "completing",
+                "lease_deadline": "2000-01-01T00:00:00+00:00",
+            },
+        )
+        rds.sadd(JOBS_LEASED, jb_id)
+        rds.set(submission_current_job_key(submission_id), jb_id)
+
+        rn2, _ = runner_mod.register(name="r2", registration_ip="1.1.1.2")
+        result = job_mod.claim_next_job(rn_id=rn2)
+
+        assert result is None
+        refreshed = engine.Submission.objects.only("status").get(id=sub_doc.id)
+        assert refreshed.status == 6
+        assert rds.hgetall(job_key(jb_id)) == {}
+        assert not rds.sismember(JOBS_LEASED, jb_id)
+
+
+def test_renew_leases_skips_je_pending_job(app):
+    """A job whose _mark_exhausted_locked attempt failed carries je_pending;
+    the renew Lua script must refuse to extend its lease so it eventually
+    expires and gets retried by the orphan scan (see Fix 2)."""
+    rds = RedisCache().client
+    rn1, _ = runner_mod.register(name="r1", registration_ip="1.1.1.1")
+    old_deadline = "2000-01-01T00:00:00+00:00"
+    rds.hset(job_key("jb_jep"),
+             mapping={
+                 "submission_id": "s",
+                 "attempts": 3,
+                 "leased_by": rn1,
+                 "state": "leased",
+                 "lease_deadline": old_deadline,
+                 "je_pending": 1,
+             })
+    rds.sadd(JOBS_LEASED, "jb_jep")
+
+    renewed = job_mod.renew_leases(rn1)
+
+    assert renewed == 0
+    assert rds.hget(job_key("jb_jep"),
+                    "lease_deadline") == old_deadline.encode()
