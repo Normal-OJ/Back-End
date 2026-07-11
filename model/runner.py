@@ -51,6 +51,7 @@ def register(body: RegisterRunnerBody):
 @require_runner_token
 def heartbeat(runner_id):
     runner_mod.renew_alive(runner_id)
+    job_mod.renew_leases(runner_id)
     return "", 204
 
 

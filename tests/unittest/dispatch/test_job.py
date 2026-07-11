@@ -349,3 +349,28 @@ def test_claim_next_job_marks_submission_je_when_exhausted(app):
         assert refreshed.status == 6
         # Job hash should also be cleaned up.
         assert rds.hgetall(job_key(jb_id)) == {}
+
+
+def test_renew_leases_extends_own_leased_jobs_only(app):
+    rds = RedisCache().client
+    rn1, _ = runner_mod.register(name="r1", registration_ip="1.1.1.1")
+    rn2, _ = runner_mod.register(name="r2", registration_ip="1.1.1.2")
+    old_deadline = "2000-01-01T00:00:00+00:00"
+    for jb_id, owner in [("jb_renew_a", rn1), ("jb_renew_b", rn2)]:
+        rds.hset(job_key(jb_id),
+                 mapping={
+                     "submission_id": "s",
+                     "attempts": 1,
+                     "leased_by": owner,
+                     "state": "leased",
+                     "lease_deadline": old_deadline,
+                 })
+        rds.sadd(JOBS_LEASED, jb_id)
+
+    renewed = job_mod.renew_leases(rn1)
+
+    assert renewed == 1
+    assert rds.hget(job_key("jb_renew_a"),
+                    "lease_deadline") != old_deadline.encode()
+    assert rds.hget(job_key("jb_renew_b"),
+                    "lease_deadline") == old_deadline.encode()

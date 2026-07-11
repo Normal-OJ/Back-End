@@ -154,6 +154,26 @@ def claim_next_job(rn_id: str) -> Optional[dict]:
     return None
 
 
+def renew_leases(rn_id: str) -> int:
+    """Extend lease_deadline for all jobs currently leased by rn_id.
+
+    Called from the heartbeat endpoint so a live runner's long-running
+    jobs are never reclaimed as orphans.
+    """
+    rds = RedisCache().client
+    renewed = 0
+    for jb_id_bytes in rds.smembers(JOBS_LEASED):
+        jb_id = jb_id_bytes.decode()
+        leased_by, state = rds.hmget(job_key(jb_id), "leased_by", "state")
+        if leased_by is None or leased_by.decode() != rn_id:
+            continue
+        if state is not None and state != b"leased":
+            continue
+        rds.hset(job_key(jb_id), "lease_deadline", _lease_deadline())
+        renewed += 1
+    return renewed
+
+
 def _assign_to_runner(jb_id: str, rn_id: str) -> None:
     """Mark job as leased to this runner (called after RPOP from pending)."""
     rds = RedisCache().client
