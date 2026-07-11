@@ -4,7 +4,12 @@ from unittest.mock import MagicMock
 import pytest
 from mongo.utils import RedisCache
 from dispatch import job as job_mod
-from dispatch.redis_keys import job_key, JOBS_PENDING, JOBS_LEASED
+from dispatch.redis_keys import (
+    job_key,
+    submission_current_job_key,
+    JOBS_PENDING,
+    JOBS_LEASED,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -49,6 +54,7 @@ def test_enqueue_job_creates_hash_and_pushes_to_pending():
     assert h[b"language"] == b"1"
     assert h[b"code_minio_path"] == b"submissions/sub_1.zip"
     assert h[b"attempts"] == b"0"
+    assert h[b"state"] == b"pending"
     assert b"created_at" in h
     assert b"tasks_meta_json" in h
 
@@ -77,6 +83,8 @@ def test_claim_next_job_from_pending_queue():
     # Side effects in Redis
     rds = RedisCache().client
     assert rds.hget(job_key(jb_id), "leased_by") == b"rn_1"
+    assert rds.hget(job_key(jb_id), "state") == b"leased"
+    assert rds.hget(job_key(jb_id), "lease_deadline") is not None
     assert rds.sismember(JOBS_LEASED, jb_id)
     assert int(rds.hget(job_key(jb_id), "attempts")) == 1
     # Removed from pending
@@ -183,6 +191,7 @@ def test_complete_job_with_correct_owner_succeeds():
     # Job cleaned up
     assert rds.hgetall(job_key(jb_id)) == {}
     assert not rds.sismember(JOBS_LEASED, jb_id)
+    assert rds.get(submission_current_job_key("sub_1")) is None
 
 
 def test_complete_job_with_wrong_owner_returns_wrong_owner():
@@ -235,6 +244,46 @@ def test_complete_job_rejects_stale_submission_job():
     assert process_calls == []
     assert RedisCache().client.hget(job_key(new_jb_id),
                                     "submission_id") == b"sub_1"
+
+
+def test_complete_job_treats_missing_current_job_as_stale():
+    sub = _make_submission()
+    jb_id = job_mod.enqueue_job(sub)
+    rn_id, _ = runner_mod.register(name="r1", registration_ip="1.1.1.1")
+    job_mod.claim_next_job(rn_id=rn_id)
+    RedisCache().client.delete(submission_current_job_key("sub_1"))
+
+    process_calls = []
+    result = job_mod.complete_job(
+        rn_id=rn_id,
+        jb_id=jb_id,
+        tasks=[{
+            "status": "AC"
+        }],
+        process_result=lambda *args: process_calls.append(args),
+    )
+
+    assert result == "stale"
+    assert process_calls == []
+    assert RedisCache().client.hgetall(job_key(jb_id)) == {}
+
+
+def test_complete_job_rejects_expired_lease():
+    sub = _make_submission()
+    jb_id = job_mod.enqueue_job(sub)
+    rn_id, _ = runner_mod.register(name="r1", registration_ip="1.1.1.1")
+    job_mod.claim_next_job(rn_id=rn_id)
+    RedisCache().client.hset(job_key(jb_id), "lease_deadline",
+                             "2000-01-01T00:00:00+00:00")
+
+    result = job_mod.complete_job(
+        rn_id=rn_id,
+        jb_id=jb_id,
+        tasks=[],
+        process_result=lambda *a, **k: None,
+    )
+
+    assert result == "lease_expired"
 
 
 def test_abort_job_requeues_alive_runner_failed_job():

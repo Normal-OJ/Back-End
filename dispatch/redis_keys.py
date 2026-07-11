@@ -28,3 +28,7 @@ def job_key(jb_id: str) -> str:
 
 def submission_current_job_key(submission_id: str) -> str:
     return f"submission:{submission_id}:current_job"
+
+
+def submission_job_lock_key(submission_id: str) -> str:
+    return f"submission:{submission_id}:job_lock"

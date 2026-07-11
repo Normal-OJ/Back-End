@@ -300,16 +300,23 @@ class Submission(MongoBase, engine=engine.Submission):
         '''
         rejudge this submission
         '''
-        self.delete_output()
-        self.update(
-            status=-1,
-            last_send=datetime.now(),
-            tasks=[],
-        )
-        if self.handwritten:
-            return True
-        from dispatch.job import enqueue_job
-        enqueue_job(self)
+        from dispatch.job import enqueue_job, submission_job_lock
+
+        with submission_job_lock(str(self.id)) as acquired:
+            if not acquired:
+                raise JudgeQueueFullError('submission is busy')
+            if not self.handwritten and self.code_minio_path is None:
+                self.migrate_code_to_minio()
+            self.delete_output()
+            self.update(
+                status=-1,
+                last_send=datetime.now(),
+                tasks=[],
+            )
+            self.reload()
+            if self.handwritten:
+                return True
+            enqueue_job(self)
         return True
 
     def _generate_code_minio_path(self):

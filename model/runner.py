@@ -63,11 +63,19 @@ def next_job(runner_id):
     # Convert code_minio_path to presigned URL just before sending
     minio_path = payload.pop("code_minio_path")
     minio = MinioClient()
-    payload["code_url"] = minio.client.presigned_get_object(
-        minio.bucket,
-        minio_path,
-        expires=timedelta(seconds=CODE_PRESIGNED_URL_TTL_SEC),
-    )
+    try:
+        payload["code_url"] = minio.client.presigned_get_object(
+            minio.bucket,
+            minio_path,
+            expires=timedelta(seconds=CODE_PRESIGNED_URL_TTL_SEC),
+        )
+    except Exception:
+        job_mod.abort_job(
+            rn_id=runner_id,
+            jb_id=payload["job_id"],
+            reason="failed to prepare job payload",
+        )
+        return HTTPError("failed to prepare job payload", 503)
     return HTTPResponse(data=payload)
 
 
@@ -87,8 +95,12 @@ def complete(runner_id, job_id, body: CompleteJobBody):
     )
     if result == "wrong_owner":
         return HTTPError("job has been reclaimed by another runner", 409)
+    if result == "lease_expired":
+        return HTTPError("job lease has expired", 409)
     if result == "stale":
         return HTTPError("job is no longer current for this submission", 409)
+    if result == "busy":
+        return HTTPError("submission is busy", 503)
     if result == "not_found":
         return HTTPError("job not found", 404)
     return "", 204
@@ -107,4 +119,8 @@ def abort(runner_id, job_id, body: AbortJobBody):
         return HTTPError("job has been reclaimed by another runner", 409)
     if result == "not_found":
         return HTTPError("job not found", 404)
+    if result == "busy":
+        return HTTPError("submission is busy", 503)
+    if result == "exhausted":
+        return "", 202
     return "", 202

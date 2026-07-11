@@ -23,6 +23,7 @@ def _seed_leased_job(jb_id: str, owner: str, attempts: int = 1):
              mapping={
                  "leased_by": owner,
                  "leased_at": datetime.now(timezone.utc).isoformat(),
+                 "state": "leased",
                  "attempts": attempts,
              })
     rds.sadd(JOBS_LEASED, jb_id)
@@ -36,6 +37,7 @@ def test_reclaim_succeeds_when_owner_matches():
         expected_owner="rn_old",
         new_owner="rn_new",
         max_attempts=3,
+        lease_ttl_sec=600,
     )
 
     assert result == 1  # success
@@ -53,6 +55,7 @@ def test_reclaim_fails_when_owner_changed():
         expected_owner="rn_old",  # we expected rn_old
         new_owner="rn_new",
         max_attempts=3,
+        lease_ttl_sec=600,
     )
 
     assert result == 0  # not reclaimed
@@ -68,6 +71,7 @@ def test_reclaim_returns_negative_when_max_attempts_reached():
         expected_owner="rn_old",
         new_owner="rn_new",
         max_attempts=3,
+        lease_ttl_sec=600,
     )
 
     assert result == -1  # exhausted
@@ -82,8 +86,20 @@ def test_reclaim_is_atomic_under_concurrent_calls():
     """
     _seed_leased_job("jb_1", owner="rn_old", attempts=1)
 
-    r1 = reclaim_orphan_atomic("jb_1", "rn_old", "rn_new1", max_attempts=3)
-    r2 = reclaim_orphan_atomic("jb_1", "rn_old", "rn_new2", max_attempts=3)
+    r1 = reclaim_orphan_atomic(
+        "jb_1",
+        "rn_old",
+        "rn_new1",
+        max_attempts=3,
+        lease_ttl_sec=600,
+    )
+    r2 = reclaim_orphan_atomic(
+        "jb_1",
+        "rn_old",
+        "rn_new2",
+        max_attempts=3,
+        lease_ttl_sec=600,
+    )
 
     assert r1 == 1  # first wins
     assert r2 == 0  # second sees owner already changed
