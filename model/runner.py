@@ -127,6 +127,6 @@ def abort(runner_id, job_id, body: AbortJobBody):
         return HTTPError("job not found", 404)
     if result == "busy":
         return HTTPError("submission is busy", 503)
-    if result == "exhausted":
-        return "", 202
+    if result == "error":
+        return HTTPError("failed to finalize job", 500)
     return "", 202

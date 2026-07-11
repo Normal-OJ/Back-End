@@ -14,6 +14,9 @@ local job_key = ARGV[1] .. jb_id
 if redis.call('EXISTS', job_key) == 0 then
     return nil
 end
+if redis.call('HGET', job_key, 'state') ~= 'pending' then
+    return nil
+end
 
 redis.call(
     'HSET',

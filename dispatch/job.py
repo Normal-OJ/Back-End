@@ -1,6 +1,7 @@
 """Job lifecycle: enqueue, claim (pending + orphan reclaim), complete."""
 from contextlib import contextmanager
 import json
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -21,6 +22,8 @@ from .scripts import (
     reclaim_orphan_atomic,
     renew_lease_atomic,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _now_iso() -> str:
@@ -189,15 +192,34 @@ def _assign_to_runner(jb_id: str, rn_id: str) -> None:
     rds.sadd(JOBS_LEASED, jb_id)
 
 
+def _mark_exhausted_locked(rds, submission_id: str, jb_id: str) -> str:
+    """Mark the Submission JE and clean the job hash.
+
+    Caller MUST hold the submission job lock. On failure the job is put
+    back into JOBS_LEASED so a later reclaim pass retries the JE marking.
+    """
+    from mongo import Submission
+    try:
+        if _current_job_matches(rds, submission_id, jb_id):
+            sub = Submission(submission_id)
+            if sub:
+                sub.update(status=6)  # JE
+            _delete_current_job_if_matches(rds, submission_id, jb_id)
+    except Exception:
+        logger.exception(
+            f"failed to mark submission {submission_id} JE (job {jb_id})")
+        rds.sadd(JOBS_LEASED, jb_id)
+        return "error"
+    rds.delete(job_key(jb_id))
+    return "ok"
+
+
 def _on_attempts_exhausted(jb_id: str) -> str:
     """When a job exhausts max_attempts, mark its Submission as Judge Error.
 
     Lua script already removed jb_id from JOBS_LEASED set. This function
     cleans the job hash and updates the Submission's status field.
     """
-    # Local import to avoid circular dependency at module load time.
-    from mongo import Submission
-
     rds = RedisCache().client
     submission_id_bytes = rds.hget(job_key(jb_id), "submission_id")
     if submission_id_bytes is None:
@@ -208,16 +230,7 @@ def _on_attempts_exhausted(jb_id: str) -> str:
         if not acquired:
             rds.sadd(JOBS_LEASED, jb_id)
             return "busy"
-        try:
-            sub = Submission(submission_id)
-            if sub:
-                sub.update(status=6)  # JE
-            _delete_current_job_if_matches(rds, submission_id, jb_id)
-        except Exception:
-            pass
-        finally:
-            rds.delete(job_key(jb_id))
-    return "ok"
+        return _mark_exhausted_locked(rds, submission_id, jb_id)
 
 
 def _build_payload(jb_id: str) -> dict:
@@ -311,7 +324,7 @@ def abort_job(rn_id: str, jb_id: str, reason: str = "") -> str:
     """Release a runner-owned job without completing it.
 
     Returns one of: 'requeued', 'exhausted', 'wrong_owner', 'not_found',
-    'stale', 'busy'.
+    'stale', 'busy', 'error'.
     """
     rds = RedisCache().client
     h = rds.hgetall(job_key(jb_id))
@@ -324,20 +337,29 @@ def abort_job(rn_id: str, jb_id: str, reason: str = "") -> str:
         return "wrong_owner"
 
     submission_id = h[b"submission_id"].decode()
-    if not _current_job_matches(rds, submission_id, jb_id):
-        rds.delete(job_key(jb_id))
-        rds.srem(JOBS_LEASED, jb_id)
-        return "stale"
-    if int(h.get(b"attempts", b"0")) >= MAX_ATTEMPTS:
-        rds.srem(JOBS_LEASED, jb_id)
-        if _on_attempts_exhausted(jb_id) == "busy":
+    with _submission_job_lock(submission_id) as acquired:
+        if not acquired:
             return "busy"
-        return "exhausted"
-
-    rds.hdel(job_key(jb_id), "leased_by", "leased_at", "lease_deadline")
-    rds.hset(job_key(jb_id), "state", "pending")
-    if reason:
-        rds.hset(job_key(jb_id), "last_error", reason)
-    rds.srem(JOBS_LEASED, jb_id)
-    rds.lpush(JOBS_PENDING, jb_id)
-    return "requeued"
+        h = rds.hgetall(job_key(jb_id))
+        if not h:
+            return "not_found"
+        leased_by = h.get(b"leased_by")
+        if leased_by is None or leased_by.decode() != rn_id:
+            return "wrong_owner"
+        if h.get(b"state") != b"leased":
+            return "wrong_owner"
+        if not _current_job_matches(rds, submission_id, jb_id):
+            rds.delete(job_key(jb_id))
+            rds.srem(JOBS_LEASED, jb_id)
+            return "stale"
+        if int(h.get(b"attempts", b"0")) >= MAX_ATTEMPTS:
+            rds.srem(JOBS_LEASED, jb_id)
+            outcome = _mark_exhausted_locked(rds, submission_id, jb_id)
+            return "exhausted" if outcome == "ok" else outcome
+        rds.hdel(job_key(jb_id), "leased_by", "leased_at", "lease_deadline")
+        rds.hset(job_key(jb_id), "state", "pending")
+        if reason:
+            rds.hset(job_key(jb_id), "last_error", reason)
+        rds.srem(JOBS_LEASED, jb_id)
+        rds.lpush(JOBS_PENDING, jb_id)
+        return "requeued"

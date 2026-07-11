@@ -10,6 +10,7 @@ from dispatch.redis_keys import (
     JOBS_PENDING,
     JOBS_LEASED,
 )
+from dispatch.scripts import claim_pending_atomic
 
 
 @pytest.fixture(autouse=True)
@@ -145,24 +146,47 @@ def test_claim_next_job_skips_orphan_with_alive_owner():
                                     "leased_by") == rn1.encode()
 
 
-def test_claim_next_job_reclaim_at_max_attempts_returns_signal():
-    """When attempts == MAX_ATTEMPTS, reclaim should signal exhaustion."""
-    sub = _make_submission()
-    jb_id = job_mod.enqueue_job(sub)
-    rn1, _ = runner_mod.register(name="r1", registration_ip="1.1.1.1")
-    job_mod.claim_next_job(rn_id=rn1)
-    # Manually bump attempts to MAX-1 then kill rn1
-    RedisCache().client.hset(job_key(jb_id), "attempts", 3)
-    RedisCache().client.delete(runner_alive_key(rn1))
+def test_claim_next_job_reclaim_at_max_attempts_returns_signal(app):
+    """When attempts == MAX_ATTEMPTS, reclaim should signal exhaustion.
 
-    rn2, _ = runner_mod.register(name="r2", registration_ip="1.1.1.2")
-    payload = job_mod.claim_next_job(rn_id=rn2)
+    Uses a real saved Submission (rather than the usual fake "sub_1" id)
+    because claim_next_job now runs the JE-marking path inline, which
+    executes a real Submission lookup/update under the submission job lock.
+    A fake, non-ObjectId submission_id would make that update raise, and
+    since Task 5 stops swallowing that failure, the job would be put back
+    into JOBS_LEASED instead of being cleaned up as this test expects.
+    """
+    from bson import ObjectId
+    from datetime import datetime
 
-    # The exhausted job is removed from JOBS_LEASED but the caller (blueprint)
-    # is responsible for marking Submission JE separately. claim_next_job itself
-    # returns None (Task 9 will hook in the JE marking).
-    assert payload is None
-    assert not RedisCache().client.sismember(JOBS_LEASED, jb_id)
+    with app.app_context():
+        from mongo import engine
+
+        sub_doc = engine.Submission(
+            problem=ObjectId(),
+            user=ObjectId(),
+            language=0,
+            status=-1,
+            timestamp=datetime.now(),
+        )
+        sub_doc.save()
+        submission_id = str(sub_doc.id)
+
+        sub = _make_submission(submission_id=submission_id)
+        jb_id = job_mod.enqueue_job(sub)
+        rn1, _ = runner_mod.register(name="r1", registration_ip="1.1.1.1")
+        job_mod.claim_next_job(rn_id=rn1)
+        # Manually bump attempts to MAX-1 then kill rn1
+        RedisCache().client.hset(job_key(jb_id), "attempts", 3)
+        RedisCache().client.delete(runner_alive_key(rn1))
+
+        rn2, _ = runner_mod.register(name="r2", registration_ip="1.1.1.2")
+        payload = job_mod.claim_next_job(rn_id=rn2)
+
+        # The exhausted job is removed from JOBS_LEASED and the job hash is
+        # cleaned up once the Submission JE marking succeeds.
+        assert payload is None
+        assert not RedisCache().client.sismember(JOBS_LEASED, jb_id)
 
 
 def test_complete_job_with_correct_owner_succeeds():
@@ -337,6 +361,7 @@ def test_claim_next_job_marks_submission_je_when_exhausted(app):
             },
         )
         rds.sadd(JOBS_LEASED, jb_id)
+        rds.set(submission_current_job_key(submission_id), jb_id)
         # rn_dead has no alive key — it is already dead.
 
         rn2, _ = runner_mod.register(name="r2", registration_ip="1.1.1.2")
@@ -387,3 +412,46 @@ def test_renew_leases_does_not_resurrect_deleted_job(app):
 
     assert renewed == 0
     assert rds.exists(job_key("jb_ghost")) == 0
+
+
+def test_abort_job_returns_busy_when_submission_locked(app):
+    """A concurrent abort_job call for the same submission must not run
+    unlocked: the second caller sees 'busy' instead of racing the first."""
+    rds = RedisCache().client
+    rn_id, _ = runner_mod.register(name="r1", registration_ip="1.1.1.1")
+    jb_id = "jb_abort_lock"
+    rds.hset(job_key(jb_id),
+             mapping={
+                 "submission_id": "sub_lock_test",
+                 "attempts": 1,
+                 "leased_by": rn_id,
+                 "state": "leased",
+             })
+    rds.sadd(JOBS_LEASED, jb_id)
+    rds.set(submission_current_job_key("sub_lock_test"), jb_id)
+
+    with job_mod.submission_job_lock("sub_lock_test") as acquired:
+        assert acquired
+        assert job_mod.abort_job(rn_id, jb_id) == "busy"
+
+    assert job_mod.abort_job(rn_id, jb_id) == "requeued"
+
+
+def test_claim_pending_skips_non_pending_duplicate(app):
+    """A stale duplicate entry in JOBS_PENDING for an already-leased job
+    must not be claimable by a second runner."""
+    rds = RedisCache().client
+    rn_id, _ = runner_mod.register(name="r1", registration_ip="1.1.1.1")
+    jb_id = "jb_dup_entry"
+    rds.hset(job_key(jb_id),
+             mapping={
+                 "submission_id": "s",
+                 "attempts": 1,
+                 "leased_by": "rn_other",
+                 "state": "leased",
+             })
+    rds.lpush(JOBS_PENDING, jb_id)  # stray duplicate pending entry
+
+    assert claim_pending_atomic(rn_id, 600) is None
+    # Original job hash must not be stolen.
+    assert rds.hget(job_key(jb_id), "leased_by") == b"rn_other"
