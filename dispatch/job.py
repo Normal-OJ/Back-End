@@ -16,7 +16,11 @@ from .redis_keys import (
     JOBS_LEASED,
 )
 from .runner import is_alive
-from .scripts import claim_pending_atomic, reclaim_orphan_atomic
+from .scripts import (
+    claim_pending_atomic,
+    reclaim_orphan_atomic,
+    renew_lease_atomic,
+)
 
 
 def _now_iso() -> str:
@@ -163,14 +167,11 @@ def renew_leases(rn_id: str) -> int:
     rds = RedisCache().client
     renewed = 0
     for jb_id_bytes in rds.smembers(JOBS_LEASED):
-        jb_id = jb_id_bytes.decode()
-        leased_by, state = rds.hmget(job_key(jb_id), "leased_by", "state")
-        if leased_by is None or leased_by.decode() != rn_id:
-            continue
-        if state is not None and state != b"leased":
-            continue
-        rds.hset(job_key(jb_id), "lease_deadline", _lease_deadline())
-        renewed += 1
+        renewed += renew_lease_atomic(
+            jb_id=jb_id_bytes.decode(),
+            rn_id=rn_id,
+            lease_ttl_sec=JOB_LEASE_TTL_SEC,
+        )
     return renewed
 
 

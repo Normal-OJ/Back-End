@@ -374,3 +374,16 @@ def test_renew_leases_extends_own_leased_jobs_only(app):
                     "lease_deadline") != old_deadline.encode()
     assert rds.hget(job_key("jb_renew_b"),
                     "lease_deadline") == old_deadline.encode()
+
+
+def test_renew_leases_does_not_resurrect_deleted_job(app):
+    rds = RedisCache().client
+    rn1, _ = runner_mod.register(name="r1", registration_ip="1.1.1.1")
+    # jb_id lingers in JOBS_LEASED but its hash was already deleted
+    # (e.g. complete_job finished between scan and renew).
+    rds.sadd(JOBS_LEASED, "jb_ghost")
+
+    renewed = job_mod.renew_leases(rn1)
+
+    assert renewed == 0
+    assert rds.exists(job_key("jb_ghost")) == 0

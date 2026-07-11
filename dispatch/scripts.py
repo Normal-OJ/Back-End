@@ -121,3 +121,38 @@ def reclaim_orphan_atomic(
                 JOBS_LEASED,
             ],
         ))
+
+
+# Lua renew script:
+#   KEYS[1] = job:<jb_id>
+#   ARGV[1] = expected_owner (rn_id)
+#   ARGV[2] = new lease_deadline (ISO timestamp string)
+# Return: 1 = renewed, 0 = skipped (gone / wrong owner / not leased)
+_RENEW_LEASE_LUA = """
+if redis.call('EXISTS', KEYS[1]) == 0 then
+    return 0
+end
+if redis.call('HGET', KEYS[1], 'leased_by') ~= ARGV[1] then
+    return 0
+end
+local state = redis.call('HGET', KEYS[1], 'state')
+if state and state ~= 'leased' then
+    return 0
+end
+redis.call('HSET', KEYS[1], 'lease_deadline', ARGV[2])
+return 1
+"""
+
+
+def renew_lease_atomic(jb_id: str, rn_id: str, lease_ttl_sec: int) -> int:
+    """Atomically extend a job's lease iff it still exists, is owned by
+    rn_id, and is in the leased state. Returns 1 if renewed, else 0."""
+    rds = RedisCache().client
+    script = rds.register_script(_RENEW_LEASE_LUA)
+    lease_deadline = datetime.now(
+        timezone.utc) + timedelta(seconds=lease_ttl_sec)
+    return int(
+        script(
+            keys=[job_key(jb_id)],
+            args=[rn_id, lease_deadline.isoformat()],
+        ))
