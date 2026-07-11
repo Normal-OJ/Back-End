@@ -204,6 +204,18 @@ def test_complete_with_unknown_job_returns_404(client):
     assert rv.status_code == 404
 
 
+def test_complete_rejects_malformed_case_payload(client):
+    rn_id, rk = runner_mod.register(name="r", registration_ip="1.1.1.1")
+    # missing exitCode/execTime/memoryUsage
+    bad_tasks = [[{"status": "AC", "stdout": "", "stderr": ""}]]
+    rv = client.put(
+        f"/runners/{rn_id}/jobs/jb_nonexistent/complete",
+        headers={"Authorization": f"Bearer {rk}"},
+        json={"tasks": bad_tasks},
+    )
+    assert rv.status_code == 400
+
+
 def test_abort_requeues_owned_job(client, app, save_source):
     from dispatch.redis_keys import JOBS_PENDING, JOBS_LEASED, job_key
     from tests.utils.submission import create_submission

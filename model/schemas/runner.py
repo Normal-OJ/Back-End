@@ -1,4 +1,4 @@
-from typing import Any, List, Optional
+from typing import List, Optional
 from .base import BaseSchema
 
 
@@ -7,8 +7,17 @@ class RegisterRunnerBody(BaseSchema):
     name: Optional[str] = None
 
 
+class CaseResultBody(BaseSchema):
+    exitCode: int
+    status: str
+    stdout: str
+    stderr: str
+    execTime: int
+    memoryUsage: int
+
+
 class CompleteJobBody(BaseSchema):
-    tasks: List[Any]
+    tasks: List[List[CaseResultBody]]
 
 
 class AbortJobBody(BaseSchema):

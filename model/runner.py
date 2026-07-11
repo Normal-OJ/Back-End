@@ -3,6 +3,7 @@ import secrets
 from datetime import timedelta
 
 from flask import Blueprint, request
+from mongoengine.errors import ValidationError as MongoValidationError
 
 from mongo import Submission
 from mongo.utils import MinioClient
@@ -88,12 +89,16 @@ def complete(runner_id, job_id, body: CompleteJobBody):
     def process(submission_id_str: str, tasks: list) -> None:
         Submission(submission_id_str).process_result(tasks)
 
-    result = job_mod.complete_job(
-        rn_id=runner_id,
-        jb_id=job_id,
-        tasks=body.tasks,
-        process_result=process,
-    )
+    plain_tasks = [[case.model_dump() for case in task] for task in body.tasks]
+    try:
+        result = job_mod.complete_job(
+            rn_id=runner_id,
+            jb_id=job_id,
+            tasks=plain_tasks,
+            process_result=process,
+        )
+    except (MongoValidationError, KeyError) as e:
+        return HTTPError(f"malformed result payload: {e}", 400)
     if result == "wrong_owner":
         return HTTPError("job has been reclaimed by another runner", 409)
     if result == "lease_expired":
