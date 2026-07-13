@@ -78,6 +78,14 @@ def test_verify_registration_token_non_ascii_secret(monkeypatch):
     assert runner.verify_registration_token('super-secret') is False
 
 
+@pytest.mark.parametrize('candidate', [b'rk_bytes', 12345, ['x'], {'a': 1}])
+def test_verify_registration_token_non_str_candidate_rejected(
+        monkeypatch, candidate):
+    # JSON bodies can legally carry non-str values; must fail closed, not raise.
+    monkeypatch.setenv(REG_TOKEN_ENV, 'super-secret')
+    assert runner.verify_registration_token(candidate) is False
+
+
 # --- register -----------------------------------------------------------
 
 
@@ -157,6 +165,14 @@ def test_verify_token_missing_args_fails():
     assert runner.verify_token('', '') is False
     assert runner.verify_token(reg.runner_id, '') is False
     assert runner.verify_token(None, None) is False
+
+
+@pytest.mark.parametrize('bad', [b'rk_bytes', 12345, ['x'], {'a': 1}])
+def test_verify_token_non_str_inputs_rejected(bad):
+    # Non-str token or runner_id from a JSON body must fail closed, not raise.
+    reg = runner.register('r', '1.1.1.1')
+    assert runner.verify_token(reg.runner_id, bad) is False
+    assert runner.verify_token(bad, reg.token) is False
 
 
 # --- lazy GC ------------------------------------------------------------

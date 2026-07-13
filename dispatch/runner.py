@@ -62,7 +62,9 @@ def verify_registration_token(candidate: Optional[str]) -> bool:
     """Constant-time check of a register request's shared secret. Fails closed."""
     expected = config.registration_token()
     # Fail closed: no configured secret ⇒ registration is disabled, not open.
-    if not expected or not candidate:
+    # Reject non-str candidates too — a JSON body can carry ints/lists/bytes,
+    # and .encode() below would otherwise raise instead of returning False.
+    if not expected or not isinstance(candidate, str) or not candidate:
         return False
     # Compare UTF-8 bytes: compare_digest raises TypeError on non-ASCII str, and
     # `candidate` is attacker-controlled, so str comparison could crash (500)
@@ -110,6 +112,10 @@ def verify_token(runner_id: Optional[str], token: Optional[str]) -> bool:
 
     A missing token_hash key (revoked or expired) yields ``False`` (→ 401).
     """
+    # Reject non-str inputs from the trust boundary: runner_id feeds a Redis key
+    # and token feeds _token_hash().encode() — both would otherwise raise.
+    if not isinstance(runner_id, str) or not isinstance(token, str):
+        return False
     if not runner_id or not token:
         return False
     stored = _redis().get(redis_keys.runner_token_hash(runner_id))
