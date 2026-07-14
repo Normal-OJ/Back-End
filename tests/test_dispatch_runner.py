@@ -183,11 +183,15 @@ def test_gc_on_register_evicts_expired_identity(monkeypatch):
     monkeypatch.setattr(runner, '_now', lambda: t0)
     old = runner.register('old', '1.1.1.1')
 
+    client = runner._redis()
+    # fakeredis TTLs run on real wall-clock, not our monkeypatched _now, so
+    # simulate the 7d token_hash TTL having fired by deleting the key.
+    client.delete(redis_keys.runner_token_hash(old.runner_id))
+
     # 8 days later a new registration triggers GC of the stale identity
     monkeypatch.setattr(runner, '_now', lambda: t0 + 8 * 86400)
     fresh = runner.register('fresh', '2.2.2.2')
 
-    client = runner._redis()
     assert client.zscore(redis_keys.RUNNERS_REGISTERED, old.runner_id) is None
     assert client.exists(redis_keys.runner_meta(old.runner_id)) == 0
     assert client.exists(redis_keys.runner_token_hash(old.runner_id)) == 0
@@ -201,14 +205,37 @@ def test_gc_on_list_runners_evicts_expired_identity(monkeypatch):
     monkeypatch.setattr(runner, '_now', lambda: t0)
     old = runner.register('old', '1.1.1.1')
 
+    client = runner._redis()
+    # Simulate the token_hash TTL having fired (see note above).
+    client.delete(redis_keys.runner_token_hash(old.runner_id))
+
     monkeypatch.setattr(runner, '_now', lambda: t0 + 8 * 86400)
     listed = runner.list_runners()
 
     assert listed == []
-    client = runner._redis()
     assert client.zscore(redis_keys.RUNNERS_REGISTERED, old.runner_id) is None
     assert client.exists(redis_keys.runner_meta(old.runner_id)) == 0
     assert client.exists(redis_keys.runner_token_hash(old.runner_id)) == 0
+
+
+def test_gc_spares_stale_member_whose_token_hash_survives(monkeypatch):
+    # TOCTOU regression (PR #341): a member older than 7d by score but whose
+    # token_hash still exists (clock skew, or a heartbeat that just renewed it)
+    # must NOT be swept — TTL is the sole invalidator.
+    t0 = 1_000_000.0
+    monkeypatch.setattr(runner, '_now', lambda: t0)
+    old = runner.register('old', '1.1.1.1')
+
+    # advance past the cutoff WITHOUT deleting token_hash
+    monkeypatch.setattr(runner, '_now', lambda: t0 + 8 * 86400)
+    runner.register('fresh', '2.2.2.2')  # GC via register
+    runner.list_runners()  # GC via list_runners
+
+    client = runner._redis()
+    assert client.zscore(redis_keys.RUNNERS_REGISTERED,
+                         old.runner_id) is not None
+    assert client.exists(redis_keys.runner_meta(old.runner_id)) == 1
+    assert runner.verify_token(old.runner_id, old.token) is True
 
 
 def test_fresh_identity_survives_gc(monkeypatch):

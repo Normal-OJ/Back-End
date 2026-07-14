@@ -2,8 +2,11 @@
 
 Identity is soft state that can be rebuilt from scratch (ADR-0004): the
 ``runners:registered`` ZSET tracks last-seen, while meta/token_hash carry a 7d
-TTL. Dead identities evaporate via TTL; the ZSET members (which have no TTL) are
-swept lazily on register / list_runners.
+TTL. TTL is the *only* thing that invalidates a live identity. GC never kills an
+identity — it lazily sweeps the corpses (ZSET members have no TTL of their own)
+left behind once ``token_hash`` has already evaporated, so a heartbeat that
+renews an identity between GC's scan and sweep can never lose its just-renewed
+token (the TOCTOU is structurally impossible, no atomicity machinery needed).
 
 Security notes:
 - The runner token is returned exactly once. Only its SHA-256 hex is stored, so
@@ -159,11 +162,18 @@ def list_runners() -> List[Dict]:
 
 
 def _gc(now: Optional[float] = None) -> None:
-    """Evict identities whose last-seen is older than the 7d TTL.
+    """Sweep ZSET corpses whose identity keys have already evaporated via TTL.
 
-    Removes the ZSET member (which carries no TTL of its own) plus the meta,
-    token_hash and alive keys. Meta/token_hash usually expire on their own; the
-    explicit deletes keep the namespace clean even if timing drifts.
+    TTL is the sole invalidator: GC only removes a member once its
+    ``token_hash`` is already gone. The score prefilter (>7d stale) just narrows
+    the candidate set; any candidate whose ``token_hash`` still exists is skipped
+    untouched — its TTL has not fired, so touching it is exactly what caused the
+    TOCTOU (a heartbeat renewing the key between scan and delete).
+
+    Race-freedom without atomicity: once a ``token_hash`` is gone it can never
+    reappear for the same ``rn_id`` — register always mints a fresh ULID, and
+    heartbeat (future) requires token auth that fails without the key. So an
+    ``EXISTS == 0`` observation stays true, making the sweep safe.
     """
     if now is None:
         now = _now()
@@ -171,19 +181,35 @@ def _gc(now: Optional[float] = None) -> None:
 
     client = _redis()
     # Strictly older than the cutoff: '(' makes the max bound exclusive.
-    expired = client.zrangebyscore(
+    candidates = client.zrangebyscore(
         redis_keys.RUNNERS_REGISTERED,
         '-inf',
         f'({cutoff!r}',
     )
-    if not expired:
+    if not candidates:
+        return
+
+    runner_ids = [
+        member.decode() if isinstance(member, bytes) else member
+        for member in candidates
+    ]
+
+    # Only sweep members whose token_hash has already expired (TTL fired).
+    exists_pipe = client.pipeline()
+    for runner_id in runner_ids:
+        exists_pipe.exists(redis_keys.runner_token_hash(runner_id))
+    still_alive = exists_pipe.execute()
+
+    sweep = [
+        runner_id for runner_id, alive in zip(runner_ids, still_alive)
+        if not alive
+    ]
+    if not sweep:
         return
 
     pipe = client.pipeline()
-    for member in expired:
-        runner_id = member.decode() if isinstance(member, bytes) else member
+    for runner_id in sweep:
         pipe.zrem(redis_keys.RUNNERS_REGISTERED, runner_id)
         pipe.delete(redis_keys.runner_meta(runner_id))
-        pipe.delete(redis_keys.runner_token_hash(runner_id))
         pipe.delete(redis_keys.runner_alive(runner_id))
     pipe.execute()
