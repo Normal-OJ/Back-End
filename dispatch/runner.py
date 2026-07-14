@@ -198,11 +198,12 @@ def _gc(now: Optional[float] = None) -> None:
     exists_pipe = client.pipeline()
     for runner_id in runner_ids:
         exists_pipe.exists(redis_keys.runner_token_hash(runner_id))
-    still_alive = exists_pipe.execute()
+    token_hash_exists = exists_pipe.execute()
 
     sweep = [
-        runner_id for runner_id, alive in zip(runner_ids, still_alive)
-        if not alive
+        runner_id
+        for runner_id, has_token in zip(runner_ids, token_hash_exists)
+        if not has_token
     ]
     if not sweep:
         return
