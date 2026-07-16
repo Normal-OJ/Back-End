@@ -69,7 +69,8 @@ def verify_registration_token(candidate: Optional[str]) -> bool:
     # and .encode() below would otherwise raise instead of returning False.
     if not expected or not isinstance(candidate, str) or not candidate:
         return False
-    # Compare UTF-8 bytes: compare_digest raises TypeError on non-ASCII str, and
+    # Compare UTF-8 bytes: compare_digest accepts str only when both sides are
+    # ASCII ("str (ASCII only)", hmac docs) and raises TypeError otherwise;
     # `candidate` is attacker-controlled, so str comparison could crash (500)
     # instead of failing closed (401).
     return hmac.compare_digest(expected.encode(), candidate.encode())
@@ -129,8 +130,11 @@ def verify_token(runner_id: Optional[str], token: Optional[str]) -> bool:
 
 
 def list_runners() -> List[Dict]:
-    """Return identity-layer facts for all live runners (spec §7.6 subset).
+    """Return identity-layer facts for all registered identities (spec §7.6 subset).
 
+    Not a liveness view: a revoked or dead runner stays listed (frozen
+    last_seen) until identity GC sweeps it — a deliberate observability
+    window; revocation only guarantees immediate auth failure (ADR-0004).
     Sweeps expired identities first. Fields: runner_id, name, last_seen,
     registered_at. Liveness/held-jobs are added by the admin-API slice.
     """

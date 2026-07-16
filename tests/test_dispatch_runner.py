@@ -66,8 +66,10 @@ def test_verify_registration_token_empty_env_always_rejected(monkeypatch):
 
 
 def test_verify_registration_token_non_ascii_candidate_rejected(monkeypatch):
-    # candidate is attacker-controlled (JSON body); non-ASCII must fail closed,
-    # not raise TypeError from hmac.compare_digest on str inputs.
+    # candidate is attacker-controlled (JSON body); non-ASCII must fail closed.
+    # compare_digest accepts str only when both sides are ASCII ("str (ASCII
+    # only)", hmac docs) and raises TypeError otherwise — hence the UTF-8
+    # bytes comparison in verify_registration_token.
     monkeypatch.setenv(REG_TOKEN_ENV, 'super-secret')
     assert runner.verify_registration_token('sécret-ü') is False
 
@@ -154,6 +156,24 @@ def test_revocation_deletes_token_hash_then_401():
     # revoke: delete the token key
     runner._redis().delete(redis_keys.runner_token_hash(reg.runner_id))
     assert runner.verify_token(reg.runner_id, reg.token) is False
+
+
+def test_revoked_runner_stays_listed_until_gc(monkeypatch):
+    # Revocation guarantees immediate auth failure only; the identity stays
+    # visible in list_runners (deliberate observability window) until GC
+    # sweeps it past the 7d last-seen cutoff.
+    t0 = 1_000_000.0
+    monkeypatch.setattr(runner, '_now', lambda: t0)
+    reg = runner.register('r', '1.1.1.1')
+    runner._redis().delete(redis_keys.runner_token_hash(reg.runner_id))
+
+    assert runner.verify_token(reg.runner_id, reg.token) is False
+    listed = {entry['runner_id'] for entry in runner.list_runners()}
+    assert reg.runner_id in listed
+
+    # past the GC cutoff the corpse is swept
+    monkeypatch.setattr(runner, '_now', lambda: t0 + 8 * 86400)
+    assert runner.list_runners() == []
 
 
 def test_verify_token_unknown_runner_fails():
