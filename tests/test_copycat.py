@@ -71,38 +71,38 @@ class TestCopyCat(BaseTester):
 
     def test_get_report_without_arguments(self, client_teacher):
         rv = client_teacher.get('/copycat')
-        assert rv.status_code == 400, rv.get_json()
-        assert rv.get_json(
+        assert rv.status_code == 400, rv.json()
+        assert rv.json(
         )['message'] == 'missing arguments! (In HTTP GET argument format)'
 
     def test_get_report_with_invalid_problem_id(self, client_admin):
         rv = client_admin.get('/copycat?course=Public&problemId=bbb')
-        assert rv.status_code == 400, rv.get_json()
-        assert rv.get_json()['message'] == 'problemId must be integer'
+        assert rv.status_code == 400, rv.json()
+        assert rv.json()['message'] == 'problemId must be integer'
 
     def test_get_report_without_perm(self, client_student):
         rv = client_student.get('/copycat?course=Public&problemId=123')
-        assert rv.status_code == 403, rv.get_json()
-        assert rv.get_json()['message'] == 'Forbidden.'
+        assert rv.status_code == 403, rv.json()
+        assert rv.json()['message'] == 'Forbidden.'
 
     def test_get_report_with_problem_does_not_exist(self, client_admin):
         rv = client_admin.get('/copycat?course=Public&problemId=87878787')
-        assert rv.status_code == 404, rv.get_json()
-        assert rv.get_json()['message'] == 'Problem not exist.'
+        assert rv.status_code == 404, rv.json()
+        assert rv.json()['message'] == 'Problem not exist.'
 
     def test_get_report_with_course_does_not_exist(self, client_admin,
                                                    problem_ids):
         pid = problem_ids("teacher", 1, True)[0]
         rv = client_admin.get(
             f'/copycat?course=CourseDoesNotExist&problemId={pid}')
-        assert rv.status_code == 404, rv.get_json()
-        assert rv.get_json()['message'] == 'Course not found.'
+        assert rv.status_code == 404, rv.json()
+        assert rv.json()['message'] == 'Course not found.'
 
     def test_get_report_before_request(self, client_admin, problem_ids):
         pid = problem_ids("teacher", 1, True)[0]
         rv = client_admin.get(f'/copycat?course=Public&problemId={pid}')
-        assert rv.status_code == 404, rv.get_json()
-        assert rv.get_json(
+        assert rv.status_code == 404, rv.json()
+        assert rv.json(
         )['message'] == 'No report found. Please make a post request to copycat api to generate a report'
 
     def test_get_report(self, client_admin, problem_ids, monkeypatch):
@@ -118,17 +118,16 @@ class TestCopyCat(BaseTester):
         problem = Problem(pid)
         problem.update(moss_status=2)
         rv = client_admin.get(f'/copycat?course=Public&problemId={pid}')
-        assert rv.status_code == 200, rv.get_json()
-        assert rv.get_json()['data'] == {
+        assert rv.status_code == 200, rv.json()
+        assert rv.json()['data'] == {
             "cpp_report": 'this is a report url 1',
             "python_report": 'this is a report url 2'
         }
 
     def test_detect_without_enough_request_args(self, client_teacher):
         rv = client_teacher.post('/copycat', json={})
-        assert rv.status_code == 400, rv.get_json()
-        assert rv.get_json(
-        )['message'] == 'missing arguments! (In Json format)'
+        assert rv.status_code == 400, rv.json()
+        assert rv.json()['message'] == 'missing arguments! (In Json format)'
 
     def test_detect_with_student_does_not_exist(self, client_teacher,
                                                 problem_ids):
@@ -141,8 +140,8 @@ class TestCopyCat(BaseTester):
                                          'ghost8787': 'studentDoesNotExist',
                                      },
                                  })
-        assert rv.status_code == 404, rv.get_json()
-        assert rv.get_json()['message'] == 'User: ghost8787 not found.'
+        assert rv.status_code == 404, rv.json()
+        assert rv.json()['message'] == 'User: ghost8787 not found.'
 
     def test_detect_with_empty_student_list(self, client_teacher, problem_ids):
         pid = problem_ids("teacher", 1, True)[0]
@@ -152,8 +151,8 @@ class TestCopyCat(BaseTester):
                                      'problemId': pid,
                                      'studentNicknames': {},
                                  })
-        assert rv.status_code == 404, rv.get_json()
-        assert rv.get_json()['message'] == 'Empty student list.'
+        assert rv.status_code == 404, rv.json()
+        assert rv.json()['message'] == 'Empty student list.'
 
     def test_detect_without_perm(self, client_student, problem_ids):
         pid = problem_ids("teacher", 1, True)[0]
@@ -165,8 +164,8 @@ class TestCopyCat(BaseTester):
                                          'student': 'student',
                                      },
                                  })
-        assert rv.status_code == 403, rv.get_json()
-        assert rv.get_json()['message'] == 'Forbidden.'
+        assert rv.status_code == 403, rv.json()
+        assert rv.json()['message'] == 'Forbidden.'
 
     def test_detect_with_problem_does_not_exist(self, client_teacher):
         course = engine.Course.objects(teacher="teacher").first()
@@ -178,8 +177,8 @@ class TestCopyCat(BaseTester):
                                          'student': 'student',
                                      },
                                  })
-        assert rv.status_code == 404, rv.get_json()
-        assert rv.get_json()['message'] == 'Problem not exist.'
+        assert rv.status_code == 404, rv.json()
+        assert rv.json()['message'] == 'Problem not exist.'
 
     def test_detect_with_course_does_not_exist(self, client_admin,
                                                problem_ids):
@@ -192,8 +191,8 @@ class TestCopyCat(BaseTester):
                                        'student': 'student',
                                    },
                                })
-        assert rv.status_code == 404, rv.get_json()
-        assert rv.get_json()['message'] == 'Course not found.'
+        assert rv.status_code == 404, rv.json()
+        assert rv.json()['message'] == 'Course not found.'
 
     def test_detect_without_config_TESTING(self, client_teacher, problem_ids,
                                            monkeypatch, app):
@@ -209,7 +208,7 @@ class TestCopyCat(BaseTester):
             )
 
         monkeypatch.setattr(copycat, 'get_report_task', mock_get_report_task)
-        monkeypatch.setitem(app.config, 'TESTING', False)
+        monkeypatch.delenv('TESTING', raising=False)
         pid = problem_ids("teacher", 1, True)[0]
         course = engine.Course.objects(teacher="teacher").first()
         student_dict = {
@@ -308,25 +307,25 @@ class TestCopyCat(BaseTester):
         assert problem.python_report_url == ''
 
     def test_get_report_by_url(self, monkeypatch):
-        from model.copycat import requests
+        from model.copycat import httpx
 
-        class mock_requests_get:
+        class mock_httpx_get:
 
             def __init__(self, text):
                 self.text = text
 
-        monkeypatch.setattr(requests, 'get', mock_requests_get)
+        monkeypatch.setattr(httpx, 'get', mock_httpx_get)
         from model.copycat import get_report_by_url
         url = 'https://example.com:8787/abc?def=1234&A_A=Q_Q'
         assert get_report_by_url(url) == url
 
     def test_get_report_by_url_with_invalid_schema(self, monkeypatch):
-        from model.copycat import requests
+        from model.copycat import httpx
 
-        def mock_requests_get(_):
-            raise requests.exceptions.InvalidSchema
+        def mock_httpx_get(_):
+            raise httpx.InvalidURL('invalid')
 
-        monkeypatch.setattr(requests, 'get', mock_requests_get)
+        monkeypatch.setattr(httpx, 'get', mock_httpx_get)
         from model.copycat import get_report_by_url
         url = 'https://example.com:8787/abc?def=1234&A_A=Q_Q'
         assert get_report_by_url(url) == 'No report.'

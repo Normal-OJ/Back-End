@@ -51,7 +51,8 @@ LOG_LEVELS = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
     LOG_LEVELS,
 )
 def test_log(forge_client, caplog, app, log_level):
-    app.logger.setLevel(log_level)
+    import logging
+    logging.getLogger('model.test').setLevel(log_level)
     client = forge_client('first_admin')
     rv, rv_json, _ = BaseTester.request(
         client,
@@ -63,11 +64,11 @@ def test_log(forge_client, caplog, app, log_level):
 
     idx = LOG_LEVELS.index(log_level)
     expected_log = [
-        'DEBUG    app:test.py:25 this is a DEBUG log',
-        'INFO     app:test.py:26 this is a INFO log',
-        'WARNING  app:test.py:27 this is a WARNING log',
-        'ERROR    app:test.py:28 this is a ERROR log',
-        'CRITICAL app:test.py:29 this is a CRITICAL log',
+        'DEBUG    model.test:test.py:26 this is a DEBUG log',
+        'INFO     model.test:test.py:27 this is a INFO log',
+        'WARNING  model.test:test.py:28 this is a WARNING log',
+        'ERROR    model.test:test.py:29 this is a ERROR log',
+        'CRITICAL model.test:test.py:30 this is a CRITICAL log',
     ][idx:]
 
     assert caplog.text == '\n'.join(expected_log) + '\n', caplog.text

@@ -8,7 +8,7 @@ from tests import utils
 
 def get_file(file):
     with open("./tests/problem_test_case/" + file, 'rb') as f:
-        return {'case': (io.BytesIO(f.read()), "test_case.zip")}
+        return {'case': ("test_case.zip", io.BytesIO(f.read()))}
 
 
 def description_dict():
@@ -62,7 +62,7 @@ class TestProblem(BaseTester):
             '/problem/manage',
             json=request_json_with_invalid_json,
         )
-        json = rv.get_json()
+        json = rv.json()
         assert rv.status_code == 400
         assert json['status'] == 'err'
         assert json['message'] == 'Invalid or missing arguments.'
@@ -91,7 +91,7 @@ class TestProblem(BaseTester):
         }
         rv = client_admin.post('/problem/manage',
                                json=request_json_with_missing_argument)
-        json = rv.get_json()
+        json = rv.json()
         assert json['message'] == 'Invalid or missing arguments.'
         assert rv.status_code == 400
         assert json['status'] == 'err'
@@ -119,14 +119,14 @@ class TestProblem(BaseTester):
             }
         }
         rv = client_admin.post('/problem/manage', json=request_json)
-        json = rv.get_json()
+        json = rv.json()
         id = json['data']['problemId']
 
         rv = client_admin.put(
             f'/problem/manage/{id}',
-            data=get_file('default/test_case.zip'),
+            files=get_file('default/test_case.zip'),
         )
-        json = rv.get_json()
+        json = rv.json()
         assert rv.status_code == 200, json
         assert json['status'] == 'ok'
         assert json['message'] == 'Success.'
@@ -154,14 +154,14 @@ class TestProblem(BaseTester):
             }
         }
         rv = client_admin.post('/problem/manage', json=request_json)
-        json = rv.get_json()
+        json = rv.json()
         id = json['data']['problemId']
 
         rv = client_admin.put(
             f'/problem/manage/{id}',
-            data=get_file('default/test_case.zip'),
+            files=get_file('default/test_case.zip'),
         )
-        json = rv.get_json()
+        json = rv.json()
         assert rv.status_code == 200
         assert json['status'] == 'ok'
         assert json['message'] == 'Success.'
@@ -171,31 +171,31 @@ class TestProblem(BaseTester):
             'courses': [],
         }
         rv = client_admin.post('/problem/manage', json=request_json)
-        assert rv.status_code == 400, rv.get_json()
-        assert rv.get_json()['message'] == 'No course provided'
+        assert rv.status_code == 400, rv.json()
+        assert rv.json()['message'] == 'No course provided'
 
     def test_add_problem_with_course_does_not_exist(self, client_admin):
         request_json = {
             'courses': ['CourseDoesNotExist'],
         }
         rv = client_admin.post('/problem/manage', json=request_json)
-        assert rv.status_code == 404, rv.get_json()
-        assert rv.get_json()['message'] == 'Course not found'
+        assert rv.status_code == 404, rv.json()
+        assert rv.json()['message'] == 'Course not found'
 
     def test_get_problem_list_with_nan_offest(self, client_admin):
         rv = client_admin.get('/problem?offset=BadOffset')
-        assert rv.status_code == 400, rv.get_json()
-        assert rv.get_json()['message'] == 'offset and count must be integer!'
+        assert rv.status_code == 400, rv.json()
+        assert rv.json()['message'] == 'offset and count must be integer!'
 
     def test_get_problem_list_with_negtive_offest(self, client_admin):
         rv = client_admin.get('/problem?offset=-1')
-        assert rv.status_code == 400, rv.get_json()
-        assert rv.get_json()['message'] == 'invalid offset'
+        assert rv.status_code == 400, rv.json()
+        assert rv.json()['message'] == 'invalid offset'
 
     # admin get problem list (GET /problem)
     def test_admin_get_problem_list(self, client_admin):
         rv = client_admin.get('/problem?offset=0&count=5')
-        json = rv.get_json()
+        json = rv.json()
         assert rv.status_code == 200
         assert json['status'] == 'ok'
         assert json['message'] == 'Success.'
@@ -224,7 +224,7 @@ class TestProblem(BaseTester):
     # admin get problem list with a filter (GET /problem)
     def test_admin_get_problem_list_with_filter(self, client_admin):
         rv = client_admin.get('/problem?offset=0&count=5&course=English')
-        json = rv.get_json()
+        json = rv.json()
         assert rv.status_code == 200
         assert json['status'] == 'ok'
         assert json['message'] == 'Success.'
@@ -261,7 +261,7 @@ class TestProblem(BaseTester):
     # student get problem list (GET /problem)
     def test_student_get_problem_list(self, client_student):
         rv = client_student.get('/problem?offset=0&count=5')
-        json = rv.get_json()
+        json = rv.json()
         assert rv.status_code == 200
         assert json['status'] == 'ok'
         assert json['message'] == 'Success.'
@@ -281,8 +281,8 @@ class TestProblem(BaseTester):
         from model.problem import Problem
         monkeypatch.setattr(Problem, 'is_valid_ip', lambda *_: False)
         rv = client_student.get('/problem/4')
-        assert rv.status_code == 403, rv.get_json()
-        assert rv.get_json()['message'] == 'Invalid IP address.'
+        assert rv.status_code == 403, rv.json()
+        assert rv.json()['message'] == 'Invalid IP address.'
 
     def test_view_template_problem(self, client_admin):
         request_json = {
@@ -308,14 +308,14 @@ class TestProblem(BaseTester):
         rv = client_admin.post('/problem/manage', json=request_json)
         assert rv.status_code == 200
         rv = client_admin.get('/problem/5')
-        assert rv.status_code == 200, rv.get_json()
-        assert rv.get_json(
+        assert rv.status_code == 200, rv.json()
+        assert rv.json(
         )['data']['fillInTemplate'] == 'This is a fill in template.'
 
     # admin view offline problem (GET /problem/<problem_id>)
     def test_admin_view_offline_problem(self, client_admin):
         rv = client_admin.get('/problem/3')
-        json = rv.get_json()
+        json = rv.json()
         assert rv.status_code == 200
         assert json['status'] == 'ok'
         assert json['message'] == 'Problem can view.'
@@ -355,14 +355,14 @@ class TestProblem(BaseTester):
     # student view offline problem (GET /problem/<problem_id>)
     def test_student_view_offline_problem(self, client_student):
         rv = client_student.get('/problem/3')
-        json = rv.get_json()
+        json = rv.json()
         assert rv.status_code == 403
         assert json['status'] == 'err'
 
     # student view online problem (GET /problem/<problem_id>)
     def test_student_view_online_problem(self, client_student):
         rv = client_student.get('/problem/4')
-        json = rv.get_json()
+        json = rv.json()
         assert rv.status_code == 200
         assert json['status'] == 'ok'
         assert json['message'] == 'Problem can view.'
@@ -402,7 +402,7 @@ class TestProblem(BaseTester):
     # student view problem not exist (GET /problem/<problem_id>)
     def test_student_view_problem_not_exist(self, client_student):
         rv = client_student.get('/problem/0')
-        json = rv.get_json()
+        json = rv.json()
         assert rv.status_code == 404
         assert json['status'] == 'err'
 
@@ -429,7 +429,7 @@ class TestProblem(BaseTester):
             },
         }
         rv = client_student.put('/problem/manage/1', json=request_json)
-        json = rv.get_json()
+        json = rv.json()
         assert rv.status_code == 403
         assert json['status'] == 'err'
         assert json['message'] == 'Insufficient Permissions'
@@ -461,7 +461,7 @@ class TestProblem(BaseTester):
             f'/problem/manage/{prob.id}',
             json=request_json,
         )
-        json = rv.get_json()
+        json = rv.json()
         assert rv.status_code == 403
         assert json['status'] == 'err'
 
@@ -488,7 +488,7 @@ class TestProblem(BaseTester):
             }
         }
         rv = client_admin.put('/problem/manage/1', json=request_json)
-        json = rv.get_json()
+        json = rv.json()
         print(json)
         assert rv.status_code == 404
 
@@ -514,8 +514,8 @@ class TestProblem(BaseTester):
             }
         }
         rv = client_admin.put('/problem/manage/3', json=request_json)
-        assert rv.status_code == 404, rv.get_json()
-        assert rv.get_json()['message'] == 'Course not found.'
+        assert rv.status_code == 404, rv.json()
+        assert rv.json()['message'] == 'Course not found.'
 
     def test_edit_problem_with_name_is_too_long(self, client_admin):
         oo = 'o' * 64
@@ -540,8 +540,8 @@ class TestProblem(BaseTester):
             }
         }
         rv = client_admin.put('/problem/manage/3', json=request_json)
-        assert rv.status_code == 400, rv.get_json()
-        assert rv.get_json()['message'] == 'Invalid or missing arguments.'
+        assert rv.status_code == 400, rv.json()
+        assert rv.json()['message'] == 'Invalid or missing arguments.'
 
     # admin change the name of a problem (PUT /problem/manage/<problem_id>)
     def test_admin_edit_problem(self, client_admin):
@@ -566,7 +566,7 @@ class TestProblem(BaseTester):
             }
         }
         rv = client_admin.put('/problem/manage/3', json=request_json)
-        json = rv.get_json()
+        json = rv.json()
         print(json)
         assert rv.status_code == 200
         assert json['status'] == 'ok'
@@ -575,7 +575,7 @@ class TestProblem(BaseTester):
     def test_admin_manage_problem(self, client_admin):
         pid = 3
         rv = client_admin.get(f'/problem/manage/{pid}')
-        json = rv.get_json()
+        json = rv.json()
         assert rv.status_code == 200
         assert json['status'] == 'ok'
         assert json['data'] == {
@@ -607,9 +607,9 @@ class TestProblem(BaseTester):
 
     def test_update_problem_test_case_with_non_zip_file(self, client_admin):
         rv = client_admin.put('/problem/manage/3',
-                              data=get_file('bogay/0000.in'))
-        assert rv.status_code == 400, rv.get_json()
-        assert rv.get_json()['message'] == 'File is not a zip file'
+                              files=get_file('bogay/0000.in'))
+        assert rv.status_code == 400, rv.json()
+        assert rv.json()['message'] == 'File is not a zip file'
 
     def test_update_problem_test_case_with_ambiguous_test_case(
             self, client_admin, monkeypatch):
@@ -617,9 +617,9 @@ class TestProblem(BaseTester):
         monkeypatch.setattr(SimpleIO, 'validate', lambda *_: None)
         monkeypatch.setattr(ContextIO, 'validate', lambda *_: None)
         rv = client_admin.put('/problem/manage/3',
-                              data=get_file('bogay/test_case.zip'))
-        assert rv.status_code == 400, rv.get_json()
-        assert rv.get_json()['message'] == 'ambiguous test case format'
+                              files=get_file('bogay/test_case.zip'))
+        assert rv.status_code == 400, rv.json()
+        assert rv.json()['message'] == 'ambiguous test case format'
 
     def test_update_problem_test_case_raise_does_not_exist_error(
             self, client_admin, monkeypatch):
@@ -630,35 +630,35 @@ class TestProblem(BaseTester):
         from mongo.problem import Problem
         monkeypatch.setattr(Problem, 'update_test_case', mock_update_test_case)
         rv = client_admin.put('/problem/manage/3',
-                              data=get_file('bogay/test_case.zip'))
-        assert rv.status_code == 404, rv.get_json()
-        assert rv.get_json()['message'] == 'Error from mock update_test_case.'
+                              files=get_file('bogay/test_case.zip'))
+        assert rv.status_code == 404, rv.json()
+        assert rv.json()['message'] == 'Error from mock update_test_case.'
 
     def test_update_problem_test_case_with_unknown_content_type(
             self, client_admin):
         rv = client_admin.put('/problem/manage/3',
                               headers={'Content-type': 'unknown/content-type'})
-        assert rv.status_code == 400, rv.get_json()
-        assert rv.get_json()['message'] == 'Unknown content type'
-        assert rv.get_json()['data']['contentType'] == 'unknown/content-type'
+        assert rv.status_code == 400, rv.json()
+        assert rv.json()['message'] == 'Unknown content type'
+        assert rv.json()['data']['contentType'] == 'unknown/content-type'
 
     def test_student_cannot_get_test_case(self, client_student):
         rv = client_student.get('/problem/3/testcase')
-        assert rv.status_code == 403, rv.get_json()
-        assert rv.get_json()['message'] == 'Not enough permission'
+        assert rv.status_code == 403, rv.json()
+        assert rv.json()['message'] == 'Not enough permission'
 
     def test_admin_update_problem_test_case(self, client_admin, monkeypatch):
         # FIXME: it should be impl in mock
         monkeypatch.setattr(
             Problem, 'get_test_case',
-            lambda *_: get_file('bogay/test_case.zip')['case'][0])
+            lambda *_: get_file('bogay/test_case.zip')['case'][1])
 
         # update test case
         rv, rv_json, rv_data = BaseTester.request(
             client_admin,
             'put',
             '/problem/manage/3',
-            data=get_file('bogay/test_case.zip'),
+            files=get_file('bogay/test_case.zip'),
         )
         assert rv.status_code == 200, rv_json
         assert Problem(3).test_case.case_zip_minio_path is not None
@@ -669,7 +669,7 @@ class TestProblem(BaseTester):
             '/problem/3/testcase',
         )
         assert rv.status_code == 200
-        with ZipFile(io.BytesIO(rv.data)) as zf:
+        with ZipFile(io.BytesIO(rv.content)) as zf:
             ns = sorted(zf.namelist())
             in_ns = ns[::2]
             out_ns = ns[1::2]
@@ -682,19 +682,19 @@ class TestProblem(BaseTester):
 
     def test_get_testdata_with_invalid_token(self, client):
         rv = client.get('/problem/3/testdata?token=InvalidToken8787')
-        assert rv.status_code == 401, rv.get_json()
-        assert rv.get_json()['message'] == 'Invalid sandbox token'
+        assert rv.status_code == 401, rv.json()
+        assert rv.json()['message'] == 'Invalid sandbox token'
 
     def test_get_testdata(self, client, monkeypatch):
         # FIXME: it should be impl in mock
         monkeypatch.setattr(
             Problem, 'get_test_case',
-            lambda *_: get_file('bogay/test_case.zip')['case'][0])
+            lambda *_: get_file('bogay/test_case.zip')['case'][1])
         from model.problem import sandbox
         monkeypatch.setattr(sandbox, 'find_by_token', lambda *_: True)
         rv = client.get('/problem/3/testdata?token=ValidToken')
         assert rv.status_code == 200
-        with ZipFile(io.BytesIO(rv.data)) as zf:
+        with ZipFile(io.BytesIO(rv.content)) as zf:
             ns = sorted(zf.namelist())
             in_ns = ns[::2]
             out_ns = ns[1::2]
@@ -707,39 +707,39 @@ class TestProblem(BaseTester):
 
     def test_get_checksum_with_invalid_token(self, client):
         rv = client.get('/problem/3/checksum?token=InvalidToken8787')
-        assert rv.status_code == 401, rv.get_json()
-        assert rv.get_json()['message'] == 'Invalid sandbox token'
+        assert rv.status_code == 401, rv.json()
+        assert rv.json()['message'] == 'Invalid sandbox token'
 
     def test_get_checksum_with_problem_does_not_exist(self, client,
                                                       monkeypatch):
         from model.problem import sandbox
         monkeypatch.setattr(sandbox, 'find_by_token', lambda *_: True)
         rv = client.get('/problem/878787/checksum?token=SandboxToken')
-        assert rv.status_code == 404, rv.get_json()
-        assert rv.get_json()['message'] == 'problem [878787] not found'
+        assert rv.status_code == 404, rv.json()
+        assert rv.json()['message'] == 'problem [878787] not found'
 
     def test_get_checksum(self, client, monkeypatch):
         # FIXME: it should be impl in mock
         monkeypatch.setattr(
             Problem, 'get_test_case',
-            lambda *_: get_file('bogay/test_case.zip')['case'][0])
+            lambda *_: get_file('bogay/test_case.zip')['case'][1])
         from model.problem import sandbox
         monkeypatch.setattr(sandbox, 'find_by_token', lambda *_: True)
         rv = client.get('/problem/3/checksum?token=SandboxToken')
-        assert rv.status_code == 200, rv.get_json()
-        assert rv.get_json()['data'] == 'b80aa4fad6b5dea9a5bca3237ac3ba89'
+        assert rv.status_code == 200, rv.json()
+        assert rv.json()['data'] == 'b80aa4fad6b5dea9a5bca3237ac3ba89'
 
     def test_get_meta_with_invalid_token(self, client):
         rv = client.get('/problem/3/meta?token=InvalidToken8787')
-        assert rv.status_code == 401, rv.get_json()
-        assert rv.get_json()['message'] == 'Invalid sandbox token'
+        assert rv.status_code == 401, rv.json()
+        assert rv.json()['message'] == 'Invalid sandbox token'
 
     def test_get_meta_with_problem_does_not_exist(self, client, monkeypatch):
         from model.problem import sandbox
         monkeypatch.setattr(sandbox, 'find_by_token', lambda *_: True)
         rv = client.get('/problem/878787/meta?token=SandboxToken')
-        assert rv.status_code == 404, rv.get_json()
-        assert rv.get_json()['message'] == 'problem [878787] not found'
+        assert rv.status_code == 404, rv.json()
+        assert rv.json()['message'] == 'problem [878787] not found'
 
     def test_get_meta(self, client, monkeypatch):
 
@@ -752,8 +752,8 @@ class TestProblem(BaseTester):
         from mongo.sandbox import Submission
         monkeypatch.setattr(Submission, 'config', MockConfig)
         rv = client.get('/problem/3/meta?token=SandboxToken')
-        assert rv.status_code == 200, rv.get_json()
-        assert rv.get_json()['data'] == {
+        assert rv.status_code == 200, rv.json()
+        assert rv.json()['data'] == {
             'tasks': [{
                 'caseCount': 1,
                 'memoryLimit': 1000,
@@ -772,7 +772,7 @@ class TestProblem(BaseTester):
             client_admin,
             'put',
             f'/problem/manage/{prob.id}',
-            data=get_file('task-exceed/test_case.zip'),
+            files=get_file('task-exceed/test_case.zip'),
         )
         assert rv.status_code == 400
 
@@ -780,7 +780,7 @@ class TestProblem(BaseTester):
     def test_teacher_not_owner_manage_problem(self, client_teacher):
         prob = utils.problem.create_problem()
         rv = client_teacher.get(f'/problem/manage/{prob.id}')
-        json = rv.get_json()
+        json = rv.json()
         assert rv.status_code == 403
         assert json['status'] == 'err'
 
@@ -788,14 +788,14 @@ class TestProblem(BaseTester):
     def test_student_manage_problem(self, client_student):
         prob = utils.problem.create_problem()
         rv = client_student.get(f'/problem/manage/{prob.id}')
-        json = rv.get_json()
+        json = rv.json()
         assert rv.status_code == 403
         assert json['status'] == 'err'
 
     # student delete problem (DELETE /problem/manage/<problem_id>)
     def test_student_delete_problem(self, client_student):
         rv = client_student.delete('/problem/manage/1')
-        json = rv.get_json()
+        json = rv.json()
         assert rv.status_code == 403
         assert json['status'] == 'err'
         assert json['message'] == 'Insufficient Permissions'
@@ -804,7 +804,7 @@ class TestProblem(BaseTester):
     def test_teacher_not_owner_delete_problem(self, client_teacher):
         prob = utils.problem.create_problem()
         rv = client_teacher.delete(f'/problem/manage/{prob.id}')
-        json = rv.get_json()
+        json = rv.json()
         assert rv.status_code == 403
         assert json['status'] == 'err'
 
@@ -812,7 +812,7 @@ class TestProblem(BaseTester):
     def test_admin_delete_problem(self, client_admin):
         prob = utils.problem.create_problem()
         rv = client_admin.delete(f'/problem/manage/{prob.id}')
-        json = rv.get_json()
+        json = rv.json()
         assert rv.status_code == 200
         assert json['status'] == 'ok'
         assert not Problem(prob.id)
@@ -839,8 +839,8 @@ class TestProblem(BaseTester):
                                      'problemId': 3,
                                      'target': c_data.name
                                  })
-        assert rv.status_code == 403, rv.get_json()
-        assert rv.get_json()['message'] == 'Problem can not view.'
+        assert rv.status_code == 403, rv.json()
+        assert rv.json()['message'] == 'Problem can not view.'
 
     def test_admin_can_copy_problem_from_other_course(self, forge_client):
         admin = utils.user.create_user(role=User.engine.Role.ADMIN)
@@ -938,8 +938,8 @@ class TestProblem(BaseTester):
     def test_publish_without_perm(self, forge_client):
         client_teacher = forge_client('teacher-2')
         rv = client_teacher.post('/problem/publish', json={'problemId': 3})
-        assert rv.status_code == 403, rv.get_json()
-        assert rv.get_json()['message'] == 'Not the owner.'
+        assert rv.status_code == 403, rv.json()
+        assert rv.json()['message'] == 'Not the owner.'
 
     def test_publish(self, client_admin):
         rv = client_admin.post('/problem/publish', json={'problemId': 3})

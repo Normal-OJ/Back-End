@@ -1,36 +1,37 @@
-from flask import Blueprint, current_app, request
+import logging
+from fastapi import APIRouter, Depends, Request
 
-from .auth import *
+from .auth import login_required, identity_verify
 from .utils import *
 
-__all__ = ['test_api']
+__all__ = ['test_router']
 
-test_api = Blueprint('test_api', __name__)
+logger = logging.getLogger(__name__)
+
+test_router = APIRouter()
 
 
-@test_api.route('/')
-@login_required
-def test(user):
+@test_router.get('')
+def test(user=Depends(login_required)):
     return HTTPResponse(user.username)
 
 
-@test_api.route('/role')
-@identity_verify(0, 1, ...)
-def role(user):
+@test_router.get('/role')
+def role(user=identity_verify(0, 1, ...)):
     return HTTPResponse(str(user.obj.role))
 
 
-@test_api.route('/log')
+@test_router.get('/log')
 def log():
-    current_app.logger.debug('this is a DEBUG log')
-    current_app.logger.info('this is a INFO log')
-    current_app.logger.warning('this is a WARNING log')
-    current_app.logger.error('this is a ERROR log')
-    current_app.logger.critical('this is a CRITICAL log')
+    logger.debug('this is a DEBUG log')
+    logger.info('this is a INFO log')
+    logger.warning('this is a WARNING log')
+    logger.error('this is a ERROR log')
+    logger.critical('this is a CRITICAL log')
     return HTTPResponse('check the log')
 
 
-@test_api.route('/header')
-def check_header():
-    current_app.logger.debug(f'{request.headers}')
+@test_router.get('/header')
+def check_header(request: Request):
+    logger.debug(f'{request.headers}')
     return HTTPResponse('ok')

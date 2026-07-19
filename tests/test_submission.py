@@ -114,7 +114,7 @@ class TestUserGetSubmission(SubmissionTester):
         rv, rv_json, rv_data = BaseTester.request(
             client,
             'get',
-            f'/submission/?offset={offset}&count={count}',
+            f'/submission?offset={offset}&count={count}',
         )
         assert rv.status_code == 200, rv_json
         assert len(rv_data['submissions']) == 1
@@ -124,7 +124,7 @@ class TestUserGetSubmission(SubmissionTester):
         rv, rv_json, rv_data = BaseTester.request(
             client,
             'get',
-            f'/submission/?offset={self.init_submission_count}&count=1',
+            f'/submission?offset={self.init_submission_count}&count=1',
         )
         assert rv.status_code == 200, rv_json
         assert len(rv_data['submissions']) == 0, rv_data
@@ -134,7 +134,7 @@ class TestUserGetSubmission(SubmissionTester):
         rv, rv_json, rv_data = BaseTester.request(
             client,
             'get',
-            '/submission/?offset=0&count=-1',
+            '/submission?offset=0&count=-1',
         )
 
         assert rv.status_code == 200, rv_json
@@ -145,7 +145,7 @@ class TestUserGetSubmission(SubmissionTester):
         rv, rv_json, rv_data = BaseTester.request(
             client,
             'get',
-            f'/submission/?offset={offset}&count=-1',
+            f'/submission?offset={offset}&count=-1',
         )
 
         assert rv.status_code == 200, rv_json
@@ -158,7 +158,7 @@ class TestUserGetSubmission(SubmissionTester):
         rv, rv_json, rv_data = BaseTester.request(
             client,
             'get',
-            f'/submission/?offset=0&count={self.init_submission_count ** 2}',
+            f'/submission?offset=0&count={self.init_submission_count ** 2}',
         )
 
         assert rv.status_code == 200, rv_json
@@ -167,7 +167,7 @@ class TestUserGetSubmission(SubmissionTester):
     def test_get_submission_without_login(self, client):
         for _id in self.submissions.values():
             rv = client.get(f'/submission/{_id}')
-            pprint(rv.get_json())
+            pprint(rv.json())
             assert rv.status_code == 403, client.cookie_jar
 
     def test_normal_user_get_others_submission(self, forge_client):
@@ -227,7 +227,7 @@ class TestUserGetSubmission(SubmissionTester):
         rv, rv_json, rv_data = BaseTester.request(
             client,
             'get',
-            f'/submission/?offset={offset}&count={count}',
+            f'/submission?offset={offset}&count={count}',
         )
         assert rv.status_code == 400
 
@@ -249,7 +249,7 @@ class TestUserGetSubmission(SubmissionTester):
         rv, rv_json, rv_data = BaseTester.request(
             client,
             'get',
-            f'/submission/?offset=0&count=-1&{key}={except_val}',
+            f'/submission?offset=0&count=-1&{key}={except_val}',
         )
 
         assert rv.status_code == 200, rv_json
@@ -266,15 +266,15 @@ class TestUserGetSubmission(SubmissionTester):
         rv, rv_json, rv_data = BaseTester.request(
             client,
             'get',
-            f'/submission/?offset=0&count=-1&course=aaa',
+            f'/submission?offset=0&count=-1&course=aaa',
         )
         # No submissions found cause "aaa" doesn't exist
-        assert rv.status_code == 200, rv.get_json()
+        assert rv.status_code == 200, rv.json()
         assert len(rv_data['submissions']) == 0
         rv, rv_json, rv_data = BaseTester.request(
             client,
             'get',
-            f'/submission/?offset=0&count=-1&course={self.courses[0]}',
+            f'/submission?offset=0&count=-1&course={self.courses[0]}',
         )
         assert rv.status_code == 200
         assert len(rv_data['submissions']) == 2
@@ -458,15 +458,15 @@ class TestCreateSubmission(SubmissionTester):
         # my submission will send to sandbox to be judged
         files = {
             'code': (
+                f'base{ext}',
                 get_source(f'base{ext}'),
-                'code',
             )
         }
         rv = client.put(
             f'/submission/{rv_data["submissionId"]}',
-            data=files,
+            files=files,
         )
-        rv_json = rv.get_json()
+        rv_json = rv.json()
         assert rv.status_code == 200, rv_json
 
     def test_user_db_submission_field_content(
@@ -507,15 +507,15 @@ class TestCreateSubmission(SubmissionTester):
         )
         files = {
             'code': (
+                'base.c',
                 get_source('base.c'),
-                'code',
             )
         }
         rv = client.put(
             f'/submission/{rv_data["submissionId"]}',
-            data=files,
+            files=files,
         )
-        rv_json = rv.get_json()
+        rv_json = rv.json()
         # file extension doesn't equal we claimed before
         assert rv.status_code == 400, rv_json
 
@@ -530,16 +530,16 @@ class TestCreateSubmission(SubmissionTester):
         )
         files = {
             'code': (
+                'main2.pdf',
                 get_source('main2.pdf'),
-                'code',
             )
         }
         print(rv_json)
         rv = client.put(
             f'/submission/{rv_data["submissionId"]}',
-            data=files,
+            files=files,
         )
-        rv_json = rv.get_json()
+        rv_json = rv.json()
         # file is not PDF
         assert rv.status_code == 400, rv_json
 
@@ -556,12 +556,12 @@ class TestCreateSubmission(SubmissionTester):
             json=self.post_payload(),
         )
 
-        files = {'code': (None, 'code')}
+        files = {'code': ('code', b'')}
         rv = client.put(
             f'/submission/{rv_data["submissionId"]}',
-            data=files,
+            files=files,
         )
-        rv_json = rv.get_json()
+        rv_json = rv.json()
 
         assert rv.status_code == 400, rv_json
 
@@ -587,10 +587,10 @@ class TestCreateSubmission(SubmissionTester):
             json=self.post_payload(),
         )
         assert rv.status_code == 200, rv_data
-        files = {'c0d3': (get_source(f'base{ext}'), 'code')}
+        files = {'c0d3': (f'base{ext}', get_source(f'base{ext}'))}
         rv = client.put(
             f'/submission/{rv_data["submissionId"]}',
-            data=files,
+            files=files,
         )
         assert rv.status_code == 400, rv_data
 
@@ -612,15 +612,15 @@ class TestCreateSubmission(SubmissionTester):
         submission_id = rv_data['submissionId']
         files = {
             'code': (
-                get_source('base.cpp'),
                 'd1w5q6dqw',
+                get_source('base.cpp'),
             )
         }
         rv, rv_json, rv_data = BaseTester.request(
             client,
             'put',
             f'/submission/{submission_id}',
-            data=files,
+            files=files,
         )
 
         assert rv.status_code == 403, rv_json
@@ -640,7 +640,7 @@ class TestCreateSubmission(SubmissionTester):
                 json=post_json,
             )
 
-            assert rv.status_code == 429, rv.get_json()
+            assert rv.status_code == 429, rv.json()
         # recover rate limit
         Submission.config().update(rate_limit=0)
 
@@ -658,17 +658,17 @@ class TestCreateSubmission(SubmissionTester):
                 '/submission',
                 json=post_json,
             )
-            assert rv.status_code == 200, (i, rv.get_json())
+            assert rv.status_code == 200, (i, rv.json())
 
         rv = client.get(f'/problem/view/{pid}')
         assert rv.status_code == 200
-        assert rv.get_json()['data']['submitCount'] == 10
+        assert rv.json()['data']['submitCount'] == 10
 
         rv = client.post(
             '/submission',
             json=post_json,
         )
-        assert rv.status_code == response, rv.get_json()
+        assert rv.status_code == response, rv.json()
 
     def test_normally_rejudge(self, forge_client, submit_once):
         submission_id = submit_once('student', self.pid, 'base.c', 0)
@@ -704,10 +704,10 @@ class TestCreateSubmission(SubmissionTester):
             client,
             'put',
             f'/submission/{submission_id}',
-            data={
+            files={
                 'code': (
-                    get_source('big.c'),
                     'aaaaa',
+                    get_source('big.c'),
                 ),
             },
         )
@@ -748,10 +748,10 @@ class TestCreateSubmission(SubmissionTester):
             client,
             'put',
             f'/submission/{submission_id}',
-            data={
+            files={
                 'code': (
-                    get_source('base.c'),
                     'code',
+                    get_source('base.c'),
                 ),
             },
         )
@@ -811,59 +811,59 @@ class TestHandwrittenSubmission(SubmissionTester):
         pdf_dir = pathlib.Path('tests/handwritten/main.pdf.zip')
         files = {
             'code': (
-                open(pdf_dir, 'rb'),
                 'code',
+                open(pdf_dir, 'rb'),
             )
         }
         rv = client_student.put(
             f'/submission/{self.submission_id}',
-            data=files,
+            files=files,
         )
-        rv_json = rv.get_json()
+        rv_json = rv.json()
         assert rv.status_code == 200, rv_json
 
         # third, read the student's upload
         rv = client_student.get(f'/submission/{self.submission_id}/pdf/upload')
-        assert rv.status_code == 200, rv.get_json()
+        assert rv.status_code == 200, rv.json()
 
         # fourth, grade the submission
         rv = client_teacher.put(
             f'/submission/{self.submission_id}/grade',
             json={'score': 87},
         )
-        assert rv.status_code == 200, rv.get_json()
+        assert rv.status_code == 200, rv.json()
 
         # fifth, send a wrong file to the submission
         pdf_dir = pathlib.Path('tests/src/base.c')
         files = {
             'comment': (
-                open(pdf_dir, 'rb'),
                 'comment',
+                open(pdf_dir, 'rb'),
             )
         }
         rv = client_teacher.put(
             f'/submission/{self.submission_id}/comment',
-            data=files,
+            files=files,
         )
-        assert rv.status_code == 400, rv.get_json()
+        assert rv.status_code == 400, rv.json()
 
         # sixth, send the comment.pdf to the submission
         pdf_dir = pathlib.Path('tests/handwritten/comment.pdf')
         files = {
             'comment': (
-                open(pdf_dir, 'rb'),
                 'comment',
+                open(pdf_dir, 'rb'),
             )
         }
         rv = client_teacher.put(
             f'/submission/{self.submission_id}/comment',
-            data=files,
+            files=files,
         )
-        assert rv.status_code == 200, rv.get_json()
+        assert rv.status_code == 200, rv.json()
 
         # seventh, get the submission info
         rv = client_student.get(f'/submission/{self.submission_id}')
-        rv_json = rv.get_json()
+        rv_json = rv.json()
         assert rv.status_code == 200, rv_json
         assert rv_json['data']['score'] == 87
 
@@ -883,24 +883,24 @@ class TestHandwrittenSubmission(SubmissionTester):
         pdf_dir = pathlib.Path('tests/handwritten/main.pdf.zip')
         files = {
             'code': (
-                open(pdf_dir, 'rb'),
                 'code',
+                open(pdf_dir, 'rb'),
             )
         }
         rv = client_student.put(
             f'/submission/{self.submission_id}',
-            data=files,
+            files=files,
         )
-        assert rv.status_code == 200, rv.get_json()
+        assert rv.status_code == 200, rv.json()
 
         # see if the student and thw teacher can get the submission
         rv = client_student.get(f'/submission?offset=0&count=-1')
-        rv_json = rv.get_json()
+        rv_json = rv.json()
         assert rv.status_code == 200, rv_json
         assert len(rv_json['data']['submissions']) == 1
 
         rv = client_teacher.get(f'/submission?offset=0&count=-1')
-        rv_json = rv.get_json()
+        rv_json = rv.json()
         assert rv.status_code == 200, rv_json
         assert len(rv_json['data']['submissions']) == 1
 
@@ -956,8 +956,8 @@ class TestHandwrittenSubmission(SubmissionTester):
             assert rv.status_code == 200, rv_json
             # check comment content
             rv = client.get(f'/submission/{submission_id}/pdf/comment')
-            assert rv.status_code == 200, rv.get_json()
-            assert rv.data == open(p, 'rb').read()
+            assert rv.status_code == 200, rv.json()
+            assert rv.content == open(p, 'rb').read()
 
     def test_comment_for_different_submissions(
         self,
@@ -990,14 +990,14 @@ class TestHandwrittenSubmission(SubmissionTester):
                 f'/submission/{submission_id}/pdf/comment',
             )
             assert rv.status_code == 200, rv_json
-            assert rv.data == open(p, 'rb').read(), p
+            assert rv.content == open(p, 'rb').read(), p
 
 
 class TestSubmissionConfig(SubmissionTester):
 
     def test_get_config(self, client_admin):
         rv = client_admin.get(f'/submission/config')
-        json = rv.get_json()
+        json = rv.json()
         assert rv.status_code == 200
 
     def test_edit_config(self, client_admin):
@@ -1013,10 +1013,10 @@ class TestSubmissionConfig(SubmissionTester):
                 }]
             },
         )
-        json = rv.get_json()
+        json = rv.json()
         assert rv.status_code == 200, json
         rv = client_admin.get(f'/submission/config')
-        json = rv.get_json()
+        json = rv.json()
         assert rv.status_code == 200, json
         assert json['data'] == {
             'rateLimit':
@@ -1037,16 +1037,15 @@ def test_student_cannot_view_WA_submission_output(forge_client, app):
             task_len=1,
         ))
     WA = 1
-    with app.app_context():
-        submission = utils.submission.create_submission(
-            user=student,
-            problem=problem,
-            status=WA,
-        )
-        utils.submission.add_fake_output(submission)
+    submission = utils.submission.create_submission(
+        user=student,
+        problem=problem,
+        status=WA,
+    )
+    utils.submission.add_fake_output(submission)
     client = forge_client(student.username)
     rv = client.get(f'/submission/{submission.id}/output/0/0')
-    assert rv.status_code == 403, rv.get_json()
+    assert rv.status_code == 403, rv.json()
 
 
 def test_student_can_view_CE_submission_output(forge_client, app):
@@ -1057,30 +1056,28 @@ def test_student_can_view_CE_submission_output(forge_client, app):
             task_len=1,
         ))
     CE = 2
-    with app.app_context():
-        submission = utils.submission.create_submission(
-            user=student,
-            problem=problem,
-            status=CE,
-        )
-        utils.submission.add_fake_output(submission)
+    submission = utils.submission.create_submission(
+        user=student,
+        problem=problem,
+        status=CE,
+    )
+    utils.submission.add_fake_output(submission)
     client = forge_client(student.username)
     rv = client.get(f'/submission/{submission.id}/output/0/0')
-    assert rv.status_code == 200, rv.get_json()
+    assert rv.status_code == 200, rv.json()
     expected = submission.get_single_output(0, 0)
-    assert expected == rv.get_json()['data']
+    assert expected == rv.json()['data']
 
 
 def test_cannot_view_output_out_of_index(app, forge_client):
-    with app.app_context():
-        user = utils.user.create_user()
-        course = utils.course.create_course()
-        problem = utils.problem.create_problem(course=course)
-        submission = utils.submission.create_submission(
-            user=user,
-            problem=problem,
-        )
+    user = utils.user.create_user()
+    course = utils.course.create_course()
+    problem = utils.problem.create_problem(course=course)
+    submission = utils.submission.create_submission(
+        user=user,
+        problem=problem,
+    )
     client = forge_client(course.teacher.username)
     rv = client.get(f'/submission/{submission.id}/output/100/100')
-    assert rv.status_code == 400, rv.get_json()
-    assert rv.get_json()['message'] == 'task not exist'
+    assert rv.status_code == 400, rv.json()
+    assert rv.json()['message'] == 'task not exist'

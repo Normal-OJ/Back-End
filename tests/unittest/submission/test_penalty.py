@@ -63,14 +63,13 @@ def test_penalty(client, app):
         markdown='',
         scoreboard_status=0,
     )
-    with app.app_context():
-        submission = utils.submission.create_submission(
-            problem=problem,
-            user=student,
-            lang=0,
-            score=100,
-        )
-        submission.finish_judging()
+    submission = utils.submission.create_submission(
+        problem=problem,
+        user=student,
+        lang=0,
+        score=100,
+    )
+    submission.finish_judging()
     assert Homework.get_by_name('Test',
                                 'test').student_status[student.username][str(
                                     problem.id)]['score'] == 80
@@ -97,22 +96,21 @@ def test_penalty2(client, app):
         markdown='',
         scoreboard_status=0,
     )
-    with app.app_context():
-        submission = utils.submission.create_submission(
-            problem=problem,
-            user=student,
-            lang=0,
-            score=50,
-            timestamp=float(int(datetime.now().timestamp()) - 86410),
-        )
-        submission.finish_judging()
-        submission = utils.submission.create_submission(
-            problem=problem,
-            user=student,
-            lang=0,
-            score=100,
-        )
-        submission.finish_judging()
+    submission = utils.submission.create_submission(
+        problem=problem,
+        user=student,
+        lang=0,
+        score=50,
+        timestamp=float(int(datetime.now().timestamp()) - 86410),
+    )
+    submission.finish_judging()
+    submission = utils.submission.create_submission(
+        problem=problem,
+        user=student,
+        lang=0,
+        score=100,
+    )
+    submission.finish_judging()
     assert Homework.get_by_name(
         'Test', 'test').student_status[student.username][str(
             problem.id)]['score'] == 85 and Homework.get_by_name(
@@ -141,14 +139,13 @@ def test_no_penalty(client, app):
         markdown='',
         scoreboard_status=0,
     )
-    with app.app_context():
-        submission = utils.submission.create_submission(
-            problem=problem,
-            user=student,
-            lang=0,
-            score=100,
-        )
-        submission.finish_judging()
+    submission = utils.submission.create_submission(
+        problem=problem,
+        user=student,
+        lang=0,
+        score=100,
+    )
+    submission.finish_judging()
     assert Homework.get_by_name('Test',
                                 'test').student_status[student.username][str(
                                     problem.id)]['score'] == 0
@@ -175,14 +172,13 @@ def test_penalty_in_time(client, app):
         markdown='',
         scoreboard_status=0,
     )
-    with app.app_context():
-        submission = utils.submission.create_submission(
-            problem=problem,
-            user=student,
-            lang=0,
-            score=100,
-        )
-        submission.finish_judging()
+    submission = utils.submission.create_submission(
+        problem=problem,
+        user=student,
+        lang=0,
+        score=100,
+    )
+    submission.finish_judging()
     assert Homework.get_by_name('Test',
                                 'test').student_status[student.username][str(
                                     problem.id)]['score'] == 100
