@@ -12,7 +12,7 @@ dynamic = ["dependencies"]
 python = "^3.11"
 mongoengine = "^0.29.1"
 blinker = "^1.5"
-PyJWT = "^2.12"
+PyJWT = "^2.13"
 mosspy = "^1.0"
 redis = "^4.4"
 # <4.9.0 to fix mongomock GridFS integration
