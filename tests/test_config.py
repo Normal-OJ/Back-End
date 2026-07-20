@@ -81,7 +81,7 @@ def test_testing_lenient_false(clean_env, value):
 def test_submission_tmp_dir_default_is_existing_dir(clean_env):
     s = Settings()
     assert os.path.isdir(s.SUBMISSION_TMP_DIR)
-    assert 'noj-submissions' in s.SUBMISSION_TMP_DIR
+    assert s.SUBMISSION_TMP_DIR.endswith('noj-submissions')
 
 
 def test_submission_tmp_dir_env_override(clean_env, tmp_path):
