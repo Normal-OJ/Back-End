@@ -1,7 +1,7 @@
 import tempfile
 from typing import Optional
 
-from pydantic import field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -38,17 +38,11 @@ class Settings(BaseSettings):
     SMTP_NOREPLY: Optional[str] = None
     SMTP_NOREPLY_PASSWORD: Optional[str] = None
 
-    SUBMISSION_TMP_DIR: str = None  # type: ignore[assignment]
-
-    @field_validator('SUBMISSION_TMP_DIR', mode='before')
-    @classmethod
-    def _default_submission_tmp_dir(cls, v):
-        # Keep a real, persistent directory. The previous
-        # ``tempfile.TemporaryDirectory(...).name`` kept no object reference, so
-        # the directory was deleted on GC. Also fixes the 'noj-submisisons' typo.
-        if v is None:
-            return tempfile.mkdtemp(suffix='noj-submissions')
-        return v
+    # Keep a real, persistent directory. The previous
+    # ``tempfile.TemporaryDirectory(...).name`` kept no object reference, so
+    # the directory was deleted on GC. Also fixes the 'noj-submisisons' typo.
+    SUBMISSION_TMP_DIR: str = Field(
+        default_factory=lambda: tempfile.mkdtemp(suffix='noj-submissions'))
 
     @field_validator('TESTING', mode='before')
     @classmethod
