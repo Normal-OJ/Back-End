@@ -306,5 +306,21 @@ def test_list_runners_returns_identity_fields(monkeypatch):
     assert 'token_hash' not in entry
 
 
+def test_list_runners_pairs_meta_with_correct_runner(monkeypatch):
+    # The batched meta fetch pairs ZSET members with pipeline results by
+    # position; each entry must keep its own name/last_seen.
+    t0 = 1_000_000.0
+    monkeypatch.setattr(runner, '_now', lambda: t0)
+    a = runner.register('runner-a', '1.1.1.1')
+    monkeypatch.setattr(runner, '_now', lambda: t0 + 60)
+    b = runner.register('runner-b', '2.2.2.2')
+
+    by_id = {entry['runner_id']: entry for entry in runner.list_runners()}
+    assert by_id[a.runner_id]['name'] == 'runner-a'
+    assert by_id[a.runner_id]['last_seen'] == t0
+    assert by_id[b.runner_id]['name'] == 'runner-b'
+    assert by_id[b.runner_id]['last_seen'] == t0 + 60
+
+
 def test_list_runners_empty():
     assert runner.list_runners() == []
