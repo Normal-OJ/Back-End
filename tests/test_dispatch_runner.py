@@ -83,6 +83,15 @@ def test_verify_registration_token_non_str_candidate_rejected(
     assert runner.verify_registration_token(candidate) is False
 
 
+def test_verify_registration_token_lone_surrogate_candidate_rejected(
+        monkeypatch):
+    # json.loads happily yields str values holding a lone UTF-16 surrogate
+    # (e.g. json.loads('"\\ud800"')), whose .encode() raises UnicodeEncodeError.
+    # An attacker-controlled candidate must fail closed (False), never a 500.
+    monkeypatch.setattr(settings, 'RUNNER_REGISTRATION_TOKEN', 'super-secret')
+    assert runner.verify_registration_token('\ud800') is False
+
+
 # --- register -----------------------------------------------------------
 
 
@@ -188,6 +197,16 @@ def test_verify_token_non_str_inputs_rejected(bad):
     reg = runner.register('r', '1.1.1.1')
     assert runner.verify_token(reg.runner_id, bad) is False
     assert runner.verify_token(bad, reg.token) is False
+
+
+def test_verify_token_lone_surrogate_inputs_rejected():
+    # json.loads can yield str holding a lone UTF-16 surrogate (e.g.
+    # json.loads('"\\ud800"')) whose .encode() raises UnicodeEncodeError;
+    # runner_id also feeds a Redis key (redis-py UTF-8 encodes it, raising too).
+    # Both token and runner_id must fail closed (False), never a 500.
+    reg = runner.register('r', '1.1.1.1')
+    assert runner.verify_token(reg.runner_id, '\ud800') is False
+    assert runner.verify_token('\ud800', reg.token) is False
 
 
 # --- lazy GC ------------------------------------------------------------

@@ -17,6 +17,9 @@ Security notes:
 - Registration verification fails closed: if the shared secret is unset/empty in
   the deployment settings (startup snapshot, ADR-0005), every candidate is
   rejected rather than accepted or crashing.
+- Verification never raises on hostile input: non-str values and lone UTF-16
+  surrogate strings (which json.loads accepts but .encode() rejects) fail closed
+  to False → 401, never a 500.
 """
 
 import hashlib
@@ -63,6 +66,20 @@ def _token_hash(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
+def _utf8(s: str) -> Optional[bytes]:
+    """UTF-8 encode ``s``, or None if it cannot be encoded (fail closed).
+
+    json.loads happily yields str values holding a lone UTF-16 surrogate (the
+    JSON literal "\\ud800" decodes to such a str), and .encode() on those raises
+    UnicodeEncodeError. Callers at the trust boundary use None to fail closed
+    instead of letting a hostile body turn into a 500.
+    """
+    try:
+        return s.encode()
+    except UnicodeEncodeError:
+        return None
+
+
 def verify_registration_token(candidate: Optional[str]) -> bool:
     """Constant-time check of a register request's shared secret. Fails closed.
 
@@ -78,8 +95,13 @@ def verify_registration_token(candidate: Optional[str]) -> bool:
     # Compare UTF-8 bytes: compare_digest accepts str only when both sides are
     # ASCII ("str (ASCII only)", hmac docs) and raises TypeError otherwise;
     # `candidate` is attacker-controlled, so str comparison could crash (500)
-    # instead of failing closed (401).
-    return hmac.compare_digest(expected.encode(), candidate.encode())
+    # instead of failing closed (401). _utf8 also fails closed on a lone-
+    # surrogate candidate whose .encode() would raise UnicodeEncodeError.
+    expected_bytes = _utf8(expected)
+    candidate_bytes = _utf8(candidate)
+    if expected_bytes is None or candidate_bytes is None:
+        return False
+    return hmac.compare_digest(expected_bytes, candidate_bytes)
 
 
 def register(name: str, ip: str) -> Registration:
@@ -128,11 +150,21 @@ def verify_token(runner_id: Optional[str], token: Optional[str]) -> bool:
         return False
     if not runner_id or not token:
         return False
+    # Fail closed before touching Redis on a lone-surrogate runner_id/token whose
+    # UTF-8 encode raises (redis-py encodes keys to UTF-8; _token_hash encodes
+    # the token) — a hostile body must 401, not 500.
+    if _utf8(runner_id) is None:
+        return False
+    token_bytes = _utf8(token)
+    if token_bytes is None:
+        return False
     stored = _redis().get(redis_keys.runner_token_hash(runner_id))
     if stored is None:
         return False
-    stored_hex = stored.decode()
-    return hmac.compare_digest(stored_hex, _token_hash(token))
+    # Compare raw bytes: no assumption the stored value decodes as UTF-8.
+    return hmac.compare_digest(
+        stored,
+        hashlib.sha256(token_bytes).hexdigest().encode())
 
 
 def list_runners() -> List[Dict]:
