@@ -120,6 +120,8 @@ def register(name: str, ip: str) -> Registration:
     ttl = params.IDENTITY_TTL_SEC
     meta_key = redis_keys.runner_meta(runner_id)
 
+    # Identity creation is deliberately all-or-nothing (MULTI/EXEC), unlike the
+    # non-transactional pipelines in _gc/list_runners.
     pipe = client.pipeline()
     pipe.zadd(redis_keys.RUNNERS_REGISTERED, {runner_id: now})
     pipe.hset(
@@ -185,10 +187,18 @@ def list_runners() -> List[Dict]:
                             -1,
                             withscores=True)
 
+    runner_ids = [
+        member.decode() if isinstance(member, bytes) else member
+        for member, _ in members
+    ]
+
+    meta_pipe = client.pipeline(transaction=False)
+    for runner_id in runner_ids:
+        meta_pipe.hgetall(redis_keys.runner_meta(runner_id))
+    raw_metas = meta_pipe.execute()
+
     runners: List[Dict] = []
-    for member, score in members:
-        runner_id = member.decode() if isinstance(member, bytes) else member
-        raw_meta = client.hgetall(redis_keys.runner_meta(runner_id))
+    for (_, score), runner_id, raw_meta in zip(members, runner_ids, raw_metas):
         meta = {
             (k.decode() if isinstance(k, bytes) else k):
             (v.decode() if isinstance(v, bytes) else v)
@@ -237,7 +247,7 @@ def _gc(now: Optional[float] = None) -> None:
     ]
 
     # Only sweep members whose token_hash has already expired (TTL fired).
-    exists_pipe = client.pipeline()
+    exists_pipe = client.pipeline(transaction=False)
     for runner_id in runner_ids:
         exists_pipe.exists(redis_keys.runner_token_hash(runner_id))
     token_hash_exists = exists_pipe.execute()
@@ -250,7 +260,7 @@ def _gc(now: Optional[float] = None) -> None:
     if not sweep:
         return
 
-    pipe = client.pipeline()
+    pipe = client.pipeline(transaction=False)
     for runner_id in sweep:
         pipe.zrem(redis_keys.RUNNERS_REGISTERED, runner_id)
         pipe.delete(redis_keys.runner_meta(runner_id))
