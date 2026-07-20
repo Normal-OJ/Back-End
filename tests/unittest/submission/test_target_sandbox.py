@@ -1,21 +1,19 @@
-import os
 import pytest
 import httpx
 from mongo import Submission
 from mongo import engine
 from tests import utils
+from config import settings
 
 
-def setup_function(_):
+@pytest.fixture(autouse=True)
+def _isolate(monkeypatch):
     utils.drop_db()
     Submission._config = None
-    os.environ['TESTING'] = '1'
-
-
-def teardown_function(_):
+    monkeypatch.setattr(settings, 'TESTING', True)
+    yield
     utils.drop_db()
     Submission._config = None
-    os.environ.pop('TESTING', None)
 
 
 def _make_client(handler):

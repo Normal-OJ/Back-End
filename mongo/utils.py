@@ -1,14 +1,12 @@
 import abc
 import hashlib
 import logging
-import os
 from functools import wraps
 from typing import Dict, Optional, Any, TYPE_CHECKING
 from minio import Minio
 import redis
+from config import settings
 from . import engine
-from . import config
-from .config import FLASK_DEBUG, MINIO_HOST, MINIO_SECRET_KEY, MINIO_ACCESS_KEY, MINIO_BUCKET, MINIO_REGION
 
 if TYPE_CHECKING:
     from .user import User  # pragma: no cover
@@ -25,13 +23,8 @@ __all__ = (
 
 
 def is_testing() -> bool:
-    '''Return True if the app is running in test mode.
-
-    Reads the ``TESTING`` environment variable and interprets ``1``, ``true``,
-    and ``yes`` (case-insensitive) as True.  Any other value — including the
-    common mistake of setting ``TESTING=false`` — is treated as False.
-    '''
-    return os.getenv('TESTING', '').lower() in ('1', 'true', 'yes')
+    '''Return True if the app is running in test mode.'''
+    return settings.TESTING
 
 
 def hash_id(salt, text):
@@ -85,8 +78,8 @@ class RedisCache(Cache):
 
     def __new__(cls) -> Any:
         if cls.POOL is None:
-            cls.HOST = os.getenv('REDIS_HOST')
-            cls.PORT = os.getenv('REDIS_PORT')
+            cls.HOST = settings.REDIS_HOST
+            cls.PORT = settings.REDIS_PORT
             cls.POOL = redis.ConnectionPool(
                 host=cls.HOST,
                 port=cls.PORT,
@@ -188,10 +181,10 @@ class MinioClient:
 
     def __init__(self):
         self.client = Minio(
-            config.MINIO_HOST,
-            access_key=config.MINIO_ACCESS_KEY,
-            secret_key=config.MINIO_SECRET_KEY,
-            secure=not config.FLASK_DEBUG,
-            region=config.MINIO_REGION,
+            settings.MINIO_HOST,
+            access_key=settings.MINIO_ACCESS_KEY,
+            secret_key=settings.MINIO_SECRET_KEY,
+            secure=not settings.DEBUG,
+            region=settings.MINIO_REGION,
         )
-        self.bucket = config.MINIO_BUCKET
+        self.bucket = settings.MINIO_BUCKET

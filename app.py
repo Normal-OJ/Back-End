@@ -1,4 +1,3 @@
-import os
 import logging
 from contextlib import asynccontextmanager
 import httpx
@@ -6,6 +5,7 @@ from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
+from config import settings
 from model import *
 from mongo import *
 
@@ -61,7 +61,14 @@ def create_app() -> FastAPI:
     app.include_router(user_options_router, prefix='/user')
 
     _seed_db()
-    setup_smtp()
+
+    logger = logging.getLogger(__name__)
+    if settings.SMTP_SERVER is None:
+        logger.info(
+            "'SMTP_SERVER' is not set. email-related function will be disabled"
+        )
+    elif settings.SMTP_NOREPLY_PASSWORD is None:
+        logger.info("'SMTP_NOREPLY' set but 'SMTP_NOREPLY_PASSWORD' not")
 
     return app
 
@@ -85,19 +92,6 @@ def _seed_db():
         )
     if not Course('Public'):
         Course.add_course('Public', 'first_admin')
-
-
-def setup_smtp():
-    logger = logging.getLogger(__name__)
-    if os.getenv('SMTP_SERVER') is None:
-        logger.info(
-            "'SMTP_SERVER' is not set. email-related function will be disabled"
-        )
-        return
-    if os.getenv('SMTP_NOREPLY') is None:
-        raise RuntimeError("missing required configuration 'SMTP_NOREPLY'")
-    if os.getenv('SMTP_NOREPLY_PASSWORD') is None:
-        logger.info("'SMTP_NOREPLY' set but 'SMTP_NOREPLY_PASSWORD' not")
 
 
 app = create_app()

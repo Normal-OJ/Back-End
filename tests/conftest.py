@@ -1,4 +1,3 @@
-import os
 from typing import Dict, List, Protocol
 from starlette.testclient import TestClient
 import httpx
@@ -16,7 +15,7 @@ from tests.base_tester import random_string
 from tests.test_problem import get_file
 from tests import utils
 from testcontainers.minio import MinioContainer
-import mongo.config
+from config import settings
 
 
 # use a tmp minio for entire test session
@@ -25,18 +24,18 @@ def setup_minio():
     with MinioContainer(
             image='quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z') as minio:
         cfg = minio.get_config()
-        mongo.config.MINIO_ACCESS_KEY = cfg['access_key']
-        mongo.config.MINIO_SECRET_KEY = cfg['secret_key']
-        mongo.config.MINIO_HOST = cfg['endpoint']
+        settings.MINIO_ACCESS_KEY = cfg['access_key']
+        settings.MINIO_SECRET_KEY = cfg['secret_key']
+        settings.MINIO_HOST = cfg['endpoint']
         # TODO: Should we override this?
-        mongo.config.FLASK_DEBUG = True
-        minio.get_client().make_bucket(mongo.config.MINIO_BUCKET)
+        settings.DEBUG = True
+        minio.get_client().make_bucket(settings.MINIO_BUCKET)
         yield
 
 
 @pytest.fixture
-def app(tmp_path):
-    os.environ['TESTING'] = '1'
+def app(tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, 'TESTING', True)
     from app import app as fastapi_app, _seed_db
     mongomock.gridfs.enable_gridfs_integration()
 

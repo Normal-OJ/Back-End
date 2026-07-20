@@ -3,8 +3,9 @@ from email.mime.text import MIMEText
 from smtplib import SMTP
 from typing import Optional, Iterable
 
-import os
 import threading
+
+from config import settings
 
 __all__ = ['send_noreply']
 
@@ -17,10 +18,9 @@ def send(
     text: str,
     html: str,
 ):
-    SMTP_SERVER = os.environ.get('SMTP_SERVER')
-    if SMTP_SERVER is None:
+    if settings.SMTP_SERVER is None:
         return
-    with SMTP(SMTP_SERVER, 587) as server:
+    with SMTP(settings.SMTP_SERVER, 587) as server:
         if password is not None:
             server.login(from_addr, password)
         msg = MIMEMultipart('alternative')
@@ -38,11 +38,9 @@ def send_noreply(
     text: str,
     html: Optional[str] = None,
 ):
-    SMTP_NOREPLY = os.environ.get('SMTP_NOREPLY')
-    SMTP_NOREPLY_PASSWORD = os.environ.get('SMTP_NOREPLY_PASSWORD')
     args = (
-        SMTP_NOREPLY,
-        SMTP_NOREPLY_PASSWORD,
+        settings.SMTP_NOREPLY,
+        settings.SMTP_NOREPLY_PASSWORD,
         to_addrs,
         subject,
         text,

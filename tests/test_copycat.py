@@ -2,6 +2,7 @@ import pathlib
 from model import *
 from mongo import engine, Problem, User
 from tests.base_tester import BaseTester
+from config import settings
 
 S_NAMES = {
     'student': 'Chika.Fujiwara',  # base.c base.py
@@ -208,7 +209,7 @@ class TestCopyCat(BaseTester):
             )
 
         monkeypatch.setattr(copycat, 'get_report_task', mock_get_report_task)
-        monkeypatch.delenv('TESTING', raising=False)
+        monkeypatch.setattr(settings, 'TESTING', False)
         pid = problem_ids("teacher", 1, True)[0]
         course = engine.Course.objects(teacher="teacher").first()
         student_dict = {

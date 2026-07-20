@@ -4,7 +4,7 @@ from tests import utils
 from model.utils.smtp import send
 from model.utils import smtp
 from unittest.mock import MagicMock
-import os
+from config import settings
 
 
 def setup_function(_):
@@ -25,7 +25,7 @@ html = "test"
 
 def test_smtp_send(monkeypatch):
 
-    os.environ['SMTP_SERVER'] = "http://mock.server"
+    monkeypatch.setattr(settings, 'SMTP_SERVER', "http://mock.server")
 
     from contextlib import contextmanager
     mock_smtp = MagicMock()
@@ -44,7 +44,7 @@ def test_smtp_send(monkeypatch):
 
 def test_smtp_send_without_server_env(monkeypatch):
 
-    del os.environ['SMTP_SERVER']
+    monkeypatch.setattr(settings, 'SMTP_SERVER', None)
 
     from contextlib import contextmanager
     mock_smtp = MagicMock()
