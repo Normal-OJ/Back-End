@@ -15,7 +15,8 @@ Security notes:
 - A missing ``token_hash`` key means the identity was revoked (or expired) →
   verification fails. This is the single revocation mechanism (ADR-0004).
 - Registration verification fails closed: if the shared secret is unset/empty in
-  the environment, every candidate is rejected rather than accepted or crashing.
+  the deployment settings (startup snapshot, ADR-0005), every candidate is
+  rejected rather than accepted or crashing.
 """
 
 import hashlib
@@ -27,8 +28,9 @@ from typing import Dict, List, Optional
 
 from ulid import ULID
 
+from config import settings
 from mongo.utils import RedisCache
-from . import config
+from . import params
 from . import redis_keys
 
 RUNNER_ID_PREFIX = 'rn_'
@@ -62,8 +64,12 @@ def _token_hash(token: str) -> str:
 
 
 def verify_registration_token(candidate: Optional[str]) -> bool:
-    """Constant-time check of a register request's shared secret. Fails closed."""
-    expected = config.registration_token()
+    """Constant-time check of a register request's shared secret. Fails closed.
+
+    The secret is a startup-snapshot deployment setting (ADR-0005): rotating
+    it takes a Back-End restart; unset/empty ⇒ registration is disabled.
+    """
+    expected = settings.RUNNER_REGISTRATION_TOKEN
     # Fail closed: no configured secret ⇒ registration is disabled, not open.
     # Reject non-str candidates too — a JSON body can carry ints/lists/bytes,
     # and .encode() below would otherwise raise instead of returning False.
@@ -89,7 +95,7 @@ def register(name: str, ip: str) -> Registration:
     token = RUNNER_TOKEN_PREFIX + secrets.token_urlsafe(32)
 
     client = _redis()
-    ttl = config.IDENTITY_TTL_SEC
+    ttl = params.IDENTITY_TTL_SEC
     meta_key = redis_keys.runner_meta(runner_id)
 
     pipe = client.pipeline()
@@ -181,7 +187,7 @@ def _gc(now: Optional[float] = None) -> None:
     """
     if now is None:
         now = _now()
-    cutoff = now - config.IDENTITY_TTL_SEC
+    cutoff = now - params.IDENTITY_TTL_SEC
 
     client = _redis()
     # Strictly older than the cutoff: '(' makes the max bound exclusive.

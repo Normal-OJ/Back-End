@@ -1,12 +1,10 @@
 import hashlib
-import os
 
 import pytest
 
+from config import settings
 from mongo.utils import RedisCache
-from dispatch import config, redis_keys, runner
-
-REG_TOKEN_ENV = 'RUNNER_REGISTRATION_TOKEN'
+from dispatch import params, redis_keys, runner
 
 
 @pytest.fixture(autouse=True, scope='session')
@@ -16,22 +14,18 @@ def setup_minio():
     yield
 
 
-def _reset():
+@pytest.fixture(autouse=True)
+def fresh_fakeredis(monkeypatch):
     # Force each test onto a fresh FakeStrictRedis: RedisCache caches its
     # connection pool on the class and dispatch caches one RedisCache instance.
+    # REDIS_PORT must be None in settings so RedisCache falls back to fakeredis.
+    monkeypatch.setattr(settings, 'REDIS_HOST', None)
+    monkeypatch.setattr(settings, 'REDIS_PORT', None)
     RedisCache.POOL = None
     runner._cache = None
-
-
-def setup_function(_):
-    # REDIS_PORT must be unset so RedisCache falls back to fakeredis.
-    os.environ.pop('REDIS_PORT', None)
-    _reset()
-
-
-def teardown_function(_):
-    _reset()
-    os.environ.pop(REG_TOKEN_ENV, None)
+    yield
+    RedisCache.POOL = None
+    runner._cache = None
 
 
 def _sha256_hex(text: str) -> str:
@@ -42,25 +36,26 @@ def _sha256_hex(text: str) -> str:
 
 
 def test_verify_registration_token_accepts_correct(monkeypatch):
-    monkeypatch.setenv(REG_TOKEN_ENV, 'super-secret')
+    monkeypatch.setattr(settings, 'RUNNER_REGISTRATION_TOKEN', 'super-secret')
     assert runner.verify_registration_token('super-secret') is True
 
 
 def test_verify_registration_token_rejects_wrong(monkeypatch):
-    monkeypatch.setenv(REG_TOKEN_ENV, 'super-secret')
+    monkeypatch.setattr(settings, 'RUNNER_REGISTRATION_TOKEN', 'super-secret')
     assert runner.verify_registration_token('nope') is False
     assert runner.verify_registration_token('') is False
     assert runner.verify_registration_token(None) is False
 
 
-def test_verify_registration_token_unset_env_always_rejected(monkeypatch):
-    monkeypatch.delenv(REG_TOKEN_ENV, raising=False)
+def test_verify_registration_token_unset_always_rejected(monkeypatch):
+    # Unset setting ⇒ registration disabled (ADR-0005), never open.
+    monkeypatch.setattr(settings, 'RUNNER_REGISTRATION_TOKEN', None)
     assert runner.verify_registration_token('anything') is False
     assert runner.verify_registration_token('') is False
 
 
-def test_verify_registration_token_empty_env_always_rejected(monkeypatch):
-    monkeypatch.setenv(REG_TOKEN_ENV, '')
+def test_verify_registration_token_empty_always_rejected(monkeypatch):
+    monkeypatch.setattr(settings, 'RUNNER_REGISTRATION_TOKEN', '')
     assert runner.verify_registration_token('') is False
     assert runner.verify_registration_token('anything') is False
 
@@ -70,12 +65,12 @@ def test_verify_registration_token_non_ascii_candidate_rejected(monkeypatch):
     # compare_digest accepts str only when both sides are ASCII ("str (ASCII
     # only)", hmac docs) and raises TypeError otherwise — hence the UTF-8
     # bytes comparison in verify_registration_token.
-    monkeypatch.setenv(REG_TOKEN_ENV, 'super-secret')
+    monkeypatch.setattr(settings, 'RUNNER_REGISTRATION_TOKEN', 'super-secret')
     assert runner.verify_registration_token('sécret-ü') is False
 
 
 def test_verify_registration_token_non_ascii_secret(monkeypatch):
-    monkeypatch.setenv(REG_TOKEN_ENV, 'sécret-ü')
+    monkeypatch.setattr(settings, 'RUNNER_REGISTRATION_TOKEN', 'sécret-ü')
     assert runner.verify_registration_token('sécret-ü') is True
     assert runner.verify_registration_token('super-secret') is False
 
@@ -84,7 +79,7 @@ def test_verify_registration_token_non_ascii_secret(monkeypatch):
 def test_verify_registration_token_non_str_candidate_rejected(
         monkeypatch, candidate):
     # JSON bodies can legally carry non-str values; must fail closed, not raise.
-    monkeypatch.setenv(REG_TOKEN_ENV, 'super-secret')
+    monkeypatch.setattr(settings, 'RUNNER_REGISTRATION_TOKEN', 'super-secret')
     assert runner.verify_registration_token(candidate) is False
 
 
@@ -117,7 +112,7 @@ def test_register_creates_zset_meta_and_token_hash(monkeypatch):
     assert reg.token not in stored.decode()
 
     # 7d TTLs on meta and token_hash
-    ttl = config.IDENTITY_TTL_SEC
+    ttl = params.IDENTITY_TTL_SEC
     assert ttl - 5 <= client.ttl(redis_keys.runner_meta(reg.runner_id)) <= ttl
     assert ttl - 5 <= client.ttl(redis_keys.runner_token_hash(
         reg.runner_id)) <= ttl

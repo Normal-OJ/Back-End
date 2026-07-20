@@ -38,6 +38,11 @@ class Settings(BaseSettings):
     SMTP_NOREPLY: Optional[str] = None
     SMTP_NOREPLY_PASSWORD: Optional[str] = None
 
+    # Shared secret runners present when registering (spec §7.1). Unset/empty
+    # ⇒ registration is disabled, fail closed. Startup snapshot: rotating it
+    # takes a restart; per-runner revocation stays immediate (ADR-0005).
+    RUNNER_REGISTRATION_TOKEN: Optional[str] = None
+
     SUBMISSION_TMP_DIR: str = Field(
         default_factory=lambda: tempfile.mkdtemp(suffix='noj-submissions'))
 
