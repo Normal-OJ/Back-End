@@ -40,6 +40,9 @@ fakeredis = "^1.9"
 toml = "^0.10"
 pytest-cov = "^3.0"
 testcontainers = {extras = ["minio"], version = "^4.10.0"}
+coverage-badge = "^1.1.2"
+# coverage-badge imports pkg_resources, removed in setuptools 82
+setuptools = "<82"
 
 [build-system]
 requires = ["poetry-core"]
