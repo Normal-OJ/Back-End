@@ -2,7 +2,7 @@ import pytest
 from mongo.utils import RedisCache, redis, doc_required
 from mongo import Course
 from unittest.mock import MagicMock
-import os
+from config import settings
 
 
 def setup_function(_):
@@ -14,13 +14,12 @@ def teardown_function(_):
 
 
 def test_create_redis_cache_without_port(monkeypatch):
-    os.environ['REDIS_PORT'] = '6379'
+    monkeypatch.setattr(settings, 'REDIS_PORT', 6379)
     rc = RedisCache()
     mock_redis = MagicMock(return_value='mock_redis')
     monkeypatch.setattr(redis, 'Redis', mock_redis)
     assert rc.client == "mock_redis"
     mock_redis.assert_called_once_with(connection_pool=rc.POOL)
-    del os.environ['REDIS_PORT']
 
 
 def test_doc_required_no_src():
@@ -62,8 +61,7 @@ def test_doc_required_replace_des(caplog, app):
     def add(course):
         pass
 
-    with app.app_context():
-        add(course_name=None, course="Will Be Replaced")
+    add(course_name=None, course="Will Be Replaced")
 
     assert "WARNING" in caplog.text
     assert "replace a existed argument" in caplog.text

@@ -22,10 +22,10 @@ class TestRanking(BaseTester):
                              'problemId': pid,
                              'languageType': 0
                          })
-        print(rv.get_json())
+        print(rv.json())
 
         rv = client.get('/ranking')
-        json = rv.get_json()
+        json = rv.json()
         assert json['message'] == 'Success.'
         assert rv.status_code == 200
         '''

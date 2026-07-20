@@ -3,13 +3,13 @@ from datetime import datetime, timedelta
 from hmac import compare_digest
 from typing import Any, Dict, List, TYPE_CHECKING, Optional
 
+from config import settings
 from . import engine, course
 from .utils import *
 from .base import *
 
 import hashlib
 import jwt
-import os
 import re
 
 if TYPE_CHECKING:
@@ -17,9 +17,9 @@ if TYPE_CHECKING:
 
 __all__ = ['User', 'jwt_decode']
 
-JWT_EXP = timedelta(days=int(os.environ.get('JWT_EXP', '30')))
-JWT_ISS = os.environ.get('JWT_ISS', 'test.test')
-JWT_SECRET = os.environ.get('JWT_SECRET', 'SuperSecretString')
+JWT_EXP = timedelta(days=settings.JWT_EXP)
+JWT_ISS = settings.JWT_ISS
+JWT_SECRET = settings.JWT_SECRET
 
 
 class User(MongoBase, engine=engine.User):

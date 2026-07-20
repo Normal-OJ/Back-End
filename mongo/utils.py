@@ -1,14 +1,12 @@
 import abc
 import hashlib
-import os
+import logging
 from functools import wraps
 from typing import Dict, Optional, Any, TYPE_CHECKING
-from flask import current_app
 from minio import Minio
 import redis
+from config import settings
 from . import engine
-from . import config
-from .config import FLASK_DEBUG, MINIO_HOST, MINIO_SECRET_KEY, MINIO_ACCESS_KEY, MINIO_BUCKET
 
 if TYPE_CHECKING:
     from .user import User  # pragma: no cover
@@ -16,11 +14,17 @@ if TYPE_CHECKING:
 
 __all__ = (
     'hash_id',
+    'is_testing',
     'perm',
     'RedisCache',
     'doc_required',
     'drop_none',
 )
+
+
+def is_testing() -> bool:
+    '''Return True if the app is running in test mode.'''
+    return settings.TESTING
 
 
 def hash_id(salt, text):
@@ -74,8 +78,8 @@ class RedisCache(Cache):
 
     def __new__(cls) -> Any:
         if cls.POOL is None:
-            cls.HOST = os.getenv('REDIS_HOST')
-            cls.PORT = os.getenv('REDIS_PORT')
+            cls.HOST = settings.REDIS_HOST
+            cls.PORT = settings.REDIS_PORT
             cls.POOL = redis.ConnectionPool(
                 host=cls.HOST,
                 port=cls.PORT,
@@ -159,7 +163,7 @@ def doc_required(
             # replace original paramters
             del ks[src]
             if des in ks:
-                current_app.logger.warning(
+                logging.getLogger(__name__).warning(
                     f'replace a existed argument in {func}')
             ks[des] = doc
             return func(*args, **ks)
@@ -177,9 +181,10 @@ class MinioClient:
 
     def __init__(self):
         self.client = Minio(
-            config.MINIO_HOST,
-            access_key=config.MINIO_ACCESS_KEY,
-            secret_key=config.MINIO_SECRET_KEY,
-            secure=not config.FLASK_DEBUG,
+            settings.MINIO_HOST,
+            access_key=settings.MINIO_ACCESS_KEY,
+            secret_key=settings.MINIO_SECRET_KEY,
+            secure=not settings.DEBUG,
+            region=settings.MINIO_REGION,
         )
-        self.bucket = config.MINIO_BUCKET
+        self.bucket = settings.MINIO_BUCKET

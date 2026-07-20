@@ -1,4 +1,3 @@
-from flask import current_app
 from . import engine
 from mongoengine.errors import *
 import logging
@@ -58,7 +57,4 @@ class MongoBase:
 
     @property
     def logger(self):
-        try:
-            return current_app.logger
-        except RuntimeError:
-            return logging.getLogger('gunicorn.error')
+        return logging.getLogger(__name__)

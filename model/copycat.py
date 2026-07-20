@@ -1,37 +1,37 @@
+import os
+import re
+import logging
+import threading
 from typing import Dict
-from flask import Blueprint, request, current_app
+import httpx
+import mosspy
+from fastapi import APIRouter, Depends
+
 from mongo import *
 from mongo.utils import *
 from .utils import *
-from .auth import *
+from .auth import login_required
 from .schemas import GetReportQuery, DetectBody
 
-import mosspy
-import threading
-import logging
-import requests
-import re
+__all__ = ['copycat_router']
 
-__all__ = ['copycat_api']
-
-copycat_api = Blueprint('copycat_api', __name__)
+copycat_router = APIRouter()
 
 
 def is_valid_url(url):
-    import re
     regex = re.compile(
-        r'^https?://'  # http:// or https://
-        r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|'  # domain...
-        r'localhost|'  # localhost...
-        r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'  # ...or ip
-        r'(?::\d+)?'  # optional port
+        r'^https?://'
+        r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|'
+        r'localhost|'
+        r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'
+        r'(?::\d+)?'
         r'(?:/?|[/?]\S+)$',
-        re.IGNORECASE)
+        re.IGNORECASE,
+    )
     return url is not None and regex.search(url)
 
 
 def get_report_task(user, problem_id, student_dict: Dict):
-    # select all ac code
     submissions = Submission.filter(
         user=user,
         offset=0,
@@ -45,33 +45,27 @@ def get_report_task(user, problem_id, student_dict: Dict):
     for submission in submissions:
         s = Submission(submission.id)
         if s.user.username in student_dict:
-            if s.language in [0, 1] \
-                and s.user.username not in last_cc_submission:
+            if s.language in [0, 1
+                              ] and s.user.username not in last_cc_submission:
                 last_cc_submission[
                     submission.user.username] = s.main_code_path()
-            elif s.language in [2] \
-                and s.user.username not in last_python_submission:
+            elif s.language in [
+                    2
+            ] and s.user.username not in last_python_submission:
                 last_python_submission[
                     submission.user.username] = s.main_code_path()
 
     moss_userid = 97089070
-
-    # get logger
-    logger = logging.getLogger('guincorn.error')
-
-    # Get problem object
+    logger = logging.getLogger(__name__)
     problem = Problem(problem_id)
 
     cpp_report_url = ''
     python_report_url = ''
-    # check for c or cpp code
     if problem.allowed_language != 4:
         m1 = mosspy.Moss(moss_userid, "cc")
-
         for user, code_path in last_cc_submission.items():
             logger.info(f'send {user} {code_path}')
             m1.addFile(code_path)
-
         response = m1.send()
         if is_valid_url(response):
             cpp_report_url = response
@@ -79,14 +73,11 @@ def get_report_task(user, problem_id, student_dict: Dict):
             logger.info(f"[copycat] {response}")
             cpp_report_url = ''
 
-    # check for python code
     if problem.allowed_language >= 4:
         m2 = mosspy.Moss(moss_userid, "python")
-
         for user, code_path in last_python_submission.items():
             logger.info(f'send {user} {code_path}')
             m2.addFile(code_path)
-
         response = m2.send()
         if is_valid_url(response):
             python_report_url = response
@@ -94,7 +85,6 @@ def get_report_task(user, problem_id, student_dict: Dict):
             logger.info(f"[copycat] {response}")
             python_report_url = ''
 
-    # download report from moss
     if cpp_report_url != '':
         mosspy.download_report(
             cpp_report_url,
@@ -110,7 +100,6 @@ def get_report_task(user, problem_id, student_dict: Dict):
             log_level=10,
         )
 
-    # insert report url into DB & update status
     problem.obj.update(
         cpp_report_url=cpp_report_url,
         python_report_url=python_report_url,
@@ -120,28 +109,23 @@ def get_report_task(user, problem_id, student_dict: Dict):
 
 def get_report_by_url(url: str):
     try:
-        response = requests.get(url)
+        response = httpx.get(url)
         return response.text
-    except (requests.exceptions.MissingSchema,
-            requests.exceptions.InvalidSchema):
+    except httpx.InvalidURL:
         return 'No report.'
 
 
-@copycat_api.get('/')
-@login_required
-@parse_query(GetReportQuery)
-def get_report(user, query: GetReportQuery):
+@copycat_router.get('')
+def get_report(query: GetReportQuery = Depends(),
+               user=Depends(login_required)):
     course = query.course
     problem_id = query.problem_id
     if not (problem_id and course):
         return HTTPError(
             'missing arguments! (In HTTP GET argument format)',
             400,
-            data={
-                'need': ['course', 'problemId'],
-            },
+            data={'need': ['course', 'problemId']},
         )
-    # some privilege or exist check
     try:
         problem = Problem(int(problem_id))
     except ValueError:
@@ -178,10 +162,8 @@ def get_report(user, query: GetReportQuery):
         )
 
 
-@copycat_api.post('/')
-@login_required
-@parse_body(DetectBody)
-def detect(user, body: DetectBody):
+@copycat_router.post('')
+def detect(body: DetectBody, user=Depends(login_required)):
     course = body.course
     problem_id = body.problem_id
     student_nicknames = body.student_nicknames
@@ -189,24 +171,19 @@ def detect(user, body: DetectBody):
         return HTTPError(
             'missing arguments! (In Json format)',
             400,
-            data={
-                'need': ['course', 'problemId', 'studentNicknames'],
-            },
+            data={'need': ['course', 'problemId', 'studentNicknames']},
         )
 
     course = Course(course)
     problem = Problem(problem_id)
 
-    # Check if student is in course
     student_dict = {}
     for student, nickname in student_nicknames.items():
         if not User(student):
             return HTTPResponse(f'User: {student} not found.', 404)
         student_dict[student] = nickname
-    # Check student_dict
     if not student_dict:
         return HTTPResponse('Empty student list.', 404)
-    # some privilege or exist check
     if not course.permission(user, Course.Permission.GRADE):
         return HTTPError('Forbidden.', 403)
     if not problem:
@@ -215,20 +192,11 @@ def detect(user, body: DetectBody):
         return HTTPError('Course not found.', 404)
 
     problem = Problem(problem_id)
-    problem.update(
-        cpp_report_url="",
-        python_report_url="",
-        moss_status=1,
-    )
-    if not current_app.config['TESTING']:
+    problem.update(cpp_report_url="", python_report_url="", moss_status=1)
+    if not is_testing():
         threading.Thread(
             target=get_report_task,
-            args=(
-                user,
-                problem_id,
-                student_dict,
-            ),
+            args=(user, problem_id, student_dict),
         ).start()
 
-    # return Success
     return HTTPResponse('Success.')

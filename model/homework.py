@@ -1,22 +1,20 @@
-from flask import Blueprint
+from fastapi import APIRouter, Depends
 from mongo import *
 from mongo import engine
 from .utils import *
 from .auth import login_required
-from .course import course_api
+from .course import course_router
 from .schemas import CreateHomeworkBody, UpdateHomeworkBody, PatchIpFiltersBody
 
-__all__ = ['homework_api']
+__all__ = ['homework_router']
 
-homework_api = Blueprint('homework_api', __name__)
+homework_router = APIRouter()
 
 
-@homework_api.post('/')
-@login_required
-@parse_body(CreateHomeworkBody)
-def create_homework(user, body: CreateHomeworkBody):
+@homework_router.post('')
+def create_homework(body: CreateHomeworkBody, user=Depends(login_required)):
     try:
-        homework = Homework.add(
+        Homework.add(
             user=user,
             hw_name=body.name,
             markdown=body.markdown,
@@ -38,9 +36,8 @@ def create_homework(user, body: CreateHomeworkBody):
     return HTTPResponse('Add homework Success')
 
 
-@homework_api.get('/<homework_id>')
-@login_required
-def get_homework(user, homework_id):
+@homework_router.get('/{homework_id}')
+def get_homework(homework_id: str, user=Depends(login_required)):
     try:
         homework = Homework.get_by_id(homework_id)
         ret = {
@@ -54,9 +51,8 @@ def get_homework(user, homework_id):
             homework.problem_ids,
             'markdown':
             homework.markdown,
-            'studentStatus':
-            homework.student_status
-            if user.role < 2 else homework.student_status.get(user.username),
+            'studentStatus': (homework.student_status if user.role < 2 else
+                              homework.student_status.get(user.username)),
             'penalty':
             homework.penalty if hasattr(homework, 'penalty') else None,
         }
@@ -67,12 +63,12 @@ def get_homework(user, homework_id):
     return HTTPResponse('get homework', data=ret)
 
 
-@homework_api.put('/<homework_id>')
-@login_required
-@parse_body(UpdateHomeworkBody)
-def update_homework(user, homework_id, body: UpdateHomeworkBody):
+@homework_router.put('/{homework_id}')
+def update_homework(homework_id: str,
+                    body: UpdateHomeworkBody,
+                    user=Depends(login_required)):
     try:
-        homework = Homework.update(
+        Homework.update(
             user=user,
             homework_id=homework_id,
             markdown=body.markdown,
@@ -90,13 +86,11 @@ def update_homework(user, homework_id, body: UpdateHomeworkBody):
     return HTTPResponse('Update homework Success')
 
 
-@homework_api.delete('/<homework_id>')
-@login_required
-def delete_homework(user, homework_id):
+@homework_router.delete('/{homework_id}')
+def delete_homework(homework_id: str, user=Depends(login_required)):
     try:
         homework = Homework(homework_id)
-        homework = homework.delete_problems(user=user,
-                                            course=homework.course_id)
+        homework.delete_problems(user=user, course=homework.course_id)
     except engine.DoesNotExist as e:
         return HTTPError(str(e), 404)
     except (PermissionError, engine.NotUniqueError) as e:
@@ -104,12 +98,9 @@ def delete_homework(user, homework_id):
     return HTTPResponse('Delete homework Success')
 
 
-@course_api.route('/<course_name>/homework', methods=['GET'])
-@login_required
-def get_homework_list(user, course_name):
-    '''
-    get a list of homework
-    '''
+@course_router.get('/{course_name}/homework')
+def get_homework_list(course_name: str, user=Depends(login_required)):
+    '''Get a list of homework for a course.'''
     try:
         homeworks = Homework.get_homeworks(course_name=course_name)
         data = []
@@ -120,16 +111,13 @@ def get_homework_list(user, course_name):
                 'end': int(homework.duration.end.timestamp()),
                 'problemIds': homework.problem_ids,
                 'markdown': homework.markdown,
-                'id': str(homework.id)
+                'id': str(homework.id),
             }
-            # normal user can not view other's status
             if user.role < 2:
-                new.update({'studentStatus': homework.student_status})
+                new['studentStatus'] = homework.student_status
             else:
-                new.update({
-                    'studentStatus':
-                    homework.student_status.get(user.username)
-                })
+                new['studentStatus'] = homework.student_status.get(
+                    user.username)
             data.append(new)
     except DoesNotExist:
         return HTTPError('course not exists',
@@ -138,13 +126,10 @@ def get_homework_list(user, course_name):
     return HTTPResponse('get homeworks', data=data)
 
 
-@homework_api.route('/<course>/<homework_name>/ip-filters', methods=['GET'])
-@login_required
-def get_ip_filters(
-    user,
-    course: str,
-    homework_name: str,
-):
+@homework_router.get('/{course}/{homework_name}/ip-filters')
+def get_ip_filters(course: str,
+                   homework_name: str,
+                   user=Depends(login_required)):
     if user.role != 0:
         return HTTPError('Not admin!', 403)
     try:
@@ -154,14 +139,12 @@ def get_ip_filters(
     return HTTPResponse(data={'ipFilters': hw.ip_filters})
 
 
-@homework_api.route('/<course>/<homework_name>/ip-filters', methods=['PATCH'])
-@login_required
-@parse_body(PatchIpFiltersBody)
+@homework_router.patch('/{course}/{homework_name}/ip-filters')
 def patch_ip_filters(
-    user,
-    course: str,
-    homework_name: str,
-    body: PatchIpFiltersBody,
+        course: str,
+        homework_name: str,
+        body: PatchIpFiltersBody,
+        user=Depends(login_required),
 ):
     if user.role != 0:
         return HTTPError('Not admin!', 403)
@@ -182,12 +165,10 @@ def patch_ip_filters(
             adds.append(value)
         else:
             dels.append(value)
-        # Validate filter format
         try:
             IPFilter(value)
         except ValueError as e:
             return HTTPError(str(e), 400)
-
     hw.update(push_all__ip_filters=adds)
     hw.update(pull_all__ip_filters=dels)
     return HTTPResponse()

@@ -1,11 +1,12 @@
 # Standard library
-from functools import wraps
 from random import SystemRandom
 from typing import Optional
 import csv
 import io
+import logging
 # Related third party imports
-from flask import Blueprint, request, current_app, url_for
+from fastapi import APIRouter, Cookie, Depends, Request
+from .utils.request import get_ip
 # Local application
 from mongo import *
 from mongo import engine
@@ -28,13 +29,15 @@ from .schemas import (
 import string
 
 __all__ = (
-    'auth_api',
+    'auth_router',
     'login_required',
     'identity_verify',
     'get_verify_link',
 )
 
-auth_api = Blueprint('auth_api', __name__)
+logger = logging.getLogger(__name__)
+
+auth_router = APIRouter()
 
 VERIFY_TEXT = '''\
 Welcome! you've signed up successfully!
@@ -47,83 +50,53 @@ VERIFY_HTML = '''\
 '''
 
 
-def login_required(func):
-    '''Check if the user is login
+def login_required(piann: str | None = Cookie(default=None)) -> User:
+    '''Check if the user is logged in.
 
-    Returns:
-        - A wrapped function
+    Raises:
         - 403 Not Logged In
         - 403 Invalid Token
+        - 403 Authorization Expired
         - 403 Inactive User
     '''
-
-    @wraps(func)
-    @Request.cookies(vars_dict={'token': 'piann'})
-    def wrapper(token, *args, **kwargs):
-        if token is None:
-            return HTTPError('Not Logged In', 403)
-        json = jwt_decode(token)
-        if json is None or not json.get('secret'):
-            return HTTPError('Invalid Token', 403)
-        user = User(json['data']['username'])
-        if json['data'].get('userId') != user.user_id:
-            return HTTPError('Authorization Expired', 403)
-        if not user.active:
-            return HTTPError('Inactive User', 403)
-        kwargs['user'] = user
-        return func(*args, **kwargs)
-
-    return wrapper
+    if piann is None:
+        raise NOJException('Not Logged In', 403)
+    json = jwt_decode(piann)
+    if json is None or not json.get('secret'):
+        raise NOJException('Invalid Token', 403)
+    user = User(json['data']['username'])
+    if json['data'].get('userId') != user.user_id:
+        raise NOJException('Authorization Expired', 403)
+    if not user.active:
+        raise NOJException('Inactive User', 403)
+    return user
 
 
 def identity_verify(*roles):
-    '''Verify a logged in user's identity
+    '''Verify a logged-in user's identity against allowed roles.'''
 
-    You can find an example in `model/test.py`
-    '''
+    def dependency(user: User = Depends(login_required)) -> User:
+        if user.role not in roles:
+            raise NOJException('Insufficient Permissions', 403)
+        return user
 
-    def verify(func):
-
-        @wraps(func)
-        @login_required
-        def wrapper(user, *args, **kwargs):
-            if user.role not in roles:
-                return HTTPError('Insufficient Permissions', 403)
-            kwargs['user'] = user
-            return func(*args, **kwargs)
-
-        return wrapper
-
-    return verify
+    return Depends(dependency)
 
 
-def get_verify_link(user: User) -> str:
-    return url_for(
-        'auth_api.active_redirect',
-        _external=True,
-        token=user.cookie,
-    )
+def get_verify_link(user: User, request: Request) -> str:
+    return str(request.url_for('active_redirect', token=user.cookie))
 
 
-@auth_api.get('/session')
+@auth_router.get('/session')
 def logout():
-    '''Logout a user.
-    Returns:
-        - 200 Logout Success
-    '''
+    '''Logout a user.'''
     cookies = {'jwt': None, 'piann': None}
     return HTTPResponse('Goodbye', cookies=cookies)
 
 
-@auth_api.post('/session')
-@parse_body(LoginBody)
-def login(body: LoginBody):
-    '''Login a user.
-    Returns:
-        - 400 Incomplete Data
-        - 403 Login Failed
-    '''
-    ip_addr = request.headers.get('cf-connecting-ip', request.remote_addr)
+@auth_router.post('/session')
+def login(body: LoginBody, ip_addr: str = Depends(get_ip)):
+    '''Login a user.'''
     try:
         user = User.login(body.username, body.password, ip_addr)
     except DoesNotExist:
@@ -134,9 +107,8 @@ def login(body: LoginBody):
     return HTTPResponse('Login Success', cookies=cookies)
 
 
-@auth_api.post('/signup')
-@parse_body(SignupBody)
-def signup(body: SignupBody):
+@auth_router.post('/signup')
+def signup(body: SignupBody, request: Request):
     try:
         user = User.signup(body.username, body.password, body.email)
     except ValidationError as ve:
@@ -145,18 +117,19 @@ def signup(body: SignupBody):
         return HTTPError('User Exists', 400)
     except ValueError:
         return HTTPError('Not Allowed Name', 400)
-    verify_link = get_verify_link(user)
+    verify_link = get_verify_link(user, request)
     text = VERIFY_TEXT.format(url=verify_link)
     html = VERIFY_HTML.format(url=verify_link)
     send_noreply([body.email], '[N-OJ] Varify Your Email', text, html)
     return HTTPResponse('Signup Success')
 
 
-@auth_api.post('/change-password')
-@login_required
-@parse_body(ChangePasswordBody)
-def change_password(user, body: ChangePasswordBody):
-    ip_addr = request.headers.get('cf-connecting-ip', request.remote_addr)
+@auth_router.post('/change-password')
+def change_password(
+        body: ChangePasswordBody,
+        user: User = Depends(login_required),
+        ip_addr: str = Depends(get_ip),
+):
     try:
         User.login(user.username, body.old_password, ip_addr)
     except DoesNotExist:
@@ -166,49 +139,45 @@ def change_password(user, body: ChangePasswordBody):
     return HTTPResponse('Password Has Been Changed', cookies=cookies)
 
 
-@auth_api.post('/check/<item>')
-def check(item):
-    '''Checking when the user is registing.
-    '''
-
-    @parse_body(CheckUsernameBody)
-    def check_username(body: CheckUsernameBody):
-        try:
-            User.get_by_username(body.username)
-        except DoesNotExist:
-            return HTTPResponse('Username Can Be Used', data={'valid': 1})
-        return HTTPResponse('User Exists', data={'valid': 0})
-
-    @parse_body(CheckEmailBody)
-    def check_email(body: CheckEmailBody):
-        try:
-            User.get_by_email(body.email)
-        except DoesNotExist:
-            return HTTPResponse('Email Can Be Used', data={'valid': 1})
-        return HTTPResponse('Email Has Been Used', data={'valid': 0})
-
-    method = {'username': check_username, 'email': check_email}.get(item)
-    return method() if method else HTTPError('Ivalid Checking Type', 400)
+@auth_router.post('/check/username')
+def check_username(body: CheckUsernameBody):
+    try:
+        User.get_by_username(body.username)
+    except DoesNotExist:
+        return HTTPResponse('Username Can Be Used', data={'valid': 1})
+    return HTTPResponse('User Exists', data={'valid': 0})
 
 
-@auth_api.post('/resend-email')
-@parse_body(ResendEmailBody)
-def resend_email(body: ResendEmailBody):
+@auth_router.post('/check/email')
+def check_email(body: CheckEmailBody):
+    try:
+        User.get_by_email(body.email)
+    except DoesNotExist:
+        return HTTPResponse('Email Can Be Used', data={'valid': 1})
+    return HTTPResponse('Email Has Been Used', data={'valid': 0})
+
+
+@auth_router.post('/check/{item}')
+def check_invalid(item: str):
+    return HTTPError('Ivalid Checking Type', 400)
+
+
+@auth_router.post('/resend-email')
+def resend_email(body: ResendEmailBody, request: Request):
     try:
         user = User.get_by_email(body.email)
     except DoesNotExist:
         return HTTPError('User Not Exists', 400)
     if user.active:
         return HTTPError('User Has Been Actived', 400)
-    verify_link = get_verify_link(user)
+    verify_link = get_verify_link(user, request)
     send_noreply([body.email], '[N-OJ] Varify Your Email', verify_link)
     return HTTPResponse('Email Has Been Resent')
 
 
-@auth_api.get('/active/<token>')
-def active_redirect(token):
-    '''Redirect user to active page.
-    '''
+@auth_router.get('/active/{token}', name='active_redirect')
+def active_redirect(token: str):
+    '''Redirect user to active page.'''
     json = jwt_decode(token)
     if json is None:
         return HTTPError('Invalid Token', 403)
@@ -217,15 +186,15 @@ def active_redirect(token):
     return HTTPRedirect('/email_verify', cookies=cookies)
 
 
-@auth_api.post('/active')
-@parse_body(ActivateUserBody)
-@Request.cookies(vars_dict={'token': 'piann'})
-def activate_user(body: ActivateUserBody, token):
-    '''User: active: false -> true
-    '''
+@auth_router.post('/active')
+def activate_user(
+        body: ActivateUserBody,
+        piann: str | None = Cookie(default=None),
+):
+    '''User: active: false -> true'''
     if body.agreement is not True:
         return HTTPError('Not Confirm the Agreement', 403)
-    json = jwt_decode(token)
+    json = jwt_decode(piann)
     if json is None or not json.get('secret'):
         return HTTPError('Invalid Token.', 403)
     user = User(json['data']['username'])
@@ -241,8 +210,7 @@ def activate_user(body: ActivateUserBody, token):
     return HTTPResponse('User Is Now Active', cookies=cookies)
 
 
-@auth_api.post('/password-recovery')
-@parse_body(PasswordRecoveryBody)
+@auth_router.post('/password-recovery')
 def password_recovery(body: PasswordRecoveryBody):
     email = body.email
     try:
@@ -261,14 +229,12 @@ def password_recovery(body: PasswordRecoveryBody):
     return HTTPResponse('Recovery Email Has Been Sent')
 
 
-@auth_api.post('/user')
-@parse_body(AuthAddUserBody)
-@identity_verify(0)
-def add_user(user, body: AuthAddUserBody):
-    '''
-    Directly add a user without activation required.
-    This operation only allow admin to use.
-    '''
+@auth_router.post('/user')
+def add_user(
+        body: AuthAddUserBody,
+        user: User = identity_verify(0),
+):
+    '''Directly add a user without activation. Admin only.'''
     try:
         User.signup(
             body.username,
@@ -284,10 +250,11 @@ def add_user(user, body: AuthAddUserBody):
     return HTTPResponse()
 
 
-@auth_api.post('/batch-signup')
-@parse_body(BatchSignupBody)
-@identity_verify(0)
-def batch_signup(user, body: BatchSignupBody):
+@auth_router.post('/batch-signup')
+def batch_signup(
+        body: BatchSignupBody,
+        user: User = identity_verify(0),
+):
     course = None
     if body.course is not None:
         try:
@@ -299,7 +266,7 @@ def batch_signup(user, body: BatchSignupBody):
     try:
         new_users = [*csv.DictReader(io.StringIO(body.new_users))]
     except csv.Error as e:
-        current_app.logger.info(f'Error parse csv file [err={e}]')
+        logger.info(f'Error parse csv file [err={e}]')
         return HTTPError('Invalid file content', 400)
     force = body.force if body.force is not None else False
     try:
@@ -313,10 +280,11 @@ def batch_signup(user, body: BatchSignupBody):
     return HTTPResponse()
 
 
-@auth_api.get('/me')
-@parse_query(GetMeQuery)
-@login_required
-def get_me(user: User, query: GetMeQuery):
+@auth_router.get('/me')
+def get_me(
+        query: GetMeQuery = Depends(),
+        user: User = Depends(login_required),
+):
     fields = query.fields
     default = [
         'username',

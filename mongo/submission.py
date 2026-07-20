@@ -13,23 +13,22 @@ from typing import (
     TypedDict,
 )
 import enum
-import tempfile
-import requests as rq
+import httpx
 from hashlib import md5
 from bson.son import SON
-from flask import current_app
 from tempfile import NamedTemporaryFile
 from datetime import date, datetime
 from zipfile import ZipFile, is_zipfile
 from ulid import ULID
 
+from config import settings
 from . import engine
 from .base import MongoBase
 from .user import User
 from .problem import Problem
 from .homework import Homework
 from .course import Course
-from .utils import RedisCache, MinioClient
+from .utils import RedisCache, MinioClient, is_testing
 
 __all__ = [
     'SubmissionConfig',
@@ -84,11 +83,7 @@ class SubmissionResultOutput(TypedDict):
 
 
 class SubmissionConfig(MongoBase, engine=engine.SubmissionConfig):
-    TMP_DIR = pathlib.Path(
-        os.getenv(
-            'SUBMISSION_TMP_DIR',
-            tempfile.TemporaryDirectory(suffix='noj-submisisons').name,
-        ), )
+    TMP_DIR = pathlib.Path(settings.SUBMISSION_TMP_DIR)
 
     def __init__(self, name: str):
         self.name = name
@@ -289,12 +284,14 @@ class Submission(MongoBase, engine=engine.Submission):
                 f'body: {resp.text}', )
             return False
 
-    def target_sandbox(self):
+    def target_sandbox(self, client: httpx.Client | None = None):
+        if client is None:
+            client = httpx.Client(timeout=5.0)
         load = 10**3  # current min load
         tar = None  # target
         for sb in self.config().sandbox_instances:
-            resp = rq.get(f'{sb.url}/status')
-            if not resp.ok:
+            resp = client.get(f'{sb.url}/status')
+            if not resp.is_success:
                 self.logger.warning(f'sandbox {sb.name} status exception')
                 self.logger.warning(
                     f'status code: {resp.status_code}\n '
@@ -343,7 +340,7 @@ class Submission(MongoBase, engine=engine.Submission):
         file.seek(0)
         return None
 
-    def rejudge(self) -> bool:
+    def rejudge(self, client: httpx.Client | None = None) -> bool:
         '''
         rejudge this submission
         '''
@@ -355,9 +352,9 @@ class Submission(MongoBase, engine=engine.Submission):
             last_send=datetime.now(),
             tasks=[],
         )
-        if current_app.config['TESTING']:
+        if is_testing():
             return True
-        return self.send()
+        return self.send(client=client)
 
     def _generate_code_minio_path(self):
         return f'submissions/{self.id}_{ULID()}.zip'
@@ -381,7 +378,7 @@ class Submission(MongoBase, engine=engine.Submission):
         )
         return path
 
-    def submit(self, code_file) -> bool:
+    def submit(self, code_file, client: httpx.Client | None = None) -> bool:
         '''
         prepare data for submit code to sandbox and then send it
 
@@ -416,17 +413,19 @@ class Submission(MongoBase, engine=engine.Submission):
                         homework.save()
                     submission.delete()
         # we no need to actually send code to sandbox during testing
-        if current_app.config['TESTING'] or self.handwritten:
+        if is_testing() or self.handwritten:
             return True
-        return self.send()
+        return self.send(client=client)
 
-    def send(self) -> bool:
+    def send(self, client: httpx.Client | None = None) -> bool:
         '''
         send code to sandbox
         '''
         if self.handwritten:
             logging.warning(f'try to send a handwritten {self}')
             return False
+        if client is None:
+            client = httpx.Client(timeout=httpx.Timeout(5.0, read=30.0))
         # TODO: Ensure problem is ready to submitted
         # if not Problem(self.problem).is_test_case_ready():
         #     raise TestCaseNotFound(self.problem.problem_id)
@@ -435,7 +434,7 @@ class Submission(MongoBase, engine=engine.Submission):
             'src': io.BytesIO(b"".join(self._get_code_raw())),
         }
         # look for the target sandbox
-        tar = self.target_sandbox()
+        tar = self.target_sandbox(client=client)
         if tar is None:
             self.logger.error(f'can not target a sandbox for {repr(self)}')
             return False
@@ -450,7 +449,7 @@ class Submission(MongoBase, engine=engine.Submission):
         judge_url = f'{tar.url}/submit/{self.id}'
         # send submission to snadbox for judgement
         self.logger.info(f'send {self} to {tar.name}')
-        resp = rq.post(
+        resp = client.post(
             judge_url,
             data=post_data,
             files=files,

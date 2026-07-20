@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import pytest
 from mongo import *
 from unittest.mock import patch
-from flask.testing import FlaskClient
+from starlette.testclient import TestClient
 from tests.base_tester import BaseTester, random_string
 from tests.conftest import ForgeClient
 
@@ -27,7 +27,7 @@ class CourseData:
 
 @pytest.fixture
 def course_data(
-    client_admin: FlaskClient,
+    client_admin: TestClient,
     problem_ids,
 ):
     BaseTester.setup_class()
@@ -45,11 +45,7 @@ def course_data(
     Course.add_course(cd.name, cd.teacher)
 
     # add students and TA
-    client_admin.set_cookie(
-        "piann",
-        User("admin").secret,
-        domain='test.test',
-    )
+    client_admin.cookies.set("piann", User("admin").secret)
     rv = client_admin.put(
         f"/course/{cd.name}",
         json={
@@ -57,8 +53,8 @@ def course_data(
             "studentNicknames": cd.students
         },
     )
-    client_admin.delete_cookie("piann", domain='test.test')
-    assert rv.status_code == 200, rv.get_json()
+    del client_admin.cookies["piann"]
+    assert rv.status_code == 200, rv.json()
 
     # add homework
     public_problem_ids = problem_ids(cd.teacher, 1, add_to_course=True)

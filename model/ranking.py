@@ -1,16 +1,15 @@
-from flask import Blueprint, request
+from fastapi import APIRouter
 
 from mongo import *
-from .auth import *
 from .utils import *
 from mongo import engine
 
-__all__ = ['ranking_api']
+__all__ = ['ranking_router']
 
-ranking_api = Blueprint('ranking_api', __name__)
+ranking_router = APIRouter()
 
 
-@ranking_api.route('/', methods=['GET'])
+@ranking_router.get('')
 def get_ranking():
     data = list({
         "user": user.info,

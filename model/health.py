@@ -1,16 +1,16 @@
-from flask import Blueprint
+from fastapi import APIRouter
 from pymongo import MongoClient
 
 from .utils import *
 from mongo.utils import RedisCache
 from mongo.engine import MONGO_HOST
 
-__all__ = ('health_api', )
+__all__ = ('health_router', )
 
-health_api = Blueprint('health_api', __name__)
+health_router = APIRouter()
 
 
-@health_api.route('/')
+@health_router.get('')
 def health():
     # Check mongo
     client = MongoClient(MONGO_HOST)
@@ -26,6 +26,6 @@ def health():
             status_code=500,
             data={
                 'mongo': mongo_ok,
-                'redis': redis_ok
+                'redis': redis_ok,
             },
         )

@@ -2,7 +2,7 @@ from datetime import datetime
 from dataclasses import dataclass, field
 from typing import Dict, List
 import pytest
-from flask.testing import FlaskClient
+from starlette.testclient import TestClient
 from tests.base_tester import BaseTester, random_string
 from tests.conftest import ForgeClient
 from mongo import *
@@ -25,7 +25,7 @@ class CourseData:
 
 @pytest.fixture
 def course_data(
-    client_admin: FlaskClient,
+    client_admin: TestClient,
     problem_ids,
 ):
     BaseTester.setup_class()
@@ -41,11 +41,7 @@ def course_data(
     # add course
     Course.add_course(cd.name, cd.teacher)
     # add students and TA
-    client_admin.set_cookie(
-        'piann',
-        User('admin').secret,
-        domain='test.test',
-    )
+    client_admin.cookies.set('piann', User('admin').secret)
     rv = client_admin.put(
         f'/course/{cd.name}',
         json={
@@ -53,8 +49,8 @@ def course_data(
             'studentNicknames': cd.students
         },
     )
-    client_admin.delete_cookie('piann', domain='test.test')
-    assert rv.status_code == 200, rv.get_json()
+    del client_admin.cookies['piann']
+    assert rv.status_code == 200, rv.json()
     # add homework
     hw = Homework.add(
         user=User(cd.teacher).obj,
@@ -115,7 +111,7 @@ class TestIPFilter(BaseTester):
                 },
             ]},
         )
-        assert rv.status_code == 200, rv.data
+        assert rv.status_code == 200, rv.content
         hw.reload()
         assert hw.ip_filters == [_filter]
 
@@ -146,7 +142,7 @@ class TestIPFilter(BaseTester):
                 },
             ]},
         )
-        assert rv.status_code == 400, rv.data
+        assert rv.status_code == 400, rv.content
         hw.reload()
         assert hw.ip_filters == []
 
@@ -157,7 +153,7 @@ class TestHomework(BaseTester):
         # get teacher client
         client = forge_client(course_data.teacher)
         rv = client.get(f'/homework/{course_data.homework_ids[0]}')
-        rv_json = rv.get_json()
+        rv_json = rv.json()
         rv_data = rv_json['data']
         assert rv.status_code == 200, rv_json
         for key in ('name', 'start', 'end', 'problemIds'):
@@ -167,7 +163,7 @@ class TestHomework(BaseTester):
         c_data = course_data
         client = forge_client(c_data.teacher)
         rv = client.get(f'/course/{c_data.name}/homework')
-        rv_json = rv.get_json()
+        rv_json = rv.json()
         rv_data = rv_json['data']
         assert rv.status_code == 200, rv_json
         assert len(rv_data) == len(c_data.homework_ids), rv_data
@@ -177,7 +173,7 @@ class TestHomework(BaseTester):
         course_name = 'not_exist_course'
         client = forge_client('admin')
         rv = client.get(f'/course/{course_name}/homework')
-        rv_json = rv.get_json()
+        rv_json = rv.json()
         assert rv.status_code == 404, rv_json
         assert rv_json['message'] == 'course not exists'
 
@@ -806,9 +802,8 @@ class TestHomeworkMongo(BaseTester):
         student = User(student_name)
 
         hw.add_student(students=[student])
-        with app.app_context():
-            submission = utils.submission.create_submission(user=student,
-                                                            problem=problem)
+        submission = utils.submission.create_submission(user=student,
+                                                        problem=problem)
 
         stat = hw.student_status[student_name][str(problem.id)]
         if 'rawScore' not in stat:

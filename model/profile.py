@@ -1,19 +1,19 @@
-from flask import Blueprint
+from fastapi import APIRouter, Depends
+from typing import Optional
 
 from mongo import *
-from .auth import *
+from .auth import login_required
 from .utils import *
 from .schemas import EditProfileBody, EditConfigBody
 
-__all__ = ['profile_api']
+__all__ = ['profile_router']
 
-profile_api = Blueprint('profile_api', __name__)
+profile_router = APIRouter()
 
 
-@profile_api.route('/', methods=['GET'])
-@profile_api.route('/<username>', methods=['GET'])
-@login_required
-def view_profile(user, username=None):
+@profile_router.get('')
+@profile_router.get('/{username}')
+def view_profile(user=Depends(login_required), username: Optional[str] = None):
     user = user if username is None else User(username)
     if not user:
         return HTTPError('Profile not exist.', 404)
@@ -21,17 +21,15 @@ def view_profile(user, username=None):
     data = {
         'email': user.obj.email,
         'displayedName': user.obj.profile.displayed_name,
-        'bio': user.obj.profile.bio
+        'bio': user.obj.profile.bio,
     }
     data.update(user.info)
 
     return HTTPResponse('Profile exist.', data=data)
 
 
-@profile_api.post('/')
-@login_required
-@parse_body(EditProfileBody)
-def edit_profile(user, body: EditProfileBody):
+@profile_router.post('')
+def edit_profile(body: EditProfileBody, user=Depends(login_required)):
     profile = user.obj.profile or {}
     displayed_name = body.displayed_name
     bio = body.bio
@@ -48,17 +46,15 @@ def edit_profile(user, body: EditProfileBody):
     return HTTPResponse('Uploaded.', cookies=cookies)
 
 
-@profile_api.put('/config')
-@login_required
-@parse_body(EditConfigBody)
-def edit_config(user, body: EditConfigBody):
+@profile_router.put('/config')
+def edit_config(body: EditConfigBody, user=Depends(login_required)):
     try:
         config = {
             'font_size': body.font_size,
             'theme': body.theme,
             'indent_type': body.indent_type,
             'tab_size': body.tab_size,
-            'language': body.language
+            'language': body.language,
         }
         user.obj.update(editor_config=config)
     except ValidationError as ve:

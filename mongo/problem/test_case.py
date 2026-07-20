@@ -53,8 +53,8 @@ class SimpleIO(TestCaseRule):
     Test cases that only contains single input and output file.
     '''
 
-    def __init__(self, problem: 'Problem', excludes: List[str] = []):
-        self.excludes = excludes
+    def __init__(self, problem: 'Problem', excludes: List[str] | None = None):
+        self.excludes = excludes if excludes is not None else []
         super().__init__(problem)
 
     def validate(self, test_case: BinaryIO) -> bool:

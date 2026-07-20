@@ -1,8 +1,9 @@
 from typing import Optional
-from flask import Blueprint, request
+from fastapi import APIRouter, Depends
+from datetime import datetime
 
 from mongo import *
-from .auth import *
+from .auth import identity_verify, login_required
 from .utils import *
 from .schemas import (
     ModifyCoursesBody,
@@ -15,16 +16,14 @@ from .schemas import (
 from mongo.utils import *
 from mongo.course import *
 from mongo import engine
-from datetime import datetime
 
-__all__ = ['course_api']
+__all__ = ['course_router']
 
-course_api = Blueprint('course_api', __name__)
+course_router = APIRouter()
 
 
-@course_api.get('/')
-@login_required
-def get_courses(user):
+@course_router.get('')
+def get_courses(user=Depends(login_required)):
     data = [{
         'course': c.course_name,
         'teacher': c.teacher.info,
@@ -32,41 +31,25 @@ def get_courses(user):
     return HTTPResponse('Success.', data=data)
 
 
-@course_api.get('/summary')
-@identity_verify(0)
-def get_courses_summary(user):
+@course_router.get('/summary')
+def get_courses_summary(user: User = identity_verify(0)):
     courses = [Course(c) for c in Course.get_all()]
     summary = {"courseCount": len(courses), "breakdown": []}
-
     for course in courses:
-        # The user is admin, it won't filter out any problems (it's required)
         problems = Problem.get_problem_list(user, course=course.course_name)
         course_summary = course.get_course_summary(problems)
         course_summary["problemCount"] = len(problems)
         summary["breakdown"].append(course_summary)
-
     return HTTPResponse("Success.", data=summary)
 
 
-@course_api.route('/', methods=['POST', 'PUT', 'DELETE'])
-@parse_body(ModifyCoursesBody)
-@identity_verify(0, 1)
-def modify_courses(user, body: ModifyCoursesBody):
-    course = body.course
-    new_course = body.new_course
+@course_router.post('')
+def create_course(body: ModifyCoursesBody, user: User = identity_verify(0, 1)):
     teacher = body.teacher
-    r = None
     if user.role == 1:
         teacher = user.username
     try:
-        if request.method == 'POST':
-            r = Course.add_course(course, teacher)
-        if request.method == 'PUT':
-            co = Course(course)
-            co.edit_course(user, new_course, teacher)
-        if request.method == 'DELETE':
-            co = Course(course)
-            co.delete_course(user)
+        Course.add_course(body.course, teacher)
     except ValueError:
         return HTTPError('Not allowed name.', 400)
     except NotUniqueError:
@@ -78,41 +61,69 @@ def modify_courses(user, body: ModifyCoursesBody):
     return HTTPResponse('Success.')
 
 
-@course_api.get('/<course_name>')
-@login_required
-def get_course(user, course_name):
-    course = Course(course_name)
+@course_router.put('')
+def update_course_meta(body: ModifyCoursesBody,
+                       user: User = identity_verify(0, 1)):
+    teacher = body.teacher
+    if user.role == 1:
+        teacher = user.username
+    try:
+        co = Course(body.course)
+        co.edit_course(user, body.new_course, teacher)
+    except ValueError:
+        return HTTPError('Not allowed name.', 400)
+    except NotUniqueError:
+        return HTTPError('Course exists.', 400)
+    except PermissionError:
+        return HTTPError('Forbidden.', 403)
+    except engine.DoesNotExist as e:
+        return HTTPError(f'{e} not found.', 404)
+    return HTTPResponse('Success.')
 
+
+@course_router.delete('')
+def delete_course(body: ModifyCoursesBody, user: User = identity_verify(0, 1)):
+    try:
+        co = Course(body.course)
+        co.delete_course(user)
+    except ValueError:
+        return HTTPError('Not allowed name.', 400)
+    except PermissionError:
+        return HTTPError('Forbidden.', 403)
+    except engine.DoesNotExist as e:
+        return HTTPError(f'{e} not found.', 404)
+    return HTTPResponse('Success.')
+
+
+@course_router.get('/{course_name}')
+def get_course(course_name: str, user=Depends(login_required)):
+    course = Course(course_name)
     if not course:
         return HTTPError('Course not found.', 404)
-
     if not course.permission(user, Course.Permission.VIEW):
         return HTTPError('You are not in this course.', 403)
-
     return HTTPResponse(
         'Success.',
         data={
             "teacher": course.teacher.info,
             "TAs": [ta.info for ta in course.tas],
-            "students": [User(name).info for name in course.student_nicknames]
+            "students": [User(name).info for name in course.student_nicknames],
         },
     )
 
 
-@course_api.put('/<course_name>')
-@login_required
-@parse_body(UpdateCourseBody)
-def update_course(user, course_name, body: UpdateCourseBody):
+@course_router.put('/{course_name}')
+def update_course(course_name: str,
+                  body: UpdateCourseBody,
+                  user=Depends(login_required)):
     TAs = body.TAs
     student_nicknames = body.student_nicknames
     course = Course(course_name)
 
     if not course:
         return HTTPError('Course not found.', 404)
-
     if not course.permission(user, Course.Permission.VIEW):
         return HTTPError('You are not in this course.', 403)
-
     if not course.permission(user, Course.Permission.MODIFY):
         return HTTPError('Forbidden.', 403)
 
@@ -136,11 +147,9 @@ def update_course(user, course_name, body: UpdateCourseBody):
     return HTTPResponse('Success.')
 
 
-@course_api.get('/<course_name>/grade/<student>')
-@login_required
-def get_grade(user, course_name, student):
+@course_router.get('/{course_name}/grade/{student}')
+def get_grade(course_name: str, student: str, user=Depends(login_required)):
     course = Course(course_name)
-
     if not course:
         return HTTPError('Course not found.', 404)
     if not course.permission(user, Course.Permission.VIEW):
@@ -150,25 +159,25 @@ def get_grade(user, course_name, student):
     if course.permission(user,
                          Course.Permission.SCORE) and user.username != student:
         return HTTPError('You can only view your score.', 403)
+    return HTTPResponse(
+        'Success.',
+        data=[{
+            'title': score['title'],
+            'content': score['content'],
+            'score': score['score'],
+            'timestamp': score['timestamp'].timestamp(),
+        } for score in course.student_scores.get(student, [])],
+    )
 
-    return HTTPResponse('Success.',
-                        data=[{
-                            'title': score['title'],
-                            'content': score['content'],
-                            'score': score['score'],
-                            'timestamp': score['timestamp'].timestamp()
-                        } for score in course.student_scores.get(student, [])])
 
-
-@course_api.post('/<course_name>/grade/<student>')
-@login_required
-@parse_body(AddGradeBody)
-def add_grade(user, course_name, student, body: AddGradeBody):
-    title = body.title
-    content = body.content
-    score = body.score
+@course_router.post('/{course_name}/grade/{student}')
+def add_grade(
+        course_name: str,
+        student: str,
+        body: AddGradeBody,
+        user=Depends(login_required),
+):
     course = Course(course_name)
-
     if not course:
         return HTTPError('Course not found.', 404)
     if not course.permission(user, Course.Permission.VIEW):
@@ -179,29 +188,27 @@ def add_grade(user, course_name, student, body: AddGradeBody):
         return HTTPError('You can only view your score.', 403)
 
     score_list = course.student_scores.get(student, [])
-    if title in [score['title'] for score in score_list]:
+    if body.title in [s['title'] for s in score_list]:
         return HTTPError('This title is taken.', 400)
     score_list.append({
-        'title': title,
-        'content': content,
-        'score': score,
-        'timestamp': datetime.now()
+        'title': body.title,
+        'content': body.content,
+        'score': body.score,
+        'timestamp': datetime.now(),
     })
     course.student_scores[student] = score_list
     course.save()
     return HTTPResponse('Success.')
 
 
-@course_api.put('/<course_name>/grade/<student>')
-@login_required
-@parse_body(UpdateGradeBody)
-def update_grade(user, course_name, student, body: UpdateGradeBody):
-    title = body.title
-    new_title = body.new_title
-    content = body.content
-    score = body.score
+@course_router.put('/{course_name}/grade/{student}')
+def update_grade(
+        course_name: str,
+        student: str,
+        body: UpdateGradeBody,
+        user=Depends(login_required),
+):
     course = Course(course_name)
-
     if not course:
         return HTTPError('Course not found.', 404)
     if not course.permission(user, Course.Permission.VIEW):
@@ -212,32 +219,32 @@ def update_grade(user, course_name, student, body: UpdateGradeBody):
         return HTTPError('You can only view your score.', 403)
 
     score_list = course.student_scores.get(student, [])
-    title_list = [score['title'] for score in score_list]
-    if title not in title_list:
+    title_list = [s['title'] for s in score_list]
+    if body.title not in title_list:
         return HTTPError('Score not found.', 404)
-    index = title_list.index(title)
-    if new_title is not None:
-        if new_title in title_list:
-            return HTTPError('This title is taken.', 400)
-        title = new_title
+    index = title_list.index(body.title)
+    title = body.new_title if body.new_title is not None else body.title
+    if body.new_title is not None and body.new_title in title_list:
+        return HTTPError('This title is taken.', 400)
     score_list[index] = {
         'title': title,
-        'content': content,
-        'score': score,
-        'timestamp': datetime.now()
+        'content': body.content,
+        'score': body.score,
+        'timestamp': datetime.now(),
     }
     course.student_scores[student] = score_list
     course.save()
     return HTTPResponse('Success.')
 
 
-@course_api.delete('/<course_name>/grade/<student>')
-@login_required
-@parse_body(DeleteGradeBody)
-def delete_grade(user, course_name, student, body: DeleteGradeBody):
-    title = body.title
+@course_router.delete('/{course_name}/grade/{student}')
+def delete_grade(
+        course_name: str,
+        student: str,
+        body: DeleteGradeBody,
+        user=Depends(login_required),
+):
     course = Course(course_name)
-
     if not course:
         return HTTPError('Course not found.', 404)
     if not course.permission(user, Course.Permission.VIEW):
@@ -248,48 +255,45 @@ def delete_grade(user, course_name, student, body: DeleteGradeBody):
         return HTTPError('You can only view your score.', 403)
 
     score_list = course.student_scores.get(student, [])
-    title_list = [score['title'] for score in score_list]
-    if title not in title_list:
+    title_list = [s['title'] for s in score_list]
+    if body.title not in title_list:
         return HTTPError('Score not found.', 404)
-    index = title_list.index(title)
+    index = title_list.index(body.title)
     del score_list[index]
     course.student_scores[student] = score_list
     course.save()
     return HTTPResponse('Success.')
 
 
-@course_api.get('/<course_name>/scoreboard')
-@login_required
-@parse_query(GetCourseScoreboardQuery)
-@Request.doc('course_name', 'course', Course)
-def get_course_scoreboard(user, query: GetCourseScoreboardQuery,
-                          course: Course):
+@course_router.get('/{course_name}/scoreboard')
+def get_course_scoreboard(
+        course_name: str,
+        query: GetCourseScoreboardQuery = Depends(),
+        user=Depends(login_required),
+        course: Course = get_doc('course_name', Course),
+):
     pids = query.pids
     start = query.start
     end = query.end
     try:
         pids = pids.split(',')
         pids = [int(pid.strip()) for pid in pids]
-    except:
+    except Exception:
         return HTTPError('Error occurred when parsing `pids`.', 400)
 
     if start:
         try:
             start = float(start)
-        except:
+        except Exception:
             return HTTPError('Type of `start` should be float.', 400)
     if end:
         try:
             end = float(end)
-        except:
+        except Exception:
             return HTTPError('Type of `end` should be float.', 400)
 
     if not course.permission(user, Course.Permission.GRADE):
         return HTTPError('Permission denied', 403)
 
     ret = course.get_scoreboard(pids, start, end)
-
-    return HTTPResponse(
-        'Success.',
-        data=ret,
-    )
+    return HTTPResponse('Success.', data=ret)
