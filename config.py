@@ -38,9 +38,6 @@ class Settings(BaseSettings):
     SMTP_NOREPLY: Optional[str] = None
     SMTP_NOREPLY_PASSWORD: Optional[str] = None
 
-    # Keep a real, persistent directory. The previous
-    # ``tempfile.TemporaryDirectory(...).name`` kept no object reference, so
-    # the directory was deleted on GC. Also fixes the 'noj-submisisons' typo.
     SUBMISSION_TMP_DIR: str = Field(
         default_factory=lambda: tempfile.mkdtemp(suffix='noj-submissions'))
 
