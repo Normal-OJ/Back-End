@@ -1,13 +1,14 @@
 from mongoengine import *
 import mongoengine
-import os
 from enum import IntEnum
 from datetime import datetime
 from zipfile import ZipFile, BadZipFile
 
+from config import settings
+
 __all__ = [*mongoengine.__all__]
 
-MONGO_HOST = os.environ.get('MONGO_HOST', 'mongomock://localhost')
+MONGO_HOST = settings.MONGO_HOST
 
 # FIXME: we should use config to check whether is in testing
 if MONGO_HOST.startswith('mongomock'):

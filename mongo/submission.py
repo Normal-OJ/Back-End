@@ -13,16 +13,15 @@ from typing import (
     TypedDict,
 )
 import enum
-import tempfile
 import httpx
 from hashlib import md5
 from bson.son import SON
-import os
 from tempfile import NamedTemporaryFile
 from datetime import date, datetime
 from zipfile import ZipFile, is_zipfile
 from ulid import ULID
 
+from config import settings
 from . import engine
 from .base import MongoBase
 from .user import User
@@ -84,11 +83,7 @@ class SubmissionResultOutput(TypedDict):
 
 
 class SubmissionConfig(MongoBase, engine=engine.SubmissionConfig):
-    TMP_DIR = pathlib.Path(
-        os.getenv(
-            'SUBMISSION_TMP_DIR',
-            tempfile.TemporaryDirectory(suffix='noj-submisisons').name,
-        ), )
+    TMP_DIR = pathlib.Path(settings.SUBMISSION_TMP_DIR)
 
     def __init__(self, name: str):
         self.name = name
