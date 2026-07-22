@@ -34,6 +34,7 @@ def test_defaults(clean_env):
     assert s.SMTP_SERVER is None
     assert s.SMTP_NOREPLY is None
     assert s.SMTP_NOREPLY_PASSWORD is None
+    assert s.RUNNER_REGISTRATION_TOKEN is None
 
 
 def test_debug_default_false(clean_env):
