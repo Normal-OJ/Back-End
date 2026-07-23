@@ -335,3 +335,55 @@ def test_orphan_scan_reclaim_handed_to_caller(monkeypatch):
     assert payload['job_id'] == job_id
     assert payload['leased_by'] == 'rn_b'
     assert payload['attempts'] == '2'
+
+
+# --- corrupted / ghost state (data-loss defensive paths) -----------------
+
+
+def test_claim_destroys_job_missing_submission_id_and_continues(monkeypatch):
+    # A hash without submission_id cannot have its currency verified: the claim
+    # loop must destroy it and keep popping — not error out after the RPOP
+    # (which would silently lose the job id from the queue).
+    monkeypatch.setattr(job_mod, '_now', lambda: 1000.0)
+    corrupted = _enqueue(submission_id='sn_bad')
+    healthy = _enqueue(submission_id='sn_good')
+    _client().hdel(redis_keys.job(corrupted), 'submission_id')
+
+    # FIFO: the corrupted job pops first, gets destroyed, loop continues
+    payload = job_mod.claim_next_job('rn_a')
+    assert payload['job_id'] == healthy
+    assert _client().exists(redis_keys.job(corrupted)) == 0
+    assert _client().llen(redis_keys.JOBS_PENDING) == 0
+
+
+def test_claim_missing_attempts_field_falls_back_to_zero(monkeypatch):
+    # attempts is a counter, not identity: if the field is lost the job is
+    # still judgeable — claim proceeds as if attempts were 0.
+    monkeypatch.setattr(job_mod, '_now', lambda: 1000.0)
+    job_id = _enqueue()
+    _client().hdel(redis_keys.job(job_id), 'attempts')
+
+    payload = job_mod.claim_next_job('rn_a')
+    assert payload['job_id'] == job_id
+    assert _hash(job_id)['attempts'] == '1'
+
+
+def test_reclaim_reaps_ghost_member_when_hash_evaporated(monkeypatch):
+    monkeypatch.setattr(job_mod, '_now', lambda: 1000.0)
+    job_id = _enqueue()
+    job_mod.claim_next_job('rn_a')
+    _client().delete(redis_keys.job(job_id))  # simulate partial data loss
+
+    assert _reclaim(job_id, 'rn_new', now=9999.0) == 0
+    # the dangling jobs:leased member was reaped — no eternal rescanning
+    assert not _client().sismember(redis_keys.JOBS_LEASED, job_id)
+
+
+def test_renew_reaps_ghost_member_when_hash_evaporated(monkeypatch):
+    monkeypatch.setattr(job_mod, '_now', lambda: 1000.0)
+    job_id = _enqueue()
+    job_mod.claim_next_job('rn_a')
+    _client().delete(redis_keys.job(job_id))  # simulate partial data loss
+
+    assert job_mod.renew_lease('rn_a', job_id) is False
+    assert not _client().sismember(redis_keys.JOBS_LEASED, job_id)
