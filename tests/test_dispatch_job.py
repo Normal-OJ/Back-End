@@ -1,3 +1,5 @@
+import threading
+
 import pytest
 
 from config import settings
@@ -216,7 +218,7 @@ def test_reclaim_missing_or_unleased_returns_zero():
 # --- double-reclaim race ------------------------------------------------
 
 
-def test_double_reclaim_first_wins_second_gets_zero(monkeypatch):
+def test_reclaim_renewed_deadline_blocks_late_reclaimer(monkeypatch):
     monkeypatch.setattr(job_mod, '_now', lambda: 1000.0)
     job_id = _enqueue()
     job_mod.claim_next_job('rn_a')  # deadline = 1030
@@ -226,6 +228,46 @@ def test_double_reclaim_first_wins_second_gets_zero(monkeypatch):
     # the winner renewed the deadline to 2030, so the loser now sees a live lease
     assert _reclaim(job_id, 'rn_y', now=2000.0) == 0
     assert _hash(job_id)['leased_by'] == 'rn_x'
+
+
+def test_concurrent_double_reclaim_exactly_one_winner(monkeypatch):
+    # Two runners race to reclaim the same expired job. The whole transition
+    # is one Lua script (atomic on the server), so no interleaving can produce
+    # two winners or a double attempts bump — assert the outcome is exactly
+    # one 1 and one 0, order-independent.
+    monkeypatch.setattr(job_mod, '_now', lambda: 1000.0)
+    job_id = _enqueue()
+    job_mod.claim_next_job('rn_a')  # attempts = 1, deadline = 1030
+
+    reclaim = scripts.load(_client()).reclaim_expired
+    barrier = threading.Barrier(2)
+    results = {}
+
+    def racer(runner_id):
+        barrier.wait()  # line up both reclaims to fire together
+        results[runner_id] = reclaim(
+            keys=[redis_keys.JOBS_LEASED,
+                  redis_keys.job(job_id)],
+            args=[
+                job_id, runner_id, 2000.0, params.LEASE_TTL_SEC,
+                params.MAX_ATTEMPTS
+            ],
+        )
+
+    threads = [
+        threading.Thread(target=racer, args=(rn, )) for rn in ('rn_x', 'rn_y')
+    ]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert sorted(results.values()) == [0, 1]  # exactly one winner
+    h = _hash(job_id)
+    winner = next(rn for rn, r in results.items() if r == 1)
+    assert h['leased_by'] == winner
+    assert h['attempts'] == '2'  # bumped exactly once (was 1 after claim)
+    assert float(h['lease_deadline']) == 2000.0 + params.LEASE_TTL_SEC
 
 
 # --- INV5 attempts boundary ---------------------------------------------
