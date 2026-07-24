@@ -5,17 +5,19 @@ observed half-applied even under concurrent runners (INV2/INV3/INV4/INV5).
 Every script takes ``now`` via ARGV — never ``redis.call('TIME')`` — so tests
 are deterministic and fakeredis (which has no server clock for scripts) works.
 
-The scripts here cover slice 2 of the delivery plan (§15.2): ``claim_pending``,
-``renew_lease``, ``reclaim_expired``. ``abort_requeue`` belongs to slice 3 and
-is deliberately absent.
+The scripts here cover slices 2 and 3 of the delivery plan (§15.2):
+``claim_pending``, ``renew_lease``, ``reclaim_expired`` (slice 2) and
+``complete_begin``, ``complete_finish``, ``complete_restore``, ``abort_requeue``
+(slice 3 — result landing / abort / JE convergence).
 
 Key handling: static keys (``jobs:pending``, ``jobs:leased``, a specific
 ``job:<jb>`` hash) are passed in as KEYS by the Python layer via redis_keys.
-``claim_pending`` is the sole exception — it discovers a job id by RPOP and so
-must build that job's ``job:<jb>`` hash key and its
-``submission:<sid>:current_job`` pointer key from inside Lua; those two literal
-templates mirror ``redis_keys.job`` / ``redis_keys.submission_current_job`` and
-are the only place key names are spelled outside redis_keys.
+The ``submission:<sid>:current_job`` pointer key is the exception — several
+scripts learn ``sid`` only after reading it out of the job hash and so must
+build that pointer key from inside Lua (``claim_pending`` discovers the job id
+by RPOP and builds both keys the same way). Those literal templates mirror
+``redis_keys.job`` / ``redis_keys.submission_current_job`` and are the only
+place key names are spelled outside redis_keys.
 
 Corrupted state (partial Redis data loss — never produced by normal operation)
 is reaped lazily, in passing: the job hash is the single source of truth and
@@ -148,12 +150,165 @@ redis.call('HSET', KEYS[2],
 return 1
 '''
 
+# complete_begin — ownership + currency gate, then mark completing (INV3/INV4).
+#
+# KEYS[1] = jobs:leased (SET)   KEYS[2] = job:<jb> (HASH)
+# ARGV[1] = job_id   ARGV[2] = runner_id
+#
+# Entry gate of the single-writer landing (INV3). Ownership is checked before
+# currency so a reclaimed-away or never-owned job answers 409, not a stale drop.
+# Currency (INV4, result side) destroys the job hash and unindexes it but never
+# touches the pointer — the pointer belongs to whoever is current now. A hash
+# that lost its submission_id is corrupted beyond a currency check and is treated
+# as a stale drop (same policy as claim_pending). The lease_deadline is left
+# alone on purpose: a lease expiring during a slow Mongo write is deliberately
+# reclaimable (spec §9), and the per-submission lock + delete-after-write is what
+# bounds double writes — not lease extension. Returns 1 proceed / 0 not-owner /
+# -1 stale-or-corrupt destroyed / -2 gone.
+COMPLETE_BEGIN = '''
+if redis.call('EXISTS', KEYS[2]) == 0 then
+  redis.call('SREM', KEYS[1], ARGV[1])
+  return -2
+end
+if redis.call('HGET', KEYS[2], 'leased_by') ~= ARGV[2] then
+  return 0
+end
+local sid = redis.call('HGET', KEYS[2], 'submission_id')
+if not sid then
+  redis.call('DEL', KEYS[2])
+  redis.call('SREM', KEYS[1], ARGV[1])
+  return -1
+end
+if redis.call('GET', 'submission:' .. sid .. ':current_job') ~= ARGV[1] then
+  redis.call('DEL', KEYS[2])
+  redis.call('SREM', KEYS[1], ARGV[1])
+  return -1
+end
+redis.call('HSET', KEYS[2], 'state', 'completing')
+return 1
+'''
+
+# complete_finish — post-Mongo-success cleanup, the sole INV1 exit for a result.
+#
+# KEYS[1] = jobs:leased (SET)   KEYS[2] = job:<jb> (HASH)
+# ARGV[1] = job_id
+#
+# The result has landed, so the job is done: DEL the hash and SREM it
+# unconditionally (a reclaim that re-leased it mid-write does not matter — the
+# re-run runner's later complete answers -2/404 and drops). The pointer is
+# deleted only if it still points at this job (compare-and-delete): a rejudge may
+# have advanced current_job to a newer job while we wrote, and that pointer is
+# not ours to clear. Returns 1, or 0 if the hash was already gone (still SREMs).
+COMPLETE_FINISH = '''
+local sid = redis.call('HGET', KEYS[2], 'submission_id')
+local existed = redis.call('DEL', KEYS[2])
+redis.call('SREM', KEYS[1], ARGV[1])
+if sid and redis.call('GET', 'submission:' .. sid .. ':current_job') == ARGV[1] then
+  redis.call('DEL', 'submission:' .. sid .. ':current_job')
+end
+if existed == 1 then
+  return 1
+end
+return 0
+'''
+
+# complete_restore — undo the completing mark after a failed Mongo write.
+#
+# KEYS[1] = job:<jb> (HASH)
+# ARGV[1] = runner_id   ARGV[2] = last_error (pre-truncated to <=200 chars)
+#
+# Lets the same runner's retry re-enter complete_begin. Only acts when the hash
+# still exists, is owned by the same runner, and is still in completing: if a
+# reclaim already handed the job to a new owner, leased_by differs and restore
+# must NOT stomp the new owner's state. lease_deadline is untouched. Anything
+# else → 0, no write.
+COMPLETE_RESTORE = '''
+if redis.call('EXISTS', KEYS[1]) == 0 then
+  return 0
+end
+if redis.call('HGET', KEYS[1], 'leased_by') ~= ARGV[1] then
+  return 0
+end
+if redis.call('HGET', KEYS[1], 'state') ~= 'completing' then
+  return 0
+end
+redis.call('HSET', KEYS[1], 'state', 'leased', 'last_error', ARGV[2])
+return 1
+'''
+
+# abort_requeue — clear lease, requeue at tail, count by reason (spec §7.5, INV5).
+#
+# KEYS[1] = jobs:leased (SET)   KEYS[2] = jobs:pending (LIST)   KEYS[3] = job:<jb>
+# ARGV[1] = job_id   ARGV[2] = runner_id   ARGV[3] = reason
+# ARGV[4] = max_attempts
+#
+# Ownership then currency, same as complete_begin: evaporated hash → -2 (404),
+# wrong owner → 0 (409), lost submission_id / superseded job → destroy + -1
+# (requeueing a stale job is pointless; the pointer is never touched). ``drain``
+# must not cost the job an attempt (rolling restarts must not shorten a job's
+# life, spec §7.5): claim counts on every claim, but a drained execution never
+# ran to a verdict, so the claim+drain round-trip must net zero — the drain
+# branch REFUNDS one attempt (floored at 0) as it resets to pending and LPUSHes
+# onto the queue tail (same side as enqueue; RPOP serves the head); otherwise a
+# rolling restart would erode the retry budget.
+# ``prep_failed`` / ``rejected`` both count: attempts+1, and at the ceiling the
+# job is left IN jobs:leased with an immediately-expired lease (leased_by
+# unchanged) — the exact orphan shape reclaim_expired answers -1 to, so a JE
+# landing sweep can still find it if the caller's inline landing fails (INV1).
+# Below the ceiling it requeues like drain. Reason is validated in Python; the
+# script assumes one of the three. Returns 1 requeued / 2 converged / -1 stale /
+# -2 gone / 0 not-owner.
+ABORT_REQUEUE = '''
+if redis.call('EXISTS', KEYS[3]) == 0 then
+  redis.call('SREM', KEYS[1], ARGV[1])
+  return -2
+end
+if redis.call('HGET', KEYS[3], 'leased_by') ~= ARGV[2] then
+  return 0
+end
+local sid = redis.call('HGET', KEYS[3], 'submission_id')
+if not sid then
+  redis.call('DEL', KEYS[3])
+  redis.call('SREM', KEYS[1], ARGV[1])
+  return -1
+end
+if redis.call('GET', 'submission:' .. sid .. ':current_job') ~= ARGV[1] then
+  redis.call('DEL', KEYS[3])
+  redis.call('SREM', KEYS[1], ARGV[1])
+  return -1
+end
+if ARGV[3] == 'drain' then
+  local refunded = math.max(0, (tonumber(redis.call('HGET', KEYS[3], 'attempts')) or 0) - 1)
+  redis.call('HSET', KEYS[3],
+    'state', 'pending', 'leased_by', '', 'lease_deadline', 0,
+    'attempts', refunded, 'last_error', 'abort:drain')
+  redis.call('SREM', KEYS[1], ARGV[1])
+  redis.call('LPUSH', KEYS[2], ARGV[1])
+  return 1
+end
+local attempts = (tonumber(redis.call('HGET', KEYS[3], 'attempts')) or 0) + 1
+redis.call('HSET', KEYS[3], 'attempts', attempts, 'last_error', 'abort:' .. ARGV[3])
+if attempts >= tonumber(ARGV[4]) then
+  redis.call('HSET', KEYS[3], 'lease_deadline', 0)
+  return 2
+end
+redis.call('HSET', KEYS[3],
+  'state', 'pending', 'leased_by', '', 'lease_deadline', 0)
+redis.call('SREM', KEYS[1], ARGV[1])
+redis.call('LPUSH', KEYS[2], ARGV[1])
+return 1
+'''
+
 
 @dataclass(frozen=True)
 class Scripts:
     claim_pending: Any
     renew_lease: Any
     reclaim_expired: Any
+    complete_begin: Any
+    complete_finish: Any
+    complete_restore: Any
+    abort_requeue: Any
 
 
 def load(client) -> Scripts:
@@ -167,4 +322,8 @@ def load(client) -> Scripts:
         claim_pending=client.register_script(CLAIM_PENDING),
         renew_lease=client.register_script(RENEW_LEASE),
         reclaim_expired=client.register_script(RECLAIM_EXPIRED),
+        complete_begin=client.register_script(COMPLETE_BEGIN),
+        complete_finish=client.register_script(COMPLETE_FINISH),
+        complete_restore=client.register_script(COMPLETE_RESTORE),
+        abort_requeue=client.register_script(ABORT_REQUEUE),
     )

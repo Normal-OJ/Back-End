@@ -6,6 +6,7 @@ Deployment settings never live here — they live in the top-level
 
 HEARTBEAT_INTERVAL_SEC = 15
 LEASE_TTL_SEC = 30
+JOB_LOCK_TTL_SEC = 60  # per-submission lock (INV3); must outlive one Mongo landing write
 POLL_INTERVAL_SEC = 3
 ORPHAN_SCAN_INTERVAL_SEC = 15
 MAX_ATTEMPTS = 3
