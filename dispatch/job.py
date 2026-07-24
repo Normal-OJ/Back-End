@@ -18,6 +18,7 @@ slice 4; they are called out at their seams below.
 import contextlib
 import enum
 import logging
+import threading
 import time
 from typing import Callable, Dict, Optional
 
@@ -89,24 +90,57 @@ def _submission_lock(client, submission_id: str):
 
     Landing callers must bail out on False rather than wait: complete answers
     BUSY (the runner retries), the JE sweep leaves the job for the next window.
-    Release tolerates a lock that expired during a slow write — the
-    delete-after-write ordering, not the lock lifetime, is what keeps landings
-    single-shot.
+    A Mongo landing has no completion bound, so a fixed TTL alone cannot hold
+    INV3 — a watchdog thread extends the lock every TTL/3 for as long as the
+    landing runs, and the TTL only bounds crash recovery. The watchdog is
+    stopped and joined before release so an extend can never race the release.
     """
     lock = client.lock(
         redis_keys.submission_job_lock(submission_id),
         timeout=params.JOB_LOCK_TTL_SEC,
         blocking=False,
+        # The token must live on the Lock instance, not in thread-local
+        # storage: the watchdog extends from its own thread, and each Lock
+        # object is private to one landing call anyway.
+        thread_local=False,
     )
     acquired = lock.acquire()
+    if not acquired:
+        yield False
+        return
+    stop = threading.Event()
+    watchdog = threading.Thread(
+        target=_keep_lock_alive,
+        args=(lock, stop, submission_id),
+        daemon=True,
+    )
+    watchdog.start()
     try:
-        yield acquired
+        yield True
     finally:
-        if acquired:
-            try:
-                lock.release()
-            except redis.exceptions.LockError:
-                pass
+        stop.set()
+        watchdog.join()
+        try:
+            lock.release()
+        except redis.exceptions.LockError:
+            pass
+
+
+def _keep_lock_alive(lock, stop: threading.Event, submission_id: str) -> None:
+    """Extend the landing lock until told to stop (the INV3 watchdog).
+
+    An extend that fails means exclusivity is already lost (the key evaporated —
+    Redis data loss, or a pathological stall past the TTL): nothing mid-flight
+    can be safely undone, so log loudly and let delete-after-write plus the
+    landing contract (re-run tolerance, spec §17.2) absorb the fallout.
+    """
+    while not stop.wait(params.JOB_LOCK_TTL_SEC / 3.0):
+        try:
+            lock.extend(params.JOB_LOCK_TTL_SEC, replace_ttl=True)
+        except redis.exceptions.LockError:
+            logger.error('landing lock lost mid-write: submission %s',
+                         submission_id)
+            return
 
 
 def _sid_or_reap(client, job_id: str) -> Optional[str]:
@@ -231,6 +265,12 @@ def complete_job(
     during a slow write stays deliberately reclaimable — the lock plus the
     delete-after-write ordering, not lease extension, is what bounds double
     writes (spec §9).
+
+    Contract: this layer guarantees at-least-once invocation, never
+    exactly-once. ``land_result`` must therefore tolerate re-invocation both as
+    a full re-run after a reclaim and as a retry after its own partial write
+    (LAND_FAILED → the runner resends). Verifying/fixing ``process_result`` for
+    this is the keystone's pre-wiring task (spec §17.2, ADR-0003 Consequences).
     """
     client = _redis()
     scr = scripts.load(client)

@@ -180,6 +180,45 @@ def test_complete_lock_pre_held_returns_busy(monkeypatch):
     assert _hash(job_id)['state'] == 'leased'  # untouched
 
 
+def test_complete_lock_renewal_outlives_slow_write(monkeypatch):
+    # A Mongo landing has no completion bound, so a fixed TTL alone cannot hold
+    # INV3: once the lock expired mid-write a rival complete could acquire it
+    # and land the same result twice. The watchdog must keep extending the lock
+    # for the whole write — every rival attempt during the write stays locked
+    # out, and exactly one landing happens overall.
+    monkeypatch.setattr(job_mod, '_now', lambda: 1000.0)
+    monkeypatch.setattr(params, 'JOB_LOCK_TTL_SEC', 0.3)
+    job_id = _enqueue(submission_id='sn_1')
+    job_mod.claim_next_job('rn_a')
+
+    writer = Writer(sleep=1.0)  # spans several lock TTLs
+    started = threading.Event()
+    outcome = {}
+
+    def slow_complete():
+        started.set()
+        outcome['first'] = job_mod.complete_job('rn_a', job_id, writer)
+
+    t = threading.Thread(target=slow_complete)
+    t.start()
+    started.wait()
+    time.sleep(0.05)  # let the slow caller take the lock
+
+    rival_writers, rivals = [], []
+    while t.is_alive():
+        w = Writer()
+        rival_writers.append(w)
+        rivals.append(job_mod.complete_job('rn_a', job_id, w))
+        time.sleep(0.05)
+    t.join()
+
+    assert outcome['first'] == CompleteOutcome.LANDED
+    assert writer.calls == ['sn_1']  # landed exactly once
+    # rivals during the write are BUSY; one racing the cleanup may see GONE
+    assert set(rivals) <= {CompleteOutcome.BUSY, CompleteOutcome.GONE}
+    assert all(w.calls == [] for w in rival_writers)
+
+
 def test_complete_reclaim_during_write_still_single_writer(monkeypatch):
     # The lease expires and the job is reclaimed to a new runner mid-write, then
     # the write succeeds: the result still lands and the job is destroyed. The
@@ -273,6 +312,34 @@ def test_complete_land_failure_restores_and_retries(monkeypatch):
     assert _client().exists(redis_keys.job(job_id)) == 0
     assert not _leased(job_id)
     assert _current('sn_1') is None
+
+
+def test_complete_retry_after_partial_write_reinvokes_in_full(monkeypatch):
+    # The landing contract is at-least-once, never exactly-once: a writer that
+    # dies after partially applying its effects is re-invoked IN FULL on the
+    # runner's retry — the duplicate side effect is real, and absorbing it is
+    # the mongo side's obligation (spec §17.2), pinned here at the seam.
+    monkeypatch.setattr(job_mod, '_now', lambda: 1000.0)
+    job_id = _enqueue(submission_id='sn_1')
+    job_mod.claim_next_job('rn_a')
+
+    calls, side_effects = [], []
+
+    def flaky_writer(sid):
+        calls.append(sid)
+        side_effects.append('user_counter_bumped')  # applied before the crash
+        if len(calls) == 1:
+            raise RuntimeError('save failed after partial apply')
+
+    assert job_mod.complete_job('rn_a', job_id,
+                                flaky_writer) == CompleteOutcome.LAND_FAILED
+    assert _hash(job_id)['state'] == 'leased'  # INV1: restored, retryable
+
+    assert job_mod.complete_job('rn_a', job_id,
+                                flaky_writer) == CompleteOutcome.LANDED
+    assert calls == ['sn_1', 'sn_1']  # full re-invocation, not resumption
+    assert len(side_effects) == 2  # duplicated — mongo must tolerate this
+    assert _client().exists(redis_keys.job(job_id)) == 0
 
 
 def test_complete_restore_refuses_to_stomp_new_owner(monkeypatch):
