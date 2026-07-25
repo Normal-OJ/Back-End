@@ -132,7 +132,9 @@ def _keep_lock_alive(lock, stop: threading.Event, submission_id: str) -> None:
     An extend that fails means exclusivity is already lost (the key evaporated —
     Redis data loss, or a pathological stall past the TTL): nothing mid-flight
     can be safely undone, so log loudly and let delete-after-write plus the
-    landing contract (re-run tolerance, spec §17.2) absorb the fallout.
+    landing contract (re-run tolerance, spec §17.2) absorb the fallout. Closing
+    this residual for real takes a fencing token / conditional write on the
+    Mongo side — a pre-keystone task, out of this layer's reach.
     """
     while not stop.wait(params.JOB_LOCK_TTL_SEC / 3.0):
         try:
