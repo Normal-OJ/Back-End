@@ -6,6 +6,11 @@ Deployment settings never live here — they live in the top-level
 
 HEARTBEAT_INTERVAL_SEC = 15
 LEASE_TTL_SEC = 30
+# Per-submission landing lock (INV3). Auto-extended by a watchdog while a
+# landing is in flight — a Mongo landing has no completion bound, so the TTL
+# only bounds crash recovery (how long a dead holder blocks the submission),
+# never the write duration.
+JOB_LOCK_TTL_SEC = 60
 POLL_INTERVAL_SEC = 3
 ORPHAN_SCAN_INTERVAL_SEC = 15
 MAX_ATTEMPTS = 3
